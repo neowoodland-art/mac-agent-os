@@ -1,0 +1,58 @@
+# AgentOS .gitignore
+# 本机专属数据（已通过软链接指向 ~/agent-os-local/，不会进入仓库）
+# 以下排除规则是防护性补充
+
+# 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# 虚拟环境
+.venv/
+venv/
+
+# 运行时缓存（已软链接到 ~/agent-os-local/runtime_cache）
+06_runtime/cache/
+
+# 软链接目标文件不会被 Git 追踪，但以防万一排除大文件
+*.mp4
+*.mp3
+*.mov
+*.avi
+*.mkv
+*.wav
+*.flac
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# 打包产物
+07_migration/exports/
+
+# 系统检查报告（临时文件）
+system-check-report-*.md
+
+# WorkBuddy 运行时（不属于仓库）
+.codebuddy/
+.workbuddy/
+
+# Obsidian 插件（各设备自行安装）
+.obsidian/plugins/
+
+# 配置备份
+backup_*/
