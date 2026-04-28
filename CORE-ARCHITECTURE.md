@@ -37,16 +37,20 @@ AgentOS 是一套运行在个人 Mac 上的**智能体外骨骼系统**，核心
 
 ### `~/agent-os-local/`（本机专属，不同步，不进 Git）
 
-| 目录 | 内容 | 原来位置 |
-|------|------|----------|
-| `memory_raw/` | L3 对话原文（隐私） | `04_memory/long_term/raw/` |
-| `memory_vector/` | ChromaDB 向量库 + 关键词索引 | `04_memory/vector_db/` |
-| `runtime_cache/` | 临时缓存 | `06_runtime/cache/` |
-| `raw_web/` | 采集的原始网页 | — |
-| `raw_video/` | 下载的视频（yt-dlp 输出） | — |
-| `raw_audio/` | 录音文件 | — |
-| `raw_screenshots/` | 截图 | — |
-| `refined_for_inbox/` | 已提炼待投递的 .md | — |
+```
+agent-os-local/
+├── memory/                    # 记忆体相关（软链接目标）
+│   ├── raw/                   # L3 对话原文（隐私）
+│   └── vector_db/             # ChromaDB + 关键词索引
+├── runtime/                   # 运行时临时数据
+│   └── cache/                 # 临时缓存
+└── materials/                 # 采集的原始素材
+    ├── web/                   # 网页保存
+    ├── video/                 # 视频下载（yt-dlp 输出）
+    ├── audio/                 # 录音文件
+    ├── screenshots/           # 截图
+    └── refined_for_inbox/     # 已提炼待投递的 .md
+```
 
 > `agent-os/` 内通过**软链接**指向 `agent-os-local/` 中的实际目录，脚本无需改路径。
 
@@ -55,9 +59,9 @@ AgentOS 是一套运行在个人 Mac 上的**智能体外骨骼系统**，核心
 ## 三、软链接映射
 
 ```
-~/agent-os/04_memory/long_term/raw     → ~/agent-os-local/memory_raw
-~/agent-os/04_memory/vector_db         → ~/agent-os-local/memory_vector
-~/agent-os/06_runtime/cache            → ~/agent-os-local/runtime_cache
+~/agent-os/04_memory/long_term/raw     → ~/agent-os-local/memory/raw
+~/agent-os/04_memory/vector_db         → ~/agent-os-local/memory/vector_db
+~/agent-os/06_runtime/cache            → ~/agent-os-local/runtime/cache
 ```
 
 换机时 `init.sh` 会自动检测并重建这些软链接。
@@ -104,7 +108,7 @@ AgentOS 是一套运行在个人 Mac 上的**智能体外骨骼系统**，核心
 ---
 title: 素材标题
 source_url: https://...
-local_path: ~/agent-os-local/raw_video/xxx.mp4
+local_path: ~/agent-os-local/materials/video/xxx.mp4
 type: video|audio|web|image
 platform: douyin|xiaohongshu|bilibili|web
 collected_by: Redmi-12C
@@ -133,7 +137,7 @@ tags: [标签1, 标签2]
 ### 数据流
 
 ```
-本机采集 → ~/agent-os-local/raw_*/  → AI提炼 → ~/agent-os/03_knowledge/00_inbox/
+本机采集 → ~/agent-os-local/materials/ → AI提炼 → ~/agent-os/03_knowledge/00_inbox/
                                                         ↓ 坚果云同步
                                                         ↓
 其他电脑 → inbox_refine → 归档到知识库 → Git commit → Gitee

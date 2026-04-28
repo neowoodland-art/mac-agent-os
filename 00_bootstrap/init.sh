@@ -82,14 +82,14 @@ info "创建目录结构..."
 info "创建本机专属目录 ~/agent-os-local/..."
 
 LOCAL_DIRS=(
-    "$HOME/agent-os-local/memory_raw"
-    "$HOME/agent-os-local/memory_vector"
-    "$HOME/agent-os-local/runtime_cache"
-    "$HOME/agent-os-local/raw_web"
-    "$HOME/agent-os-local/raw_video"
-    "$HOME/agent-os-local/raw_audio"
-    "$HOME/agent-os-local/raw_screenshots"
-    "$HOME/agent-os-local/refined_for_inbox"
+    "$HOME/agent-os-local/memory/raw"
+    "$HOME/agent-os-local/memory/vector_db"
+    "$HOME/agent-os-local/runtime/cache"
+    "$HOME/agent-os-local/materials/web"
+    "$HOME/agent-os-local/materials/video"
+    "$HOME/agent-os-local/materials/audio"
+    "$HOME/agent-os-local/materials/screenshots"
+    "$HOME/agent-os-local/materials/refined_for_inbox"
 )
 
 for dir in "${LOCAL_DIRS[@]}"; do
@@ -101,9 +101,9 @@ ok "本机专属目录创建完成"
 info "重建软链接..."
 
 SYMLINKS=(
-    "$AGENT_OS_ROOT/04_memory/long_term/raw:$HOME/agent-os-local/memory_raw"
-    "$AGENT_OS_ROOT/04_memory/vector_db:$HOME/agent-os-local/memory_vector"
-    "$AGENT_OS_ROOT/06_runtime/cache:$HOME/agent-os-local/runtime_cache"
+    "$AGENT_OS_ROOT/04_memory/long_term/raw:$HOME/agent-os-local/memory/raw"
+    "$AGENT_OS_ROOT/04_memory/vector_db:$HOME/agent-os-local/memory/vector_db"
+    "$AGENT_OS_ROOT/06_runtime/cache:$HOME/agent-os-local/runtime/cache"
 )
 
 for entry in "${SYMLINKS[@]}"; do
@@ -356,7 +356,10 @@ echo "  [ ] 4. 在坚果云客户端确认 $AGENT_OS_ROOT 已加入同步"
 echo "  [ ] 5. 在 WorkBuddy 中配置自动化任务（每日记忆提炼/收件箱提纯）"
 echo ""
 info "目录边界说明："
-echo "  ~/agent-os/          ← 坚果云同步 + Git 版本控制（知识库/技能/配置）"
-echo "  ~/agent-os-local/    ← 本机专属，不同步（原始素材/向量库/缓存）"
+echo "  ~/agent-os/              ← 坚果云同步 + Git（知识库/技能/配置）"
+echo "  ~/agent-os-local/        ← 本机专属，不同步"
+echo "    ├── memory/            ← L3原文 + 向量库（软链接到 04_memory）"
+echo "    ├── runtime/           ← 临时缓存（软链接到 06_runtime）"
+echo "    └── materials/         ← 采集的原始素材（网页/视频/音频/截图）"
 echo ""
 info "架构文档: $AGENT_OS_ROOT/CORE-ARCHITECTURE.md"
