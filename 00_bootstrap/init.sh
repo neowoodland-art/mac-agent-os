@@ -38,9 +38,10 @@ info "主机名: $HOSTNAME"
 
 # ---------- 检测 Python ----------
 PYTHON_CMD=""
-MANAGED_PYTHON="/Users/chengzige/.workbuddy/binaries/python/versions/3.13.12/bin/python3"
-AGENTOS_PYTHON="/Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/python3"
-AGENTOS_VENV="/Users/chengzige/.workbuddy/binaries/python/envs/agent-os"
+CURRENT_USER="$(whoami)"
+MANAGED_PYTHON="$HOME/.workbuddy/binaries/python/versions/3.13.12/bin/python3"
+AGENTOS_PYTHON="$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+AGENTOS_VENV="$HOME/.workbuddy/binaries/python/envs/agent-os"
 
 if [ -x "$AGENTOS_PYTHON" ]; then
     PYTHON_CMD="$AGENTOS_PYTHON"
@@ -77,6 +78,63 @@ fi
 # ---------- 创建目录结构 ----------
 info "创建目录结构..."
 
+# ---------- 创建 ~/agent-os-local/ 本机专属目录 ----------
+info "创建本机专属目录 ~/agent-os-local/..."
+
+LOCAL_DIRS=(
+    "$HOME/agent-os-local/memory_raw"
+    "$HOME/agent-os-local/memory_vector"
+    "$HOME/agent-os-local/runtime_cache"
+    "$HOME/agent-os-local/raw_web"
+    "$HOME/agent-os-local/raw_video"
+    "$HOME/agent-os-local/raw_audio"
+    "$HOME/agent-os-local/raw_screenshots"
+    "$HOME/agent-os-local/refined_for_inbox"
+)
+
+for dir in "${LOCAL_DIRS[@]}"; do
+    mkdir -p "$dir"
+done
+ok "本机专属目录创建完成"
+
+# ---------- 重建软链接（agent-os-local ↔ agent-os） ----------
+info "重建软链接..."
+
+SYMLINKS=(
+    "$AGENT_OS_ROOT/04_memory/long_term/raw:$HOME/agent-os-local/memory_raw"
+    "$AGENT_OS_ROOT/04_memory/vector_db:$HOME/agent-os-local/memory_vector"
+    "$AGENT_OS_ROOT/06_runtime/cache:$HOME/agent-os-local/runtime_cache"
+)
+
+for entry in "${SYMLINKS[@]}"; do
+    LINK_PATH="${entry%%:*}"
+    TARGET_PATH="${entry##*:}"
+    
+    if [ -L "$LINK_PATH" ]; then
+        # 已是软链接，检查目标是否存在
+        if [ -e "$LINK_PATH" ]; then
+            ok "软链接已存在: $(basename $LINK_PATH) → $TARGET_PATH"
+        else
+            warn "软链接目标不存在，重建: $LINK_PATH"
+            rm -f "$LINK_PATH"
+            ln -s "$TARGET_PATH" "$LINK_PATH"
+        fi
+    elif [ -d "$LINK_PATH" ]; then
+        # 是真实目录（首次迁移后的老机器），保留不动
+        ok "真实目录已存在: $LINK_PATH（未软链接）"
+    else
+        # 不存在，创建软链接
+        mkdir -p "$(dirname "$LINK_PATH")"
+        ln -s "$TARGET_PATH" "$LINK_PATH"
+        ok "软链接已创建: $(basename $LINK_PATH) → $TARGET_PATH"
+    fi
+done
+
+ok "软链接处理完成"
+
+# ---------- 创建 agent-os 内部目录结构 ----------
+info "创建目录结构..."
+
 DIRS=(
     "$AGENT_OS_ROOT/03_knowledge/00_inbox"
     "$AGENT_OS_ROOT/03_knowledge/01_daily"
@@ -107,29 +165,34 @@ DIRS=(
     "$AGENT_OS_ROOT/03_knowledge/99_system/prompts"
     "$AGENT_OS_ROOT/03_knowledge/99_system/taxonomies"
     "$AGENT_OS_ROOT/03_knowledge/99_system/timelines"
-    "$AGENT_OS_ROOT/04_memory/vector_db"
     "$AGENT_OS_ROOT/04_memory/logs"
     "$AGENT_OS_ROOT/04_memory/daily_summaries"
-    "$AGENT_OS_ROOT/04_memory/long_term/raw"
     "$AGENT_OS_ROOT/04_memory/memory_backup"
     "$AGENT_OS_ROOT/05_tools/00_setup"
     "$AGENT_OS_ROOT/05_tools/01_system"
+    "$AGENT_OS_ROOT/05_tools/01_system/reports"
     "$AGENT_OS_ROOT/05_tools/02_browser"
     "$AGENT_OS_ROOT/05_tools/03_ocr"
     "$AGENT_OS_ROOT/05_tools/04_media"
     "$AGENT_OS_ROOT/05_tools/05_crawl"
     "$AGENT_OS_ROOT/05_tools/06_mobile"
     "$AGENT_OS_ROOT/06_runtime/tasks"
-    "$AGENT_OS_ROOT/06_runtime/cache"
     "$AGENT_OS_ROOT/07_migration"
 )
 
 for dir in "${DIRS[@]}"; do
+    # 跳过已是软链接的路径
+    if [ -L "$dir" ]; then
+        continue
+    fi
     mkdir -p "$dir"
 done
 
 # 空目录添加 .gitkeep（确保坚果云能同步）
 for dir in "${DIRS[@]}"; do
+    if [ -L "$dir" ]; then
+        continue
+    fi
     if [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
         touch "$dir/.gitkeep"
     fi
@@ -262,15 +325,38 @@ else
     warn "未检测到坚果云目录，如需跨机同步请手动配置"
 fi
 
+# ---------- 检测 oMLX ----------
+info "检测本地 LLM 引擎..."
+OMLX_MODELS=""
+if command -v curl &>/dev/null; then
+    OMLX_RESP=$(curl -s --max-time 3 http://localhost:8000/v1/models -H "Authorization: Bearer omlx" 2>/dev/null || echo "")
+    if echo "$OMLX_RESP" | grep -q '"data"'; then
+        OMLX_MODELS=$(echo "$OMLX_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); [print(m['id']) for m in d.get('data',[])]" 2>/dev/null || echo "")
+        ok "oMLX 已运行，可用模型:"
+        echo "$OMLX_MODELS" | sed 's/^/    /'
+    else
+        warn "oMLX 未检测到，AI 分析功能将不可用"
+        warn "请手动安装 oMLX: https://omlx.ai"
+    fi
+else
+    warn "curl 不可用，跳过 oMLX 检测"
+fi
+
 # ---------- 完成提示 ----------
 echo ""
 echo "========================================="
 ok "AgentOS 初始化完成！"
 echo "========================================="
 echo ""
-info "下一步操作："
-echo "  1. 部署核心配置: cd $AGENT_OS_ROOT/00_bootstrap && bash apply-config.sh"
-echo "  2. 导入技能包:    cd $AGENT_OS_ROOT/00_bootstrap && bash import_skills.sh"
-echo "  3. 打开 Obsidian 以 $AGENT_OS_ROOT/03_knowledge/ 作为 Vault"
+info "换机还原检查清单："
+echo "  [ ] 1. 部署核心配置: cd $AGENT_OS_ROOT/00_bootstrap && bash apply-config.sh"
+echo "  [ ] 2. 打开 Obsidian 以 $AGENT_OS_ROOT/03_knowledge/ 作为 Vault"
+echo "  [ ] 3. 安装 oMLX（本地 LLM 引擎）"
+echo "  [ ] 4. 在坚果云客户端确认 $AGENT_OS_ROOT 已加入同步"
+echo "  [ ] 5. 在 WorkBuddy 中配置自动化任务（每日记忆提炼/收件箱提纯）"
 echo ""
-info "如需跨机同步，将 $AGENT_OS_ROOT 目录移动到坚果云同步文件夹内即可"
+info "目录边界说明："
+echo "  ~/agent-os/          ← 坚果云同步 + Git 版本控制（知识库/技能/配置）"
+echo "  ~/agent-os-local/    ← 本机专属，不同步（原始素材/向量库/缓存）"
+echo ""
+info "架构文档: $AGENT_OS_ROOT/CORE-ARCHITECTURE.md"
