@@ -9,7 +9,7 @@
 
 - 主机名: __HOSTNAME__
 - 系统: __OS_INFO__
-- 角色: master
+- 角色: node
 - 创建时间: __INIT_TIME__
 
 ## 角色说明

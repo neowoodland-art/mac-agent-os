@@ -268,7 +268,7 @@ if [ ! -f "$HOST_ID_FILE" ]; then
 ## 主机信息
 - 主机名: $HOSTNAME
 - 系统: $OS_INFO
-- 角色: master
+- 角色: node
 - 创建时间: $INIT_TIME
 
 ## 角色说明
@@ -284,7 +284,7 @@ if [ ! -f "$HOST_ID_FILE" ]; then
 - content_collection: true
 - knowledge_publish: true
 HOSTEOF
-    ok "HOST_ID.md 已创建（默认角色: master，可手动修改）"
+    ok "HOST_ID.md 已创建（默认角色: node（最低权限），可手动提升为 maintainer/master）"
     warn "请检查 $HOST_ID_FILE 中的角色设置是否正确"
 fi
 

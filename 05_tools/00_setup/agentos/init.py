@@ -350,13 +350,16 @@ def do_localize(args):
     host_id = identity_dir / "HOST_ID.md"
     if host_id.exists() and not dry_run:
         print()
-        info("请设置本机角色（编辑 HOST_ID.md 中的 role 字段）：")
+        info("HOST_ID.md 已生成，默认角色为 node（最低权限）。")
+        info("如需提升权限，编辑角色字段：")
         print(f"  文件路径: {host_id}")
         print()
         print("  可选角色: master, maintainer, node")
         print("    master     → 知识提纯/记忆汇总/核心维护")
         print("    maintainer → 内容采集/本地记忆/提交有价值内容")
-        print("    node       → 信息采集/素材上传")
+        print("    node       → 信息采集/素材上传（默认）")
+        print()
+        info("安全建议：先以 node 运行，确认无误后再提升权限。")
         print()
 
     ok("本机身份文件生成完成")

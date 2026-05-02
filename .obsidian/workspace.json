@@ -11,10 +11,14 @@
             "id": "5bd4296a91240c21",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "SKILLS-CATALOG.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "新标签页"
+              "title": "SKILLS-CATALOG"
             }
           }
         ]
@@ -182,6 +186,11 @@
   },
   "active": "5bd4296a91240c21",
   "lastOpenFiles": [
+    "REQUIREMENTS.md",
+    "CORE-ARCHITECTURE.md",
+    "CHANGELOG.md",
+    "QUICKSTART.md",
+    "README.md",
     "03_knowledge/01_submissions",
     "05_tools/01_system/role_check.py",
     "01_core/HOST_ID.tpl.md",
@@ -195,7 +204,6 @@
     "04_memory/vector_db/chroma/chroma.sqlite3",
     "04_memory/vector_db/chroma/aa34ddf1-a647-49bf-847e-9f38fdd213f5",
     "04_memory/vector_db/keyword_index.json",
-    "04_memory/vector_db/chroma.sqlite3",
     "04_memory/long_term/raw/04_memory/long_term/raw/2026-04-29.md",
     "04_memory/long_term/raw/04_memory/daily_summaries/2026-04-29.md",
     "04_memory/long_term/raw/bootstrap_system_7a50954c-2a08-4dbb-adde-abee01c49147_memery.md",
@@ -214,10 +222,6 @@
     "agent-local/memory/raw/2026-04-30.md",
     "agent-local/memory/raw/2026-04-29.md",
     "agent-local/memory/raw/2026-04-27.md",
-    "agent-local/memory/raw/2026-04-26.md",
-    "90_archive/docs/我的说明.md",
-    "90_archive/docs/REVIEW-V2.0.md",
-    "90_archive/docs/V2.0-SUMMARY.md",
     "matrix/douyin_refresh2.png",
     "matrix/douyin_check.png"
   ]
