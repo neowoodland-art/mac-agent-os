@@ -22,6 +22,16 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+# ─── 角色检查：所有机器都执行记忆提炼，但各自保存本地 ───
+try:
+    sys.path.insert(0, str(Path.home() / "workbuddy-agent-os" / "agent-sync" / "05_tools" / "01_system"))
+    from role_check import check_capability
+    if not check_capability("memory_digestion"):
+        print("⛔ 能力 memory_digestion 未启用，跳过 daily_digest")
+        sys.exit(0)
+except ImportError as e:
+    print(f"⚠️ 角色检查模块不可用 ({e})，继续执行")
+
 
 # ─── 数据源路径配置 ──────────────────────────────────────────────
 # 如果工作记忆路径变更，只改这里即可

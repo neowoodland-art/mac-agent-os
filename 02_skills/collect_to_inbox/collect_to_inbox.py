@@ -18,6 +18,16 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# ─── 角色检查：所有机器均可执行汇聚 ───
+try:
+    sys.path.insert(0, str(Path.home() / "workbuddy-agent-os" / "agent-sync" / "05_tools" / "01_system"))
+    from role_check import check_capability
+    if not check_capability("knowledge_collection"):
+        print("⛔ 能力 knowledge_collection 未启用，跳过 collect_to_inbox")
+        sys.exit(0)
+except ImportError as e:
+    print(f"⚠️ 角色检查模块不可用 ({e})，继续执行")
+
 # 扫描的源目录配置：(相对路径, 提取策略)
 SCAN_DIRS = [
     ("03_knowledge/50_resources/视频笔记", "extract_summary"),

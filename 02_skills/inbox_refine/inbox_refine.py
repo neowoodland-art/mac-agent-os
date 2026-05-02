@@ -18,6 +18,19 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
+# ─── 角色检查：仅 master 可执行收件箱提纯 ───
+try:
+    sys.path.insert(0, str(Path.home() / "workbuddy-agent-os" / "agent-sync" / "05_tools" / "01_system"))
+    from role_check import check_role, check_capability
+    if not check_role(["master"]):
+        print("⛔ 非 master 角色，跳过 inbox_refine")
+        sys.exit(0)
+    if not check_capability("inbox_refine"):
+        print("⛔ 能力 inbox_refine 未启用，跳过")
+        sys.exit(0)
+except ImportError as e:
+    print(f"⚠️ 角色检查模块不可用 ({e})，继续执行")
+
 # 导入 LLM 分类器
 try:
     from llm_classifier import classify_content_enhanced
