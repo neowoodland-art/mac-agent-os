@@ -59,3 +59,5 @@ backup_*/
 # 本机数据目录（不同步）
 agent-local/
 agent-os.code-workspace
+04_memory/vector_db
+06_runtime/
