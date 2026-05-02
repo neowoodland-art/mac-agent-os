@@ -1,5 +1,32 @@
 # AgentOS 项目变更日志
 
+## [2.3.0] - 2026-05-02
+
+### 新增
+- **`agentos config`** — 配置管理子命令（status/diff/apply/rollback）
+- `01_core/CONFIG_MANIFEST.yaml` — 配置清单（9文件，A/B/C三类管理）
+- `agentos/config_mgr.py` — 配置管理引擎
+- `agentos init` 新增 PATH 自动检测配置
+- `VERSION` 文件（版本号唯一来源）
+
+### 修复
+- 路径清理：删除 `~/agent-os/` 和 `~/agent-os-local/` 残留目录
+- 5 个脚本的 help 文本从"agent-os-local 根目录"修正为完整路径
+
+### 变更
+- Git 双远程仓库：Gitee + GitHub 同步推送
+- 停用坚果云，完全切换到 Git 版本管理
+
+## [2.2.0] — 2026-05-01
+
+### 新增
+- **`agentos upgrade`** — 统一模块升级引擎
+- MODULE.md 标准化规范（首个: Matrix 模块）
+- `auth_manager.py` 原子化登录模块
+- SOUL.md v3.3 逐级加载重构（精简 72%）
+- 4 个 G2 协议文件（meta-thinking/cross-domain/stuck/knowledge-review）
+- Matrix 养号系统全链路稳定（3账号12/12步全部通过）
+
 ## [2.0.1] - 2026-04-25
 
 ### 修复
