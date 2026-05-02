@@ -305,4 +305,60 @@ def do_init(args):
         info("  2. 如有旧机备份，运行: agentos restore <备份文件>")
         info("  3. 运行: agentos upgrade 统一升级所有模块")
         info("  4. 运行: agentos check 验证系统状态")
+        info("  5. 运行: agentos localize 生成本机身份配置")
     print()
+
+
+def do_localize(args):
+    """从模板生成本机身份配置"""
+    from pathlib import Path
+    from .utils import get_sync_root, get_local_root, info, ok, warn
+
+    sync_root = get_sync_root()
+    local_root = get_local_root()
+    identity_dir = local_root / "identity"
+    identity_dir.mkdir(parents=True, exist_ok=True)
+
+    templates = {
+        sync_root / "01_core" / "IDENTITY.tpl.md": identity_dir / "IDENTITY.md",
+        sync_root / "01_core" / "USER.tpl.md": identity_dir / "USER.md",
+        sync_root / "01_core" / "HOST_ID.tpl.md": identity_dir / "HOST_ID.md",
+    }
+
+    dry_run = getattr(args, "dry_run", False)
+
+    print()
+    print("=" * 60)
+    print("  🆔 AgentOS 本机身份生成")
+    print("=" * 60)
+    print()
+
+    for src, dst in templates.items():
+        if not src.exists():
+            warn(f"模板文件不存在: {src}")
+            continue
+        if dry_run:
+            info(f"[DRY-RUN] 生成: {dst}")
+            continue
+        if dst.exists():
+            ok(f"  ✓ {dst.name} (跳过，已存在)")
+            continue
+        import shutil
+        shutil.copy2(str(src), str(dst))
+        ok(f"  ✓ {dst.name}")
+
+    host_id = identity_dir / "HOST_ID.md"
+    if host_id.exists() and not dry_run:
+        print()
+        info("请设置本机角色（编辑 HOST_ID.md 中的 role 字段）：")
+        print(f"  文件路径: {host_id}")
+        print()
+        print("  可选角色: master, maintainer, node")
+        print("    master     → 知识提纯/记忆汇总/核心维护")
+        print("    maintainer → 内容采集/本地记忆/提交有价值内容")
+        print("    node       → 信息采集/素材上传")
+        print()
+
+    ok("本机身份文件生成完成")
+    info(f"身份目录: {identity_dir}")
+    info("可手动编辑 HOST_ID.md 修改角色和能力开关")

@@ -377,3 +377,42 @@ def setup_parser(subparsers):
     p.add_argument("--dry-run", action="store_true",
                    help="仅预览，不执行实际操作")
     p.set_defaults(func=do_upgrade)
+
+
+def do_rebuild_vector(args):
+    """重建本地向量数据库"""
+    import subprocess as sp
+    from pathlib import Path
+    from .utils import get_sync_root, get_local_root, get_python
+
+    sync_root = get_sync_root()
+    local_root = get_local_root()
+    python = get_python()
+
+    track = getattr(args, "track", "both")
+    dry_run = getattr(args, "dry_run", False)
+    incremental = getattr(args, "incremental", False)
+
+    script = sync_root / "02_skills" / "kb_manager" / "vector_db_rebuild.py"
+    if not script.exists():
+        print(f"❌ 向量重建脚本不存在: {script}")
+        return
+
+    cmd = [
+        str(python),
+        str(script),
+        "--root", str(sync_root),
+        "--local", str(local_root),
+        "--track", track,
+    ]
+    if incremental:
+        cmd.append("--incremental")
+    if dry_run:
+        cmd.append("--dry-run")
+
+    print(f"🔄 重建向量数据库 ({track})")
+    result = sp.run(cmd, cwd=str(sync_root))
+    if result.returncode == 0:
+        print("✅ 向量数据库重建完成")
+    else:
+        print(f"❌ 向量数据库重建失败 (rc={result.returncode})")

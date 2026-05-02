@@ -101,6 +101,16 @@ def main():
     p_restore.add_argument("backup_path", help="备份文件路径（.tar.gz）")
     p_restore.add_argument("--force", action="store_true", help="覆盖现有文件")
 
+    # ---- rebuild-vector ----
+    p_vector = subparsers.add_parser("rebuild-vector", help="本地重建向量数据库（升级后执行）")
+    p_vector.add_argument("--track", choices=["local", "global", "both"], default="both",
+                         help="重建范围 (默认 both)")
+    p_vector.add_argument("--incremental", action="store_true", help="增量模式")
+    p_vector.add_argument("--dry-run", action="store_true", help="仅预览，不执行")
+
+    # ---- localize ----
+    p_localize = subparsers.add_parser("localize", help="从模板生成本机身份配置")
+
     # ---- 解析 ----
     args = parser.parse_args()
 
@@ -141,6 +151,12 @@ def main():
     elif args.command == "restore":
         from . import backup as mod
         mod.run_restore(args)
+    elif args.command == "rebuild-vector":
+        from . import upgrade as mod
+        mod.do_rebuild_vector(args)
+    elif args.command == "localize":
+        from . import init as mod
+        mod.do_localize(args)
 
 
 if __name__ == "__main__":
