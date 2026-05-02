@@ -1,0 +1,8 @@
+{
+  "name": "matrix",
+  "version": "1.0.0",
+  "description": "多平台社交账号矩阵养号——蓝图调度、Chrome CDP 控制、账号切换",
+  "dependencies": ["PyYAML", "patchright", "camoufox"],
+  "mcp_tools": [],
+  "tool_path": "~/workbuddy-agent-os/agent-sync/05_tools/07_matrix"
+}

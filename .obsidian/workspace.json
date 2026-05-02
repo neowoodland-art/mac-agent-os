@@ -4,21 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "c449ef8b03d1779d",
+        "id": "96ec71564cffddbf",
         "type": "tabs",
         "children": [
           {
-            "id": "c4be6c229558e3d4",
+            "id": "5bd4296a91240c21",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "03_knowledge/README.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "README"
+              "title": "新标签页"
             }
           }
         ]
@@ -161,12 +157,23 @@
               "icon": "lucide-list",
               "title": "大纲"
             }
+          },
+          {
+            "id": "b9b4e53afafdc11f",
+            "type": "leaf",
+            "state": {
+              "type": "nutstore-sync-chatbox",
+              "state": {},
+              "icon": "bot",
+              "title": "Chatbox"
+            }
           }
-        ]
+        ],
+        "currentTab": 5
       }
     ],
     "direction": "horizontal",
-    "width": 300,
+    "width": 545.5,
     "collapsed": true
   },
   "left-ribbon": {
@@ -179,33 +186,49 @@
       "command-palette:打开命令面板": false,
       "bases:新建数据库": false,
       "nutstore-sync:Start sync": false,
-      "nutstore-sync:Stop sync": false
+      "nutstore-sync:Stop sync": false,
+      "nutstore-sync:Open chatbox": false
     }
   },
   "active": "c2bf2a757a2c2d98",
   "lastOpenFiles": [
-    "CORE-ARCHITECTURE.md",
-    "05_tools/README.md",
-    "05_tools/01_system/reports/system-check-report-20260427.md",
-    "05_tools/01_system/reports",
-    "05_tools/01_system/test_omlx_embedding.py",
-    "05_tools/01_system/check_facts.py",
-    "05_tools/01_system/check_automation_env.py",
-    "README.md",
-    "system-check-report-20260427.md",
-    "check_facts.py",
-    "04_memory/daily_summaries/2026-04-28.md",
-    "04_memory/long_term/raw/2026-04-28.md",
-    "03_knowledge/10_concepts/2026-04-28_测试_LLM_分类器.md",
-    "02_skills/inbox_refine/llm_classifier_broken.py",
-    "02_skills/inbox_refine/llm_classifier_fixed.py",
-    "03_knowledge/00_inbox/test_classification.md",
-    "02_skills/inbox_refine/__pycache__/llm_classifier.cpython-313.pyc",
-    "02_skills/inbox_refine/__pycache__",
-    "04_memory/daily_summaries/2026-04-27.md",
-    "04_memory/long_term/raw/2026-04-27.md",
-    "check_automation_env.py",
-    "04_memory/system-check-report-20260426.md",
-    "03_knowledge/README.md"
+    "docs/UPGRADE_SOUL_v3_PLAN.md",
+    "docs",
+    "agent-os.code-workspace",
+    "agent-local/memory/raw/2026-04-28.md",
+    "agent-local/memory/raw/migrate_old_memories.py",
+    "agent-local/memory/raw/MEMORY.md",
+    "agent-local/memory/raw/2026-04-30.md",
+    "agent-local/memory/raw/2026-04-29.md",
+    "agent-local/memory/raw/2026-04-27.md",
+    "agent-local/memory/raw/2026-04-26.md",
+    "agent-local/memory/raw",
+    "agent-local/memory",
+    "agent-local",
+    "90_archive/docs/我的说明.md",
+    "90_archive/docs/REVIEW-V2.0.md",
+    "90_archive/docs/V2.0-SUMMARY.md",
+    "90_archive/docs/CORE-ARCHITECTURE.md",
+    "90_archive/docs/CHANGELOG.md",
+    "90_archive/docs/AgentOS-完整说明文档_副本.md",
+    "90_archive/docs/AgentOS-知识管理系统说明文档.md",
+    "90_archive/docs/AgentOS-完整说明文档_副本.v2.1-history.md",
+    "90_archive/docs",
+    "90_archive/10_next_version_discussion/讨论清单.md",
+    "90_archive/10_next_version_discussion/知识库分类体系与全链路设计规范.md",
+    "90_archive/10_next_version_discussion/vNext-重构规划与工作计划.md",
+    "90_archive/10_next_version_discussion/v2.md",
+    "90_archive/10_next_version_discussion",
+    "07_migration/RESTORE-GUIDE.md",
+    "05_tools/07_matrix/scripts/yanghao_runner.py",
+    "05_tools/07_matrix/scripts/task_scheduler.py",
+    "05_tools/07_matrix/docs/TEST_REPORT.md",
+    "05_tools/07_matrix/docs/SYSTEM_ARCHITECTURE.md",
+    "05_tools/07_matrix/docs/SYNC_GUIDE.md",
+    "05_tools/07_matrix/docs/REFACTOR-PLAN.md",
+    "05_tools/07_matrix/docs/PROJECT_OVERVIEW.md",
+    "05_tools/07_matrix/docs/PHASE_A_SUMMARY.md",
+    "matrix/douyin_refresh2.png",
+    "matrix/douyin_check.png"
   ]
 }

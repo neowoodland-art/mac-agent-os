@@ -1,0 +1,55 @@
+skill:
+  name: "同步管理器"
+  id: "sync_manager"
+  version: "1.1.0"
+  category: "core-system"
+  status: "active"
+  created: "2026-04-29"
+  updated: "2026-04-29"
+
+description:
+  short: "知识库备份、增量导出、坚果云同步状态检查"
+  use_cases:
+    - "全量备份 03_knowledge/ + facts.db 到 memory_backup/"
+    - "按领域/标签导出可分发知识包"
+    - "检查坚果云同步路径状态与最新同步时间"
+    - "自动清理过期备份（保留最近N份）"
+  tags: ["备份", "同步", "导出", "坚果云"]
+
+ownership:
+  master_editor: "my-macbook_macOS14.4_16GB_master"
+  readonly_on_other_devices: false
+
+environment:
+  os: "macos"
+  python_path: "~/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+  pip_dependencies: []
+
+setup:
+  install_script: ""
+  post_check: "python3 -c 'import tarfile, shutil; print(\"OK\")'"
+
+usage:
+  entry_point: "sync_manager.py"
+  scheduled: ""
+  manual_trigger: "python3 sync_manager.py --mode backup"
+
+scripts:
+  - sync_manager.py   # 备份/导出/状态检查主程序
+
+backup:
+  source_dirs:
+    - "03_knowledge/"
+    - "04_memory/long_term/"
+  output_dir: "04_memory/memory_backup/"
+  filename_pattern: "kb_backup_YYYY-MM-DD_HHmm.tar.gz"
+  keep_last: 10
+
+nutstore:
+  sync_path: "~/NutstoreCloudBridge/"
+  mode: "client-managed"
+
+changelog:
+  - version: "1.1.0"
+    date: "2026-04-29"
+    changes: "初始实现：backup/export/status 三模式，自动清理旧备份"
