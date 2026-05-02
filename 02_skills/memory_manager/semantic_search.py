@@ -11,16 +11,16 @@ AgentOS 语义检索模块
 
 使用：
   # 检索
-  python3 semantic_search.py search --root ~/agent-os --query "用户偏好什么编程语言" --top-k 5
+  python3 semantic_search.py search --root ~/workbuddy-agent-os/agent-sync --query "用户偏好什么编程语言" --top-k 5
 
   # 向量化单条
-  python3 semantic_search.py embed --root ~/agent-os --text "测试文本"
+  python3 semantic_search.py embed --root ~/workbuddy-agent-os/agent-sync --text "测试文本"
 
   # 回填所有历史数据
-  python3 semantic_search.py backfill --root ~/agent-os
+  python3 semantic_search.py backfill --root ~/workbuddy-agent-os/agent-sync
 
   # 清除向量库并重建
-  python3 semantic_search.py rebuild --root ~/agent-os
+  python3 semantic_search.py rebuild --root ~/workbuddy-agent-os/agent-sync
 """
 
 import argparse

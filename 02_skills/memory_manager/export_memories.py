@@ -2,7 +2,7 @@
 """
 AgentOS 记忆导出脚本
 用途：将 L1 索引 + L2 事实库 + L3 原文目录 + 日志打包为 JSON + Markdown 归档
-使用：python3 export_memories.py --root ~/agent-os --output ~/backup/
+使用：python3 export_memories.py --root ~/workbuddy-agent-os/agent-sync --output ~/backup/
 """
 
 import argparse

@@ -2,9 +2,9 @@
 """
 AgentOS 知识入库脚本
 用途：将网页内容或纯文本清洗、分类、生成知识卡片并写入 Obsidian 知识库
-使用：python3 kb_ingest.py --root ~/agent-os --url https://example.com
-     python3 kb_ingest.py --root ~/agent-os --file input.md
-     python3 kb_ingest.py --root ~/agent-os --text "原始文本内容"
+使用：python3 kb_ingest.py --root ~/workbuddy-agent-os/agent-sync --url https://example.com
+     python3 kb_ingest.py --root ~/workbuddy-agent-os/agent-sync --file input.md
+     python3 kb_ingest.py --root ~/workbuddy-agent-os/agent-sync --text "原始文本内容"
 """
 
 import argparse

@@ -2,7 +2,7 @@
 """
 AgentOS 记忆导入脚本
 用途：从导出归档恢复记忆，合并时智能去重
-使用：python3 import_memories.py --root ~/agent-os --input ~/backup/agent-os-memory-20260426.zip
+使用：python3 import_memories.py --root ~/workbuddy-agent-os/agent-sync --input ~/backup/agent-os-memory-20260426.zip
 """
 
 import argparse

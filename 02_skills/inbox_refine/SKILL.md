@@ -125,13 +125,13 @@ superseded_by: ""
 
 | 项目 | 路径 |
 |------|------|
-| 收件箱 | `~/agent-os/03_knowledge/00_inbox/` |
-| 知识库根 | `~/agent-os/03_knowledge/` |
-| 首页 | `~/agent-os/03_knowledge/README.md` |
-| 变更日志 | `~/agent-os/03_knowledge/CHANGELOG.md` |
-| 模板 | `~/agent-os/03_knowledge/99_system/templates/` |
-| 分类表 | `~/agent-os/03_knowledge/99_system/taxonomies/` |
-| 中文映射 | `~/agent-os/03_knowledge/99_system/taxonomies/folder-aliases.json` |
+| 收件箱 | `~/workbuddy-agent-os/agent-sync/03_knowledge/00_inbox/` |
+| 知识库根 | `~/workbuddy-agent-os/agent-sync/03_knowledge/` |
+| 首页 | `~/workbuddy-agent-os/agent-sync/03_knowledge/README.md` |
+| 变更日志 | `~/workbuddy-agent-os/agent-sync/03_knowledge/CHANGELOG.md` |
+| 模板 | `~/workbuddy-agent-os/agent-sync/03_knowledge/99_system/templates/` |
+| 分类表 | `~/workbuddy-agent-os/agent-sync/03_knowledge/99_system/taxonomies/` |
+| 中文映射 | `~/workbuddy-agent-os/agent-sync/03_knowledge/99_system/taxonomies/folder-aliases.json` |
 
 ## 错误处理
 

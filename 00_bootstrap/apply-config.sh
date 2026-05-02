@@ -2,7 +2,7 @@
 # ============================================================
 # AgentOS 核心配置部署脚本
 # 用途：将 01_core/ 下的配置文件安全部署到 ~/.workbuddy/
-# 使用：cd ~/agent-os/00_bootstrap && bash apply-config.sh
+# 使用：cd ~/workbuddy-agent-os/agent-sync/00_bootstrap && bash apply-config.sh
 # ============================================================
 
 set -euo pipefail

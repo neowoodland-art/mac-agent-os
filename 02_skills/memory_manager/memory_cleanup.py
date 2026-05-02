@@ -2,7 +2,7 @@
 """
 AgentOS 记忆清理与冲突消解脚本
 用途：清理过期记忆、消解冲突、归档冷数据
-使用：python3 memory_cleanup.py --root ~/agent-os [--dry-run]
+使用：python3 memory_cleanup.py --root ~/workbuddy-agent-os/agent-sync [--dry-run]
 """
 
 import argparse

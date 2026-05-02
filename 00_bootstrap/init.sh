@@ -3,7 +3,7 @@
 # AgentOS 初始化脚本
 # 用途：首次部署或换机还原时运行，创建目录结构、安装依赖、
 #       填充设备信息、部署核心配置
-# 使用：cd ~/agent-os/00_bootstrap && bash init.sh
+# 使用：cd ~/workbuddy-agent-os/agent-sync/00_bootstrap && bash init.sh
 # ============================================================
 
 set -euo pipefail
@@ -78,18 +78,22 @@ fi
 # ---------- 创建目录结构 ----------
 info "创建目录结构..."
 
-# ---------- 创建 ~/agent-os-local/ 本机专属目录 ----------
-info "创建本机专属目录 ~/agent-os-local/..."
+# ---------- 创建 ~/workbuddy-agent-os/agent-local/ 本机专属目录 ----------
+info "创建本机专属目录 ~/workbuddy-agent-os/agent-local/..."
 
 LOCAL_DIRS=(
-    "$HOME/agent-os-local/memory/raw"
-    "$HOME/agent-os-local/memory/vector_db"
-    "$HOME/agent-os-local/runtime/cache"
-    "$HOME/agent-os-local/materials/web"
-    "$HOME/agent-os-local/materials/video"
-    "$HOME/agent-os-local/materials/audio"
-    "$HOME/agent-os-local/materials/screenshots"
-    "$HOME/agent-os-local/materials/refined_for_inbox"
+    "$HOME/workbuddy-agent-os/agent-local/identity"
+    "$HOME/workbuddy-agent-os/agent-local/memory/raw"
+    "$HOME/workbuddy-agent-os/agent-local/memory/vector_db"
+    "$HOME/workbuddy-agent-os/agent-local/memory/daily"
+    "$HOME/workbuddy-agent-os/agent-local/runtime/cache"
+    "$HOME/workbuddy-agent-os/agent-local/materials/web"
+    "$HOME/workbuddy-agent-os/agent-local/materials/video"
+    "$HOME/workbuddy-agent-os/agent-local/materials/audio"
+    "$HOME/workbuddy-agent-os/agent-local/materials/screenshots"
+    "$HOME/workbuddy-agent-os/agent-local/materials/refined_for_inbox"
+    "$HOME/workbuddy-agent-os/agent-local/submissions/inbox"
+    "$HOME/workbuddy-agent-os/agent-local/submissions/memory_export"
 )
 
 for dir in "${LOCAL_DIRS[@]}"; do
@@ -101,9 +105,9 @@ ok "本机专属目录创建完成"
 info "重建软链接..."
 
 SYMLINKS=(
-    "$AGENT_OS_ROOT/04_memory/long_term/raw:$HOME/agent-os-local/memory/raw"
-    "$AGENT_OS_ROOT/04_memory/vector_db:$HOME/agent-os-local/memory/vector_db"
-    "$AGENT_OS_ROOT/06_runtime/cache:$HOME/agent-os-local/runtime/cache"
+    "$AGENT_OS_ROOT/04_memory/long_term/raw:$HOME/workbuddy-agent-os/agent-local/memory/raw"
+    "$AGENT_OS_ROOT/04_memory/vector_db:$HOME/workbuddy-agent-os/agent-local/memory/vector_db"
+    "$AGENT_OS_ROOT/06_runtime/cache:$HOME/workbuddy-agent-os/agent-local/runtime/cache"
 )
 
 for entry in "${SYMLINKS[@]}"; do
@@ -226,15 +230,19 @@ if [ -n "$PYTHON_CMD" ]; then
     fi
 fi
 
-# ---------- 填充设备信息到 IDENTITY.md ----------
-info "填充设备信息..."
-IDENTITY_FILE="$AGENT_OS_ROOT/01_core/IDENTITY.md"
+# ---------- 生成本机身份文件（从模板） ----------
+info "生成本机身份文件..."
+TEMPLATE_DIR="$AGENT_OS_ROOT/01_core"
+LOCAL_IDENTITY_DIR="$HOME/workbuddy-agent-os/agent-local/identity"
+mkdir -p "$LOCAL_IDENTITY_DIR"
 
-if [ -f "$IDENTITY_FILE" ]; then
-    # 获取当前时间
-    INIT_TIME="$(date '+%Y-%m-%d %H:%M:%S')"
-    
-    # 使用 sed 替换占位符
+INIT_TIME="$(date '+%Y-%m-%d %H:%M:%S')"
+
+# 从模板生成 IDENTITY.md（如果模板存在）
+TEMPLATE_FILE="$TEMPLATE_DIR/IDENTITY.tpl.md"
+LOCAL_IDENTITY="$LOCAL_IDENTITY_DIR/IDENTITY.md"
+if [ -f "$TEMPLATE_FILE" ]; then
+    cp "$TEMPLATE_FILE" "$LOCAL_IDENTITY"
     sed -i.bak \
         -e "s|__HOSTNAME__|$HOSTNAME|g" \
         -e "s|__OS_INFO__|$OS_INFO|g" \
@@ -242,19 +250,53 @@ if [ -f "$IDENTITY_FILE" ]; then
         -e "s|__PYTHON_PATH__|${PYTHON_PATH:-未安装}|g" \
         -e "s|__NODE_PATH__|${NODE_PATH:-未安装}|g" \
         -e "s|__INIT_TIME__|$INIT_TIME|g" \
-        "$IDENTITY_FILE"
-    
-    rm -f "$IDENTITY_FILE.bak"
-    ok "设备信息已写入 IDENTITY.md"
-else
-    warn "IDENTITY.md 不存在，跳过设备信息填充"
+        "$LOCAL_IDENTITY"
+    rm -f "$LOCAL_IDENTITY.bak"
+    ok "IDENTITY.md 已从模板生成: $LOCAL_IDENTITY"
+elif [ -f "$TEMPLATE_DIR/IDENTITY.md" ]; then
+    # 兼容: 直接复制现有 IDENTITY.md
+    cp "$TEMPLATE_DIR/IDENTITY.md" "$LOCAL_IDENTITY"
+    ok "IDENTITY.md 已从共享配置复制"
 fi
+
+# 生成 HOST_ID.md（含角色选择）
+HOST_ID_FILE="$LOCAL_IDENTITY_DIR/HOST_ID.md"
+if [ ! -f "$HOST_ID_FILE" ]; then
+    cat > "$HOST_ID_FILE" << HOSTEOF
+# HOST_ID.md — 本机标识与角色
+
+## 主机信息
+- 主机名: $HOSTNAME
+- 系统: $OS_INFO
+- 角色: master
+- 创建时间: $INIT_TIME
+
+## 角色说明
+| 角色 | 权限 | 执行任务 |
+|------|------|---------|
+| master | 读写全部协同目录 | 知识提纯/记忆汇总/核心维护 |
+| maintainer | 写入提交箱 | 内容采集/本地记忆/提交有价值内容 |
+| node | 只提交 | 信息采集/素材上传 |
+
+## 能力开关
+- memory_digestion: true
+- knowledge_refinement: true
+- content_collection: true
+- knowledge_publish: true
+HOSTEOF
+    ok "HOST_ID.md 已创建（默认角色: master，可手动修改）"
+    warn "请检查 $HOST_ID_FILE 中的角色设置是否正确"
+fi
+
+ok "本机身份文件初始化完成"
 
 # ---------- 初始化记忆体文件 ----------
 info "初始化记忆体文件..."
 
-# L1 关键词索引
-KEYWORD_INDEX="$AGENT_OS_ROOT/04_memory/vector_db/keyword_index.json"
+# L1 关键词索引（存在 agent-local 的 vector_db 中）
+VECTOR_DB_DIR="$HOME/workbuddy-agent-os/agent-local/memory/vector_db"
+mkdir -p "$VECTOR_DB_DIR"
+KEYWORD_INDEX="$VECTOR_DB_DIR/keyword_index.json"
 if [ ! -f "$KEYWORD_INDEX" ]; then
     cat > "$KEYWORD_INDEX" << 'EOF'
 {
@@ -349,17 +391,21 @@ ok "AgentOS 初始化完成！"
 echo "========================================="
 echo ""
 info "换机还原检查清单："
-echo "  [ ] 1. 部署核心配置: cd $AGENT_OS_ROOT/00_bootstrap && bash apply-config.sh"
-echo "  [ ] 2. 打开 Obsidian 以 $AGENT_OS_ROOT/03_knowledge/ 作为 Vault"
+echo "  [ ] 1. 检查本机角色: cat $HOME/workbuddy-agent-os/agent-local/identity/HOST_ID.md"
+echo "  [ ] 2. 配置 GitHub/Gitee SSH 密钥（如需同步）"
 echo "  [ ] 3. 安装 oMLX（本地 LLM 引擎）"
-echo "  [ ] 4. 在坚果云客户端确认 $AGENT_OS_ROOT 已加入同步"
-echo "  [ ] 5. 在 WorkBuddy 中配置自动化任务（每日记忆提炼/收件箱提纯）"
+echo "  [ ] 4. 在 WorkBuddy 中配置自动化任务"
+echo "  [ ] 5. 重建向量数据库: agentos rebuild-vector"
 echo ""
 info "目录边界说明："
-echo "  ~/agent-os/              ← 坚果云同步 + Git（知识库/技能/配置）"
-echo "  ~/agent-os-local/        ← 本机专属，不同步"
-echo "    ├── memory/            ← L3原文 + 向量库（软链接到 04_memory）"
-echo "    ├── runtime/           ← 临时缓存（软链接到 06_runtime）"
-echo "    └── materials/         ← 采集的原始素材（网页/视频/音频/截图）"
+echo "  ~/workbuddy-agent-os/agent-sync/  ← Git全量跟踪（知识库/技能/配置/模板）"
+echo "  ~/workbuddy-agent-os/agent-local/ ← 本机专属，不同步"
+echo "    ├── identity/        ← 本机身份（从模板生成）"
+echo "    ├── memory/raw/      ← L3对话原文"
+echo "    ├── memory/vector_db/← 向量数据库（升级后重建）"
+echo "    ├── memory/daily/    ← 本机每日记忆摘要"
+echo "    ├── materials/       ← 原始素材"
+echo "    ├── submissions/     ← 待提交内容（inbox / memory_export）"
+echo "    └── runtime/cache/   ← 临时缓存"
 echo ""
 info "架构文档: $AGENT_OS_ROOT/CORE-ARCHITECTURE.md"

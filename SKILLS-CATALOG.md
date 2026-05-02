@@ -1,6 +1,6 @@
 # AgentOS 技能清单与部署手册 v2.0
 
-> 最后更新：2026-04-25 | 设备：MacBook Air M1 8GB | 系统：macOS 26.4
+> 最后更新：2026-05-02 | 设备：MacBook Air M1 8GB | 系统：macOS 26.4
 
 ---
 
@@ -32,6 +32,9 @@
 | `整理收件箱` | inbox_refine | 手动触发提纯 |
 | `抓取` | web_crawler | 网页抓取+反爬 |
 | `备份知识库` | sync_manager | 全量备份 |
+| `git同步` | git_sync_manager | SSH配置+Git同步（替代坚果云） |
+| `SSH配置` | git_sync_manager | 生成SSH密钥并配置Gitee |
+| `多机同步` | git_sync_manager | 多台电脑间同步代码 |
 
 ---
 
@@ -42,7 +45,7 @@
 | 属性 | 值 |
 |------|-----|
 | 版本 | 1.1.0 |
-| 位置 | `~/agent-os/02_skills/memory_manager/` + `~/.workbuddy/skills/memory_manager/` |
+| 位置 | `~/workbuddy-agent-os/agent-sync/02_skills/memory_manager/` + `~/.workbuddy/skills/memory_manager/` |
 | 触发词 | 记忆更新、每日提炼、整理记忆、记忆检查、查记忆 |
 | 核心脚本 | `daily_digest.py`、`bootstrap_from_memory.py`、`memory_cleanup.py`、`agent_memory_init.py` |
 | 依赖 | sqlite-utils ✅、sqlite3(标准库) ✅ |
@@ -52,7 +55,7 @@
 | 属性 | 值 |
 |------|-----|
 | 版本 | 1.1.0 |
-| 位置 | `~/agent-os/02_skills/kb_manager/` + `~/.workbuddy/skills/kb_manager/` |
+| 位置 | `~/workbuddy-agent-os/agent-sync/02_skills/kb_manager/` + `~/.workbuddy/skills/kb_manager/` |
 | 触发词 | 入库、保存知识、知识分类、查知识库、ingest、kb |
 | 核心脚本 | `kb_ingest.py` |
 | 入库目标 | `03_knowledge/00_inbox/`（收件箱，待提纯） |
@@ -63,7 +66,7 @@
 | 属性 | 值 |
 |------|-----|
 | 版本 | 1.0.0 |
-| 位置 | `~/agent-os/02_skills/inbox_refine/` + `~/.workbuddy/skills/inbox_refine/` |
+| 位置 | `~/workbuddy-agent-os/agent-sync/02_skills/inbox_refine/` + `~/.workbuddy/skills/inbox_refine/` |
 | 触发词 | 提纯、整理收件箱、归档inbox、inbox refine |
 | 核心脚本 | `inbox_refine.py` |
 | 自动化 | 每日凌晨 3:00（WorkBuddy automation `agentos-2`） |
@@ -76,7 +79,7 @@
 | 属性 | 值 |
 |------|-----|
 | 版本 | 1.0.0 |
-| 位置 | `~/agent-os/02_skills/collect_to_inbox/` + `~/.workbuddy/skills/collect_to_inbox/` |
+| 位置 | `~/workbuddy-agent-os/agent-sync/02_skills/collect_to_inbox/` + `~/.workbuddy/skills/collect_to_inbox/` |
 | 触发词 | 归集、收集到收件箱、汇聚收件箱、collect inbox |
 | 核心脚本 | `collect_to_inbox.py` |
 | 自动化 | 每日凌晨 2:30（WorkBuddy automation `agentos-3`） |
@@ -89,7 +92,7 @@
 | 属性 | 值 |
 |------|-----|
 | 版本 | 1.0.0 |
-| 位置 | `~/agent-os/02_skills/auto_collector/` + `~/.workbuddy/skills/auto_collector/` |
+| 位置 | `~/workbuddy-agent-os/agent-sync/02_skills/auto_collector/` + `~/.workbuddy/skills/auto_collector/` |
 | 触发词 | 开始收集、停止收集、收集状态、收集报告、监控 |
 | 监控源 | RSS/B站/小红书/抖音/网页 |
 | 依赖 | feedparser ✅、schedule ✅、@tikomni/skills ✅、crawl4ai ✅ |
@@ -100,7 +103,7 @@
 | 属性 | 值 |
 |------|-----|
 | 版本 | 1.0.0 |
-| 位置 | `~/agent-os/02_skills/content_processor/` + `~/.workbuddy/skills/content_processor/` |
+| 位置 | `~/workbuddy-agent-os/agent-sync/02_skills/content_processor/` + `~/.workbuddy/skills/content_processor/` |
 | 触发词 | 转笔记/剪藏/语音摘要/采集/摘抄/提炼/翻译 等 |
 | 路由 | → bilinote / web-clipper / voice-summary / social-collector |
 | 依赖 | trafilatura ✅、whisper ✅、@tikomni/skills ✅、crawl4ai ✅ |
@@ -110,7 +113,7 @@
 | 属性 | 值 |
 |------|-----|
 | 版本 | 1.1.0 |
-| 位置 | `~/agent-os/02_skills/web_crawler/` + `~/.workbuddy/skills/web_crawler/` |
+| 位置 | `~/workbuddy-agent-os/agent-sync/02_skills/web_crawler/` + `~/.workbuddy/skills/web_crawler/` |
 | 触发词 | 抓取、爬取、crawl、fetch |
 | 引擎 | Scrapling(三模式) + Crawl4AI + Playwright+Stealth |
 | 依赖 | scrapling ✅、crawl4ai ✅、playwright ✅、playwright-stealth ✅ |
@@ -121,12 +124,24 @@
 | 属性 | 值 |
 |------|-----|
 | 版本 | 1.1.0 |
-| 位置 | `~/agent-os/02_skills/sync_manager/` + `~/.workbuddy/skills/sync_manager/` |
+| 位置 | `~/workbuddy-agent-os/agent-sync/02_skills/sync_manager/` + `~/.workbuddy/skills/sync_manager/` |
 | 触发词 | 备份知识库、导出知识库、同步状态 |
 | 同步方式 | 坚果云（`~/NutstoreCloudBridge/`） |
 | 依赖 | 坚果云 ✅、tar/gzip(系统自带) ✅ |
 
-### 7. bilinote（视频→结构化笔记）
+### 9. git_sync_manager（Git多机同步管理器）
+
+| 属性 | 值 |
+|------|-----|
+| 版本 | 1.0.0 |
+| 位置 | `~/.workbuddy/skills/git_sync_manager/` |
+| 触发词 | git同步、SSH配置、多机同步、替代坚果云 |
+| 核心功能 | SSH密钥生成、Gitee公钥配置、仓库设置、一键同步 |
+| 同步方向 | pull（拉取）、push（推送）、both（双向） |
+| 依赖 | Git ✅、SSH ✅、Gitee账号 ✅ |
+| 安全设计 | 不存储私钥、使用占位符配置、权限严格控制 |
+
+### 10. bilinote（视频→结构化笔记）
 
 | 属性 | 值 |
 |------|-----|
@@ -257,10 +272,10 @@ MANAGED_NODE=/Users/chengzige/.workbuddy/binaries/node/versions/22.12.0/bin/node
 NODE_WORKSPACE=/Users/chengzige/.workbuddy/binaries/node/workspace
 
 # agent-os
-AGENTOS_ROOT=~/agent-os
+AGENTOS_ROOT=~/workbuddy-agent-os/agent-sync
 
 # 知识库
-KNOWLEDGE_BASE=~/agent-os/03_knowledge/
+KNOWLEDGE_BASE=~/workbuddy-agent-os/agent-sync/03_knowledge/
 
 # 坚果云
 NUTSTORE=~/NutstoreCloudBridge/
@@ -272,7 +287,7 @@ NUTSTORE=~/NutstoreCloudBridge/
 2. 创建 agent-os venv：
    ```bash
    $MANAGED_PYTHON -m venv $AGENTOS_VENV
-   $AGENTOS_VENV/bin/pip install -r ~/agent-os/requirements.txt
+   $AGENTOS_VENV/bin/pip install -r ~/workbuddy-agent-os/agent-sync/requirements.txt
    ```
 3. 安装 Node 依赖：
    ```bash
@@ -282,7 +297,7 @@ NUTSTORE=~/NutstoreCloudBridge/
 5. 安装 Obsidian
 6. 部署 BiliNote Docker
 7. 运行 `playwright install chromium`
-8. 运行冷启动：`$AGENTOS_PYTHON ~/agent-os/02_skills/memory_manager/bootstrap_from_memory.py --root ~/agent-os`
+8. 运行冷启动：`$AGENTOS_PYTHON ~/workbuddy-agent-os/agent-sync/02_skills/memory_manager/bootstrap_from_memory.py --root ~/workbuddy-agent-os/agent-sync`
 
 ---
 
@@ -290,9 +305,9 @@ NUTSTORE=~/NutstoreCloudBridge/
 
 | 任务 | 频率 | 命令 |
 |------|------|------|
-| 每日记忆提炼 | 每日 2:00 | `$AGENTOS_PYTHON ~/agent-os/02_skills/memory_manager/daily_digest.py --root ~/agent-os` |
-| 分类目录汇聚收件箱 | 每日 2:30 | `$AGENTOS_PYTHON ~/agent-os/02_skills/collect_to_inbox/collect_to_inbox.py --root ~/agent-os` |
-| 知识库收件箱提纯 | 每日 3:00 | `$AGENTOS_PYTHON ~/agent-os/02_skills/inbox_refine/inbox_refine.py --root ~/agent-os` |
+| 每日记忆提炼 | 每日 2:00 | `$AGENTOS_PYTHON ~/workbuddy-agent-os/agent-sync/02_skills/memory_manager/daily_digest.py --root ~/workbuddy-agent-os/agent-sync` |
+| 分类目录汇聚收件箱 | 每日 2:30 | `$AGENTOS_PYTHON ~/workbuddy-agent-os/agent-sync/02_skills/collect_to_inbox/collect_to_inbox.py --root ~/workbuddy-agent-os/agent-sync` |
+| 知识库收件箱提纯 | 每日 3:00 | `$AGENTOS_PYTHON ~/workbuddy-agent-os/agent-sync/02_skills/inbox_refine/inbox_refine.py --root ~/workbuddy-agent-os/agent-sync` |
 | RSS 检查 | 每小时 | auto_collector |
 | 社交平台检查 | 每 2 小时 | auto_collector + TikOmni |
 | 网页变化检查 | 每小时 | auto_collector + Crawl4AI |

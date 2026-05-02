@@ -2,7 +2,7 @@
 # ============================================================
 # AgentOS 备份脚本
 # 用途：备份核心配置、记忆体和知识库到指定目录
-# 使用：cd ~/agent-os/07_migration && bash backup.sh [backup_dir]
+# 使用：cd ~/workbuddy-agent-os/agent-sync/07_migration && bash backup.sh [backup_dir]
 # 说明：日常备份由坚果云自动同步，此脚本用于手动创建额外备份
 # ============================================================
 

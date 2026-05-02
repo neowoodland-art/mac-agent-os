@@ -6,7 +6,7 @@ inbox_refine.py - 知识库收件箱提纯脚本
 更新知识库首页统计和变更日志。
 
 用法：
-    python3 inbox_refine.py --root ~/agent-os [--dry-run] [--date YYYY-MM-DD]
+    python3 inbox_refine.py --root ~/workbuddy-agent-os/agent-sync [--dry-run] [--date YYYY-MM-DD]
 """
 
 import os
@@ -440,7 +440,7 @@ def update_changelog(kb_root: Path, date_str: str, archived: list, skipped: list
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AgentOS 知识库收件箱提纯")
-    parser.add_argument("--root", default="~/agent-os", help="agent-os 根目录")
+    parser.add_argument("--root", default="~/workbuddy-agent-os/agent-sync", help="agent-os 根目录")
     parser.add_argument("--dry-run", action="store_true", help="试运行，不实际修改文件")
     parser.add_argument("--date", default=None, help="日期 (YYYY-MM-DD)")
     args = parser.parse_args()

@@ -4,4 +4,4 @@
 # local_data_root: 本机 agent-local/tools/matrix 目录的绝对路径
 
 matrix:
-  local_data_root: /Users/chengzige/workbuddy-agent-os/agent-local/tools/matrix
+  local_data_root: /Users/5kecheng/workbuddy-agent-os/agent-local/tools/matrix

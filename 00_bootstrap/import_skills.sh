@@ -2,7 +2,7 @@
 # ============================================================
 # AgentOS 技能导入脚本
 # 用途：将 02_skills/ 下的自定义技能注册到 WorkBuddy
-# 使用：cd ~/agent-os/00_bootstrap && bash import_skills.sh [skill_name]
+# 使用：cd ~/workbuddy-agent-os/agent-sync/00_bootstrap && bash import_skills.sh [skill_name]
 # 参数：skill_name - 可选，指定导入单个技能；不传则导入全部
 # ============================================================
 

@@ -74,7 +74,7 @@ triggers:
 
 ## 配置文件
 
-监控源列表存储在：`~/agent-os/02_skills/auto_collector/sources.json`
+监控源列表存储在：`~/workbuddy-agent-os/agent-sync/02_skills/auto_collector/sources.json`
 
 ```json
 {

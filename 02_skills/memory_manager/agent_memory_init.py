@@ -2,7 +2,7 @@
 """
 AgentOS 记忆体初始化脚本
 用途：首次运行时创建 L1 索引文件、L2 事实库、L3 原文目录
-使用：python3 agent_memory_init.py --root ~/agent-os
+使用：python3 agent_memory_init.py --root ~/workbuddy-agent-os/agent-sync
 """
 
 import argparse

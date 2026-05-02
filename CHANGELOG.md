@@ -10,7 +10,7 @@
 - `VERSION` 文件（版本号唯一来源）
 
 ### 修复
-- 路径清理：删除 `~/agent-os/` 和 `~/agent-os-local/` 残留目录
+- 路径清理：删除 `~/workbuddy-agent-os/agent-sync/` 和 `~/workbuddy-agent-os/agent-local/` 残留目录
 - 5 个脚本的 help 文本从"agent-os-local 根目录"修正为完整路径
 
 ### 变更
@@ -32,7 +32,7 @@
 ### 修复
 
 - **依赖管理统一**：删除旧的 `04_memory/vector_db/.venv`，统一使用 managed Python 专用 venv
-  - 旧路径：`~/agent-os/04_memory/vector_db/.venv`（分散，与脚本运行环境不一致）
+  - 旧路径：`~/workbuddy-agent-os/agent-sync/04_memory/vector_db/.venv`（分散，与脚本运行环境不一致）
   - 新路径：`~/.workbuddy/binaries/python/envs/agent-os/`（统一，脚本和自动化共用）
 - **init.sh 修复**：指向新 venv，用 `requirements.txt` 安装依赖
 - **daily_digest.py 重写**：接入三个真实数据源（Claw 工作日志、WorkBuddy 系统画像、上轮摘要）

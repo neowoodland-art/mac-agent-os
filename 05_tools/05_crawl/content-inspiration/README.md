@@ -44,7 +44,7 @@
                                     └──────┬───────┘
                                            │
                                            ▼
-                               ~/agent-os-local/materials/
+                               ~/workbuddy-agent-os/agent-local/materials/
 ```
 
 ### 技术选型
@@ -83,7 +83,7 @@ curl -s http://localhost:8000/v1/models -H "Authorization: Bearer omlx" | python
 ### 3.3 初始化数据库
 
 ```bash
-cd ~/agent-os/05_tools/05_crawl/content-inspiration
+cd ~/workbuddy-agent-os/agent-sync/05_tools/05_crawl/content-inspiration
 ~/.workbuddy/binaries/python/envs/agent-os/bin/python3 collect.py --init-db
 # 输出: [OK] 数据库初始化完成
 ```
@@ -136,13 +136,13 @@ content-inspiration/
 ### 与 AgentOS 的关系
 
 ```
-~/agent-os/                          ← 坚果云同步 + Git
+~/workbuddy-agent-os/agent-sync/                          ← 坚果云同步 + Git
 └── 05_tools/05_crawl/
     └── content-inspiration/         ← 本项目
         ├── 代码 + 配置 + 数据库      （同步）
         └── data/raw/*.jsonl         （同步）
 
-~/agent-os-local/                    ← 本机专属，不同步
+~/workbuddy-agent-os/agent-local/                    ← 本机专属，不同步
 └── materials/
     ├── video/                       ← 下载的视频
     └── audio/                       ← 下载的音频
@@ -182,8 +182,8 @@ llm:
 storage:
   raw_dir: "data/raw"
   db_path: "data/database.db"
-  media_dir: "~/agent-os-local/materials/video"
-  audio_dir: "~/agent-os-local/materials/audio"
+  media_dir: "~/workbuddy-agent-os/agent-local/materials/video"
+  audio_dir: "~/workbuddy-agent-os/agent-local/materials/audio"
 
 # Web 界面
 web:
@@ -271,7 +271,7 @@ python downloader.py -n 5
 python downloader.py -u "https://v.douyin.com/xxx"
 ```
 
-**输出**：文件保存到 `~/agent-os-local/materials/video/`，文件名格式：
+**输出**：文件保存到 `~/workbuddy-agent-os/agent-local/materials/video/`，文件名格式：
 ```
 xiaohongshu_作者名_标题前20字_日期.mp4
 ```
@@ -358,7 +358,7 @@ python app.py
 ---
 title: 普通人逆袭合集
 source_url: https://www.xiaohongshu.com/explore/xxx
-local_path: ~/agent-os-local/materials/video/xiaohongshu_作者_标题.mp4
+local_path: ~/workbuddy-agent-os/agent-local/materials/video/xiaohongshu_作者_标题.mp4
 type: video
 platform: xiaohongshu
 collected_by: Redmi-12C
@@ -377,7 +377,7 @@ tags: [口播素材, 励志, 逆袭]
 ### 安装
 
 ```bash
-cd ~/agent-os/05_tools/05_crawl
+cd ~/workbuddy-agent-os/agent-sync/05_tools/05_crawl
 git clone https://github.com/NanmiCoder/MediaCrawler.git
 cd MediaCrawler
 ~/.workbuddy/binaries/python/envs/agent-os/bin/pip install -r requirements.txt
@@ -387,7 +387,7 @@ cd MediaCrawler
 
 各平台需要在首次使用前扫码登录获取 Cookie：
 
-1. `cd ~/agent-os/05_tools/05_crawl/MediaCrawler`
+1. `cd ~/workbuddy-agent-os/agent-sync/05_tools/05_crawl/MediaCrawler`
 2. `python main.py --platform xhs --lt qrcode`
 3. 扫描终端显示的二维码
 4. Cookie 自动保存，后续无需重复登录
@@ -397,7 +397,7 @@ cd MediaCrawler
 安装完成后，更新 `config.yaml`：
 ```yaml
 crawler:
-  project_path: "~/agent-os/05_tools/05_crawl/MediaCrawler"
+  project_path: "~/workbuddy-agent-os/agent-sync/05_tools/05_crawl/MediaCrawler"
 ```
 
 ---

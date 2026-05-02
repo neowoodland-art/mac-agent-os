@@ -62,7 +62,7 @@ analyze.py → oMLX(Qwen2.5-VL-3B) → AI 标签/金句/情绪/推荐
      ↓
 app.py (Web界面) → 浏览/搜索/标记下载
      ↓
-downloader.py → yt-dlp → ~/agent-os-local/materials/video/
+downloader.py → yt-dlp → ~/workbuddy-agent-os/agent-local/materials/video/
      ↓
 知识库索引卡片 → 03_knowledge/50_resources/
 ```
@@ -98,11 +98,11 @@ downloader.py → yt-dlp → ~/agent-os-local/materials/video/
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
-| 项目代码 | `~/agent-os/05_tools/05_crawl/content-inspiration/` | 坚果云同步 + Git |
+| 项目代码 | `~/workbuddy-agent-os/agent-sync/05_tools/05_crawl/content-inspiration/` | 坚果云同步 + Git |
 | 原始 JSONL | `data/raw/` | 跟随项目目录 |
 | SQLite 数据库 | `data/database.db` | 跟随项目目录 |
-| 下载的视频 | `~/agent-os-local/materials/video/` | 本机专属，不同步 |
-| 下载的音频 | `~/agent-os-local/materials/audio/` | 本机专属，不同步 |
+| 下载的视频 | `~/workbuddy-agent-os/agent-local/materials/video/` | 本机专属，不同步 |
+| 下载的音频 | `~/workbuddy-agent-os/agent-local/materials/audio/` | 本机专属，不同步 |
 | 运行日志 | `logs/` | 跟随项目目录 |
 
 ## 限制与注意事项

@@ -27,14 +27,14 @@
     ↓ collect_to_inbox / 用户手动提炼
 agent-os-local/materials/refined_for_inbox/
     ↓ 用户确认/AI判断固化条件
-agent-os/03_knowledge/00_stream/inbox/
+agent-sync/03_knowledge/00_stream/inbox/
     ├── knowledge/   ← 外部知识采集
     ├── memory/      ← 记忆固化内容
     ├── tools/       ← 工具提交
     ├── personal/    ← 个人笔记
     └── media/       ← 轻量媒体
     ↓ inbox_refine / kb_manager（AI自动分类）
-agent-os/03_knowledge/[10~60_xxx]/
+agent-sync/03_knowledge/[10~60_xxx]/
     ↓ 每台机器自动重建
 agent-os-local/vector_db/global/   ← 协同知识向量化
 agent-os-local/vector_db/local/    ← 私有内容向量化
@@ -212,7 +212,7 @@ agent-os-local/
 
 ### Phase 1：目录结构落地（即可执行）
 - [x] 创建规划文档（本文件）
-- [ ] 创建 `agent-os/03_knowledge/00_stream/inbox/{knowledge,memory,tools,personal,media}/`
+- [ ] 创建 `agent-sync/03_knowledge/00_stream/inbox/{knowledge,memory,tools,personal,media}/`
 - [ ] 创建 `agent-os-local/knowledge/{projects,personal}/`
 - [ ] 创建 `agent-os-local/memory/long_term/`
 - [ ] 创建 `agent-os-local/vector_db/{local,global}/chroma/`

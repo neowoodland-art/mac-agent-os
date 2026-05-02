@@ -3,10 +3,10 @@
 collect_to_inbox.py —— 扫描知识库各分类目录，提取主要内容生成标准化 MD 放入收件箱
 
 用法：
-  python3 collect_to_inbox.py --root ~/agent-os [--dry-run] [--force]
+  python3 collect_to_inbox.py --root ~/workbuddy-agent-os/agent-sync [--dry-run] [--force]
 
 参数：
-  --root    agent-os 根目录（默认 ~/agent-os）
+  --root    agent-os 根目录（默认 ~/workbuddy-agent-os/agent-sync）
   --dry-run 只预览不写入
   --force   忽略 collected 标记，重新收集
 """
@@ -285,7 +285,7 @@ status: inbox
 
 def main():
     parser = argparse.ArgumentParser(description="收集各分类目录内容到收件箱")
-    parser.add_argument("--root", default="~/agent-os", help="agent-os 根目录")
+    parser.add_argument("--root", default="~/workbuddy-agent-os/agent-sync", help="agent-os 根目录")
     parser.add_argument("--dry-run", action="store_true", help="只预览不写入")
     parser.add_argument("--force", action="store_true", help="忽略 collected 标记，重新收集")
     args = parser.parse_args()

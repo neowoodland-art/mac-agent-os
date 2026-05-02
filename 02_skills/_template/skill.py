@@ -2,7 +2,7 @@
 """
 __SKILL_NAME__ 技能主体脚本
 用途：__SKILL_DESCRIPTION__
-使用：python3 skill.py --root ~/agent-os
+使用：python3 skill.py --root ~/workbuddy-agent-os/agent-sync
 """
 
 import argparse

@@ -2,7 +2,7 @@
   "mcpServers": {
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "~/agent-os"]
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "~/workbuddy-agent-os/agent-sync"]
     },
     "memory": {
       "command": "npx",

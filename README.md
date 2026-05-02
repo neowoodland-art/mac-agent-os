@@ -19,7 +19,7 @@ AgentOS 是一个本地运行的智能体操作系统，为 AI Agent（Claw 🦀
 ## 二、目录结构
 
 ```
-~/agent-os/
+~/workbuddy-agent-os/agent-sync/
 ├── 00_bootstrap/           # 初始化脚本
 │   ├── init.sh             # 一键初始化
 │   └── apply-config.sh     # 配置部署
@@ -135,7 +135,7 @@ MANAGED_NODE=~/.workbuddy/binaries/node/versions/22.12.0/bin/node
 NUTSTORE=~/NutstoreCloudBridge/
 
 # 知识库
-KNOWLEDGE_BASE=~/agent-os/03_knowledge/
+KNOWLEDGE_BASE=~/workbuddy-agent-os/agent-sync/03_knowledge/
 ```
 
 ---
@@ -144,14 +144,14 @@ KNOWLEDGE_BASE=~/agent-os/03_knowledge/
 
 ```bash
 # 1. 初始化
-cd ~/agent-os && bash 00_bootstrap/init.sh
+cd ~/workbuddy-agent-os/agent-sync && bash 00_bootstrap/init.sh
 
 # 2. 安装 Python 依赖
 ~/.workbuddy/binaries/python/envs/agent-os/bin/pip install -r requirements.txt
 
 # 3. 冷启动记忆体
 ~/.workbuddy/binaries/python/envs/agent-os/bin/python3 \
-  02_skills/memory_manager/bootstrap_from_memory.py --root ~/agent-os
+  02_skills/memory_manager/bootstrap_from_memory.py --root ~/workbuddy-agent-os/agent-sync
 
 # 4. 验证
 ~/.workbuddy/binaries/python/envs/agent-os/bin/python3 -c \

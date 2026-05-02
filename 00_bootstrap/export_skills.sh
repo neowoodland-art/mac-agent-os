@@ -2,7 +2,7 @@
 # ============================================================
 # AgentOS 技能导出脚本
 # 用途：将指定技能导出为可分发的压缩包
-# 使用：cd ~/agent-os/00_bootstrap && bash export_skills.sh <skill_name>
+# 使用：cd ~/workbuddy-agent-os/agent-sync/00_bootstrap && bash export_skills.sh <skill_name>
 # 示例：bash export_skills.sh memory_manager
 # ============================================================
 
@@ -55,4 +55,4 @@ cd - > /dev/null
 
 ok "已导出: $ARCHIVE_PATH"
 info "其他人可通过以下命令导入:"
-info "  cd ~/agent-os/00_bootstrap && bash import_skills.sh $ARCHIVE_PATH"
+info "  cd ~/workbuddy-agent-os/agent-sync/00_bootstrap && bash import_skills.sh $ARCHIVE_PATH"

@@ -10,7 +10,7 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 # 📚 AgentOS 知识库
 
 > 本知识库采用**英文目录 + 中文映射**体系，按知识属性分层存储。
-> Vault 路径：`~/agent-os/03_knowledge/` | Obsidian 已绑定此目录
+> Vault 路径：`~/workbuddy-agent-os/agent-sync/03_knowledge/` | Obsidian 已绑定此目录
 
 ---
 

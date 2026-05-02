@@ -14,7 +14,7 @@
 ## 步骤 1：初始化
 
 ```bash
-cd ~/agent-os/00_bootstrap
+cd ~/workbuddy-agent-os/agent-sync/00_bootstrap
 bash init.sh
 ```
 
@@ -44,8 +44,8 @@ bash import_skills.sh
 
 ```bash
 ~/.workbuddy/binaries/python/envs/agent-os/bin/python3 \
-  ~/agent-os/02_skills/memory_manager/bootstrap_from_memory.py \
-  --root ~/agent-os
+  ~/workbuddy-agent-os/agent-sync/02_skills/memory_manager/bootstrap_from_memory.py \
+  --root ~/workbuddy-agent-os/agent-sync
 ```
 
 将已有的工作记忆（MEMORY.md + 工作日志 + 系统画像）导入 L1/L2 记忆体。
@@ -58,10 +58,10 @@ bash import_skills.sh
 
 **方式 A（推荐）**：移动到坚果云同步目录
 ```bash
-mv ~/agent-os ~/NutstoreCloudBridge/agent-os
+mv ~/workbuddy-agent-os/agent-sync ~/NutstoreCloudBridge/agent-os
 ```
 
-**方式 B**：在坚果云客户端中添加 `~/agent-os/` 为自定义同步文件夹
+**方式 B**：在坚果云客户端中添加 `~/workbuddy-agent-os/agent-sync/` 为自定义同步文件夹
 
 > ⚠️ 移动后需更新 WorkBuddy 自动化中的路径。
 
@@ -69,7 +69,7 @@ mv ~/agent-os ~/NutstoreCloudBridge/agent-os
 
 1. 下载安装 [Obsidian](https://obsidian.md)
 2. 启动后选择"打开文件夹"
-3. 选择 `~/agent-os/03_knowledge/`
+3. 选择 `~/workbuddy-agent-os/agent-sync/03_knowledge/`
 4. 建议安装 Dataview 插件（用于时间线视图）
 
 ## 步骤 7：重启 WorkBuddy
@@ -96,7 +96,7 @@ conn.close()
 "
 
 # 查看 L1 索引
-cat ~/agent-os/04_memory/vector_db/keyword_index.json | python3 -c "
+cat ~/workbuddy-agent-os/agent-sync/04_memory/vector_db/keyword_index.json | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 print(f'L1 索引条目: {len(data[\"entries\"])}')

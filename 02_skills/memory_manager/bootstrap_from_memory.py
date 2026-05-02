@@ -5,8 +5,8 @@ AgentOS 记忆体冷启动脚本
       这是记忆系统的「时间起点」——没有此步骤，L1/L2 将永远为空
 
 使用：
-  python3 bootstrap_from_memory.py --root ~/agent-os
-  python3 bootstrap_from_memory.py --root ~/agent-os --dry-run   # 预览不写入
+  python3 bootstrap_from_memory.py --root ~/workbuddy-agent-os/agent-sync
+  python3 bootstrap_from_memory.py --root ~/workbuddy-agent-os/agent-sync --dry-run   # 预览不写入
 
 数据来源（全量导入）：
   1. ~/WorkBuddy/Claw/.workbuddy/memory/MEMORY.md       ← 长期精炼记忆

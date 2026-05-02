@@ -33,7 +33,7 @@
 
 # 2. 安装依赖
 ~/.workbuddy/binaries/python/envs/agent-os/bin/pip install \
-  -r ~/agent-os/requirements.txt
+  -r ~/workbuddy-agent-os/agent-sync/requirements.txt
 
 # 3. 验证
 ~/.workbuddy/binaries/python/envs/agent-os/bin/python3 \
@@ -68,11 +68,11 @@
 当前坚果云同步路径：`~/NutstoreCloudBridge/`
 
 配置方式（二选一）：
-1. **方式 A（推荐）**：将 `~/agent-os/` 移动到坚果云同步目录
+1. **方式 A（推荐）**：将 `~/workbuddy-agent-os/agent-sync/` 移动到坚果云同步目录
    ```bash
-   mv ~/agent-os ~/NutstoreCloudBridge/agent-os
+   mv ~/workbuddy-agent-os/agent-sync ~/NutstoreCloudBridge/agent-os
    ```
-2. **方式 B**：在坚果云客户端中添加 `~/agent-os/` 为自定义同步文件夹
+2. **方式 B**：在坚果云客户端中添加 `~/workbuddy-agent-os/agent-sync/` 为自定义同步文件夹
 
 > ⚠️ 移动后需更新 WorkBuddy 自动化中的路径和工作区配置。
 
@@ -94,7 +94,7 @@ AgentOS 依赖一个 WorkBuddy 自动化任务，每日凌晨 2:00 自动执行�
 | 名称 | AgentOS 每日记忆提炼 |
 | 调度 | 每日凌晨 2:00 |
 | Python 路径 | `~/.workbuddy/binaries/python/envs/agent-os/bin/python3` |
-| 脚本路径 | `~/agent-os/02_skills/memory_manager/daily_digest.py` |
+| 脚本路径 | `~/workbuddy-agent-os/agent-sync/02_skills/memory_manager/daily_digest.py` |
 
 > 此自动化在首次运行 `init.sh` 后由 WorkBuddy 内部创建，无需手动配置。
 
@@ -136,5 +136,5 @@ ls ~/NutstoreCloudBridge/ && echo "坚果云已安装"
 全部就绪后，执行初始化：
 
 ```bash
-cd ~/agent-os/00_bootstrap && bash init.sh
+cd ~/workbuddy-agent-os/agent-sync/00_bootstrap && bash init.sh
 ```

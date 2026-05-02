@@ -6,11 +6,11 @@ AgentOS 每日对话提炼脚本
 数据源优先级（按顺序逐一尝试，全部合并）：
   1. WorkBuddy Claw 工作记忆日志    → ~/WorkBuddy/Claw/.workbuddy/memory/YYYY-MM-DD.md
   2. WorkBuddy 系统用户画像         → ~/.workbuddy/memery/*.md
-  3. agent-os 每日摘要              → ~/agent-os/04_memory/daily_summaries/YYYY-MM-DD.md
+  3. agent-os 每日摘要              → ~/workbuddy-agent-os/agent-sync/04_memory/daily_summaries/YYYY-MM-DD.md
 
 使用：
-  python3 daily_digest.py --root ~/agent-os --date 2026-04-25
-  python3 daily_digest.py --root ~/agent-os          # 默认处理昨天
+  python3 daily_digest.py --root ~/workbuddy-agent-os/agent-sync --date 2026-04-25
+  python3 daily_digest.py --root ~/workbuddy-agent-os/agent-sync          # 默认处理昨天
 """
 
 import argparse

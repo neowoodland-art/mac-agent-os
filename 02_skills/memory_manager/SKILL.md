@@ -64,10 +64,10 @@ triggers:
 - 向量引擎：ChromaDB（持久化）+ oMLX Qwen3-Embedding-0.6B（1024维）
 - 融合策略：Reciprocal Rank Fusion (RRF)，BM25 权重 0.4 / 向量权重 0.6
 - CLI 用法：
-  - 检索：`python3 semantic_search.py search --root ~/agent-os --query "查询内容" --top-k 5`
-  - 回填：`python3 semantic_search.py backfill --root ~/agent-os`
-  - 重建：`python3 semantic_search.py rebuild --root ~/agent-os`
-  - 测试：`python3 semantic_search.py embed --root ~/agent-os --text "测试"`
+  - 检索：`python3 semantic_search.py search --root ~/workbuddy-agent-os/agent-sync --query "查询内容" --top-k 5`
+  - 回填：`python3 semantic_search.py backfill --root ~/workbuddy-agent-os/agent-sync`
+  - 重建：`python3 semantic_search.py rebuild --root ~/workbuddy-agent-os/agent-sync`
+  - 测试：`python3 semantic_search.py embed --root ~/workbuddy-agent-os/agent-sync --text "测试"`
 
 ## 文件结构
 
@@ -89,12 +89,12 @@ memory_manager/
 > **Python 路径**：所有脚本使用 agent-os 专用虚拟环境
 > `/Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/python3`
 
-1. 初始化：`python3 agent_memory_init.py --root ~/agent-os`
-2. 冷启动：`python3 bootstrap_from_memory.py --root ~/agent-os`
-3. 每日提炼：`python3 daily_digest.py --root ~/agent-os --date YYYY-MM-DD`
-4. 冲突清理：`python3 memory_cleanup.py --root ~/agent-os`
-5. 导出记忆：`python3 export_memories.py --root ~/agent-os --output ~/backup/`
-6. 导入记忆：`python3 import_memories.py --root ~/agent-os --input ~/backup/memories.zip`
+1. 初始化：`python3 agent_memory_init.py --root ~/workbuddy-agent-os/agent-sync`
+2. 冷启动：`python3 bootstrap_from_memory.py --root ~/workbuddy-agent-os/agent-sync`
+3. 每日提炼：`python3 daily_digest.py --root ~/workbuddy-agent-os/agent-sync --date YYYY-MM-DD`
+4. 冲突清理：`python3 memory_cleanup.py --root ~/workbuddy-agent-os/agent-sync`
+5. 导出记忆：`python3 export_memories.py --root ~/workbuddy-agent-os/agent-sync --output ~/backup/`
+6. 导入记忆：`python3 import_memories.py --root ~/workbuddy-agent-os/agent-sync --input ~/backup/memories.zip`
 
 ## 数据源
 
@@ -107,7 +107,7 @@ memory_manager/
 ## 自动化
 
 - WorkBuddy 自动化「AgentOS 每日记忆提炼」已配置：每日凌晨 2:00 执行
-- 命令：`/Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/python3 ~/agent-os/02_skills/memory_manager/daily_digest.py --root ~/agent-os`
+- 命令：`/Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/python3 ~/workbuddy-agent-os/agent-sync/02_skills/memory_manager/daily_digest.py --root ~/workbuddy-agent-os/agent-sync`
 
 ## 依赖
 

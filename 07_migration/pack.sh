@@ -2,7 +2,7 @@
 # ============================================================
 # AgentOS 全量打包脚本
 # 用途：将整个 agent-os 目录打包为可分享/备份的压缩包
-# 使用：cd ~/agent-os/07_migration && bash pack.sh
+# 使用：cd ~/workbuddy-agent-os/agent-sync/07_migration && bash pack.sh
 # ============================================================
 
 set -euo pipefail
@@ -35,4 +35,4 @@ ok "打包完成: $OUTPUT_DIR/$ARCHIVE_NAME ($SIZE)"
 echo ""
 info "其他人可通过以下命令解压："
 info "  tar -xzf $ARCHIVE_NAME -C ~/"
-info "  cd ~/agent-os/00_bootstrap && bash init.sh"
+info "  cd ~/workbuddy-agent-os/agent-sync/00_bootstrap && bash init.sh"

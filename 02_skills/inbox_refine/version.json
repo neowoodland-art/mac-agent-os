@@ -7,11 +7,11 @@
   "dependencies": ["file_read", "file_write", "python3"],
   "schedule": "daily 03:00",
   "paths": {
-    "inbox": "~/agent-os/03_knowledge/00_inbox/",
-    "knowledge_root": "~/agent-os/03_knowledge/",
-    "homepage": "~/agent-os/03_knowledge/README.md",
-    "changelog": "~/agent-os/03_knowledge/CHANGELOG.md",
-    "templates": "~/agent-os/03_knowledge/99_system/templates/",
-    "taxonomies": "~/agent-os/03_knowledge/99_system/taxonomies/"
+    "inbox": "~/workbuddy-agent-os/agent-sync/03_knowledge/00_inbox/",
+    "knowledge_root": "~/workbuddy-agent-os/agent-sync/03_knowledge/",
+    "homepage": "~/workbuddy-agent-os/agent-sync/03_knowledge/README.md",
+    "changelog": "~/workbuddy-agent-os/agent-sync/03_knowledge/CHANGELOG.md",
+    "templates": "~/workbuddy-agent-os/agent-sync/03_knowledge/99_system/templates/",
+    "taxonomies": "~/workbuddy-agent-os/agent-sync/03_knowledge/99_system/taxonomies/"
   }
 }

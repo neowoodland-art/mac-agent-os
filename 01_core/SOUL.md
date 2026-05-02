@@ -175,12 +175,12 @@ L2 结构化事实/摘要匹配
 
 | 模块 | 路径 | 说明 |
 |---|---|---|
-| 核心配置 | ~/agent-os/01_core/ → ~/.workbuddy/ | 通过 apply-config.sh 部署 |
-| 技能包 | ~/agent-os/02_skills/ | WorkBuddy 自定义技能 |
-| 知识库 | ~/agent-os/03_knowledge/ | Obsidian Vault |
-| 记忆体 | ~/agent-os/04_memory/ | L0-L3 分层存储 |
-| 工具脚本 | ~/agent-os/05_tools/ | 核心能力沉淀 |
-| 运行时 | ~/agent-os/06_runtime/ | 任务日志、临时缓存 |
-| 迁移 | ~/agent-os/07_migration/ | 打包分享 |
+| 核心配置 | ~/workbuddy-agent-os/agent-sync/01_core/ → ~/.workbuddy/ | 通过 apply-config.sh 部署 |
+| 技能包 | ~/workbuddy-agent-os/agent-sync/02_skills/ | WorkBuddy 自定义技能 |
+| 知识库 | ~/workbuddy-agent-os/agent-sync/03_knowledge/ | Obsidian Vault |
+| 记忆体 | ~/workbuddy-agent-os/agent-sync/04_memory/ | L0-L3 分层存储 |
+| 工具脚本 | ~/workbuddy-agent-os/agent-sync/05_tools/ | 核心能力沉淀 |
+| 运行时 | ~/workbuddy-agent-os/agent-sync/06_runtime/ | 任务日志、临时缓存 |
+| 迁移 | ~/workbuddy-agent-os/agent-sync/07_migration/ | 打包分享 |
 
 > 所有路径使用 `$HOME` 或相对路径，不硬编码绝对路径，确保跨平台兼容。

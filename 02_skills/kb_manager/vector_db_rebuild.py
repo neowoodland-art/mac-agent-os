@@ -4,7 +4,7 @@ vector_db_rebuild.py — 双轨向量库重建工具
 
 重建两套向量库：
   - local：agent-os-local/ 下的私有内容（记忆、本机笔记）
-  - global：agent-os/03_knowledge/ 下的协同知识库
+  - global：agent-sync/03_knowledge/ 下的协同知识库
 
 向量库存储在 agent-os-local/vector_db/ 下（永不同步）：
   agent-os-local/vector_db/local/chroma/    ← 私有内容

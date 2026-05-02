@@ -5,7 +5,7 @@
 功能：
   1. 查询所有 download_status='pending' 的素材
   2. 使用 yt-dlp 下载视频/音频
-  3. 保存到 ~/agent-os-local/materials/video/ 或 audio/
+  3. 保存到 ~/workbuddy-agent-os/agent-local/materials/video/ 或 audio/
   4. 更新数据库中的 local_files 和 download_status
 
 前置条件：
@@ -50,7 +50,7 @@ def download_one(material: dict, config: dict, logger) -> dict:
     author = material.get("author", "unknown")
     
     # 确定输出路径
-    media_dir = os.path.expanduser(config["storage"].get("media_dir", "~/agent-os-local/materials/video"))
+    media_dir = os.path.expanduser(config["storage"].get("media_dir", "~/workbuddy-agent-os/agent-local/materials/video"))
     os.makedirs(media_dir, exist_ok=True)
     
     # 文件名

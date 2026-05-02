@@ -54,6 +54,22 @@ system-check-report-*.md
 # Obsidian 插件（各设备自行安装）
 .obsidian/plugins/
 
+# 本机身份文件（从模板生成，每机独立）
+01_core/IDENTITY.md
+01_core/HOST_ID.md
+01_core/USER.md
+
+# 本地化MCP配置
+01_core/mcp.json
+01_core/mcp.tpl.json
+
+# 本机记忆数据库（各机独立）
+04_memory/long_term/facts.db
+
+# 日志文件（各机独立）
+04_memory/logs/*.log
+04_memory/logs/*.log.*
+
 # 配置备份
 backup_*/
 # 本机数据目录（不同步）

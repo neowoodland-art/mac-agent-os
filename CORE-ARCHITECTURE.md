@@ -1,7 +1,7 @@
 # CORE-ARCHITECTURE.md —— AgentOS 核心架构说明
 
 > 本文档是 AgentOS 的"宪法"，定义了目录职责、数据边界、换机流程。
-> 最后更新：2026-04-28
+> 最后更新：2026-05-02
 
 ---
 
@@ -17,7 +17,7 @@ AgentOS 是一套运行在个人 Mac 上的**智能体外骨骼系统**，核心
 
 ## 二、目录职责
 
-### `~/agent-os/`（坚果云同步 + Git 版本控制）
+### `~/workbuddy-agent-os/agent-sync/`（坚果云同步 + Git 版本控制）
 
 | 目录 | 职责 | 同步 | Git |
 |------|------|------|-----|
@@ -35,7 +35,7 @@ AgentOS 是一套运行在个人 Mac 上的**智能体外骨骼系统**，核心
 | `SKILLS-CATALOG.md` | 技能目录 | ✅ | ✅ |
 | `CORE-ARCHITECTURE.md` | 本文档 | ✅ | ✅ |
 
-### `~/agent-os-local/`（本机专属，不同步，不进 Git）
+### `~/workbuddy-agent-os/agent-local/`（本机专属，不同步，不进 Git）
 
 ```
 agent-os-local/
@@ -59,9 +59,9 @@ agent-os-local/
 ## 三、软链接映射
 
 ```
-~/agent-os/04_memory/long_term/raw     → ~/agent-os-local/memory/raw
-~/agent-os/04_memory/vector_db         → ~/agent-os-local/memory/vector_db
-~/agent-os/06_runtime/cache            → ~/agent-os-local/runtime/cache
+~/workbuddy-agent-os/agent-sync/04_memory/long_term/raw     → ~/workbuddy-agent-os/agent-local/memory/raw
+~/workbuddy-agent-os/agent-sync/04_memory/vector_db         → ~/workbuddy-agent-os/agent-local/memory/vector_db
+~/workbuddy-agent-os/agent-sync/06_runtime/cache            → ~/workbuddy-agent-os/agent-local/runtime/cache
 ```
 
 换机时 `init.sh` 会自动检测并重建这些软链接。
@@ -87,6 +87,7 @@ agent-os-local/
 |------|------|
 | `content_processor` | 统一内容处理（视频/文章/语音/社交） |
 | `web_crawler` | 网页抓取 + 反爬 |
+| `git_sync_manager` | Git多机同步管理器（替代坚果云依赖） |
 
 ---
 
@@ -108,7 +109,7 @@ agent-os-local/
 ---
 title: 素材标题
 source_url: https://...
-local_path: ~/agent-os-local/materials/video/xxx.mp4
+local_path: ~/workbuddy-agent-os/agent-local/materials/video/xxx.mp4
 type: video|audio|web|image
 platform: douyin|xiaohongshu|bilibili|web
 collected_by: Redmi-12C
@@ -125,8 +126,8 @@ tags: [标签1, 标签2]
 ## 六、同步策略
 
 ### 坚果云
-- 同步整个 `~/agent-os/` 目录
-- `~/agent-os-local/` 不加入同步（通过软链接隔离，天然安全）
+- 同步整个 `~/workbuddy-agent-os/agent-sync/` 目录
+- `~/workbuddy-agent-os/agent-local/` 不加入同步（通过软链接隔离，天然安全）
 - 无需配置选择性排除
 
 ### Git
@@ -134,10 +135,17 @@ tags: [标签1, 标签2]
 - 分支策略：main 分支，单线开发
 - 排除：大媒体文件、运行时缓存、打包产物（见 `.gitignore`）
 
+### Git同步技能（替代坚果云）
+使用 `git_sync_manager` 技能可完全替代坚果云依赖：
+1. **首次配置**：技能引导完成SSH密钥生成、Gitee公钥添加、仓库配置
+2. **日常同步**：一键执行 `git pull` / `git push` 操作
+3. **多机管理**：每台电脑使用独立SSH密钥，安全隔离
+4. **自动化**：可配置定时任务或通过 `agentos sync` 命令触发
+
 ### 数据流
 
 ```
-本机采集 → ~/agent-os-local/materials/ → AI提炼 → ~/agent-os/03_knowledge/00_inbox/
+本机采集 → ~/workbuddy-agent-os/agent-local/materials/ → AI提炼 → ~/workbuddy-agent-os/agent-sync/03_knowledge/00_inbox/
                                                         ↓ 坚果云同步
                                                         ↓
 其他电脑 → inbox_refine → 归档到知识库 → Git commit → Gitee
@@ -150,13 +158,13 @@ tags: [标签1, 标签2]
 ```bash
 # 1. 等坚果云同步完成，agent-os 目录出现在本机
 # 2. 安装基础环境
-cd ~/agent-os/00_bootstrap && bash init.sh
+cd ~/workbuddy-agent-os/agent-sync/00_bootstrap && bash init.sh
 
 # 3. 手动安装 oMLX（Apple MLX 框架，硬件依赖）
 ```
 
 `init.sh` 会自动完成：
-- 创建 `~/agent-os-local/` 各子目录
+- 创建 `~/workbuddy-agent-os/agent-local/` 各子目录
 - 重建 3 个软链接（raw、vector_db、cache）
 - 创建 Python venv 并安装依赖
 - 填充本机设备信息到 IDENTITY.md

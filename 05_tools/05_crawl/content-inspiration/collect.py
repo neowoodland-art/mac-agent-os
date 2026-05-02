@@ -41,7 +41,7 @@ def collect_by_mediacrawler(platform: str, keyword: str, max_count: int, config:
     crawler_path = config["crawler"].get("project_path", "")
     if not crawler_path:
         logger.error("MediaCrawler 项目路径未配置，请设置 config.yaml 中 crawler.project_path")
-        logger.error("安装方式：cd ~/agent-os/05_tools/05_crawl && git clone https://github.com/NanmiCoder/MediaCrawler.git")
+        logger.error("安装方式：cd ~/workbuddy-agent-os/agent-sync/05_tools/05_crawl && git clone https://github.com/NanmiCoder/MediaCrawler.git")
         return []
     
     crawler_path = os.path.expanduser(crawler_path)

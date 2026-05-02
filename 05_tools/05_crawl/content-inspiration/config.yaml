@@ -27,14 +27,14 @@ llm:
 storage:
   raw_dir: "data/raw"                    # JSONL 原始数据
   db_path: "data/database.db"            # SQLite 数据库
-  media_dir: "~/agent-os-local/materials/video"   # 下载的视频
-  audio_dir: "~/agent-os-local/materials/audio"   # 下载的音频
+  media_dir: "~/workbuddy-agent-os/agent-local/materials/video"   # 下载的视频
+  audio_dir: "~/workbuddy-agent-os/agent-local/materials/audio"   # 下载的音频
   logs_dir: "logs"                       # 运行日志
 
 # MediaCrawler 配置
 crawler:
   # MediaCrawler 项目路径（需手动 clone）
-  # 安装方式：cd ~/agent-os/05_tools/05_crawl && git clone https://github.com/NanmiCoder/MediaCrawler.git
+  # 安装方式：cd ~/workbuddy-agent-os/agent-sync/05_tools/05_crawl && git clone https://github.com/NanmiCoder/MediaCrawler.git
   project_path: ""
   # 浏览器模式：headless（后台） / headed（有界面，调试用）
   browser_mode: "headless"

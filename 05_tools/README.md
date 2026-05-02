@@ -24,5 +24,5 @@
 
 所有脚本使用 agent-os venv 的 Python 执行：
 ```bash
-~/.workbuddy/binaries/python/envs/agent-os/bin/python3 ~/agent-os/05_tools/01_system/check_automation_env.py
+~/.workbuddy/binaries/python/envs/agent-os/bin/python3 ~/workbuddy-agent-os/agent-sync/05_tools/01_system/check_automation_env.py
 ```
