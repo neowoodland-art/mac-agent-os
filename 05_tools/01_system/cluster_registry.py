@@ -30,7 +30,20 @@ except AttributeError:
 
 
 def get_host_display_name() -> str:
-    """获取可读的主机显示名"""
+    """获取可读的主机显示名（优先使用 HOST_ID.md 中的设置）"""
+    # 优先从 HOST_ID.md 读取（用户可自定义）
+    if LOCAL_HOST_ID.exists():
+        try:
+            content = LOCAL_HOST_ID.read_text(encoding="utf-8")
+            for line in content.split("\n"):
+                if "主机名:" in line:
+                    name = line.split("主机名:")[-1].strip()
+                    if name and name != "__HOSTNAME__":
+                        return name
+        except Exception:
+            pass
+    
+    # fallback: 从系统获取
     import subprocess
     try:
         result = subprocess.run(
