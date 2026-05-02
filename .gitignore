@@ -61,3 +61,4 @@ agent-local/
 agent-os.code-workspace
 04_memory/vector_db
 06_runtime/
+.obsidian/
