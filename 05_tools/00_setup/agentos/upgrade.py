@@ -416,3 +416,37 @@ def do_rebuild_vector(args):
         print("✅ 向量数据库重建完成")
     else:
         print(f"❌ 向量数据库重建失败 (rc={result.returncode})")
+
+
+def _run_cluster_script(args, subcommand: str):
+    """运行集群注册表脚本"""
+    import subprocess as sp
+    from pathlib import Path
+    from .utils import get_sync_root
+
+    sync_root = get_sync_root()
+    script = sync_root / "05_tools" / "01_system" / "cluster_registry.py"
+    if not script.exists():
+        print(f"❌ 集群脚本不存在: {script}")
+        return
+
+    result = sp.run(
+        [sys.executable, str(script), subcommand],
+        cwd=str(sync_root)
+    )
+    return result.returncode
+
+
+def do_cluster_register(args):
+    """注册本机到集群"""
+    _run_cluster_script(args, "register")
+
+
+def do_cluster_status(args):
+    """查看集群状态"""
+    _run_cluster_script(args, "status")
+
+
+def do_cluster_cleanup(args):
+    """清理过期注册条目"""
+    _run_cluster_script(args, "cleanup")

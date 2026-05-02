@@ -70,12 +70,20 @@ def read_host_id() -> dict:
 def check_role(allowed_roles: list) -> bool:
     """
     检查本机角色是否在允许列表中。
+    同时运行集群冲突检测（如果任务涉及 master 权限）。
     如果角色不匹配，打印提示并返回 False。
     """
     info = read_host_id()
     role = info["role"]
     
     if role in allowed_roles:
+        # 角色通过后，额外检测集群冲突（仅限 master 级别任务）
+        if "master" in allowed_roles:
+            try:
+                from cluster_registry import pre_task_check
+                return pre_task_check(allowed_roles)
+            except ImportError:
+                pass
         return True
     
     print(f"[role_check] ⛔ 本机角色={role}，需要角色={allowed_roles}，跳过执行")

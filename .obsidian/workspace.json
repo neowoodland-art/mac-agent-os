@@ -186,6 +186,11 @@
   },
   "active": "5bd4296a91240c21",
   "lastOpenFiles": [
+    "04_memory/cross_machine/registry/chengzigedeMacBook-Air.json",
+    "04_memory/cross_machine/registry/192.168.31.226.json",
+    "04_memory/cross_machine/registry",
+    "04_memory/cross_machine",
+    "05_tools/01_system/cluster_registry.py",
     "REQUIREMENTS.md",
     "CORE-ARCHITECTURE.md",
     "CHANGELOG.md",
@@ -200,10 +205,6 @@
     "04_memory/vector_db/chroma/aa34ddf1-a647-49bf-847e-9f38fdd213f5/link_lists.bin",
     "04_memory/vector_db/chroma/aa34ddf1-a647-49bf-847e-9f38fdd213f5/length.bin",
     "04_memory/vector_db/chroma/aa34ddf1-a647-49bf-847e-9f38fdd213f5/header.bin",
-    "04_memory/vector_db/chroma/aa34ddf1-a647-49bf-847e-9f38fdd213f5/data_level0.bin",
-    "04_memory/vector_db/chroma/chroma.sqlite3",
-    "04_memory/vector_db/chroma/aa34ddf1-a647-49bf-847e-9f38fdd213f5",
-    "04_memory/vector_db/keyword_index.json",
     "04_memory/long_term/raw/04_memory/long_term/raw/2026-04-29.md",
     "04_memory/long_term/raw/04_memory/daily_summaries/2026-04-29.md",
     "04_memory/long_term/raw/bootstrap_system_7a50954c-2a08-4dbb-adde-abee01c49147_memery.md",
@@ -221,7 +222,6 @@
     "agent-local/memory/raw/MEMORY.md",
     "agent-local/memory/raw/2026-04-30.md",
     "agent-local/memory/raw/2026-04-29.md",
-    "agent-local/memory/raw/2026-04-27.md",
     "matrix/douyin_refresh2.png",
     "matrix/douyin_check.png"
   ]

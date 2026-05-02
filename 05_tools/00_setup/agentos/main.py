@@ -111,6 +111,15 @@ def main():
     # ---- localize ----
     p_localize = subparsers.add_parser("localize", help="从模板生成本机身份配置")
 
+    # ---- register ----
+    p_register = subparsers.add_parser("register", help="注册本机到集群注册表")
+
+    # ---- cluster-status ----
+    p_cs = subparsers.add_parser("cluster-status", help="查看集群所有机器状态")
+
+    # ---- cluster-cleanup ----
+    p_cc = subparsers.add_parser("cluster-cleanup", help="清理过期注册条目")
+
     # ---- 解析 ----
     args = parser.parse_args()
 
@@ -157,6 +166,15 @@ def main():
     elif args.command == "localize":
         from . import init as mod
         mod.do_localize(args)
+    elif args.command == "register":
+        from . import upgrade as mod
+        mod.do_cluster_register(args)
+    elif args.command == "cluster-status":
+        from . import upgrade as mod
+        mod.do_cluster_status(args)
+    elif args.command == "cluster-cleanup":
+        from . import upgrade as mod
+        mod.do_cluster_cleanup(args)
 
 
 if __name__ == "__main__":
