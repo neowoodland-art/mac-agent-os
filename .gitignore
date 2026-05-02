@@ -56,3 +56,5 @@ system-check-report-*.md
 
 # 配置备份
 backup_*/
+# 本机数据目录（不同步）
+agent-local/
