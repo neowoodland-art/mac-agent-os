@@ -3,7 +3,7 @@ id: KB-HOME
 title: "AgentOS 知识库"
 type: homepage
 date_created: 2026-04-25
-date_modified: 2026-05-02
+date_modified: 2026-05-03
 description: "AgentOS 智能体操作系统知识库首页——中文映射 + 目录导览 + 工具链总览"
 ---
 
@@ -16,18 +16,18 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 
 ## 🗂 目录结构
 
-| 英文目录 | 中文名称 | 说明 | 知识属性 |
-|----------|----------|------|----------|
-| [[00_inbox]] | 📥 收件箱 | 0 | — |
-| 📅 日记 | 0 | — |
-| 💡 概念层 | 1 | 2026-04-28 |
-| 🔧 方法层 | 0 | — |
-| 📋 事实层 | 0 | — |
-| 📎 参考层 | 0 | — |
-| 🛠 资源层 | 0 | — |
-| 💭 观点层 | 0 | — |
-| 🗄 归档层 | 0 | — |
-| **总计** | **1** | — |
+| 英文目录 | 中文名称 | 文件数 | 最后更新 |
+|----------|----------|--------|----------|
+| [[00_inbox]] | 📥 收件箱（待提纯） | 3 | 2026-05-03 |
+| [[01_submissions]] | 📤 提交箱（待归集） | 3 | 2026-05-03 |
+| [[10_concepts]] | 💡 概念层 | 4 | 2026-05-03 |
+| [[20_methods]] | 🔧 方法层 | 3 | 2026-05-01 |
+| [[30_facts]] | 📋 事实层 | 0 | — |
+| [[40_references]] | 📎 参考层 | 0 | — |
+| [[50_resources]] | 🛠 资源层 | 0 | — |
+| [[60_opinions]] | 💭 观点层 | 0 | — |
+| [[90_archive]] | 🗄 归档层 | 1 | 2026-05-03 |
+| **总计** | | **14** | **2026-05-03** |
 
 ---
 
@@ -69,29 +69,23 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 
 ---
 
-## 🔄 工作流
+## 🔄 工作流（v2.0）
 
 ```
-收集内容 → 各分类目录（视频笔记/阅读笔记/灵感素材/...）
-                ↓
-    每日汇聚（collect_to_inbox 技能，凌晨 2:30 自动执行）
-                ↓
-    00_inbox/（收件箱，标准化 MD）
-                ↓
-    每日提纯（inbox_refine 技能，凌晨 3:00 自动执行）
-                ↓
-    分类 → 按nature+domain写入对应目录
-                ↓
-    更新本首页统计 + CHANGELOG.md
+"收集这个..." → 知识类 → 01_submissions/（提交箱）
+"收集素材..." → 素材类 → agent-local/materials/
+                      ↓
+          每日 02:00 归集（collect_to_inbox）
+          01_submissions/ → 00_inbox/
+                      ↓
+          每日 02:30 提纯（inbox_refine）
+          00_inbox/ → AI 分类 → 按 nature 写入对应目录
+                      ↓
+          更新首页统计 + CHANGELOG.md
 ```
 
-### 提纯规则
-1. **分类目录 → 收件箱**：collect_to_inbox 每日 2:30 扫描各分类目录，提取主要内容转入 00_inbox/
-2. **inbox → 分类**：inbox_refine 每日 3:00 读取 00_inbox/ 所有 .md，按 nature + domain 分类到目标目录
-2. **去重**：与已有知识对比，重复内容合并/更新
-3. **模板化**：应用对应知识卡片模板（99_system/templates/）
-4. **ID 生成**：格式 `KB-YYYYMMDD-NNN`
-5. **首页更新**：刷新统计数字和最近更新时间
+### 完整规范
+详见：[[99_system/pipelines/content-collection-pipeline|内容收集全链路规范 v2.0]]
 
 ---
 
@@ -121,17 +115,17 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 
 ---
 
-## 🛠 工具链总览（2026-05-02）
+## 🛠 工具链总览（2026-05-03）
 
 | 工具 | 路径 / 位置 | 状态 | 说明 |
 |------|-------------|------|------|
 | **TRAE SOLO CN 桌面版** | `/Applications/TRAE SOLO CN.app` | ✅ 主力 | AI IDE，内置 integrated_browser（21个工具） |
 | **trae_controller 技能** | `~/.workbuddy/skills/trae_controller/` | ✅ 已就绪 | 触发词：trae执行/调用trae/让trae做 |
-| **agentos CLI** | `05_tools/00_setup/agentos/` | ✅ v2.3.0 | 系统管理：init/sync/skill/tool/check/backup |
+| **agentos CLI** | `05_tools/00_setup/agentos/` | ✅ v2.3.0 | 系统管理：init/sync/skill/tool/check/backup/register |
 | **trae-agent CLI** | `05_tools/08_trae_agent/` | ⚠️ 搁置 | 因 oMLX 多步兼容性问题不可用 |
-| **Colima / Docker** | `~/.local/bin/` | ⚠️ 半就绪 | VM 镜像需下载，网络环境好时 `colima start` |
-| **Git 双远程** | Gitee + GitHub | ✅ 已配置 | 替代坚果云同步 |
+| **Colima / Docker** | `~/.local/bin/` | ⚠️ 半就绪 | 二进制就绪，网络好时 `colima start` |
+| **Git 双远程** | Gitee + GitHub | ✅ 已配置 | 主电脑双推，其他单推 Gitee |
 
 ---
 
-*最后更新：2026-05-02 by Claw（TRAE SOLO CN 控制 + trae-agent 集成 + 工具链梳理）*
+*最后更新：2026-05-03 by Claw（知识库全面清理 + v2.0 流程 + 工具链更新）*
