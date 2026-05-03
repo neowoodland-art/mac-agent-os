@@ -1,53 +1,73 @@
 ---
 name: collect_to_inbox
-version: 1.0.0
-description: 知识库各分类目录内容提取→收件箱。扫描 03_knowledge/ 下各分类目录（50_resources/、01_daily/、20_methods/、40_references/ 等）中的文件，提取主要内容生成标准化 MD 文件放入 00_inbox/，供 inbox_refine 后续提纯归档。
+version: 2.0.0
+description: 提交箱→收件箱。扫描 01_submissions/（+ 兼容旧分类目录）中的文件，提取内容生成标准化 MD 放入 00_inbox/，供 inbox_refine 后续提纯归档。
 triggers:
+  - 归集
+  - 归集收件箱
   - 收集到收件箱
   - 汇聚收件箱
-  - 收集入库
   - collect inbox
-  - 归集
 ---
 
-# Collect to Inbox —— 分类目录内容汇聚收件箱
+# Collect to Inbox —— 提交箱 → 收件箱
 
 ## 概述
 
-将知识库各分类目录中散落的内容提取主要信息，转为标准化 Markdown 文件放入 `00_inbox/` 收件箱。这是 **收件箱提纯的前置步骤**。
+将 `01_submissions/`（提交箱）中的采集内容转入 `00_inbox/`（待提纯收件箱）。
+这是 **收件箱提纯的前置步骤**，v2.0 以 `01_submissions/` 为主入口。
 
-## 设计背景
+## 设计背景（v2.0）
 
-各收集类技能按内容类型保存到不同分类目录：
-- `50_resources/视频笔记/` — bilinote 转笔记
-- `50_resources/字幕存档/` — bilinote 摘字幕
-- `50_resources/阅读笔记/` — web-clipper 剪藏
-- `50_resources/全文存档/` — web-clipper 摘抄
-- `50_resources/翻译存档/` — web-clipper 翻译
-- `50_resources/灵感素材/` — social-collector 采集
-- `50_resources/语音转写/` — voice-summary 转文字
-- `20_methods/` — web-clipper 提炼
-- `01_daily/闪念笔记/` — voice-summary 语音摘要
-- `40_references/` — content_processor 网页剪藏
+根据 [内容收集全链路规范 v2.0](../99_system/pipelines/content-collection-pipeline.md)：
 
-本技能负责将这些目录中的文件提取主要内容，生成统一格式的 MD 放入收件箱。
+```
+所有机器统一流程
+  ↓
+收集内容 → 01_submissions/（提交箱）
+  ↓
+collect_to_inbox（归集）
+  ↓
+00_inbox/（待提纯）
+  ↓
+inbox_refine（提纯）→ 分类入库
+```
 
-## 扫描目录配置
+## 扫描目录配置（按优先级）
 
-| 源目录 | 来源技能 | 提取策略 |
-|--------|----------|----------|
-| `50_resources/视频笔记/` | bilinote | 提取核心摘要 + 关键结论 |
-| `50_resources/字幕存档/` | bilinote | 提取前 500 字摘要 |
-| `50_resources/阅读笔记/` | web-clipper | 提取标题 + 核心观点 |
-| `50_resources/全文存档/` | web-clipper | 提取前 500 字摘要 |
-| `50_resources/翻译存档/` | web-clipper | 提取标题 + 3 句话概括 |
-| `50_resources/灵感素材/` | social-collector | 提取核心内容 + 互动数据 |
-| `50_resources/语音转写/` | voice-summary | 提取关键要点 |
-| `20_methods/` | web-clipper 提炼 | 提取方法名 + 步骤 |
-| `01_daily/闪念笔记/` | voice-summary | 提取要点 + 标签 |
-| `40_references/` | content_processor | 提取标题 + 核心观点 |
+| 优先级 | 源目录 | 说明 | 提取策略 |
+|--------|--------|------|----------|
+| **1** | `01_submissions/` | **v2.0 主入口**，所有新建采集内容 | 读取 frontmatter 直接转存，无需重新提取 |
+| 2 | `50_resources/` | 旧版兼容，历史遗留内容 | 提取核心摘要 |
+| 3 | `20_methods/` | 旧版兼容 | 提取方法名 + 步骤 |
+| 4 | `40_references/` | 旧版兼容 | 提取标题 + 核心观点 |
+| 5 | `01_daily/闪念笔记/` | 旧版兼容 | 提取要点 + 标签 |
 
-> 注意：`00_inbox/` 目录本身不扫描（避免重复处理），`99_system/` 不扫描（系统文件）。
+## 执行步骤（v2.0）
+
+```
+1. 扫描 01_submissions/ 下所有 status:submitted 的 .md 文件
+   ↓
+2. 读取 frontmatter：
+   ├── collect_type + collect_subtype 决定提取策略
+   ├── purpose 判断知识类/素材类
+   └── 素材类 → 跳过（已直存 materials/）
+   ↓
+3. 检查 00_inbox/ 中是否已有同名条目（按 title 去重）
+   ↓
+4. 无重复 → 复制到 00_inbox/{filename}，追加字段：
+   ├── staged_date: 归集日期
+   └── status: inbox
+   ↓
+5. 更新源文件 status → staged
+   ↓
+6. 输出统计报告
+```
+
+## 兼容旧目录
+
+保留对 `50_resources/`、`20_methods/` 等旧目录的扫描能力，
+但优先级低于 `01_submissions/`。旧目录内容同等转入 `00_inbox/`。
 
 ## 执行步骤
 

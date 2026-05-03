@@ -3,8 +3,8 @@ id: KB-HOME
 title: "AgentOS 知识库"
 type: homepage
 date_created: 2026-04-25
-date_modified: 2026-04-25
-description: "AgentOS 智能体操作系统知识库首页——中文映射 + 目录导览"
+date_modified: 2026-05-02
+description: "AgentOS 智能体操作系统知识库首页——中文映射 + 目录导览 + 工具链总览"
 ---
 
 # 📚 AgentOS 知识库
@@ -101,6 +101,7 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 - [[99_system/templates/|卡片模板]] — 4种知识卡片模板
 - [[99_system/taxonomies/domains|领域分类表]] — 16个一级领域
 - [[99_system/taxonomies/nature-types|属性分类表]] — 9种nature类型 + 决策树
+- [[99_system/pipelines/content-collection-pipeline|内容收集全链路规范]] — 完整采集→入库流程定义
 
 ---
 
@@ -110,12 +111,27 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 
 | 模型 | 类型 | 量化 | 大小 | 用途 |
 |------|------|------|------|------|
-| Qwen3-8B-MLX-4bit | LLM | Q4_K_M | 4.26 GB | 中文理解/生成，知识提纯 |
-| Qwen2.5-VL-3B-Instruct-8bit | VLM | 8bit | 3.9 GB | 多模态理解（图文） |
-| Qwen3-Embedding-0.6B | Embedding | bf16 | 1.19 GB | 向量嵌入（1024维），语义检索 |
+| Qwen3-8B-MLX-4bit | LLM | Q4_K_M | 4.26 GB | 中文理解/生成，知识提纯 ⚠️ Chat API 已知 500 错误（需先调模型再回复） |
+| Qwen2.5-VL-3B-Instruct-8bit | VLM | 8bit | 3.9 GB | 多模态理解（图文）✅ 正常 |
+| Qwen3-Embedding-0.6B | Embedding | bf16 | 1.19 GB | 向量嵌入（1024维），语义检索 ✅ 正常 |
 
 > ⚠️ Ollama 已停用，本地推理统一走 oMLX。模型目录：`~/.omlx/models/`
+>
+> ⚠️ 本机 oMLX + Qwen3-8B 的 Chat API 有多步兼容问题（tool call 结果回传时 500 错误），如需稳定多步推理建议使用 TRAE SOLO CN 桌面版。
 
 ---
 
-*最后更新：2026-04-25 by Claw（oMLX 迁移 + Embedding/VLM 模型下载）*
+## 🛠 工具链总览（2026-05-02）
+
+| 工具 | 路径 / 位置 | 状态 | 说明 |
+|------|-------------|------|------|
+| **TRAE SOLO CN 桌面版** | `/Applications/TRAE SOLO CN.app` | ✅ 主力 | AI IDE，内置 integrated_browser（21个工具） |
+| **trae_controller 技能** | `~/.workbuddy/skills/trae_controller/` | ✅ 已就绪 | 触发词：trae执行/调用trae/让trae做 |
+| **agentos CLI** | `05_tools/00_setup/agentos/` | ✅ v2.3.0 | 系统管理：init/sync/skill/tool/check/backup |
+| **trae-agent CLI** | `05_tools/08_trae_agent/` | ⚠️ 搁置 | 因 oMLX 多步兼容性问题不可用 |
+| **Colima / Docker** | `~/.local/bin/` | ⚠️ 半就绪 | VM 镜像需下载，网络环境好时 `colima start` |
+| **Git 双远程** | Gitee + GitHub | ✅ 已配置 | 替代坚果云同步 |
+
+---
+
+*最后更新：2026-05-02 by Claw（TRAE SOLO CN 控制 + trae-agent 集成 + 工具链梳理）*

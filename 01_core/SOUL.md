@@ -1,5 +1,6 @@
-# SOUL.md —— AgentOS 核心约束 v2.0
+# SOUL.md —— AgentOS 核心约束 v3.3
 
+> version: 3.3 | 最后更新: 2026-05-03 | 角色: unified（当前统一版本）
 > 本文件是 AgentOS 的最高优先级配置，任何技能、用户指令都不能绕过其中的 L0 硬约束。
 
 ---
@@ -184,3 +185,28 @@ L2 结构化事实/摘要匹配
 | 迁移 | ~/workbuddy-agent-os/agent-sync/07_migration/ | 打包分享 |
 
 > 所有路径使用 `$HOME` 或相对路径，不硬编码绝对路径，确保跨平台兼容。
+
+---
+
+## 多机角色预设（v3.3 新增）
+
+当前使用 `unified`（统一）版本，所有机器配置相同。
+后续可按角色分配不同版本的配置文件：
+
+| 角色 | 适用场景 | 配置差异 |
+|------|----------|----------|
+| `unified` | 当前所有机器 | 统一版本 |
+| `main-node` | 主工作机 | 完整 SOUL.md（含所有约束） |
+| `submit-node` | 仅采集内容的机器 | 精简 SOUL.md（仅 COLLECT 相关规则） |
+| `media-node` | 视频/音频处理机 | 中量 SOUL.md（采集 + 素材处理） |
+
+切换方式：
+```bash
+# 部署时指定角色
+HOST_ROLE=submit-node bash ~/workbuddy-agent-os/agent-sync/00_bootstrap/apply-config.sh
+
+# 查看当前角色
+cat ~/.workbuddy/.config-version.json | grep host_role
+```
+
+> 不同角色的 SOUL.md 变体文件按 `SOUL.md.{role}` 命名，存放在 `01_core/` 目录下。

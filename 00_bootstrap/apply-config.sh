@@ -1,7 +1,8 @@
 #!/bin/bash
 # ============================================================
-# AgentOS 核心配置部署脚本
+# AgentOS 核心配置部署脚本 v2.0
 # 用途：将 01_core/ 下的配置文件安全部署到 ~/.workbuddy/
+#       带版本检查 + 多机角色预设
 # 使用：cd ~/workbuddy-agent-os/agent-sync/00_bootstrap && bash apply-config.sh
 # ============================================================
 
@@ -12,12 +13,14 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 info()  { echo -e "${BLUE}[INFO]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
 ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
 err()   { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+header(){ echo -e "${CYAN}━━━ $1 ━━━${NC}"; }
 
 # ---------- 定位路径 ----------
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -25,8 +28,17 @@ AGENT_OS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CORE_DIR="$AGENT_OS_ROOT/01_core"
 WORKBUDDY_DIR="$HOME/.workbuddy"
 
+# ---------- 版本追踪 ----------
+VERSION_FILE="$WORKBUDDY_DIR/.config-version.json"
+CURRENT_VERSION=$(date +%Y%m%d_%H%M%S)
+
+# 多机角色预设（当前统一版本，后续可按角色分配）
+# 角色: unified | main-node | submit-node | media-node
+HOST_ROLE="${HOST_ROLE:-unified}"
+
 info "核心配置目录: $CORE_DIR"
 info "WorkBuddy 目录: $WORKBUDDY_DIR"
+info "本机角色: $HOST_ROLE"
 
 # ---------- 备份旧配置 ----------
 BACKUP_DIR="$WORKBUDDY_DIR/backup_$(date +%Y%m%d_%H%M%S)"
@@ -89,23 +101,36 @@ if [ -f "$CORE_DIR/mcp.json" ]; then
     fi
 fi
 
-# ---------- 删除 BOOTSTRAP.md（如果存在且身份已确认） ----------
-if [ -f "$WORKBUDDY_DIR/BOOTSTRAP.md" ]; then
-    info "检测到 BOOTSTRAP.md，身份已确认"
-    if [ "${AUTO_DELETE_BOOTSTRAP:-}" = "yes" ]; then
-        rm "$WORKBUDDY_DIR/BOOTSTRAP.md"
-        ok "BOOTSTRAP.md 已删除"
-    else
-        info "如需删除 BOOTSTRAP.md，运行: AUTO_DELETE_BOOTSTRAP=yes bash apply-config.sh"
-    fi
+# ---------- 版本追踪 ----------
+header "版本信息"
+
+# 写入部署版本记录
+cat > "$VERSION_FILE" << VERSIONEOF
+{
+  "deployed_at": "$CURRENT_VERSION",
+  "host_role": "$HOST_ROLE",
+  "files": {
+    "SOUL.md": "$(md5 -q "$WORKBUDDY_DIR/SOUL.md" 2>/dev/null || echo 'unknown')",
+    "IDENTITY.md": "$(md5 -q "$WORKBUDDY_DIR/IDENTITY.md" 2>/dev/null || echo 'unknown')",
+    "USER.md": "$(md5 -q "$WORKBUDDY_DIR/USER.md" 2>/dev/null || echo 'unknown')"
+  }
+}
+VERSIONEOF
+ok "版本记录已保存: $VERSION_FILE"
+
+# 多机角色提示
+if [ "$HOST_ROLE" != "unified" ]; then
+    info "本机角色: $HOST_ROLE"
+    info "后续可根据角色加载不同的 SOUL.md/IDENTITY.md 变体"
 fi
 
 echo ""
 echo "========================================="
-ok "核心配置部署完成！"
+ok "核心配置部署完成（v2.0）！"
 echo "========================================="
 echo ""
 info "配置文件位置: $WORKBUDDY_DIR/"
 info "备份位置: ${BACKUP_DIR:-无旧配置，无需备份}"
+info "本机角色: $HOST_ROLE"
 echo ""
 warn "请重启 WorkBuddy 以使配置生效"

@@ -79,6 +79,18 @@ def main():
     tool_sub = p_tool.add_subparsers(dest="tool_cmd", help="工具子命令")
     tool_sub.add_parser("list", help="列出所有可用工具")
 
+    # tool trae - trae-agent 工具
+    p_tool_trae = tool_sub.add_parser("trae", help="Trae Agent AI 编程助手")
+    trae_sub = p_tool_trae.add_subparsers(dest="trae_cmd", help="trae 子命令")
+    p_trae_run = trae_sub.add_parser("run", help="执行任务")
+    p_trae_run.add_argument("task", nargs="*", help="任务描述")
+    p_trae_run.add_argument("-p", "--provider", help="LLM 提供商")
+    p_trae_run.add_argument("-m", "--model", help="模型名称")
+    p_trae_run.add_argument("-f", "--file", help="从文件读取任务")
+    trae_sub.add_parser("interactive", help="交互式模式")
+    trae_sub.add_parser("config", help="查看配置")
+    trae_sub.add_parser("install", help="安装 trae-agent")
+
     # ---- config ----
     from . import config_mgr as config_mod
     config_mod.setup_parser(subparsers)

@@ -1,3 +1,9 @@
+---
+version: 1.0
+last_updated: 2026-05-03
+role: unified
+---
+
 # 本机标识（HOST_ID）
 
 ## 当前主机名（唯一标识）
