@@ -120,11 +120,14 @@ def cmd_check(quick: bool = False):
         ver = ver_match.group(1) if ver_match else "?"
         check_item("openai-whisper（Python包）", "ok", f"v{ver}")
         # 检查模型是否已下载
-        whisper_cache = Path.home() / ".cache" / "whisper"
-        if whisper_cache.exists():
-            models = [f.name for f in whisper_cache.iterdir() if f.is_dir()]
+        import os as _os
+        whisper_cache = _os.path.expanduser("~/.cache/whisper")
+        if _os.path.exists(whisper_cache):
+            models = [f for f in _os.listdir(whisper_cache) if f.endswith(('.pt', '.bin'))]
             if models:
-                check_item("Whisper 模型权重", "ok", f"已缓存: {', '.join(models)}")
+                model_sizes = [_os.path.getsize(_os.path.join(whisper_cache, m)) / 1024 / 1024 for m in models]
+                detail = ", ".join([f"{m} ({s:.0f}MB)" for m, s in zip(models, model_sizes)])
+                check_item("Whisper 模型权重", "ok", f"已缓存: {detail}")
             else:
                 check_item("Whisper 模型权重", "warn", "首次使用时会自动下载（~1.5GB）")
         else:
