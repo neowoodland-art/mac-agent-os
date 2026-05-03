@@ -126,6 +126,7 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 
 - [[CHANGELOG]] — 知识库变更日志
 - [[99_system/templates/|卡片模板]] — 4种知识卡片模板
+- [[99_system/memory-index|记忆系统索引]] — 记忆组件入口 + 搜索方式
 - [[99_system/taxonomies/domains|领域分类表]] — 16个一级领域
 - [[99_system/taxonomies/nature-types|属性分类表]] — 9种nature类型 + 决策树
 - [[99_system/pipelines/content-collection-pipeline|内容收集全链路规范]] — 完整采集→入库流程定义

@@ -76,6 +76,9 @@ system-check-report-*.md
 04_memory/logs/*.log
 04_memory/logs/*.log.*
 
+# 软链接到 Obsidian 库的目录（不跟踪）
+03_knowledge/01_daily/memory/
+
 # 配置备份
 backup_*/
 # 本机数据目录（不同步）
