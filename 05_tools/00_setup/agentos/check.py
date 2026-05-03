@@ -93,11 +93,11 @@ def cmd_check(quick: bool = False):
     print("\n🤖 本地 LLM 引擎:")
     try:
         import json, urllib.request
-        data = json.dumps({"model": "mlx-community--Qwen3-Embedding-0.6B-4bit-DWQ", "input": ["test"]}).encode()
+        data = json.dumps({"model": "Qwen3-Embedding-0.6B-4bit-DWQ", "input": ["test"]}).encode()
         req = urllib.request.Request(
             "http://localhost:8000/v1/embeddings",
             data=data,
-            headers={"Authorization": "Bearer 5omlx", "Content-Type": "application/json"},
+            headers={"Authorization": "Bearer omlx", "Content-Type": "application/json"},
             method="POST",
         )
         resp = urllib.request.urlopen(req, timeout=5)
