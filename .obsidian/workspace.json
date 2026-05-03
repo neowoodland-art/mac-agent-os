@@ -184,6 +184,11 @@
   },
   "active": "8617ca66b1e3cc21",
   "lastOpenFiles": [
+    "03_knowledge/99_system/archive/SKILLS-CATALOG.md",
+    "03_knowledge/99_system/archive/QUICKSTART.md",
+    "03_knowledge/99_system/archive/CORE-ARCHITECTURE.md",
+    "03_knowledge/99_system/archive",
+    "01_core/UPDATE_SYSTEM.md",
     "05_tools/01_system/trigger_matcher.py",
     "03_knowledge/99_system/protocols/stuck-intervention.md",
     "03_knowledge/99_system/protocols/meta-thinking.md",
@@ -211,15 +216,10 @@
     "03_knowledge/99_system/pipelines/content-collection-pipeline.md",
     "03_knowledge/99_system/agent-os-memory-knowledge-architecture.md",
     "03_knowledge/00_inbox/knowledge-review.md",
-    "03_knowledge/00_inbox/20260503_social-wisdom_douyin-video.md",
-    "03_knowledge/10_concepts/global-accounting-strategic-loss.md",
-    "03_knowledge/10_concepts/power-of-naming-reality.md",
     "04_memory/cross_machine/registry/chengzige.json",
     "04_memory/cross_machine/registry/chengzigedeMacBook-Air.json",
     "04_memory/cross_machine/registry/192.168.31.226.json",
     "04_memory/cross_machine/registry",
-    "04_memory/cross_machine",
-    "05_tools/01_system/cluster_registry.py",
     "matrix/douyin_refresh2.png",
     "matrix/douyin_check.png"
   ]

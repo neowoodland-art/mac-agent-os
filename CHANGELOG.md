@@ -1,8 +1,27 @@
 # AgentOS 项目变更日志
 
-## [2.3.0] - 2026-05-02
+## [4.0.0] - 2026-05-03
 
-### 新增
+### 系统文档体系重构
+- 根目录精简：从 12 个文件减至 4 个（README + CHANGELOG + requirements + .gitignore）
+- 删除废弃文件：01_submissions.md(空)、agent-os.code-workspace、REQUIREMENTS.md(与requirements.txt重复)、VERSION(不再维护)
+- 归档过时文档：CORE-ARCHITECTURE.md / SKILLS-CATALOG.md / QUICKSTART.md → 99_system/archive/
+- README.md 重写为三层导航体系（入口→系统文档→技能/知识库）
+- 新增 01_core/UPDATE_SYSTEM.md 更新体系规范
+- 新增 99_system/architecture/loading-architecture.md 四管道加载架构
+- 新增 99_system/architecture/trigger-matching-analysis.md 触发词方案分析
+
+### 协议体系重构
+- SOUL.md v4.0 精简版：5671B（减重 40%），仅含行为规则+模式切换+安全边界
+- 协议文件从 20_methods/agent-protocols/ → 99_system/protocols/
+- 4 个协议全部重写对齐新规范（高阶思维/跨域联想/卡壳干预/知识审查）
+- 新增 trigger_matcher.py 语义匹配脚本（关键词+Embedding混合模式）
+
+### 配置维护
+- apply-config.sh v2.0：增加版本追踪 + 多机角色预设 + 自动注册
+- .config-version.json 自动生成部署记录
+- .obsidian/ 解除 Git 追踪（各机器独立配置不冲突）
+- 知识库清理：归档测试文件 + 删除 14 个空占位目录 + README 更新
 - **`agentos config`** — 配置管理子命令（status/diff/apply/rollback）
 - `01_core/CONFIG_MANIFEST.yaml` — 配置清单（9文件，A/B/C三类管理）
 - `agentos/config_mgr.py` — 配置管理引擎
