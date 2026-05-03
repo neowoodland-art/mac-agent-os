@@ -105,6 +105,33 @@ def cmd_check(quick: bool = False):
     except Exception as e:
         check_item("oMLX Embedding API", "fail", str(e))
 
+    # 音频转文字能力检查
+    print("\n🎙️  音频转文字:")
+    ffmpeg = run(["which", "ffmpeg"])
+    if ffmpeg.returncode == 0:
+        check_item("ffmpeg（系统工具）", "ok", "已安装")
+    else:
+        check_item("ffmpeg（系统工具）", "warn", "未安装，音频转文字不可用。运行: brew install ffmpeg")
+    
+    whisper_check = run([py, "-m", "pip", "show", "openai-whisper"])
+    if whisper_check.returncode == 0:
+        import re
+        ver_match = re.search(r"Version:\s*(\S+)", whisper_check.stdout)
+        ver = ver_match.group(1) if ver_match else "?"
+        check_item("openai-whisper（Python包）", "ok", f"v{ver}")
+        # 检查模型是否已下载
+        whisper_cache = Path.home() / ".cache" / "whisper"
+        if whisper_cache.exists():
+            models = [f.name for f in whisper_cache.iterdir() if f.is_dir()]
+            if models:
+                check_item("Whisper 模型权重", "ok", f"已缓存: {', '.join(models)}")
+            else:
+                check_item("Whisper 模型权重", "warn", "首次使用时会自动下载（~1.5GB）")
+        else:
+            check_item("Whisper 模型权重", "warn", "未下载，首次运行自动下载（~1.5GB）")
+    else:
+        check_item("openai-whisper（Python包）", "fail", "未安装，运行: pip install openai-whisper")
+
     # 5. facts.db
     print("\n🗄️  记忆层:")
     facts_db = sync_root / "04_memory" / "long_term" / "facts.db"
@@ -183,6 +210,15 @@ def install_deps(dry_run: bool = False):
         ok("Python 依赖安装完成")
     else:
         warn(f"部分依赖安装失败:\n{result.stderr[:200]}")
+
+    # 检查并提示安装 ffmpeg（音频转文字需要）
+    ffmpeg = run(["which", "ffmpeg"])
+    if ffmpeg.returncode != 0:
+        print()
+        warn("音频转文字功能需要 ffmpeg 系统工具")
+        info("  运行以下命令安装:")
+        info("    brew install ffmpeg")
+        print()
 
 
 def cmd_run(args):
