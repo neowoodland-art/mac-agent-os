@@ -1,5 +1,23 @@
 # 知识库变更日志
 
+## 2026-05-03
+
+### 新增
+- [concept] 命名现实的力量——情绪叙事与精神图腾 → 10_concepts/ (KB-20260503-003)
+- [concept] 全局算账——主动亏损、战略放弃与主次思维 → 10_concepts/ (KB-20260503-004)
+- [system] 内容收集全链路规范 v2.0 → 99_system/pipelines/
+- [submission] 10条社会智慧（默认提取）→ 01_submissions/
+- [submission] 10条社会智慧（字幕）→ 01_submissions/
+- [submission] 10条社会智慧（AI总结）→ 01_submissions/
+
+### 归档
+- [test] 测试LLM分类器 → 90_archive/deprecated/
+
+### 变更
+- 知识库首页 README.md 全面更新（统计/流程/工具链）
+- 维护手册重写为系统操作速查手册（MAINTENANCE_GUIDE.md）
+- 清理 10_concepts/ 下 14 个空占位子目录
+- 统一收集链路：01_submissions/ → 00_inbox/ → refine → store
 
 ## 2026-04-28
 
