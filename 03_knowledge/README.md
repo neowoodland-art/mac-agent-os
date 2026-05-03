@@ -129,6 +129,12 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 - [[99_system/taxonomies/domains|领域分类表]] — 16个一级领域
 - [[99_system/taxonomies/nature-types|属性分类表]] — 9种nature类型 + 决策树
 - [[99_system/pipelines/content-collection-pipeline|内容收集全链路规范]] — 完整采集→入库流程定义
+- [[99_system/architecture/loading-architecture|加载与检索架构]] — 四管道加载体系
+- [[99_system/architecture/trigger-matching-analysis|触发词匹配方案分析]] — 关键词vs语义对比
+- [[99_system/protocols/meta-thinking|高阶思维协议]] — 升维思考/本质追问
+- [[99_system/protocols/cross-domain|跨域联想协议]] — 跨界类比/新视角
+- [[99_system/protocols/stuck-intervention|卡壳干预协议]] — 遇卡壳暂停给选项
+- [[99_system/protocols/knowledge-review|知识审查协议]] — 知识入库审查流程
 
 ---
 
