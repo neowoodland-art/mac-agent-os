@@ -7,7 +7,9 @@ collected_by: Redmi-12C
 created: 2026-05-01
 confidence: 0.9
 nature: fact
----
+
+collected: true
+collected_date: 2026-05-03---
 
 # Camoufox 集成修复记录
 

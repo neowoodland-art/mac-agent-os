@@ -7,7 +7,9 @@ collected_by: Redmi-12C
 created: 2026-05-01
 confidence: 0.9
 nature: fact
----
+
+collected: true
+collected_date: 2026-05-03---
 
 # auth_manager — 原子化登录管理模块
 

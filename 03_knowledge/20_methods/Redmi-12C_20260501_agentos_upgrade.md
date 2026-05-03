@@ -7,7 +7,9 @@ collected_by: Redmi-12C
 created: 2026-05-01
 confidence: 0.85
 nature: fact
----
+
+collected: true
+collected_date: 2026-05-03---
 
 # agentos upgrade — 统一升级引擎
 

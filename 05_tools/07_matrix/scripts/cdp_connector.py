@@ -25,12 +25,13 @@ from typing import Optional
 
 
 class CDPConnector:
-    """连接浏览器（Chrome CDP / Camoufox 原生）"""
+    """连接浏览器（Chrome CDP / Camoufox 原生 / Camoufox 持久化）"""
 
     def __init__(self, port: int = 9222, browser_type: str = "auto",
                  headless: bool = True, window: tuple = (702, 783),
                  profile_dir: str = None,
-                 locale: list = None):
+                 locale: list = None,
+                 identity_dir: str = None):
         """
         browser_type: auto / chromium / firefox / camoufox
         - auto: 根据端口自动判断（9301+ 为 Firefox/Camoufox）
@@ -43,6 +44,11 @@ class CDPConnector:
         - window: 窗口大小 (width, height)
         - profile_dir: Profile 目录路径
         - locale: 语言设置（默认 ["zh-CN"]）
+        
+        身份工厂模式（Camoufox 持久化）:
+        - identity_dir: identities/{name}/ 目录路径
+          设置后将自动加载 config.yaml 中的固化指纹，
+          使用 persistent_context=True + user_data_dir 启动
         """
         self.port = port
         self.browser_type = browser_type
@@ -50,6 +56,7 @@ class CDPConnector:
         self.window = window
         self.profile_dir = profile_dir
         self.locale = locale or ["zh-CN"]
+        self.identity_dir = identity_dir
         
         self._playwright = None
         self._camoufox_browser = None  # Camoufox native browser handle
@@ -58,6 +65,7 @@ class CDPConnector:
         self.page = None
         self.cdp_session = None
         self._is_camoufox_native = False
+        self._identity_config = None  # 缓存的 config.yaml 内容
 
     def _resolve_browser_type(self) -> str:
         if self.browser_type != "auto":
@@ -103,6 +111,136 @@ class CDPConnector:
         
         print(f"✅ Camoufox 就绪，当前页面: {self.page.url}")
 
+    # ─── Camoufox 持久化启动（身份工厂模式）────────────────────────
+
+    async def _launch_camoufox_persistent(self):
+        """通过身份工厂配置启动持久化 Camoufox
+
+        核心改进:
+        - persistent_context=True → 状态保存在 user_data_dir
+        - user_data_dir → 固定 Profile 目录，不丢失登录态
+        - fingerprint → 固化指纹，每次启动同一副面孔
+        """
+        import pickle
+        import yaml
+        from camoufox.async_api import AsyncCamoufox
+
+        identity_path = Path(self.identity_dir)
+        config_path = identity_path / "config.yaml"
+        fp_path = identity_path / "fingerprint.pkl"
+        user_data_dir = str(identity_path / "user_data")
+
+        if not config_path.exists():
+            raise FileNotFoundError(
+                f"身份配置文件不存在: {config_path}\n"
+                f"请先运行: python create_identity.py {identity_path.name}")
+
+        # 加载身份配置
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        self._identity_config = config
+
+        # 加载固化指纹（pickle 格式，BrowserForge Fingerprint 对象）
+        fingerprint = None
+        if fp_path.exists():
+            with open(fp_path, 'rb') as f:
+                fingerprint = pickle.load(f)
+
+        proxy = config["identity"].get("proxy")
+
+        # 读取窗口尺寸（优先用配置中的，否则用默认值）
+        cfg_window = config.get("window", self.window)
+        if isinstance(cfg_window, (list, tuple)) and len(cfg_window) == 2:
+            w_width, w_height = int(cfg_window[0]), int(cfg_window[1])
+        else:
+            w_width, w_height = self.window
+
+        # 构建 Camoufox 参数
+        kwargs = {
+            'persistent_context': True,
+            'user_data_dir': user_data_dir,
+            'headless': self.headless,
+            'window': (w_width, w_height),
+            'locale': self.locale or ['zh-CN'],
+            'os': 'windows',
+            'fonts': ['STHeiti', 'Heiti SC', 'PingFang SC', 'Noto Sans CJK SC'],
+            'humanize': 1.5,
+            'firefox_user_prefs': {
+                'dom.disable_window_move_resize': False,  # 允许 JS 调整窗口
+            },
+            'args': [
+                f'--width={w_width}',
+                f'--height={w_height}',
+                '--new-window',
+            ],
+        }
+
+        # 注入固化指纹（关键！——确保每次启动同一副面孔）
+        if fingerprint is not None:
+            kwargs['fingerprint'] = fingerprint
+            kwargs['i_know_what_im_doing'] = True  # 抑制 Camoufox 自定义指纹警告
+            print(f"   指纹: ✅ 已固化 ({type(fingerprint).__name__})")
+        else:
+            print(f"   指纹: ⚠️ 未指定（将随机生成）")
+
+        # 注入代理
+        if proxy:
+            proxy_cfg = {'server': proxy} if isinstance(proxy, str) else proxy
+            kwargs['proxy'] = proxy_cfg
+            print(f"   代理: {proxy_cfg['server']}")
+
+        print(f"🦊 启动 Camoufox 持久化模式")
+        print(f"   Profile: {user_data_dir}")
+
+        # ── 强制设置 Firefox 窗口大小 ──
+        # Firefox 在 xulstore.json 中存储窗口状态，每次启动时读取它，
+        # 这会导致 --width/--height 命令行参数被覆盖。
+        # 在启动前直接写入这个文件，确保窗口尺寸正确。
+        try:
+            import json as _j
+            xul_path = Path(user_data_dir) / "xulstore.json"
+            xul_data = {
+                "chrome://browser/content/browser.xhtml": {
+                    "main-window": {
+                        "screenX": "0",
+                        "screenY": "0",
+                        "width": str(w_width),
+                        "height": str(w_height),
+                        "sizemode": "normal"
+                    }
+                }
+            }
+            xul_path.parent.mkdir(parents=True, exist_ok=True)
+            xul_path.write_text(_j.dumps(xul_data, indent=2))
+            print(f"   xulstore: {w_width}×{w_height}")
+        except Exception as e:
+            print(f"   ⚠️ xulstore: {e}")
+
+        cf = AsyncCamoufox(**kwargs)
+        # persistent_context=True 返回的是 BrowserContext（包含已保存状态）
+        ctx = await cf.start()
+        self._camoufox_browser = ctx
+        self._is_camoufox_native = True
+        self.context = ctx
+
+        # 获取或创建页面
+        if ctx.pages:
+            self.page = ctx.pages[0]
+        else:
+            self.page = await ctx.new_page()
+
+        # 强制设置窗口大小（Firefox --width/--height 有时不生效，JS 确保实际窗口尺寸）
+        try:
+            await self.page.evaluate(f"""
+                window.moveTo(0, 0);
+                window.resizeTo({w_width}, {w_height});
+            """)
+        except Exception:
+            pass  # resizeTo 可能被浏览器策略阻止，不影响主体功能
+
+        print(f"✅ Camoufox 持久化就绪 | user_data: {identity_path.name}/user_data/")
+        print(f"   窗口: {w_width}×{w_height}")
+
     # ─── Chrome / Firefox CDP 连接 ──────────────────────────────
 
     async def _connect_cdp(self):
@@ -138,35 +276,50 @@ class CDPConnector:
     # ─── 统一入口 ───────────────────────────────────────────────
 
     async def connect(self):
-        """连接到浏览器（自动选择 Camoufox 原生 或 CDP）"""
-        bt = self._resolve_browser_type()
-        
-        if bt == "camoufox":
-            await self._launch_camoufox()
+        """连接到浏览器（自动选择模式）
+
+        优先级:
+        1. identity_dir 模式 → Camoufox 持久化（persistent_context）
+        2. camoufox 类型 → Camoufox 原生（临时 profile）
+        3. 其他 → CDP 连接（Chrome/Firefox）
+        """
+        if self.identity_dir:
+            await self._launch_camoufox_persistent()
         else:
-            await self._connect_cdp()
+            bt = self._resolve_browser_type()
+            if bt == "camoufox":
+                await self._launch_camoufox()
+            else:
+                await self._connect_cdp()
         return self.page
 
     # ─── 反检测 ────────────────────────────────────────────────
 
     async def init_anti_detection(self):
-        """初始化反检测配置（平板模式视口 + App跳转拦截）
-        
+        """初始化反检测配置（安卓平板模式视口 + App跳转拦截）
+
         关键: mobile=True 可使抖音加载移动端/平板界面，
         这样才能显示点赞/收藏/评论按钮。
+
+        2026-05-03 ghai 要求：全部改为安卓平板标识
+        UA: Samsung Galaxy Tab S9 (SM-X910, Android 14)
         """
+        # 安卓平板 User-Agent（通用）
+        ANDROID_TABLET_UA = (
+            "Mozilla/5.0 (Linux; Android 14; SM-X910) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.6367.113 Safari/537.36"
+        )
+
         if self._is_camoufox_native:
-            # Camoufox: 设置平板视口 + iPad UA
+            # Camoufox: 只设置视口尺寸（702×783 小窗口模拟平板）
+            # 注意：不覆盖 UA！Camoufox 的 Windows Firefox UA 是 C++ 级原生伪装，
+            # 强行改为 Android 会导致底层指纹（platform/fonts/webgl）与 UA 矛盾
             await self.page.set_viewport_size({
                 "width": self.window[0],
                 "height": self.window[1]
             })
-            await self.page.evaluate("""() => {
-                Object.defineProperty(navigator, 'userAgent', {
-                    get: () => 'Mozilla/5.0 (iPad; CPU OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1'
-                });
-            }""")
-            print("✅ Camoufox 反检测已就绪（平板模式 702x783 + iPad UA）")
+            print(f"✅ Camoufox 反检测已就绪（Windows 平板 702×783）")
             return None
         
         # Chrome CDP: 使用 DevTools Protocol
@@ -182,10 +335,10 @@ class CDPConnector:
             "screenHeight": 783,
         })
 
-        # 设置 iPad User-Agent
+        # 设置安卓平板 User-Agent
         try:
             await self.cdp_session.send("Network.setUserAgentOverride", {
-                "userAgent": "Mozilla/5.0 (iPad; CPU OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+                "userAgent": ANDROID_TABLET_UA
             })
         except Exception:
             pass
