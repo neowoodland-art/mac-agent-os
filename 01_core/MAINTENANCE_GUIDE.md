@@ -102,8 +102,12 @@ git push --force-with-lease
 | 机制 | 说明 | 配置方式 |
 |------|------|---------|
 | **Git 规范** | 先 pull 再 push，不用 --force | 团队约定 |
+| **pre-push 钩子** | 执行 `git push --force` 时自动拒绝 | 运行 `apply-config.sh` 自动安装 |
 | **--force-with-lease** | 安全强制推送，检查本地是否基于最新远程 | 替代 --force |
-| **分支保护** | 在 Gitee/GitHub 设置 main 分支禁止 force push | 远程仓库设置 |
+| **GitHub 分支保护** | 公开仓库免费，可禁止 force push | GitHub → Settings → Branches |
+
+> pre-push 钩子已集成到 `apply-config.sh`，每次部署配置时会自动安装到 `.git/hooks/pre-push`。
+> 钩子脚本在 `00_bootstrap/hooks/pre-push`，所有机器 git pull 后自动同步。
 
 **推荐**：在 Gitee 仓库设置中开启 main 分支保护（设置 → 分支保护 → 不允许强制推送），这样即使有人用了 `--force` 也会被拒绝。
 

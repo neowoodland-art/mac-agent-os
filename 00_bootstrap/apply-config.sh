@@ -124,6 +124,15 @@ if [ "$HOST_ROLE" != "unified" ]; then
     info "后续可根据角色加载不同的 SOUL.md/IDENTITY.md 变体"
 fi
 
+# ---------- 安装 Git pre-push 钩子（防止 --force） ----------
+HOOK_SRC="$AGENT_OS_ROOT/00_bootstrap/hooks/pre-push"
+HOOK_DST="$AGENT_OS_ROOT/.git/hooks/pre-push"
+if [ -f "$HOOK_SRC" ] && [ -d "$(dirname "$HOOK_DST")" ]; then
+    cp "$HOOK_SRC" "$HOOK_DST"
+    chmod +x "$HOOK_DST"
+    ok "Git pre-push 钩子已安装（禁止 --force）"
+fi
+
 # ---------- 自动注册到集群 ----------
 info "自动注册本机到集群..."
 if python3 "$AGENT_OS_ROOT/05_tools/01_system/cluster_registry.py" register 2>/dev/null; then

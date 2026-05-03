@@ -184,6 +184,8 @@
   },
   "active": "8617ca66b1e3cc21",
   "lastOpenFiles": [
+    "00_bootstrap/hooks/pre-push",
+    "00_bootstrap/hooks",
     "03_knowledge/99_system/archive/SKILLS-CATALOG.md",
     "03_knowledge/99_system/archive/QUICKSTART.md",
     "03_knowledge/99_system/archive/CORE-ARCHITECTURE.md",
@@ -215,11 +217,9 @@
     "03_knowledge/99_system/prompts/classify-knowledge.md",
     "03_knowledge/99_system/pipelines/content-collection-pipeline.md",
     "03_knowledge/99_system/agent-os-memory-knowledge-architecture.md",
-    "03_knowledge/00_inbox/knowledge-review.md",
     "04_memory/cross_machine/registry/chengzige.json",
     "04_memory/cross_machine/registry/chengzigedeMacBook-Air.json",
     "04_memory/cross_machine/registry/192.168.31.226.json",
-    "04_memory/cross_machine/registry",
     "matrix/douyin_refresh2.png",
     "matrix/douyin_check.png"
   ]
