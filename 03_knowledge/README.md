@@ -31,6 +31,39 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 
 ---
 
+## 📖 知识导览
+
+### 💡 概念层（10_concepts/）
+
+| # | 知识条目 | 来源 | 日期 |
+|---|---------|------|------|
+| 1 | [[10_concepts/social-wisdom-10-rules\|十条社会处世智慧]] | 抖音@袁本初有干货 | 2026-05-03 |
+| 2 | [[10_concepts/power-of-naming-reality\|命名现实的力量——情绪叙事与精神图腾]] | ghai 个人洞察 | 2026-05-03 |
+| 3 | [[10_concepts/global-accounting-strategic-loss\|全局算账——主动亏损与战略放弃]] | ghai 个人洞察 | 2026-05-03 |
+
+### 🔧 方法层（20_methods/）
+
+| # | 知识条目 | 说明 |
+|---|---------|------|
+| 1 | [[20_methods/Redmi-12C_20260501_agentos_upgrade\|agentos 升级流程]] | 统一模块升级标准流程 |
+| 2 | [[20_methods/Redmi-12C_20260501_auth_manager\|auth_manager 认证模块]] | 多账号登录管理 |
+| 3 | [[20_methods/Redmi-12C_20260501_camoufox_fix\|Camoufox 反检测修复]] | 浏览器指纹伪装修复记录 |
+
+### 📥 待处理箱
+
+| 箱 | 数量 | 查看 |
+|----|------|------|
+| 收件箱（00_inbox/） | 3 条待提纯 | [[00_inbox/]] |
+| 提交箱（01_submissions/） | 3 条待归集 | [[01_submissions/]] |
+
+### 🗄 归档（90_archive/）
+
+| # | 条目 | 说明 |
+|---|------|------|
+| 1 | [[90_archive/deprecated/2026-04-28_测试_LLM_分类器\|测试LLM分类器]] | 测试文件已归档 |
+
+---
+
 ## 🏷 知识属性分类
 
 | nature 值 | 中文名 | 目标目录 | 可信度 |
