@@ -79,6 +79,9 @@ system-check-report-*.md
 # 软链接到 Obsidian 库的目录（不跟踪）
 03_knowledge/01_daily/memory/
 
+# 本机 Matrix 路径配置（每台机器独立）
+05_tools/07_matrix/local.yaml
+
 # 配置备份
 backup_*/
 # 本机数据目录（不同步）
