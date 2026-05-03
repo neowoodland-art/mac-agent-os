@@ -303,6 +303,27 @@ def do_upgrade(args):
             print(f"     可稍后手动执行: agentos skill install")
         print()
 
+    # 自动注册到集群
+    if not dry_run:
+        print(f"{'─'*60}")
+        print(f"  📡 自动注册到集群...")
+        try:
+            import subprocess
+            sync_root = get_sync_root()
+            script = str(sync_root / "05_tools" / "01_system" / "cluster_registry.py")
+            result = subprocess.run(
+                [sys.executable, script, "register"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                print(f"  ✅ 集群注册完成")
+            else:
+                print(f"  ⚠️  集群注册失败: {result.stderr.strip()}")
+        except Exception as e:
+            print(f"  ⚠️  集群注册异常: {e}")
+            print(f"     可稍后手动执行: agentos register")
+        print()
+
     # 汇总报告
     _print_report(results, modules)
 

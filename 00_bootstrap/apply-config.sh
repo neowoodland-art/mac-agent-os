@@ -124,6 +124,15 @@ if [ "$HOST_ROLE" != "unified" ]; then
     info "后续可根据角色加载不同的 SOUL.md/IDENTITY.md 变体"
 fi
 
+# ---------- 自动注册到集群 ----------
+info "自动注册本机到集群..."
+if python3 "$AGENT_OS_ROOT/05_tools/01_system/cluster_registry.py" register 2>/dev/null; then
+    ok "集群注册成功"
+    info "查看集群状态: agentos cluster-status"
+else
+    warn "集群注册失败（不影响核心配置）"
+fi
+
 echo ""
 echo "========================================="
 ok "核心配置部署完成（v2.0）！"

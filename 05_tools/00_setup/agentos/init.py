@@ -308,6 +308,24 @@ def do_init(args):
         info("  5. 运行: agentos localize 生成本机身份配置")
     print()
 
+    # 自动注册到集群
+    if not dry_run:
+        info("自动注册本机到集群...")
+        try:
+            import subprocess
+            cluster_script = str(get_sync_root() / "05_tools" / "01_system" / "cluster_registry.py")
+            result = subprocess.run(
+                [sys.executable, cluster_script, "register"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                ok("集群注册成功")
+                info("查看集群状态: agentos cluster-status")
+            else:
+                warn("集群注册失败（不影响初始化）")
+        except Exception as e:
+            warn(f"集群注册异常: {e}")
+
 
 def do_localize(args):
     """从模板生成本机身份配置"""
