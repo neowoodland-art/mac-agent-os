@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "03_knowledge/README.md",
+                "file": "01_core/MAINTENANCE_GUIDE.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "README"
+              "title": "MAINTENANCE_GUIDE"
             }
           }
         ]
@@ -78,8 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 233.5,
-    "collapsed": true
+    "width": 233.5
   },
   "right": {
     "id": "3afebfc8b54307f3",
@@ -155,13 +154,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "03_knowledge/README.md",
+                "file": "01_core/MAINTENANCE_GUIDE.md",
                 "followCursor": false,
                 "showSearch": true,
                 "searchQuery": "app"
               },
               "icon": "lucide-list",
-              "title": "README 的大纲"
+              "title": "MAINTENANCE_GUIDE 的大纲"
             }
           }
         ],
@@ -184,6 +183,9 @@
   },
   "active": "8617ca66b1e3cc21",
   "lastOpenFiles": [
+    "README.md",
+    "CHANGELOG.md",
+    "03_knowledge/README.md",
     "00_bootstrap/hooks/pre-push",
     "00_bootstrap/hooks",
     "03_knowledge/99_system/archive/SKILLS-CATALOG.md",
@@ -203,13 +205,10 @@
     "04_memory/cross_machine/registry/7kecheng.json",
     "SKILLS-CATALOG.md",
     "REQUIREMENTS.md",
-    "README.md",
     "QUICKSTART.md",
     "CORE-ARCHITECTURE.md",
-    "CHANGELOG.md",
     "01_submissions.md",
     "docs/UPGRADE_SOUL_v3_PLAN.md",
-    "03_knowledge/README.md",
     "07_migration/RESTORE-GUIDE.md",
     "90_archive/10_next_version_discussion/讨论清单.md",
     "03_knowledge/CHANGELOG.md",
@@ -219,7 +218,6 @@
     "03_knowledge/99_system/agent-os-memory-knowledge-architecture.md",
     "04_memory/cross_machine/registry/chengzige.json",
     "04_memory/cross_machine/registry/chengzigedeMacBook-Air.json",
-    "04_memory/cross_machine/registry/192.168.31.226.json",
     "matrix/douyin_refresh2.png",
     "matrix/douyin_check.png"
   ]
