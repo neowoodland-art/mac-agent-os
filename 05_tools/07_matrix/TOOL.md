@@ -138,8 +138,29 @@ python matrix.py status browsers                     # 浏览器状态
 
 | 引擎 | 适用账号 | 连接方式 | 窗口控制 | 视口控制 |
 |------|----------|----------|----------|----------|
-| Chrome CDP | douyin_01/02 | CDP WebSocket | --window-size 参数 | Emulation.setDeviceMetricsOverride |
+| Chrome CDP | douyin_01/02 | CDP WebSocket | --window-size 参数 | UA + viewport + touchEmulation 三合一 |
 | Camoufox 持久化 | douyin_camo01 | launch_persistent_context | window.open(features) | 启动前 config 注入 DOM 属性 |
+
+---
+
+### Chrome 反检测方案（三合一）
+
+Chrome CDP 模式下，抖音识别移动端需要**三个设置缺一不可**：
+
+```python
+# 1) UA 覆盖 — 告诉抖音是安卓平板
+await cdp.send("Network.setUserAgentOverride", {"userAgent": ANDROID_TABLET_UA})
+
+# 2) 视口尺寸 — 告诉抖音是小屏设备
+await page.set_viewport_size({"width": 702, "height": 783})
+
+# 3) 触摸模拟 — 告诉抖音是触摸设备（关键！缺这个就是桌面版）
+await cdp.send("Emulation.setTouchEmulationEnabled", {
+    "enabled": True, "maxTouchPoints": 5, "configuration": "mobile"
+})
+```
+
+⚠️ 注意：`Emulation.setDeviceMetricsOverride` 在 **Chrome 148** 上 `width/height` 参数失效，不要使用。
 
 ### Camoufox 窗口/视口控制方案（v4.1 修复）
 

@@ -148,42 +148,183 @@ def get_user_data_dir(identity_name: str) -> str:
     return str(LOCAL_ROOT / "identities" / identity_name / "user_data")
 
 
-async def run_one_round(conn, page, blueprint, behavior: BehaviorConfig):
-    """单轮养号操作 —— 完全由 behavior 参数控制节奏"""
-    steps = list(blueprint.get("steps", []))
+# ── 日志工具 ─────────────────────────────────────
 
-    # 打乱操作顺序（如果配置允许）
-    if behavior.should_shuffle():
-        random.shuffle(steps)
-
-    passed = 0
-    for step in steps:
-        op = step.get("op", "?")
-        args = step.get("args", {})
-
+def _log(msg: str, log_file: str = None):
+    """输出到 stdout 和日志文件"""
+    print(msg)
+    if log_file:
         try:
-            # 分心检测（模拟真人走神）
-            if behavior.should_distract():
-                distraction = behavior.distraction_duration()
-                print(f"  💭 分心 {distraction:.1f}s...")
-                await asyncio.sleep(distraction)
+            with open(log_file, "a") as f:
+                f.write(msg + "\n")
+        except:
+            pass
 
-            result = await _execute_op(page, conn, op, args, behavior)
-            passed += 1
 
-            # 操作后随机停留（模拟看完内容）
-            linger = behavior.linger_after_action()
-            await asyncio.sleep(linger)
+async def run_one_round(conn, page, behavior: BehaviorConfig, log_file: str = None):
+    """单轮养号 —— 真人化流程
 
-        except Exception as e:
-            print(f"  ⚠️ {op} → {type(e).__name__}")
-            await asyncio.sleep(behavior.retry_delay())
+    流程：
+    1. 进入推荐页
+    2. 看5个视频（滑动切换），每个随机观看 4-15秒
+    3. 5个中随机选1个点赞、1个收藏（可能相同）
+    4. 在搜索框输入关键词 → 搜索 → 看结果视频
+    """
+    _log(f"  🔄 开始新一轮", log_file)
 
-    return passed
+    # 回到首页
+    await page.goto("https://www.douyin.com/", timeout=15000, wait_until="domcontentloaded")
+    await asyncio.sleep(random.uniform(1, 2))
+    try:
+        await conn.remove_overlays()
+    except:
+        pass
+
+    TOTAL_VIDEOS = 5
+
+    # ── 先确定点赞/收藏位置（浏览前定好）──
+    like_idx = random.randint(0, TOTAL_VIDEOS - 1)
+    collect_idx = random.randint(0, TOTAL_VIDEOS - 1)
+
+    # ── Phase 1: 浏览 5 个视频 ──
+    # 抖音精选页使用瀑布流卡片（无 <a> 链接），需点击卡片进入视频
+    for vi in range(TOTAL_VIDEOS):
+        _log(f"    📹 视频 {vi+1}/{TOTAL_VIDEOS}", log_file)
+
+        # 每次先回到 feed 首页（视频播放完回首页找下一个卡片）
+        if vi > 0:
+            await page.goto("https://www.douyin.com/", timeout=15000, wait_until="domcontentloaded")
+            await asyncio.sleep(random.uniform(1.5, 3))
+
+        # 找视频卡片并点击
+        clicked = False
+        try:
+            # 先滚动加载更多卡片
+            if vi > 0:
+                await page.evaluate("window.scrollBy(0, 400)")
+                await asyncio.sleep(1)
+
+            clicked = await page.evaluate("""() => {
+                // 尝试多种选择器找视频卡片
+                const cards = document.querySelectorAll(
+                    '.discover-video-card-item, ' +
+                    '[class*=\"video-card\"], ' +
+                    '[class*=\"VideoCard\"], ' +
+                    '.waterfall-videoCardCon'
+                );
+                if (cards.length > 0) {
+                    // 点击第1个
+                    cards[0].click();
+                    return true;
+                }
+                // 备选：找图片点击
+                const imgs = document.querySelectorAll('[class*=\"video-card-img\"]');
+                if (imgs.length > 0) {
+                    imgs[0].click();
+                    return true;
+                }
+                return false;
+            }""")
+        except:
+            pass
+
+        if not clicked:
+            _log(f"      无法找到视频卡片，跳过", log_file)
+            continue
+
+        # 等待页面跳转到视频页
+        await asyncio.sleep(random.uniform(2, 4))
+
+        # 观看（随机 4-15 秒）
+        watch_sec = random.uniform(4, 15)
+        _log(f"      观看 {watch_sec:.0f}s...", log_file)
+        await asyncio.sleep(watch_sec)
+
+        # 点赞（如果这个视频被选中）
+        if vi == like_idx:
+            try:
+                r = await page.evaluate("""() => {
+                    const b = document.querySelector('[data-e2e="feed-active-video-double-like"]')
+                        || document.querySelector('[data-e2e="like-count"]');
+                    if (b) { b.click(); return 'ok'; }
+                    return '-';
+                }""")
+                if r == 'ok':
+                    _log(f"      👍 点赞 (第{vi+1}个)", log_file)
+            except:
+                pass
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+
+        # 收藏（如果这个视频被选中）
+        if vi == collect_idx:
+            try:
+                r = await page.evaluate("""() => {
+                    const b = document.querySelector('[data-e2e="video-collect"]');
+                    return b ? (b.click(), 'ok') : '-';
+                }""")
+                if r == 'ok':
+                    _log(f"      ⭐ 收藏 (第{vi+1}个)", log_file)
+            except:
+                pass
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+
+    # ── Phase 2: 搜索框搜索 ──
+    search_keywords = ["搞笑", "美食", "旅行", "萌宠", "科技", "音乐", "舞蹈", "健身"]
+    keyword = random.choice(search_keywords)
+    _log(f"    🔍 搜索: {keyword}", log_file)
+
+    try:
+        # 在搜索框输入关键词
+        await page.evaluate(f"""() => {{
+            const input = document.querySelector('input[placeholder*="搜索"]');
+            if (!input) return;
+            // 设置值并触发事件
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, 'value'
+            ).set;
+            nativeInputValueSetter.call(input, '{keyword}');
+            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+        }}""")
+        await asyncio.sleep(random.uniform(0.5, 1))
+
+        # 点击搜索按钮
+        await page.evaluate("""() => {
+            const btn = [...document.querySelectorAll('button')]
+                .find(b => b.textContent.includes('搜索'));
+            if (btn) btn.click();
+        }""")
+        await asyncio.sleep(random.uniform(2, 4))
+
+        # 在搜索结果中点一个视频
+        try:
+            result_link = await page.evaluate("""() => {
+                const links = [...document.querySelectorAll('a[href*="/video/"]')];
+                return links.length > 0
+                    ? links[Math.floor(Math.random() * Math.min(links.length, 3))].href
+                    : null;
+            }""")
+            if result_link:
+                await page.goto(result_link, timeout=15000, wait_until="domcontentloaded")
+                search_watch = random.uniform(5, 12)
+                _log(f"      搜索视频观看 {search_watch:.0f}s", log_file)
+                await asyncio.sleep(search_watch)
+        except:
+            pass
+    except Exception as e:
+        _log(f"    ⚠️ 搜索异常: {type(e).__name__}", log_file)
+
+    # 回到首页
+    try:
+        await conn.remove_overlays()
+    except:
+        pass
+
+    return TOTAL_VIDEOS
 
 
 async def _execute_op(page, conn, op: str, args: dict, behavior: BehaviorConfig):
-    """执行单个原子操作（由 behavior 控制节奏）"""
+    """(已弃用，保留为兼容) 由 run_one_round 替代"""
+    return "deprecated"
 
     if op == "goto_home":
         await page.goto("https://www.douyin.com/", timeout=15000)
@@ -281,9 +422,6 @@ async def nurture_loop(identity_name: str,
         identity_behavior.update(behavior_config)
     bhv = BehaviorConfig(identity_behavior)
 
-    blueprint = load_blueprint(blueprint_name)
-    total_steps = len(blueprint.get("steps", []))
-
     eng_name = "Chrome CDP" if engine == "chrome" else "Camoufox"
     # 获取窗口尺寸（从身份配置读取，默认702x783）
     cfg_win = config.get("window", [702, 783])
@@ -329,6 +467,11 @@ async def nurture_loop(identity_name: str,
     # 进入抖音首页
     await conn.page.goto("https://www.douyin.com/",
                          timeout=20000, wait_until="domcontentloaded")
+    # 导航后重设反检测（确保 UA/触摸/视口全部生效）
+    await conn.init_anti_detection()
+    await asyncio.sleep(2)
+    # 导航到目标页面后重新设置反检测（CDP 覆盖可能在跨域导航后失效）
+    await conn.init_anti_detection()
     await asyncio.sleep(2)
 
     # 找视频进入播放页
@@ -339,26 +482,33 @@ async def nurture_loop(identity_name: str,
     if video_links:
         await conn.page.goto(random.choice(video_links),
                              timeout=15000, wait_until="domcontentloaded")
+        # 视频页也重新设置
+        await conn.init_anti_detection()
         await asyncio.sleep(bhv.click_delay())
 
-    # ── 循环执行 ──
+    # ── 循环执行 —— 新流程（不依赖旧蓝图）──
+    LOG_FILE = f"/tmp/matrix_nurture_{identity_name}.log"
+    _log(f"  日志: {LOG_FILE}", LOG_FILE)
+
     passed_rounds = 0
     for r in range(1, rounds + 1):
-        print(f"\n  🔁 第 {r}/{rounds} 轮")
+        _log(f"\n{'='*40}", LOG_FILE)
+        _log(f" 🔁 {identity_name} 第 {r}/{rounds} 轮", LOG_FILE)
+        _log(f"{'='*40}", LOG_FILE)
 
         try:
-            p = await run_one_round(conn, conn.page, blueprint, bhv)
+            p = await run_one_round(conn, conn.page, bhv, LOG_FILE)
             passed_rounds += 1
 
             await conn.remove_overlays()
 
             if r < rounds:
                 rest = bhv.round_break()
-                print(f"  ⏳ 休息 {rest:.0f}s...")
+                _log(f"  ⏳ 休息 {rest:.0f}s...", LOG_FILE)
                 await asyncio.sleep(rest)
 
         except Exception as e:
-            print(f"  ❌ 第 {r} 轮异常: {type(e).__name__}: {str(e)[:60]}")
+            _log(f"  ❌ 第 {r} 轮异常: {type(e).__name__}: {str(e)[:60]}", LOG_FILE)
             try:
                 await conn.page.goto("https://www.douyin.com/",
                                      timeout=10000, wait_until="domcontentloaded")
@@ -368,26 +518,25 @@ async def nurture_loop(identity_name: str,
 
     # ── 总结 ──
     elapsed = time.time() - getattr(nurture_multi, '_t_start', time.time())
-    total_ops = passed_rounds * total_steps
-    print(f"\n{'='*55}")
-    print(f" 🏁 {identity_name} 养号完成 ({eng_name})")
-    print(f"    轮数: {passed_rounds}/{rounds}")
-    print(f"    总操作: ~{total_ops} 步")
-    print(f"    耗时: {elapsed:.0f}s ({elapsed/60:.1f}min)")
+    _log(f"\n{'='*40}", LOG_FILE)
+    _log(f" 🏁 {identity_name} 养号完成 ({eng_name})", LOG_FILE)
+    _log(f"    轮数: {passed_rounds}/{rounds}", LOG_FILE)
+    _log(f"    浏览视频: ~{passed_rounds * 3} 个", LOG_FILE)
+    _log(f"    耗时: {elapsed:.0f}s ({elapsed/60:.1f}min)", LOG_FILE)
 
     # ── Daemon 保持模式 ──
     if daemon:
-        print(f"    🔄 进入 daemon 保持模式")
-        print(f"      进程保持运行，浏览器保持连接")
-        print(f"      停止命令: kill {os.getpid()} 或 Ctrl+C")
+        _log(f"    🔄 进入 daemon 保持模式", LOG_FILE)
+        _log(f"      进程保持运行，浏览器保持连接", LOG_FILE)
+        _log(f"      停止命令: matrix nurture stop {identity_name}", LOG_FILE)
         try:
             while True:
                 await asyncio.sleep(30)
         except (asyncio.CancelledError, KeyboardInterrupt):
-            print(f"    ⏹ daemon 结束")
+            _log(f"    ⏹ daemon 结束", LOG_FILE)
     else:
-        print(f"    (浏览器保持运行，Python退出)")
-    print(f"{'='*55}")
+        _log(f"    (浏览器保持运行，Python退出)", LOG_FILE)
+    _log(f"{'='*40}", LOG_FILE)
 
 
 async def nurture_multi(identities: List[str],

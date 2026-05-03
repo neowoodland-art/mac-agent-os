@@ -334,18 +334,36 @@ class CDPConnector:
             print(f"✅ Camoufox 反检测已就绪（Windows 平板 702×783）")
             return None
         
-        # Chrome CDP: 使用 DevTools Protocol
+        # Chrome CDP: 使用 DevTools Protocol 设置 UA + 触摸 + 视口
         if not self.cdp_session:
             self.cdp_session = await self.context.new_cdp_session(self.page)
 
-        # 关键: mobile=true → 抖音识别为平板/手机，显示播放器UI
-        await self.cdp_session.send("Emulation.setDeviceMetricsOverride", {
-            "width": 702, "height": 783,
-            "deviceScaleFactor": 2,
-            "mobile": True,
-            "screenWidth": 702,
-            "screenHeight": 783,
-        })
+        # 1) 设置安卓平板 User-Agent
+        try:
+            await self.cdp_session.send("Network.setUserAgentOverride", {
+                "userAgent": ANDROID_TABLET_UA
+            })
+        except Exception:
+            pass
+
+        # 2) 设置视口尺寸
+        try:
+            await self.page.set_viewport_size({
+                "width": self.window[0],
+                "height": self.window[1]
+            })
+        except Exception:
+            pass
+
+        # 3) 启用触摸模拟（关键！让 maxTouchPoints > 0，抖音才能识别为触摸设备）
+        try:
+            await self.cdp_session.send("Emulation.setTouchEmulationEnabled", {
+                "enabled": True,
+                "maxTouchPoints": 5,
+                "configuration": "mobile",
+            })
+        except Exception:
+            pass
 
         # 设置安卓平板 User-Agent
         try:

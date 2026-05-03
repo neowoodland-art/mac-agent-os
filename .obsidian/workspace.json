@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "8f9ee65d37be1240",
+        "id": "1fcbc3c07b9d69c0",
         "type": "tabs",
         "children": [
           {
-            "id": "8617ca66b1e3cc21",
+            "id": "6460beaa3afdfd76",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -78,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 233.5
+    "width": 200
   },
   "right": {
     "id": "3afebfc8b54307f3",
@@ -168,7 +168,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 297.5
+    "width": 390.5
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -181,44 +181,44 @@
       "bases:新建数据库": false
     }
   },
-  "active": "8617ca66b1e3cc21",
+  "active": "6460beaa3afdfd76",
   "lastOpenFiles": [
-    "01_core/IDENTITY.tpl.md",
-    "01_core/IDENTITY.md",
-    "01_core/HOST_ID.md",
-    "01_core/CHANGELOG.md",
-    "README.md",
+    "05_tools/README.md",
     "03_knowledge/README.md",
-    "00_bootstrap/hooks/pre-push",
-    "00_bootstrap/hooks",
-    "03_knowledge/99_system/archive/SKILLS-CATALOG.md",
-    "03_knowledge/99_system/archive/QUICKSTART.md",
-    "03_knowledge/99_system/archive/CORE-ARCHITECTURE.md",
-    "03_knowledge/99_system/archive",
-    "01_core/UPDATE_SYSTEM.md",
+    "QUICKSTART.md",
     "05_tools/01_system/trigger_matcher.py",
+    "04_memory/cross_machine/registry/7kecheng.json",
     "03_knowledge/99_system/protocols/stuck-intervention.md",
     "03_knowledge/99_system/protocols/meta-thinking.md",
     "03_knowledge/99_system/protocols/knowledge-review.md",
     "03_knowledge/99_system/protocols/cross-domain.md",
     "03_knowledge/99_system/protocols",
+    "03_knowledge/99_system/archive/SKILLS-CATALOG.md",
+    "03_knowledge/99_system/archive/QUICKSTART.md",
+    "03_knowledge/99_system/archive/CORE-ARCHITECTURE.md",
+    "03_knowledge/99_system/archive",
     "03_knowledge/99_system/architecture/trigger-matching-analysis.md",
     "03_knowledge/99_system/architecture/loading-architecture.md",
     "03_knowledge/99_system/architecture",
-    "04_memory/cross_machine/registry/7kecheng.json",
+    "01_core/UPDATE_SYSTEM.md",
+    "01_core/NIGHTLY_AUTOMATION.md",
+    "00_bootstrap/hooks/pre-push",
+    "00_bootstrap/hooks",
+    "03_knowledge/99_system/prompts/classify-knowledge.md",
+    "03_knowledge/99_system/pipelines/content-collection-pipeline.md",
+    "03_knowledge/99_system/agent-os-memory-knowledge-architecture.md",
+    "03_knowledge/CHANGELOG.md",
+    "03_knowledge/00_inbox/knowledge-review.md",
+    "03_knowledge/00_inbox/20260503_social-wisdom_douyin-video.md",
+    "CHANGELOG.md",
+    "CORE-ARCHITECTURE.md",
     "SKILLS-CATALOG.md",
     "REQUIREMENTS.md",
-    "QUICKSTART.md",
-    "CORE-ARCHITECTURE.md",
-    "CHANGELOG.md",
-    "01_submissions.md",
-    "docs/UPGRADE_SOUL_v3_PLAN.md",
-    "07_migration/RESTORE-GUIDE.md",
-    "90_archive/10_next_version_discussion/讨论清单.md",
-    "03_knowledge/CHANGELOG.md",
-    "05_tools/07_matrix/scripts/diag_window.py",
+    "README.md",
+    "03_knowledge/10_concepts/global-accounting-strategic-loss.md",
     "04_memory/cross_machine/registry/chengzige.json",
     "04_memory/cross_machine/registry/chengzigedeMacBook-Air.json",
+    "04_memory/cross_machine/registry/192.168.31.226.json",
     "matrix/douyin_refresh2.png",
     "matrix/douyin_check.png"
   ]
