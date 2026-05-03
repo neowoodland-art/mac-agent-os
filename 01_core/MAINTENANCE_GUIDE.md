@@ -72,6 +72,27 @@ git commit -m "更新说明"
 git push
 ```
 
+### 3.2 gitignore 规则（避免机器专属文件冲突）
+
+`.gitignore` 已配置以下排除规则，各机器专属文件不会进入仓库：
+
+| 排除项 | 原因 | 说明 |
+|--------|------|------|
+| `.obsidian/` | 窗口布局/插件配置各机器不同 | workspace.json 记录打开的文件和窗口位置 |
+| `01_core/IDENTITY.md` | 从模板生成，填充本机设备信息 | 模板为 IDENTITY.tpl.md，各机器运行 init 生成 |
+| `01_core/HOST_ID.md` | 角色/主机名各机器不同 | 每台机器独立设置 |
+| `01_core/USER.md` | 用户偏好各机器可能不同 | 同上 |
+| `01_core/mcp.json` | MCP 服务路径各机器不同 | 模板为 mcp.tpl.json |
+| `04_memory/long_term/facts.db` | 本地记忆库，各机器独立 | 不同步 |
+| `04_memory/logs/*.log` | 日志文件，各机器独立 | — |
+| `04_memory/vector_db` | 向量库，可重建 | — |
+| `agent-local/` | 整机专属数据目录 | 软链到本机私有位置 |
+
+**如有新文件需要排除**，编辑 `.gitignore` 后运行：
+```bash
+git rm --cached <文件路径>    # 解除 Git 追踪（不删本地文件）
+```
+
 ### 3.2 同步协作图
 
 ```
