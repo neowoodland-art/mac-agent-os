@@ -166,13 +166,25 @@ class CDPConnector:
             'fonts': ['STHeiti', 'Heiti SC', 'PingFang SC', 'Noto Sans CJK SC'],
             'humanize': 1.5,
             'firefox_user_prefs': {
-                'dom.disable_window_move_resize': False,  # 允许 JS 调整窗口
+                'dom.disable_window_move_resize': False,
             },
             'args': [
                 f'--width={w_width}',
                 f'--height={w_height}',
                 '--new-window',
             ],
+            # Camoufox config：在启动前注入 DOM 属性覆盖
+            # 让 viewport/screen 全部固定为 702×783
+            'config': {
+                'window.innerWidth': w_width,
+                'window.innerHeight': w_height,
+                'window.outerWidth': w_width,
+                'window.outerHeight': w_height,
+                'screen.width': w_width,
+                'screen.height': w_height,
+                'screen.availWidth': w_width,
+                'screen.availHeight': w_height,
+            },
         }
 
         # 注入固化指纹（关键！——确保每次启动同一副面孔）

@@ -72,14 +72,9 @@ def ensure_chrome(port: int, profile_dir: str):
 
 
 async def _force_window_size(conn, engine: str, width: int, height: int):
-    """强制设置浏览器窗口尺寸（引擎级，非页面视口）
-
-    Chrome: 通过 CDP Browser.setWindowBounds 设置
-    Camoufox: 通过 JavaScript window.resizeTo 设置
-    """
+    """Chrome CDP 强制设置窗口（仅 Chrome，Camoufox 用 window.open）"""
     if engine == "chrome" and conn.cdp_session:
         try:
-            # 获取窗口ID
             win_info = await conn.cdp_session.send("Browser.getWindowForTarget")
             win_id = win_info.get("windowId")
             if win_id:
@@ -88,27 +83,50 @@ async def _force_window_size(conn, engine: str, width: int, height: int):
                     "bounds": {"width": width, "height": height}
                 })
                 print(f"  📐 Chrome 窗口: {width}×{height} (CDP)")
-                return
         except Exception as e:
             print(f"  ⚠️ Chrome CDP 调窗失败: {e}")
 
-    # Firefox/Camoufox: 使用 JS window.resizeTo
-    for attempt in range(3):
-        try:
-            result = await conn.page.evaluate(f"""
-                (() => {{
-                    window.moveTo(0, 0);
-                    window.resizeTo({width}, {height});
-                    return `outer=${{window.outerWidth}}x${{window.outerHeight}}`;
-                }})()
-            """)
-            print(f"  📐 {engine.title()} 窗口: {width}×{height} ({result})")
-            return
-        except Exception as e:
-            if attempt < 2:
-                await asyncio.sleep(1)
-            else:
-                print(f"  ⚠️ {engine.title()} 调窗失败: {e}")
+
+async def _camoufox_open_window(conn, width: int, height: int):
+    """Camoufox: 通过 window.open 创建指定尺寸的新窗口
+    Firefox 的 resizeTo 被 Playwright 禁用，但 window.open 尺寸参数原生生效
+    """
+    import asyncio
+
+    # 监听新窗口事件
+    new_page_future = asyncio.get_event_loop().create_future()
+    def on_page(page):
+        if not new_page_future.done():
+            new_page_future.set_result(page)
+
+    conn.context.on("page", on_page)
+
+    # 创建指定尺寸的新窗口
+    await conn.page.evaluate(f"""
+        window.open('about:blank', 'main',
+            'width={width},height={height},left=0,top=0,' +
+            'menubar=no,toolbar=no,location=no,status=no');
+    """)
+
+    # 等待新窗口出现（最多5秒）
+    try:
+        new_page = await asyncio.wait_for(new_page_future, timeout=5)
+    except asyncio.TimeoutError:
+        # 如果事件没触发，检查已有 pages
+        pages = conn.context.pages
+        if len(pages) > 1:
+            new_page = pages[-1]
+        else:
+            print(f"  ⚠️ 未能创建新窗口，使用原窗口")
+            return None
+
+    # 关闭旧窗口
+    try:
+        await conn.page.close()
+    except:
+        pass
+
+    return new_page
 
 
 def load_identity_config(identity_name: str) -> dict:
@@ -297,8 +315,16 @@ async def nurture_loop(identity_name: str,
     await conn.connect()
     await conn.init_anti_detection()
 
-    # 强制设置窗口大小（浏览器级，非页面视口）
-    await _force_window_size(conn, engine, w_width, w_height)
+    # 强制设置窗口大小
+    if engine == "camoufox":
+        # Camoufox: 用 window.open 创建正确尺寸的物理窗口
+        new_page = await _camoufox_open_window(conn, w_width, w_height)
+        if new_page:
+            conn.page = new_page
+            # 新窗口的 viewport 由 Camoufox config 注入自动处理
+            print(f"  📐 Camoufox 窗口: {w_width}×{w_height}")
+    else:
+        await _force_window_size(conn, engine, w_width, w_height)
 
     # 进入抖音首页
     await conn.page.goto("https://www.douyin.com/",
