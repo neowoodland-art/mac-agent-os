@@ -282,97 +282,221 @@ def main():
 def search_web(keyword: str, platform: str = "douyin", max_results: int = 15) -> list[dict]:
     """
     搜索平台内容，只返回元数据（不下载任何文件）
+    使用 httpx 直接请求 + 移动端伪装，不经过浏览器。
     
     Args:
         keyword: 搜索关键词
-        platform: douyin / xiaohongshu / zhihu
+        platform: douyin / xiaohongshu / zhihu / baidu
         max_results: 最大返回条数
     
     Returns:
         [{url, title, author, brief, platform}, ...]
     """
-    import subprocess, re, shutil, time
-    
-    npx = shutil.which("npx", path="/Users/chengzige/.workbuddy/binaries/node/versions/22.12.0/bin:/usr/bin:/bin")
-    if not npx:
-        print("[WARN] npx 未找到")
-        return []
-    
-    search_urls = {
-        "douyin": f"https://www.douyin.com/search/{keyword}?type=general",
-        "xiaohongshu": f"https://www.xiaohongshu.com/search_result?keyword={keyword}",
-        "zhihu": f"https://www.zhihu.com/search?type=content&q={keyword}",
-    }
-    url = search_urls.get(platform, search_urls["douyin"])
-    
-    env = os.environ.copy()
-    for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
-        env.pop(k, None)
-    env.pop("NODE_OPTIONS", None)
+    import re, json
     
     try:
-        subprocess.run([npx, "agent-browser", "open", url], env=env, capture_output=True, timeout=30)
-        time.sleep(4)
-        result = subprocess.run([npx, "agent-browser", "snapshot"], env=env, capture_output=True, timeout=15, text=True)
-        subprocess.run([npx, "agent-browser", "close"], env=env, capture_output=True, timeout=10)
+        import httpx
+    except ImportError:
+        print("[WARN] httpx 未安装，回退到 agent-browser")
+        return _search_agent_browser(keyword, platform, max_results)
+    
+    # 移动端伪装头
+    mobile_headers = {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 13; SM-S9080) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Referer": "https://www.baidu.com/",
+    }
+    
+    search_configs = {
+        "douyin": {
+            "url": f"https://www.douyin.com/search/{keyword}?type=general",
+            "mobile_ua": True,
+            "parser": "douyin_json",
+        },
+        "xiaohongshu": {
+            "url": f"https://www.xiaohongshu.com/search_result?keyword={keyword}",
+            "mobile_ua": False,
+            "parser": "xhs_html",
+        },
+        "zhihu": {
+            "url": f"https://www.zhihu.com/search?type=content&q={keyword}",
+            "mobile_ua": True,
+            "parser": "zhihu_html",
+        },
+        "baidu": {
+            "url": f"https://www.baidu.com/s?wd={keyword}&ie=utf-8",
+            "mobile_ua": False,
+            "parser": "baidu_html",
+        },
+    }
+    
+    cfg = search_configs.get(platform, search_configs["douyin"])
+    url = cfg["url"]
+    
+    headers = mobile_headers.copy()
+    if cfg.get("mobile_ua"):
+        headers["User-Agent"] = mobile_headers["User-Agent"]
+    else:
+        headers["User-Agent"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    
+    try:
+        resp = httpx.get(url, headers=headers, follow_redirects=True, timeout=15)
+        html = resp.text
+    except Exception as e:
+        print(f"[WARN] httpx 请求失败 ({e})，回退到 agent-browser")
+        return _search_agent_browser(keyword, platform, max_results)
+    
+    results = []
+    parser = cfg["parser"]
+    
+    if parser == "douyin_json":
+        # 抖音：尝试找 JSON 数据
+        json_match = re.search(r'window\._ROUTER_DATA\s*=\s*({.*?});', html, re.DOTALL)
+        if json_match:
+            try:
+                data = json.loads(json_match.group(1))
+                # 遍历找到视频列表
+                def _extract(obj, depth=0):
+                    items = []
+                    if depth > 5:
+                        return items
+                    if isinstance(obj, dict):
+                        if obj.get("type") == "video" and obj.get("aweme_id"):
+                            items.append({
+                                "url": f"https://www.douyin.com/video/{obj['aweme_id']}",
+                                "title": (obj.get("desc") or obj.get("title") or "")[:40],
+                                "author": (obj.get("author_info", {}) or {}).get("nickname", ""),
+                                "brief": "",
+                                "platform": "douyin",
+                            })
+                        for v in obj.values():
+                            items.extend(_extract(v, depth + 1))
+                    elif isinstance(obj, list):
+                        for v in obj:
+                            items.extend(_extract(v, depth + 1))
+                    return items
+                results = _extract(data)
+            except:
+                pass
         
-        html = result.stdout
-        results = []
-        
-        if platform == "douyin":
-            # 提取视频链接
+        if not results:
+            # 备用：正则提取链接+标题
             links = re.findall(r'https?://[^\s"\'<>]*(?:douyin\.com/video/\d+)[^\s"\'<>]*', html)
-            # 提取中文段落作为标题候选
-            titles = re.findall(r'[\u4e00-\u9fff]{8,}', html)
-            titles = [t for t in titles if not any(kw in t for kw in ['登录','下载','关注','点赞','协议','评论','分享'])]
-            
+            texts = re.findall(r'[\u4e00-\u9fff]{8,}', html)
+            texts = [t for t in texts if not any(kw in t for kw in ['登录','下载','关注','点赞','协议','评论','分享'])]
             seen = set()
             for i, link in enumerate(links):
-                clean = link.split('?')[0] if '?' in link else link
-                if clean not in seen:
-                    seen.add(clean)
-                    results.append({
-                        "url": clean,
-                        "title": titles[len(results)] if len(results) < len(titles) else keyword,
-                        "author": "", "brief": "", "platform": "douyin",
-                    })
-                    if len(results) >= max_results:
-                        break
-            
-            # 如果没找到链接但有文本，用文本作为搜索结果
-            if not results and titles:
-                for i, t in enumerate(titles[:max_results]):
-                    results.append({
-                        "url": f"https://www.douyin.com/search/{keyword}",
-                        "title": t[:40], "author": "", "brief": "", "platform": "douyin",
-                    })
-        
-        elif platform in ("xiaohongshu", "zhihu"):
-            # 提取所有链接
-            links = re.findall(r'https?://[^\s"\'<>]+(?:xiaohongshu|zhihu)\.com[^\s"\'<>]*', html)
-            texts = re.findall(r'[\u4e00-\u9fff]{10,}', html)
-            texts = [t for t in texts if not any(kw in t for kw in ['登录','下载','关注','点赞','协议','评论','分享','手机'])]
-            
-            seen = set()
-            for i, link in enumerate(links):
-                clean = link.split('?')[0] if '?' in link else link
+                clean = link.split('?')[0]
                 if clean not in seen:
                     seen.add(clean)
                     results.append({
                         "url": clean,
                         "title": texts[len(results)] if len(results) < len(texts) else keyword,
-                        "author": "", "brief": "", "platform": platform,
+                        "author": "", "brief": "", "platform": "douyin",
                     })
                     if len(results) >= max_results:
                         break
-        
-        return results
-        
-    except subprocess.TimeoutExpired:
-        print(f"[WARN] 搜索 {platform} 超时")
+    
+    elif parser == "xhs_html":
+        # 小红书：提取笔记链接 + 文本
+        links = re.findall(r'https?://[^\s"\'<>]*(?:xiaohongshu\.com/explore/[^?&\s<>]+)', html)
+        texts = re.findall(r'[\u4e00-\u9fff]{10,}', html)
+        texts = [t for t in texts if not any(kw in t for kw in ['登录','下载','关注','点赞','注册','手机','验证码'])]
+        seen = set()
+        for i, link in enumerate(links[:max_results]):
+            clean = link.split('?')[0] if '?' in link else link
+            if clean not in seen:
+                seen.add(clean)
+                results.append({
+                    "url": clean,
+                    "title": texts[len(results)] if len(results) < len(texts) else keyword,
+                    "author": "", "brief": "", "platform": "xiaohongshu",
+                })
+    
+    elif parser == "zhihu_html":
+        links = re.findall(r'https?://[^\s"\'<>]*(?:zhihu\.com/question/\d+|zhihu\.com/answer/\d+|zhihu\.com/zvideo/\d+)[^\s"\'<>]*', html)
+        texts = re.findall(r'[\u4e00-\u9fff]{10,}', html)
+        texts = [t for t in texts if not any(kw in t for kw in ['登录','下载','关注','赞同','评论','手机','验证码'])]
+        seen = set()
+        for i, link in enumerate(links[:max_results]):
+            clean = link.split('?')[0]
+            if clean not in seen:
+                seen.add(clean)
+                results.append({
+                    "url": clean,
+                    "title": texts[len(results)] if len(results) < len(texts) else keyword,
+                    "author": "", "brief": "", "platform": "zhihu",
+                })
+    
+    elif parser == "baidu_html":
+        # 百度搜索：提取搜索结果
+        items = re.findall(r'<div[^>]*class="[^"]*result[^"]*"[^>]*>.*?<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>', html, re.DOTALL)
+        if not items:
+            # 通用提取
+            links = re.findall(r'https?://[^\s"\'<>]+', html)
+            titles = re.findall(r'[\u4e00-\u9fff]{10,}', html)
+            titles = [t for t in titles if not any(kw in t for kw in ['登录','下载','注册','百度'])]
+            for i, t in enumerate(titles[:max_results]):
+                results.append({
+                    "url": links[i] if i < len(links) else "",
+                    "title": t[:40], "author": "", "brief": "", "platform": "baidu",
+                })
+        else:
+            for href, title in items[:max_results]:
+                results.append({
+                    "url": href, "title": re.sub(r'<[^>]+>', '', title).strip()[:40],
+                    "author": "", "brief": "", "platform": "baidu",
+                })
+    
+    return results[:max_results]
+
+
+def _search_agent_browser(keyword: str, platform: str, max_results: int) -> list[dict]:
+    """回退方案：使用 agent-browser（保留原有逻辑）"""
+    import subprocess, re, shutil, time
+    
+    npx = shutil.which("npx", path="/Users/chengzige/.workbuddy/binaries/node/versions/22.12.0/bin:/usr/bin:/bin")
+    if not npx:
         return []
-    except Exception as e:
-        print(f"[ERROR] 搜索失败: {e}")
+    
+    search_urls = {
+        "douyin": f"https://www.douyin.com/search/{keyword}?type=general",
+        "zhihu": f"https://www.zhihu.com/search?type=content&q={keyword}",
+    }
+    url = search_urls.get(platform, search_urls.get("douyin", ""))
+    if not url:
+        return []
+    
+    env = os.environ.copy()
+    for k in ["HTTP_PROXY", "HTTPS_PROXY"]:
+        env.pop(k, None)
+    env.pop("NODE_OPTIONS", None)
+    
+    try:
+        subprocess.run([npx, "agent-browser", "open", url], env=env, capture_output=True, timeout=25)
+        time.sleep(3)
+        r = subprocess.run([npx, "agent-browser", "snapshot"], env=env, capture_output=True, timeout=15, text=True)
+        subprocess.run([npx, "agent-browser", "close"], env=env, capture_output=True, timeout=8)
+        
+        html = r.stdout
+        links = re.findall(r'https?://[^\s"\'<>]*(?:video/\d+|\?q=)[^\s"\'<>]*', html)
+        texts = re.findall(r'[\u4e00-\u9fff]{8,}', html)
+        texts = [t for t in texts if not any(kw in t for kw in ['登录','下载','关注','点赞'])]
+        
+        results = []
+        seen = set()
+        for i, link in enumerate(links[:max_results]):
+            clean = link.split('?')[0]
+            if clean not in seen:
+                seen.add(clean)
+                results.append({
+                    "url": clean,
+                    "title": texts[len(results)] if len(results) < len(texts) else keyword,
+                    "author": "", "brief": "", "platform": platform,
+                })
+        return results
+    except:
         return []
 
 
