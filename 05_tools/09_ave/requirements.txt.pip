@@ -6,6 +6,7 @@ ffmpeg-python>=0.2.0
 
 # API 调用
 httpx>=0.27.0
+dashscope>=1.20.0       # 阿里云百炼 CosyVoice TTS
 
 # 服务层 (可选)
 fastapi>=0.110.0
