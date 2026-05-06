@@ -155,60 +155,182 @@ def build_app() -> gr.Blocks:
         title=config.get("web", {}).get("title", "口播灵感工坊"),
         theme=gr.themes.Soft(),
     ) as app:
-        gr.Markdown("# 🎬 口播灵感工坊")
+        gr.Markdown("# 🎬 口播灵感工坊 — 素材采集 → 脚本生成")
         
-        # 统计栏
-        stats_text = gr.Markdown(
-            f"📊 **统计** | 总素材: {stats['总素材']} | 已分析: {stats['已分析']} | "
-            f"已下载: {stats['已下载']} | 待下载: {stats['待下载']} | AI推荐: {stats['AI推荐']}"
-        )
-        
-        with gr.Row():
-            keyword_input = gr.Textbox(label="关键词搜索", placeholder="标题/描述/标签/金句", scale=2)
-            platform_dd = gr.Dropdown(
-                label="平台", choices=["全部", "xiaohongshu", "douyin", "bilibili"],
-                value="全部", scale=1
-            )
-            emotion_dd = gr.Dropdown(
-                label="情绪", choices=["全部", "治愈", "励志", "震惊", "沉思", "有趣", "感动"],
-                value="全部", scale=1
-            )
-        
-        with gr.Row():
-            has_file_dd = gr.Dropdown(
-                label="下载状态", choices=["全部", "已下载", "未下载"],
-                value="全部", scale=1
-            )
-            worth_dd = gr.Dropdown(
-                label="AI推荐", choices=["全部", "推荐下载", "不推荐"],
-                value="全部", scale=1
-            )
-            sort_dd = gr.Dropdown(
-                label="排序", choices=["fetched_at DESC", "like_count DESC", "collect_count DESC"],
-                value="fetched_at DESC", scale=1
-            )
-            search_btn = gr.Button("🔍 搜索", variant="primary", scale=1)
-            refresh_btn = gr.Button("🔄 刷新统计", scale=1)
-        
-        # 搜索结果表格
-        result_table = gr.Dataframe(
-            headers=["ID", "平台", "标题", "作者", "金句", "情绪", "推荐下载", "状态"],
-            label="搜索结果",
-            interactive=False,
-        )
-        
-        # 详情面板
-        with gr.Row():
-            with gr.Column(scale=1):
-                detail_id = gr.Number(label="素材ID", precision=0)
+        with gr.Tabs():
+            # ====== 标签页1：素材库 ======
+            with gr.Tab("📦 素材库"):
+                stats_text = gr.Markdown(
+                    f"📊 **统计** | 总素材: {stats['总素材']} | 已分析: {stats['已分析']} | "
+                    f"已下载: {stats['已下载']} | 待下载: {stats['待下载']} | AI推荐: {stats['AI推荐']}"
+                )
+                
                 with gr.Row():
-                    detail_btn = gr.Button("查看详情", variant="secondary")
-                    download_btn = gr.Button("📥 加入下载队列", variant="stop")
+                    keyword_input = gr.Textbox(label="关键词搜索", placeholder="标题/描述/标签/金句", scale=2)
+                    platform_dd = gr.Dropdown(
+                        label="平台", choices=["全部", "xiaohongshu", "douyin", "bilibili"],
+                        value="全部", scale=1
+                    )
+                    emotion_dd = gr.Dropdown(
+                        label="情绪", choices=["全部", "治愈", "励志", "震惊", "沉思", "有趣", "感动"],
+                        value="全部", scale=1
+                    )
+                
+                with gr.Row():
+                    has_file_dd = gr.Dropdown(
+                        label="下载状态", choices=["全部", "已下载", "未下载"],
+                        value="全部", scale=1
+                    )
+                    worth_dd = gr.Dropdown(
+                        label="AI推荐", choices=["全部", "推荐下载", "不推荐"],
+                        value="全部", scale=1
+                    )
+                    sort_dd = gr.Dropdown(
+                        label="排序", choices=["fetched_at DESC", "like_count DESC", "collect_count DESC"],
+                        value="fetched_at DESC", scale=1
+                    )
+                    search_btn = gr.Button("🔍 搜索", variant="primary", scale=1)
+                    refresh_btn = gr.Button("🔄 刷新统计", scale=1)
+                
+                result_table = gr.Dataframe(
+                    headers=["ID", "平台", "标题", "作者", "金句", "情绪", "推荐下载", "状态"],
+                    label="搜索结果",
+                    interactive=False,
+                )
+                
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        detail_id = gr.Number(label="素材ID", precision=0)
+                        with gr.Row():
+                            detail_btn = gr.Button("查看详情", variant="secondary")
+                            download_btn = gr.Button("📥 加入下载队列", variant="stop")
+                    
+                    with gr.Column(scale=2):
+                        detail_output = gr.Markdown("选择一条素材后点击「查看详情」")
             
-            with gr.Column(scale=2):
-                detail_output = gr.Markdown("选择一条素材后点击「查看详情」")
+            # ====== 标签页2：脚本工厂 ======
+            with gr.Tab("🎬 脚本工厂"):
+                gr.Markdown("### 从素材或主题生成 AVE v2.0 导演脚本")
+                
+                with gr.Row():
+                    script_source = gr.Radio(
+                        choices=["输入主题", "从素材库ID"],
+                        label="脚本来源", value="输入主题"
+                    )
+                
+                with gr.Row():
+                    topic_input = gr.Textbox(
+                        label="主题", placeholder="输入口播主题，如：普通人如何抓住AI时代的机会",
+                        visible=True, scale=3
+                    )
+                    material_id_input = gr.Number(
+                        label="素材ID", precision=0, value=0,
+                        visible=False, scale=1
+                    )
+                
+                with gr.Row():
+                    style_dd = gr.Dropdown(
+                        label="视频风格",
+                        choices=["knowledge_lecture", "bedtime_story", "funny_talk", "tech_review"],
+                        value="knowledge_lecture", scale=1
+                    )
+                    gen_btn = gr.Button("🚀 生成脚本", variant="primary", scale=1)
+                
+                with gr.Row():
+                    with gr.Column():
+                        gr.Markdown("#### 📄 AVE 导演脚本 (YAML)")
+                        yaml_output = gr.Textbox(label="", lines=20, max_lines=30)
+                    with gr.Column():
+                        gr.Markdown("#### 📝 说明文档 (MD)")
+                        md_output = gr.Textbox(label="", lines=20, max_lines=30)
+                
+                with gr.Row():
+                    project_id_display = gr.Textbox(label="项目ID", visible=False)
+                    save_btn = gr.Button("💾 保存到素材库", variant="primary")
+                    save_status = gr.Markdown("")
+                
+                # 脚本工厂回调
+                def toggle_source(source):
+                    show_topic = source == "输入主题"
+                    return (
+                        gr.update(visible=show_topic),
+                        gr.update(visible=not show_topic),
+                    )
+                
+                def generate_script(topic, material_id, style):
+                    import subprocess, sys
+                    from pathlib import Path
+                    
+                    script_path = Path(__file__).parent / "script_factory.py"
+                    cmd = [sys.executable, str(script_path), "--topic", topic, "--style", style]
+                    
+                    try:
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                        if result.returncode != 0:
+                            return "生成失败:\n" + result.stderr[:500], "生成失败", ""
+                        
+                        # 找到最新生成的YAML和MD
+                        output_dir = Path(__file__).parent / "scripts_output"
+                        yamls = sorted(output_dir.glob("*.yaml"))
+                        mds = sorted(output_dir.glob("*.md"))
+                        
+                        if not yamls:
+                            return "未找到生成的脚本文件", "未找到", ""
+                        
+                        latest_yaml = yamls[-1]
+                        latest_md = mds[-1]
+                        
+                        pid = latest_yaml.stem
+                        yaml_content = latest_yaml.read_text(encoding="utf-8")
+                        md_content = latest_md.read_text(encoding="utf-8")
+                        
+                        return yaml_content, md_content, pid
+                    except subprocess.TimeoutExpired:
+                        return "生成超时（>5分钟）", "超时", ""
+                    except Exception as e:
+                        return f"生成异常: {str(e)}", "异常", ""
+                
+                def save_script(pid):
+                    if not pid:
+                        return "请先生成脚本"
+                    # 复制到 materials/
+                    import shutil
+                    from pathlib import Path
+                    
+                    output_dir = Path(__file__).parent / "scripts_output"
+                    materials_dir = Path.home() / "workbuddy-agent-os/agent-local/materials/videos"
+                    materials_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    yaml_src = output_dir / f"{pid}.yaml"
+                    md_src = output_dir / f"{pid}.md"
+                    
+                    if yaml_src.exists():
+                        shutil.copy2(str(yaml_src), str(materials_dir / f"{pid}.yaml"))
+                    if md_src.exists():
+                        shutil.copy2(str(md_src), str(materials_dir / f"{pid}.md"))
+                    
+                    return f"✅ 已保存到 `{materials_dir}`"
+                
+                # 事件绑定
+                script_source.change(
+                    toggle_source,
+                    inputs=[script_source],
+                    outputs=[topic_input, material_id_input]
+                )
+                
+                gen_btn.click(
+                    generate_script,
+                    inputs=[topic_input, material_id_input, style_dd],
+                    outputs=[yaml_output, md_output, project_id_display]
+                )
+                
+                save_btn.click(
+                    save_script,
+                    inputs=[project_id_display],
+                    outputs=[save_status]
+                )
         
-        # 详情回调
+        # 素材库事件绑定（共用）
         def show_detail(material_id):
             if not material_id:
                 return "请输入素材ID"
@@ -277,13 +399,8 @@ def build_app() -> gr.Blocks:
                 f"已下载: {s['已下载']} | 待下载: {s['待下载']} | AI推荐: {s['AI推荐']}"
             )
         
-        # 事件绑定
-        search_btn.click(
-            do_search,
-            inputs=[keyword_input, platform_dd, emotion_dd, has_file_dd, worth_dd, sort_dd],
-            outputs=[result_table],
-        )
-        
+        # 素材库事件绑定
+        search_btn.click(do_search, inputs=[keyword_input, platform_dd, emotion_dd, has_file_dd, worth_dd, sort_dd], outputs=[result_table])
         detail_btn.click(show_detail, inputs=[detail_id], outputs=[detail_output])
         download_btn.click(do_download, inputs=[detail_id], outputs=[detail_output])
         refresh_btn.click(refresh_stats, outputs=[stats_text])
