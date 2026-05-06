@@ -332,13 +332,18 @@ def build_app() -> gr.Blocks:
             # ====== 标签页3：智能搜索 ======
             with gr.Tab("🔍 智能搜索"):
                 gr.Markdown("### 搜索平台内容 → 预览筛选 → 下载分析 → 生成脚本")
-                gr.Markdown("先搜元数据，只看不下载，勾选后再处理，节约资源。")
+                gr.Markdown("""> **百度**: 可自动搜索全网文章，结果可预览筛选（推荐）
+> **抖音/知乎/小红书**: 需手动粘贴链接，不支持自动搜索（平台限制了直接访问）
+> 
+> **使用建议**: 用百度搜热点/选题 → 找到相关文章 → 到脚本工厂输入主题生成脚本
+> 如果你有抖音/知乎链接，可以直接粘贴过来用 WebFetch 提取内容。
+""")
                 
                 with gr.Row():
                     search_keyword = gr.Textbox(label="关键词", placeholder="输入搜索关键词", scale=3)
                     search_platform = gr.Dropdown(
-                        label="平台", choices=["douyin", "xiaohongshu", "zhihu"],
-                        value="douyin", scale=1
+                        label="平台", choices=["baidu", "douyin", "xiaohongshu", "zhihu"],
+                        value="baidu", scale=1
                     )
                     do_search_btn = gr.Button("🔍 搜索", variant="primary", scale=1)
                 
@@ -371,26 +376,32 @@ def build_app() -> gr.Blocks:
                     if not keyword:
                         return [], "请输入关键词"
                     
-                    # 导入 search_web
                     import sys, importlib
                     import collect as collect_mod
                     importlib.reload(collect_mod)
                     
-                    status_msg = f"正在搜索 {platform} 关键词「{keyword}」..."
+                    # 非百度平台提示
+                    if platform != "baidu":
+                        hints = {
+                            "douyin": "抖音需要浏览器渲染+登录才能搜索，请直接粘贴视频链接到脚本工厂",
+                            "xiaohongshu": "小红书暂不支持自动搜索，请直接粘贴笔记链接",
+                            "zhihu": "知乎暂不支持自动搜索，请直接粘贴问题/文章链接",
+                        }
+                        return [[""] * 6], f"⚠️ {hints.get(platform, '该平台暂不支持自动搜索')}"
+                    
                     results = collect_mod.search_web(keyword, platform, int(max_n))
                     
                     if not results:
-                        return [[""] * 6], f"未找到结果。{status_msg}"
+                        return [[""] * 6], f"未找到结果，试试其他关键词"
                     
                     table = []
                     for i, r in enumerate(results):
                         title = (r.get("title", "") or "")[:30]
                         brief = (r.get("brief", "") or "")[:50]
-                        author = (r.get("author", "") or "")[:15]
                         url = (r.get("url", "") or "")[:60]
-                        table.append(["☐", title, r.get("platform", ""), author, brief, url])
+                        table.append(["☐", title, r.get("platform", ""), "", brief, url])
                     
-                    return table, f"✅ 找到 {len(results)} 条结果，勾选后点击下方按钮处理"
+                    return table, f"✅ 找到 {len(results)} 条结果，勾选感兴趣的，点击下方按钮处理"
                 
                 def process_selected(table_data, keyword, platform):
                     """处理选中项：下载 + 转写 + 生成脚本"""
