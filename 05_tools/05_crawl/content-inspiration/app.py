@@ -153,7 +153,6 @@ def build_app() -> gr.Blocks:
     
     with gr.Blocks(
         title=config.get("web", {}).get("title", "口播灵感工坊"),
-        theme=gr.themes.Soft(),
     ) as app:
         gr.Markdown("# 🎬 口播灵感工坊 — 素材采集 → 脚本生成")
         
@@ -413,9 +412,13 @@ def main():
     host = config.get("web", {}).get("host", "127.0.0.1")
     port = config.get("web", {}).get("port", 7860)
     
+    # 清除代理（防止 Gradio 6.0 启动时被代理拦截 localhost）
+    for key in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY"]:
+        os.environ.pop(key, None)
+    
     app = build_app()
     print(f"[INFO] 启动 Web 界面: http://{host}:{port}")
-    app.launch(server_name=host, server_port=port)
+    app.launch(server_name=host, server_port=port, theme=gr.themes.Soft())
 
 
 if __name__ == "__main__":
