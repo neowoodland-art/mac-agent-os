@@ -329,6 +329,108 @@ def build_app() -> gr.Blocks:
                     outputs=[save_status]
                 )
         
+            # ====== 标签页3：智能搜索 ======
+            with gr.Tab("🔍 智能搜索"):
+                gr.Markdown("### 搜索平台内容 → 预览筛选 → 下载分析 → 生成脚本")
+                gr.Markdown("先搜元数据，只看不下载，勾选后再处理，节约资源。")
+                
+                with gr.Row():
+                    search_keyword = gr.Textbox(label="关键词", placeholder="输入搜索关键词", scale=3)
+                    search_platform = gr.Dropdown(
+                        label="平台", choices=["douyin", "xiaohongshu", "zhihu"],
+                        value="douyin", scale=1
+                    )
+                    do_search_btn = gr.Button("🔍 搜索", variant="primary", scale=1)
+                
+                search_status = gr.Markdown("")
+                
+                # 搜索结果表格（带序号勾选）
+                search_results = gr.Dataframe(
+                    headers=["选", "标题", "平台", "作者", "简介", "链接"],
+                    label="搜索结果（勾选后点下方按钮处理）",
+                    interactive=True,
+                    col_count=(6, "fixed"),
+                )
+                
+                with gr.Row():
+                    max_items = gr.Slider(minimum=3, maximum=30, value=10, step=1, label="最大结果数", scale=1)
+                    process_selected_btn = gr.Button("📥 下载并分析选中项", variant="primary", scale=2)
+                
+                process_status = gr.Markdown("")
+                
+                with gr.Row():
+                    with gr.Column():
+                        gr.Markdown("#### 📄 生成的 YAML")
+                        search_yaml_out = gr.Textbox(label="", lines=12, max_lines=20)
+                    with gr.Column():
+                        gr.Markdown("#### 📝 说明文档")
+                        search_md_out = gr.Textbox(label="", lines=12, max_lines=20)
+                
+                # 搜索回调
+                def do_web_search(keyword, platform, max_n):
+                    if not keyword:
+                        return [], "请输入关键词"
+                    
+                    # 导入 search_web
+                    import sys, importlib
+                    import collect as collect_mod
+                    importlib.reload(collect_mod)
+                    
+                    status_msg = f"正在搜索 {platform} 关键词「{keyword}」..."
+                    results = collect_mod.search_web(keyword, platform, int(max_n))
+                    
+                    if not results:
+                        return [[""] * 6], f"未找到结果。{status_msg}"
+                    
+                    table = []
+                    for i, r in enumerate(results):
+                        title = (r.get("title", "") or "")[:30]
+                        brief = (r.get("brief", "") or "")[:50]
+                        author = (r.get("author", "") or "")[:15]
+                        url = (r.get("url", "") or "")[:60]
+                        table.append(["☐", title, r.get("platform", ""), author, brief, url])
+                    
+                    return table, f"✅ 找到 {len(results)} 条结果，勾选后点击下方按钮处理"
+                
+                def process_selected(table_data, keyword, platform):
+                    """处理选中项：下载 + 转写 + 生成脚本"""
+                    if not table_data:
+                        return "", "请先搜索"
+                    
+                    selected = []
+                    for row in table_data:
+                        if row and row[0] in ("☑", "✓", "✅", True, "True", "true"):
+                            selected.append(row)
+                    
+                    if not selected:
+                        return "", "请勾选至少一条结果"
+                    
+                    total = len(selected)
+                    report = []
+                    
+                    for i, item in enumerate(selected):
+                        title = item[1] if len(item) > 1 else ""
+                        url = item[5] if len(item) > 5 else ""
+                        report.append(f"  {i+1}. {title}")
+                    
+                    result = f"✅ 选中 {total} 条：\n" + "\n".join(report)
+                    result += "\n\n⚠️ 批量下载转写功能需在命令行执行："
+                    result += f"\n  python collect.py --platform {platform} --keyword \"{keyword}\""
+                    result += "\n\n当前界面支持：复制选中链接 → 到脚本工厂输入主题生成脚本"
+                    return "", result
+                
+                do_search_btn.click(
+                    do_web_search,
+                    inputs=[search_keyword, search_platform, max_items],
+                    outputs=[search_results, search_status]
+                )
+                
+                process_selected_btn.click(
+                    process_selected,
+                    inputs=[search_results, search_keyword, search_platform],
+                    outputs=[search_yaml_out, process_status]
+                )
+        
         # 素材库事件绑定（共用）
         def show_detail(material_id):
             if not material_id:

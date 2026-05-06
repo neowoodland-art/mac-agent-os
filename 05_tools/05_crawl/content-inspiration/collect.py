@@ -279,5 +279,102 @@ def main():
     print(f"\n[DONE] 采集完成，共新增 {total_inserted} 条素材")
 
 
+def search_web(keyword: str, platform: str = "douyin", max_results: int = 15) -> list[dict]:
+    """
+    搜索平台内容，只返回元数据（不下载任何文件）
+    
+    Args:
+        keyword: 搜索关键词
+        platform: douyin / xiaohongshu / zhihu
+        max_results: 最大返回条数
+    
+    Returns:
+        [{url, title, author, brief, platform}, ...]
+    """
+    import subprocess, re, shutil, time
+    
+    npx = shutil.which("npx", path="/Users/chengzige/.workbuddy/binaries/node/versions/22.12.0/bin:/usr/bin:/bin")
+    if not npx:
+        print("[WARN] npx 未找到")
+        return []
+    
+    search_urls = {
+        "douyin": f"https://www.douyin.com/search/{keyword}?type=general",
+        "xiaohongshu": f"https://www.xiaohongshu.com/search_result?keyword={keyword}",
+        "zhihu": f"https://www.zhihu.com/search?type=content&q={keyword}",
+    }
+    url = search_urls.get(platform, search_urls["douyin"])
+    
+    env = os.environ.copy()
+    for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
+        env.pop(k, None)
+    env.pop("NODE_OPTIONS", None)
+    
+    try:
+        subprocess.run([npx, "agent-browser", "open", url], env=env, capture_output=True, timeout=30)
+        time.sleep(4)
+        result = subprocess.run([npx, "agent-browser", "snapshot"], env=env, capture_output=True, timeout=15, text=True)
+        subprocess.run([npx, "agent-browser", "close"], env=env, capture_output=True, timeout=10)
+        
+        html = result.stdout
+        results = []
+        
+        if platform == "douyin":
+            # 提取视频链接
+            links = re.findall(r'https?://[^\s"\'<>]*(?:douyin\.com/video/\d+)[^\s"\'<>]*', html)
+            # 提取中文段落作为标题候选
+            titles = re.findall(r'[\u4e00-\u9fff]{8,}', html)
+            titles = [t for t in titles if not any(kw in t for kw in ['登录','下载','关注','点赞','协议','评论','分享'])]
+            
+            seen = set()
+            for i, link in enumerate(links):
+                clean = link.split('?')[0] if '?' in link else link
+                if clean not in seen:
+                    seen.add(clean)
+                    results.append({
+                        "url": clean,
+                        "title": titles[len(results)] if len(results) < len(titles) else keyword,
+                        "author": "", "brief": "", "platform": "douyin",
+                    })
+                    if len(results) >= max_results:
+                        break
+            
+            # 如果没找到链接但有文本，用文本作为搜索结果
+            if not results and titles:
+                for i, t in enumerate(titles[:max_results]):
+                    results.append({
+                        "url": f"https://www.douyin.com/search/{keyword}",
+                        "title": t[:40], "author": "", "brief": "", "platform": "douyin",
+                    })
+        
+        elif platform in ("xiaohongshu", "zhihu"):
+            # 提取所有链接
+            links = re.findall(r'https?://[^\s"\'<>]+(?:xiaohongshu|zhihu)\.com[^\s"\'<>]*', html)
+            texts = re.findall(r'[\u4e00-\u9fff]{10,}', html)
+            texts = [t for t in texts if not any(kw in t for kw in ['登录','下载','关注','点赞','协议','评论','分享','手机'])]
+            
+            seen = set()
+            for i, link in enumerate(links):
+                clean = link.split('?')[0] if '?' in link else link
+                if clean not in seen:
+                    seen.add(clean)
+                    results.append({
+                        "url": clean,
+                        "title": texts[len(results)] if len(results) < len(texts) else keyword,
+                        "author": "", "brief": "", "platform": platform,
+                    })
+                    if len(results) >= max_results:
+                        break
+        
+        return results
+        
+    except subprocess.TimeoutExpired:
+        print(f"[WARN] 搜索 {platform} 超时")
+        return []
+    except Exception as e:
+        print(f"[ERROR] 搜索失败: {e}")
+        return []
+
+
 if __name__ == "__main__":
     main()
