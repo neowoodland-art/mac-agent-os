@@ -440,6 +440,99 @@ def build_app() -> gr.Blocks:
                     outputs=[search_yaml_out, process_status]
                 )
         
+            # ====== 标签页4：跨平台情报 ======
+            with gr.Tab("🌐 跨平台情报"):
+                gr.Markdown("### 全平台并行搜索 → 统一对比 → 勾选处理")
+                gr.Markdown("""> 输入主题后系统自动搜索 **百度 + 抖音 + 知乎 + 小红书 + B站 + 微博** 六个平台
+> 结果按匹配度排序，一眼对比哪个平台的素材最适合你
+""")
+                
+                with gr.Row():
+                    xp_keyword = gr.Textbox(label="主题", placeholder="输入要搜索的主题/标题/思路", scale=3)
+                    xp_max = gr.Slider(minimum=3, maximum=10, value=5, step=1, label="每平台条数")
+                    xp_search_btn = gr.Button("🚀 全平台搜索", variant="primary", scale=1)
+                
+                xp_status = gr.Markdown("")
+                
+                # 统一结果表格
+                xp_results = gr.Dataframe(
+                    headers=["选", "平台", "类型", "标题", "作者", "内容量", "匹配度", "链接"],
+                    label="搜索结果（勾选后处理）",
+                    interactive=True,
+                    column_count=(8, "fixed"),
+                )
+                
+                xp_cache = gr.State([])
+                
+                with gr.Row():
+                    xp_process_btn = gr.Button("📥 处理选中项", variant="primary")
+                
+                xp_output = gr.Markdown("")
+                
+                # 搜索回调
+                def do_xp_search(keyword, max_n):
+                    if not keyword:
+                        return [], [], "请输入主题"
+                    
+                    import sys, importlib
+                    import collect as cm
+                    importlib.reload(cm)
+                    
+                    results = cm.search_all(keyword, int(max_n))
+                    
+                    if not results:
+                        return [], [], "未找到结果，试试其他关键词"
+                    
+                    # 按平台分组统计
+                    platform_count = {}
+                    for r in results:
+                        p = r.get("platform", "?")
+                        platform_count[p] = platform_count.get(p, 0) + 1
+                    
+                    summary = " | ".join([f"{cm.PLATFORM_LABELS.get(p,p)}: {c}条" for p, c in platform_count.items()])
+                    
+                    table = []
+                    for r in results:
+                        title = (r.get("title", "") or "")[:30]
+                        author = (r.get("author", "") or "")[:12]
+                        url = (r.get("url", "") or "")[:40]
+                        ctype = r.get("type", "")
+                        size_h = r.get("size_hint", "")
+                        label = r.get("label", "")
+                        score = "★" * r.get("score", 1)
+                        table.append(["☐", label, ctype, title, author, size_h, score, url])
+                    
+                    msg = f"✅ 共 {len(results)} 条。{summary}"
+                    return table, results, msg
+                
+                def do_xp_process(table_data, cached):
+                    if not cached:
+                        return "请先搜索"
+                    # 解析选中
+                    selected = []
+                    if table_data:
+                        for row in table_data:
+                            if row and str(row[0]) in ("☑", "✓", "✅"):
+                                selected.append(row)
+                    
+                    if not selected:
+                        return "请勾选至少一条结果（双击单元格输入 ✓）"
+                    
+                    report = "\n".join([f"  {i+1}. [{r[1]}] {r[3]}" for i, r in enumerate(selected)])
+                    return f"✅ 已选中 {len(selected)} 条：\n{report}\n\n下一步：点击带链接去查看原文，或复制URL到脚本工厂生成脚本"
+                
+                xp_search_btn.click(
+                    do_xp_search,
+                    inputs=[xp_keyword, xp_max],
+                    outputs=[xp_results, xp_cache, xp_status]
+                )
+                
+                xp_process_btn.click(
+                    do_xp_process,
+                    inputs=[xp_results, xp_cache],
+                    outputs=[xp_output]
+                )
+        
         # 素材库事件绑定（共用）
         def show_detail(material_id):
             if not material_id:

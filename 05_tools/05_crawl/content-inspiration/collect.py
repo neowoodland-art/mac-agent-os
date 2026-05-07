@@ -7,7 +7,7 @@ OpenCLI 依赖：
   - opencli daemon 运行中
 """
 
-import re, subprocess, json, os
+import re, subprocess, json, os, threading, time
 
 # OpenCLI 路径
 OPENCLI_BIN = os.path.expanduser("~/.workbuddy/binaries/node/versions/22.12.0/bin/opencli")
@@ -131,3 +131,127 @@ def _search_baidu(keyword: str, max_results: int) -> list[dict]:
     except Exception as e:
         print(f"[WARN] 百度搜索失败: {e}")
         return []
+
+
+# ============ 内容类型映射 ============
+CONTENT_TYPES = {
+    "baidu": "文章",
+    "douyin": "视频",
+    "zhihu": "问答",
+    "xiaohongshu": "图文",
+    "bilibili": "视频",
+    "weibo": "话题",
+}
+
+PLATFORM_LABELS = {
+    "baidu": "🔍 百度",
+    "douyin": "🎬 抖音",
+    "zhihu": "📝 知乎",
+    "xiaohongshu": "📕 小红书",
+    "bilibili": "📺 B站",
+    "weibo": "💬 微博",
+}
+
+
+def _search_platform_thread(keyword: str, platform: str, max_n: int, results: dict, index: int):
+    """线程包装：搜索单个平台，结果存入 results[index]"""
+    try:
+        r = search_web(keyword, platform, max_n)
+        results[index] = r if r else []
+    except Exception as e:
+        results[index] = []
+
+
+def search_all(keyword: str, max_per_platform: int = 5) -> list[dict]:
+    """
+    全平台并行搜索，返回统一格式的合并结果列表。
+
+    搜索6个平台：百度、抖音、知乎、小红书、B站、微博
+    每个平台独立超时，失败不影响其他平台。
+
+    Returns:
+        [{platform, label, title, author, url, brief, type, size_hint, score}, ...]
+    """
+    platforms = ["baidu", "douyin", "zhihu", "xiaohongshu", "bilibili", "weibo"]
+    thread_results = [None] * len(platforms)
+    threads = []
+
+    for i, plat in enumerate(platforms):
+        t = threading.Thread(
+            target=_search_platform_thread,
+            args=(keyword, plat, max_per_platform, thread_results, i),
+        )
+        t.start()
+        threads.append(t)
+
+    # 等待所有线程完成（总超时60秒）
+    for t in threads:
+        t.join(timeout=60)
+
+    # 合并结果，附带元数据
+    all_results = []
+    for i, plat in enumerate(platforms):
+        items = thread_results[i] or []
+        for item in items:
+            all_results.append({
+                "platform": plat,
+                "label": PLATFORM_LABELS.get(plat, plat),
+                "type": CONTENT_TYPES.get(plat, "其他"),
+                "title": item.get("title", ""),
+                "author": item.get("author", ""),
+                "url": item.get("url", ""),
+                "brief": item.get("brief", ""),
+                "size_hint": _guess_content_size(item, plat),
+                "score": _calc_match_score(keyword, item),
+            })
+
+    # 按匹配度排序
+    all_results.sort(key=lambda x: x["score"], reverse=True)
+    return all_results
+
+
+def _guess_content_size(item: dict, platform: str) -> str:
+    """估算内容量（视频时长/文字字数）"""
+    title = item.get("title", "") or ""
+    brief = item.get("brief", "") or ""
+    combined = title + brief
+
+    if platform in ("douyin", "bilibili"):
+        # 视频平台：平均时长约 3-10 分钟
+        return "3-10分钟视频"
+
+    if platform in ("baidu", "zhihu", "weibo", "xiaohongshu"):
+        # 文字平台：按摘要长度估算
+        word_count = len(combined)
+        if word_count > 100:
+            return f"{word_count}字左右"
+        elif platform in ("zhihu", "baidu"):
+            return "长文（千字以上）"
+        else:
+            return "短文（简明）"
+
+    return "未知"
+
+
+def _calc_match_score(keyword: str, item: dict) -> int:
+    """
+    计算匹配度分数（1-5）
+    基于标题和描述中关键词的匹配程度
+    """
+    title = (item.get("title", "") or "").lower()
+    brief = (item.get("brief", "") or "").lower()
+    kw = keyword.lower()
+
+    score = 1
+    # 标题包含完整关键词 → 高分
+    if kw in title:
+        score += 3
+    # 描述包含关键词 → 中分
+    if kw in brief:
+        score += 2
+    # 标题包含关键词的部分词 → 基础分
+    for word in kw.split():
+        if len(word) > 1 and word in title:
+            score += 1
+
+    return min(score, 5)
