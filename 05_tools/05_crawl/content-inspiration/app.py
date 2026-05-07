@@ -332,17 +332,19 @@ def build_app() -> gr.Blocks:
             # ====== 标签页3：智能搜索 ======
             with gr.Tab("🔍 智能搜索"):
                 gr.Markdown("### 搜索平台内容 → 预览筛选 → 下载分析 → 生成脚本")
-                gr.Markdown("""> **百度**: 可自动搜索全网文章，结果可预览筛选（推荐）
-> **抖音/知乎/小红书**: 需手动粘贴链接，不支持自动搜索（平台限制了直接访问）
+                gr.Markdown("""> **百度**: 直连搜索，无需扩展 ✅
+> **抖音/知乎/小红书/B站/微博**: 需安装 OpenCLI Chrome 扩展（详见帮助）
 > 
-> **使用建议**: 用百度搜热点/选题 → 找到相关文章 → 到脚本工厂输入主题生成脚本
-> 如果你有抖音/知乎链接，可以直接粘贴过来用 WebFetch 提取内容。
+> **使用建议**: 
+> - 选"百度"可直接搜热点/选题
+> - 其他平台需先装 Chrome 扩展才能用
+> - 也可直接粘贴链接到脚本工厂
 """)
                 
                 with gr.Row():
                     search_keyword = gr.Textbox(label="关键词", placeholder="输入搜索关键词", scale=3)
                     search_platform = gr.Dropdown(
-                        label="平台", choices=["baidu", "douyin", "xiaohongshu", "zhihu"],
+                        label="平台", choices=["baidu", "douyin", "zhihu", "xiaohongshu", "bilibili", "weibo"],
                         value="baidu", scale=1
                     )
                     do_search_btn = gr.Button("🔍 搜索", variant="primary", scale=1)
@@ -380,26 +382,22 @@ def build_app() -> gr.Blocks:
                     import collect as collect_mod
                     importlib.reload(collect_mod)
                     
-                    # 非百度平台提示
-                    if platform != "baidu":
-                        hints = {
-                            "douyin": "抖音需要浏览器渲染+登录才能搜索，请直接粘贴视频链接到脚本工厂",
-                            "xiaohongshu": "小红书暂不支持自动搜索，请直接粘贴笔记链接",
-                            "zhihu": "知乎暂不支持自动搜索，请直接粘贴问题/文章链接",
-                        }
-                        return [[""] * 6], f"⚠️ {hints.get(platform, '该平台暂不支持自动搜索')}"
-                    
+                    # 百度直接走 HTTP，其他平台走 OpenCLI
                     results = collect_mod.search_web(keyword, platform, int(max_n))
                     
                     if not results:
-                        return [[""] * 6], f"未找到结果，试试其他关键词"
+                        msg = "未找到结果"
+                        if platform != "baidu":
+                            msg += "。请确认: ① Chrome 扩展已安装 ② opencli daemon 运行中 ③ Chrome 已登录该平台"
+                        return [[""] * 6], msg
                     
                     table = []
                     for i, r in enumerate(results):
                         title = (r.get("title", "") or "")[:30]
                         brief = (r.get("brief", "") or "")[:50]
                         url = (r.get("url", "") or "")[:60]
-                        table.append(["☐", title, r.get("platform", ""), "", brief, url])
+                        author = (r.get("author", "") or "")[:15]
+                        table.append(["☐", title, r.get("platform", ""), author, brief, url])
                     
                     return table, f"✅ 找到 {len(results)} 条结果，勾选感兴趣的，点击下方按钮处理"
                 
