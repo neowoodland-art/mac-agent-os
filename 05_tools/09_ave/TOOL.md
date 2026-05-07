@@ -51,6 +51,9 @@ python main.py generate --script director_script.yaml --output final.mp4 --clips
 
 # 情绪参数测试
 python main.py emotion-test --text "测试文本"
+
+# 字幕 (默认开启, 基于 CosyVoice 字级时间戳精准对齐)
+python main.py generate --script director_script.yaml --no-subtitles  # 关闭字幕
 ```
 
 ---
@@ -79,7 +82,7 @@ YAML 导演脚本 ──→ main.py generate
 
 ## BGM 三阶路由 (v3.0)
 
-### 优先级
+| mood | prompt | BPM |
 
 ```
 请求 BGM (mood, duration)
@@ -170,6 +173,12 @@ YAML 导演脚本 ──→ main.py generate
 | Python UnboundLocalError | 移除函数内 `import os` / `from lib.config import load_config` | v1.1 |
 | FFmpeg amix 语法错误 | 输入标签 `[0:a][1:a]` 直接拼接不用逗号 | v2.0 |
 | 手动下载 BGM 效率低 | 改为 mlx-audiocraft AI 生成 (Tier 2 主方案) | v3.0 |
+| **字幕不精确 (脚本时长 vs 实际人声)** | **aliyun.py `synthesize_with_timestamps()`: CosyVoice 字级时间戳对齐** | **v2.3** |
+| **Callback 数据未收集** | **加 `wait_done()` 等待异步回调完成** | **v2.3** |
+
+### 保留特性
+- `--subtitles` 标志 (默认开启): 基于 CosyVoice 字级时间戳自动计算每段精确起止时间
+- 时间戳回退: 字数不匹配时自动回落比例估算
 
 ### 待优化
 - 生成速度: mlx-audiocraft 在 M1 上 10s 需 ~46s (~4.7x)

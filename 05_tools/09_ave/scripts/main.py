@@ -71,6 +71,7 @@ def main():
     p_gen.add_argument("--output", default="final.mp4", help="输出路径")
     p_gen.add_argument("--clips-per-segment", type=int, default=2, help="每段搜索素材数 (默认2)")
     p_gen.add_argument("--bgm", default=None, help="BGM 路径或情感类型 (可选)")
+    p_gen.add_argument("--subtitles", action="store_true", default=True, help="叠加字幕 (默认开启)")
 
     # ── emotion-test ──
     p_emo = sub.add_parser("emotion-test", help="情绪参数测试")
@@ -213,13 +214,18 @@ def main():
         total_duration = sum(s.get("duration_sec", 10) for s in segments)
         print(f"    共 {len(segments)} 段, 预计 {total_duration}s")
 
-        print("  第3步: 合成人声...")
-        from voice_synthesizer.aliyun import synthesize as tts
+        print("  第3步: 合成人声 (带字级时间戳)...")
+        from voice_synthesizer.aliyun import synthesize_with_timestamps
         ak = cfg.get("aliyun", {}).get("api_key", "")
         vid = cfg.get("aliyun", {}).get("voice_id", "")
         text_all = "\n".join(s["text"] for s in segments)
-        voice_path = "/tmp/ave_voice.wav"
-        tts(text_all, voice_path, api_key=ak, voice_id=vid)
+        # 用一个全局情绪 (取第一个 segment 的或默认)
+        default_emoji = segments[0].get("voice_emotion", "normal") if segments else "normal"
+        voice_path, word_ts = synthesize_with_timestamps(
+            text_all, "/tmp/ave_voice.wav",
+            api_key=ak, voice_id=vid, emotion=default_emoji,
+        )
+        print(f"    字级时间戳: {len(word_ts)} 个字")
 
         print("  第4步: 搜索素材 (每段2个)...")
         from material_producer.pexels.search import search_videos
@@ -257,8 +263,52 @@ def main():
         mixed_audio = mix_audio(voice_path, bgm_path, bgm_volume=0.35) if bgm_path else voice_path
 
         print("  第6步: 合成视频...")
-        from composer.ffmpeg import compose_video
-        compose_video(clip_paths, mixed_audio, args.output, resolution="1080x1920")
+        from composer.ffmpeg import compose_video, create_subtitles
+
+        # 字幕: 用字级时间戳计算每段精确起止
+        subtitles_path = None
+        if args.subtitles and segments and word_ts:
+            # 从全部字的时间戳重建全文 (word_ts 每条有 text/begin_time/end_time)
+            # 计算每个字的累积字符位置
+            char_positions = []
+            acc = 0
+            for w in word_ts:
+                char_positions.append(acc)
+                acc += len(w["text"])
+            full_text_from_ts = "".join(w["text"] for w in word_ts)
+
+            cursor = 0
+            for seg in segments:
+                seg_text = seg["text"]
+                try:
+                    pos = full_text_from_ts.index(seg_text, cursor)
+                    char_end = pos + len(seg_text)
+                    # 找到 pos ≤ 累积位置 < char_end 的字
+                    seg_word_indices = [i for i in range(len(word_ts))
+                                        if char_positions[i] >= pos
+                                        and char_positions[i] + len(word_ts[i]["text"]) <= char_end]
+                    seg_words = [word_ts[i] for i in seg_word_indices] if seg_word_indices else []
+                except ValueError:
+                    seg_words = []
+
+                if seg_words:
+                    seg["start_sec"] = seg_words[0]["begin_time"] / 1000.0
+                    seg["end_sec"] = seg_words[-1]["end_time"] / 1000.0
+                else:
+                    # 回退: 按全长比例估算
+                    total_ms = word_ts[-1]["end_time"]
+                    seg["start_sec"] = (pos / max(len(full_text_from_ts), 1)) * total_ms / 1000.0
+                    seg["end_sec"] = (char_end / max(len(full_text_from_ts), 1)) * total_ms / 1000.0
+
+                cursor = pos + len(seg_text)
+
+            subtitles_path = "/tmp/ave_subtitles.ass"
+            create_subtitles(segments, subtitles_path, resolution=(1080, 1920))
+            print(f"    字幕 (精确): {subtitles_path} ({len(segments)} 段, {len(word_ts)} 字)")
+
+        compose_video(clip_paths, mixed_audio, args.output,
+                      resolution="1080x1920",
+                      subtitles_path=subtitles_path)
 
         print(f"\n✅ 生成完成: {args.output}")
         clip_total = sum(c[1] for c in all_clips)
