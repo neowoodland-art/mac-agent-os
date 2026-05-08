@@ -248,6 +248,40 @@ def build_app() -> gr.Blocks:
                     save_btn = gr.Button("💾 保存到素材库", variant="primary")
                     save_status = gr.Markdown("")
                 
+                gr.Markdown("---")
+                gr.Markdown("#### 📁 历史脚本")
+                with gr.Row():
+                    refresh_list_btn = gr.Button("🔄 刷新列表", scale=1)
+                script_list = gr.Dataframe(
+                    headers=["项目ID", "风格", "段落数", "生成日期"],
+                    label="已生成的脚本",
+                    interactive=False,
+                )
+                
+                # 历史脚本回调
+                def list_scripts():
+                    from pathlib import Path
+                    output_dir = Path(__file__).parent / "scripts_output"
+                    yamls = sorted(output_dir.glob("*.yaml"), reverse=True)
+                    rows = []
+                    for y in yamls:
+                        pid = y.stem
+                        md = output_dir / f"{pid}.md"
+                        # 读取 YAML 获取元数据
+                        import yaml as pyyaml
+                        try:
+                            data = pyyaml.safe_load(y.read_text(encoding='utf-8'))
+                            style = data.get('meta', {}).get('style', '?')
+                            segs = len(data.get('segments', []))
+                        except:
+                            style = '?'; segs = '?'
+                        date = pid.split('_')[1] if '_' in pid else '?'
+                        date = f"{date[:4]}-{date[4:6]}-{date[6:8]}" if len(date)>=8 else '?'
+                        rows.append([pid, style, str(segs), date])
+                    return rows if rows else [["（暂无脚本）", "", "", ""]]
+                
+                refresh_list_btn.click(list_scripts, outputs=[script_list])
+                
                 # 脚本工厂回调
                 def toggle_source(source):
                     show_topic = source == "输入主题"
@@ -454,25 +488,27 @@ def build_app() -> gr.Blocks:
                 
                 xp_status = gr.Markdown("")
                 
-                # 统一结果表格
-                xp_results = gr.Dataframe(
-                    headers=["选", "平台", "类型", "标题", "作者", "内容量", "匹配度", "链接"],
-                    label="搜索结果（勾选后处理）",
-                    interactive=True,
-                    column_count=(8, "fixed"),
-                )
-                
+                # 统一结果（Markdown 展示）
+                xp_results_md = gr.Markdown("搜索结果将显示在这里")
                 xp_cache = gr.State([])
                 
                 with gr.Row():
-                    xp_process_btn = gr.Button("📥 处理选中项", variant="primary")
-                
-                xp_output = gr.Markdown("")
+                    with gr.Column(scale=2):
+                        gr.Markdown("#### 选择要处理的内容")
+                        gr.Markdown("从上方结果中复制序号（如 `1,3,5`）到下方输入框")
+                        xp_selected = gr.Textbox(
+                            label="选择序号",
+                            placeholder="输入序号，如 1,3,5",
+                            lines=2
+                        )
+                        xp_process_btn = gr.Button("📥 查看选中项", variant="primary")
+                    with gr.Column(scale=1):
+                        xp_output = gr.Markdown("")
                 
                 # 搜索回调
                 def do_xp_search(keyword, max_n):
                     if not keyword:
-                        return [], [], "请输入主题"
+                        return "请输入主题", [], ""
                     
                     import sys, importlib
                     import collect as cm
@@ -481,7 +517,7 @@ def build_app() -> gr.Blocks:
                     results = cm.search_all(keyword, int(max_n))
                     
                     if not results:
-                        return [], [], "未找到结果，试试其他关键词"
+                        return "未找到结果，试试其他关键词", [], ""
                     
                     # 按平台分组统计
                     platform_count = {}
@@ -491,45 +527,61 @@ def build_app() -> gr.Blocks:
                     
                     summary = " | ".join([f"{cm.PLATFORM_LABELS.get(p,p)}: {c}条" for p, c in platform_count.items()])
                     
-                    table = []
-                    for r in results:
-                        title = (r.get("title", "") or "")[:30]
+                    # Markdown 表格
+                    lines = ["| # | 平台 | 类型 | 标题 | 作者 | 内容量 | 匹配度 |",
+                             "|---|------|------|------|------|--------|--------|"]
+                    for i, r in enumerate(results, 1):
+                        title = (r.get("title", "") or "")[:35]
                         author = (r.get("author", "") or "")[:12]
-                        url = (r.get("url", "") or "")[:40]
                         ctype = r.get("type", "")
                         size_h = r.get("size_hint", "")
                         label = r.get("label", "")
                         score = "★" * r.get("score", 1)
-                        table.append(["☐", label, ctype, title, author, size_h, score, url])
+                        lines.append(f"| {i} | {label} | {ctype} | {title} | {author} | {size_h} | {score} |")
                     
-                    msg = f"✅ 共 {len(results)} 条。{summary}"
-                    return table, results, msg
+                    md = "\n".join(lines)
+                    md += f"\n\n✅ 共 {len(results)} 条结果。{summary}"
+                    md += "\n\n复制左侧序号（如 `1,3,5`）到下方输入框查看详情"
+                    
+                    return md, results
                 
-                def do_xp_process(table_data, cached):
-                    if not cached:
+                def do_xp_process(selection_text, cached_results):
+                    if not cached_results:
                         return "请先搜索"
-                    # 解析选中
-                    selected = []
-                    if table_data:
-                        for row in table_data:
-                            if row and str(row[0]) in ("☑", "✓", "✅"):
-                                selected.append(row)
+                    if not selection_text.strip():
+                        return "请输入要查看的序号"
                     
-                    if not selected:
-                        return "请勾选至少一条结果（双击单元格输入 ✓）"
-                    
-                    report = "\n".join([f"  {i+1}. [{r[1]}] {r[3]}" for i, r in enumerate(selected)])
-                    return f"✅ 已选中 {len(selected)} 条：\n{report}\n\n下一步：点击带链接去查看原文，或复制URL到脚本工厂生成脚本"
+                    try:
+                        indices = [int(x.strip()) for x in selection_text.split(",") if x.strip().isdigit()]
+                        selected = []
+                        for idx in indices:
+                            if 1 <= idx <= len(cached_results):
+                                selected.append(cached_results[idx - 1])
+                        
+                        if not selected:
+                            return "未匹配到有效序号"
+                        
+                        report_parts = []
+                        for i, r in enumerate(selected):
+                            report_parts.append(f"**{i+1}. [{r.get('label','')}] {r.get('title','')}**")
+                            report_parts.append(f"   - 平台: {r.get('platform','')} | 作者: {r.get('author','')} | 类型: {r.get('type','')}")
+                            report_parts.append(f"   - 链接: {r.get('url','')}")
+                            report_parts.append(f"   - 简介: {r.get('brief','')}")
+                            report_parts.append("")
+                        
+                        return "\n".join(report_parts)
+                    except:
+                        return "序号格式错误，请用逗号分隔（如：1,3,5）"
                 
                 xp_search_btn.click(
                     do_xp_search,
                     inputs=[xp_keyword, xp_max],
-                    outputs=[xp_results, xp_cache, xp_status]
+                    outputs=[xp_results_md, xp_cache]
                 )
                 
                 xp_process_btn.click(
                     do_xp_process,
-                    inputs=[xp_results, xp_cache],
+                    inputs=[xp_selected, xp_cache],
                     outputs=[xp_output]
                 )
         

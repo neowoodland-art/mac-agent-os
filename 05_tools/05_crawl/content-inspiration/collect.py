@@ -60,7 +60,7 @@ def search_web(keyword: str, platform: str = "baidu", max_results: int = 15) -> 
     try:
         r = subprocess.run(
             [OPENCLI_BIN, plat, action, keyword, "-f", "json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=60,
             env={**os.environ.copy(), "NODE_OPTIONS": ""},
         )
         if r.returncode != 0:

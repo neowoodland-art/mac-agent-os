@@ -33,3 +33,10 @@ opencli doctor
 
 - 每台机器各自安装，各自登录
 - 重启电脑后需重新启动 daemon
+
+## 本机配置
+
+- 扩展连接码: `6jffptk2`（固定不变）
+- Chrome 已登录平台: 百度、B站、知乎、小红书、抖音、微博
+- OpenCLI v1.7.12 + 扩展 v1.0.5
+- 建议升级: `npm install -g @jackwener/opencli`（到 v1.7.14）
