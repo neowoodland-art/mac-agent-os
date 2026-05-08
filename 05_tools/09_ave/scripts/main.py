@@ -72,6 +72,10 @@ def main():
     p_gen.add_argument("--clips-per-segment", type=int, default=2, help="每段搜索素材数 (默认2)")
     p_gen.add_argument("--bgm", default=None, help="BGM 路径或情感类型 (可选)")
     p_gen.add_argument("--subtitles", action="store_true", default=True, help="叠加字幕 (默认开启)")
+    p_gen.add_argument("--anchor-transitions", action="store_true", default=False,
+                       help="锚点驱动画面切换 (在静音处自动切素材+淡变)")
+    p_gen.add_argument("--duck", action="store_true", default=False,
+                       help="BGM 音量避让 (说话压低BGM, 间隙恢复)")
 
     # ── emotion-test ──
     p_emo = sub.add_parser("emotion-test", help="情绪参数测试")
@@ -86,6 +90,13 @@ def main():
     p_bgm.add_argument("--output", default="/tmp/ave_bgm.wav", help="输出路径")
     p_bgm.add_argument("--pixabay-key", default=None, help="Pixabay API Key (可选)")
     p_bgm.add_argument("--use-mlx", action="store_true", help="尝试 mlx-audiocraft AI 生成 (需安装)")
+
+    # ── digital-human ──
+    p_dh = sub.add_parser("digital-human", help="生成数字人视频 (Wan2.2)")
+    p_dh.add_argument("--image", required=True, help="头像图片路径")
+    p_dh.add_argument("--text", default="关注我，一起聆听世界", help="口播文案")
+    p_dh.add_argument("--output", default="/tmp/ave_digital_human.mp4", help="输出路径")
+    p_dh.add_argument("--resolution", default="480P", choices=["480P", "720P"], help="分辨率")
 
     args = parser.parse_args()
 
@@ -191,6 +202,32 @@ def main():
         print(f"\n✅ BGM 生成: {out} ({size_kb}KB)")
         print(f"   试听: ffplay {out}")
 
+    elif args.command == "digital-human":
+        from voice_synthesizer.aliyun import synthesize
+        from material_producer.wan2_2.wan2_2 import generate_digital_human
+
+        cfg = load_config()
+        ak = cfg.get("aliyun", {}).get("api_key", "")
+        vid = cfg.get("aliyun", {}).get("voice_id", "")
+
+        # 合成人声 (≤20s)
+        audio_path = "/tmp/ave_dh_voice.wav"
+        print(f"[AVE] 数字人生成: {args.text}")
+        print("  第1步: 合成人声...")
+        synthesize(args.text, audio_path, api_key=ak, voice_id=vid, emotion="normal")
+
+        # 生成数字人
+        print("  第2步: 生成数字人 (Wan2.2, ~5-10分钟)...")
+        result = generate_digital_human(
+            args.image, audio_path, ak,
+            output_path=args.output,
+            resolution=args.resolution,
+            text=args.text,
+        )
+        import os as _os
+        size_mb = _os.path.getsize(result) / 1024 / 1024
+        print(f"\n✅ 数字人完成: {result} ({size_mb:.1f}MB)")
+
     elif args.command == "generate":
         cfg = load_config()
 
@@ -254,16 +291,23 @@ def main():
         print(f"    共 {len(clip_paths)} 个素材片段")
 
         print("  第5步: 混音 (人声+BGM)...")
-        from composer.ffmpeg import mix_audio
+        from composer.ffmpeg import mix_audio, duck_bgm
         bgm_path = args.bgm if args.bgm and os.path.exists(args.bgm) else None
         if bgm_path:
-            print(f"    BGM: {bgm_path} (音量 0.5)")
+            if args.duck:
+                print(f"    BGM: {bgm_path} (音量避让: 说话0.15→间隙0.50, {len(word_ts)} 个字)")
+                ducked_bgm = duck_bgm(voice_path, bgm_path, "/tmp/ave_ducked_bgm.wav",
+                                      word_timestamps=word_ts)
+                mixed_audio = mix_audio(voice_path, ducked_bgm, bgm_volume=1.0)
+            else:
+                print(f"    BGM: {bgm_path} (音量 0.35)")
+                mixed_audio = mix_audio(voice_path, bgm_path, bgm_volume=0.35)
         else:
             print("    无 BGM")
-        mixed_audio = mix_audio(voice_path, bgm_path, bgm_volume=0.35) if bgm_path else voice_path
+            mixed_audio = voice_path
 
         print("  第6步: 合成视频...")
-        from composer.ffmpeg import compose_video, create_subtitles
+        from composer.ffmpeg import compose_video, create_subtitles, segment_render, concat_segments, _get_media_duration
 
         # 字幕: 用字级时间戳计算每段精确起止
         subtitles_path = None
@@ -306,9 +350,44 @@ def main():
             create_subtitles(segments, subtitles_path, resolution=(1080, 1920))
             print(f"    字幕 (精确): {subtitles_path} ({len(segments)} 段, {len(word_ts)} 字)")
 
-        compose_video(clip_paths, mixed_audio, args.output,
-                      resolution="1080x1920",
-                      subtitles_path=subtitles_path)
+        # 分段渲染: 3分钟以上自动分段
+        audio_duration = _get_media_duration(mixed_audio)
+        if audio_duration > 180:
+            print(f"    视频较长 ({audio_duration:.0f}s > 180s)，自动分段渲染...")
+            import tempfile
+            seg_dir = tempfile.mkdtemp(prefix="ave_seg_")
+            seg_files = segment_render(
+                clip_paths, mixed_audio,
+                output_dir=seg_dir,
+                subtitles_path=subtitles_path,
+            )
+            if len(seg_files) > 1:
+                concat_segments(seg_files, args.output)
+                import shutil
+                shutil.rmtree(seg_dir, ignore_errors=True)
+                print(f"    分段拼接完成: {args.output}")
+            else:
+                import shutil
+                shutil.move(seg_files[0], args.output)
+                shutil.rmtree(seg_dir, ignore_errors=True)
+        else:
+            # 锚点驱动模式
+            if args.anchor_transitions:
+                print("    锚点驱动画面切换...")
+                from anchor_extractor.extractor import get_silence_periods
+                from composer.ffmpeg import compose_with_anchors
+                silences = get_silence_periods(mixed_audio, min_silence_sec=0.1)
+                print(f"    检测到 {len(silences)} 个静音段 (过渡点)")
+                compose_with_anchors(
+                    clip_paths, mixed_audio, args.output,
+                    silence_periods=silences,
+                    total_duration=audio_duration,
+                    subtitles_path=subtitles_path,
+                )
+            else:
+                compose_video(clip_paths, mixed_audio, args.output,
+                              resolution="1080x1920",
+                              subtitles_path=subtitles_path)
 
         print(f"\n✅ 生成完成: {args.output}")
         clip_total = sum(c[1] for c in all_clips)

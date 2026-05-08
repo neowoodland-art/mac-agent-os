@@ -1,8 +1,8 @@
-# TOOL.md — AVE v2.2 (AudioScore Video Engine)
+# TOOL.md — AVE v2.3 (AudioScore Video Engine)
 
-> **工具版本**: v2.2
+> **工具版本**: v2.3
 > **接入日期**: 2026-05-04
-> **最后更新**: 2026-05-06
+> **最后更新**: 2026-05-08
 > **维护者**: ghai
 > **路径方案**: local.yaml + local_paths.py（无软链接，多机安全）
 > **Python**: ~/.workbuddy/binaries/python/versions/3.13.12/
@@ -49,11 +49,23 @@ python main.py generate --script director_script.yaml --output final.mp4 --clips
 # 全链路生成 + BGM
 python main.py generate --script director_script.yaml --output final.mp4 --clips-per-segment 2 --bgm /path/to/bgm.wav
 
-# 情绪参数测试
-python main.py emotion-test --text "测试文本"
+# 全链路生成 + BGM 避让 (说话音低→间隙恢复)
+python main.py generate --script director_script.yaml --output final.mp4 --clips-per-segment 2 --bgm /path/to/bgm.wav --duck
+
+# 全链路生成 + 锚点画面切换
+python main.py generate --script director_script.yaml --output final.mp4 --clips-per-segment 2 --anchor-transitions
+
+# 全链路生成 + BGM避让 + 锚点切换
+python main.py generate --script director_script.yaml --output final.mp4 --clips-per-segment 2 --bgm /path/to/bgm.wav --duck --anchor-transitions
 
 # 字幕 (默认开启, 基于 CosyVoice 字级时间戳精准对齐)
 python main.py generate --script director_script.yaml --no-subtitles  # 关闭字幕
+
+# 数字人片尾
+python main.py digital-human --image avatar.jpg --text "关注我，一起聆听世界，我们下期再见"
+
+# 情绪参数测试
+python main.py emotion-test --text "测试文本"
 ```
 
 ---
@@ -175,10 +187,15 @@ YAML 导演脚本 ──→ main.py generate
 | 手动下载 BGM 效率低 | 改为 mlx-audiocraft AI 生成 (Tier 2 主方案) | v3.0 |
 | **字幕不精确 (脚本时长 vs 实际人声)** | **aliyun.py `synthesize_with_timestamps()`: CosyVoice 字级时间戳对齐** | **v2.3** |
 | **Callback 数据未收集** | **加 `wait_done()` 等待异步回调完成** | **v2.3** |
+| **BGM 像杂音** | **V2 和弦垫音 (低通+混响) + mlx-audiocraft AI BGM** | v3.0 |
 
 ### 保留特性
 - `--subtitles` 标志 (默认开启): 基于 CosyVoice 字级时间戳自动计算每段精确起止时间
 - 时间戳回退: 字数不匹配时自动回落比例估算
+- 字幕样式: 字号 = height × 4.4% (竖屏1080p→84px), 位置 = 底部上方20%, 描边3px
+- `--duck` BGM 避让: 基于字级时间戳, 说话时 BGM=0.15, 间隙时 BGM=0.50, 300ms 过渡
+- `--anchor-transitions` 锚点画面切换: librosa 检测静音段, 在切换点切换素材
+- 数字人 Wan2.2: 头像 + 音频 → 对口型视频, 片尾缓存复用 (0成本重复使用)
 
 ### 待优化
 - 生成速度: mlx-audiocraft 在 M1 上 10s 需 ~46s (~4.7x)

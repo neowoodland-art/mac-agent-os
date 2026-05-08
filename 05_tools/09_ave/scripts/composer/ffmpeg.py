@@ -83,6 +83,126 @@ def mix_audio(
     return output_path
 
 
+def duck_bgm(
+    voice_path: str,
+    bgm_path: str,
+    output_path: str = "ducked_bgm.wav",
+    low_volume: float = 0.15,
+    high_volume: float = 0.50,
+    fade_ms: int = 300,
+    word_timestamps: list | None = None,
+) -> str:
+    """
+    BGM 音量避让 (Audio Ducking), 基于字级时间戳
+
+    说话时 BGM 压低 (low_volume), 间隙时恢复 (high_volume)。
+    使用 word_timestamps 精确控制每个字的避让区间,
+    比 silencedetect 更准确 (CosyVoice 连续语音无停顿).
+
+    参数:
+      word_timestamps: [{begin_time, end_time}, ...] 单位毫秒
+                       来自 synthesize_with_timestamps()
+    """
+    if not os.path.exists(voice_path):
+        raise FileNotFoundError(f"人声文件不存在: {voice_path}")
+    if not os.path.exists(bgm_path):
+        raise FileNotFoundError(f"BGM 文件不存在: {bgm_path}")
+
+    # 如果没有时间戳, 回退到固定音量
+    if not word_timestamps:
+        logger.info("  无时间戳, 使用固定音量 0.25")
+        subprocess.run([
+            "ffmpeg", "-y", "-i", bgm_path,
+            "-af", f"volume={high_volume}",
+            "-acodec", "pcm_s16le", output_path,
+        ], capture_output=True, check=True, timeout=30)
+        return output_path
+
+    duration = _get_media_duration(voice_path)
+    total_ms = duration * 1000
+    fade_ms_f = fade_ms / 1000.0
+
+    logger.info(f"BGM 避让: {low_volume}→{high_volume}, 基于 {len(word_timestamps)} 个字")
+
+    # 构建音量区间: [(start_sec, end_sec, volume), ...]
+    # 每个字的区间: 字开始前 fade_ms 开始压低, 字结束后 fade_ms 恢复
+    segments = []
+    # 先确定所有活跃区间 (字的时间范围 + 过渡)
+    active_zones = []  # [(start, end), ...] 单位为秒
+    for w in word_timestamps:
+        w_start = max(0, (w["begin_time"] - 50) / 1000.0)  # 字前 50ms
+        w_end = min(duration, (w["end_time"] + 50) / 1000.0)  # 字后 50ms
+        active_zones.append((w_start, w_end))
+
+    # 合并重叠的活跃区间
+    active_zones.sort()
+    merged = []
+    for start, end in active_zones:
+        if merged and start <= merged[-1][1] + 0.05:  # 50ms 内视为连续
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+
+    # 构建音量分段: 活跃期低音量, 间隙期高音量
+    prev_end = 0.0
+    for a_start, a_end in merged:
+        # 间隙: prev_end → a_start (高音量)
+        if a_start > prev_end + 0.05:
+            gap_mid = (prev_end + a_start) / 2
+            segments.append((prev_end, gap_mid, high_volume))
+            segments.append((gap_mid, a_start, high_volume))
+        # 说话: a_start → a_end (低音量, 带过渡)
+        segments.append((a_start, a_end, low_volume))
+        prev_end = a_end
+    # 最后间隙
+    if duration > prev_end + 0.05:
+        segments.append((prev_end, duration, high_volume))
+
+    if not segments:
+        logger.info("  无分段, 使用固定音量")
+        subprocess.run([
+            "ffmpeg", "-y", "-i", bgm_path,
+            "-af", f"volume={high_volume}",
+            "-acodec", "pcm_s16le", output_path,
+        ], capture_output=True, check=True, timeout=30)
+        return output_path
+
+    # 渲染每段再拼接
+    import tempfile, shutil
+    seg_dir = tempfile.mkdtemp(prefix="ave_duck_")
+    seg_wavs = []
+    for idx, (st, en, vol) in enumerate(segments):
+        dur = en - st
+        if dur < 0.05:
+            continue
+        seg_out = os.path.join(seg_dir, f"seg_{idx:03d}.wav")
+        fade_dur = min(fade_ms_f, dur / 3)
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-ss", str(st), "-i", bgm_path,
+            "-t", str(dur),
+            "-af", f"volume={vol},afade=t=in:d={fade_dur},afade=t=out:st={dur-fade_dur}:d={fade_dur}",
+            "-acodec", "pcm_s16le", seg_out,
+        ], capture_output=True, timeout=60, check=True)
+        seg_wavs.append(seg_out)
+
+    # 拼接
+    concat_file = _create_concat_list(seg_wavs)
+    if len(seg_wavs) == 1:
+        subprocess.run(["ffmpeg", "-y", "-i", seg_wavs[0], "-acodec", "pcm_s16le", output_path],
+                       capture_output=True, check=True)
+    else:
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-f", "concat", "-safe", "0", "-i", concat_file,
+            "-acodec", "pcm_s16le", output_path,
+        ], capture_output=True, check=True, timeout=60)
+    shutil.rmtree(seg_dir, ignore_errors=True)
+
+    logger.info(f"BGM 避让完成: {output_path} ({len(seg_wavs)} 段)")
+    return output_path
+
+
 def compose_video(
     material_clips: list[str],
     audio_path: str,
@@ -191,6 +311,11 @@ def create_subtitles(
       [{"text": "...", "start_sec": 0.0, "end_sec": 8.0, "emotion": "..."}]
     """
     width, height = resolution
+
+    # 字幕位置: 由下往上 20% (竖屏 1080x1920)
+    margin_v = int(height * 0.2)
+    font_size = max(48, int(height * 0.044))  # 1920 → ~84px
+
     lines = [
         "[Script Info]",
         "ScriptType: v4.00+",
@@ -200,7 +325,7 @@ def create_subtitles(
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        "Style: Default,Noto Sans SC,48,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,2,1,2,100,100,50,1",
+        f"Style: Default,Noto Sans SC,{font_size},&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,2,100,100,{margin_v},1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -224,6 +349,8 @@ def segment_render(
     audio_path: str,
     output_dir: str = ".",
     segment_duration: int = SEGMENT_DURATION_MAX,
+    subtitles_path: str | None = None,
+    resolution: str = DEFAULT_RESOLUTION,
 ) -> list[str]:
     """
     分段渲染: 长视频自动分段 → 分别渲染 → 返回分段文件列表
@@ -233,7 +360,9 @@ def segment_render(
     if audio_duration <= segment_duration:
         # 无需分段
         out = os.path.join(output_dir, "segment_000.mp4")
-        compose_video(material_clips, audio_path, out)
+        compose_video(material_clips, audio_path, out,
+                      subtitles_path=subtitles_path,
+                      resolution=resolution)
         return [out]
 
     # 需要分段
@@ -242,11 +371,116 @@ def segment_render(
         start = i
         end = min(i + segment_duration, audio_duration)
         out = os.path.join(output_dir, f"segment_{i:03d}.mp4")
-        _render_segment(material_clips, audio_path, start, end, out)
+        _render_segment(material_clips, audio_path, start, end, out,
+                        subtitles_path=subtitles_path,
+                        resolution=resolution)
         segments.append(out)
 
     logger.info(f"分段渲染完成: {len(segments)} 段")
     return segments
+
+
+def compose_with_anchors(
+    material_clips: list[str],
+    audio_path: str,
+    output_path: str,
+    silence_periods: list[dict],
+    total_duration: float,
+    subtitles_path: str | None = None,
+    resolution: str = DEFAULT_RESOLUTION,
+) -> str:
+    """
+    锚点驱动的画面切换合成
+
+    在每段静音处切换素材片段，添加交叉淡变过渡。
+    素材按顺序循环使用，避免单一素材贯穿全片。
+
+    参数:
+      material_clips: 素材视频列表
+      audio_path: 混合音频路径
+      silence_periods: [{"start": s, "end": e, "duration": d}, ...]
+      total_duration: 音频总时长(秒)
+    """
+    num_clips = len(material_clips)
+    if num_clips == 0:
+        raise ValueError("素材列表为空")
+    if not silence_periods:
+        logger.info("无锚点，回落普通合成")
+        return compose_video(material_clips, audio_path, output_path,
+                             subtitles_path=subtitles_path, resolution=resolution)
+
+    import tempfile
+
+    # 1. 在静音中点附近切割素材段落
+    transitions = [0.0]  # 每个切换点的时间(秒)
+    for s in silence_periods:
+        mid = (s["start"] + s["end"]) / 2
+        if mid > transitions[-1] + 0.5:  # 至少间隔0.5s
+            transitions.append(mid)
+    transitions.append(total_duration)
+
+    # 2. 为每段分配素材（循环使用）
+    seg_info = []  # [(clip_path, start, end), ...]
+    clip_idx = 0
+    for i in range(len(transitions) - 1):
+        seg_start = transitions[i]
+        seg_end = transitions[i + 1]
+        dur = seg_end - seg_start
+        if dur < 0.3:
+            continue  # 跳过过短段落
+        seg_info.append((material_clips[clip_idx % num_clips], seg_start, seg_end))
+        clip_idx += 1
+
+    logger.info(f"锚点分段: {len(seg_info)} 段, 使用 {min(clip_idx, num_clips)}/{num_clips} 个素材")
+
+    # 3. 渲染每段为独立视频
+    temp_dir = tempfile.mkdtemp(prefix="ave_anchor_")
+    seg_files = []
+    for idx, (clip, seg_s, seg_e) in enumerate(seg_info):
+        out = os.path.join(temp_dir, f"seg_{idx:03d}.mp4")
+        dur = seg_e - seg_s
+        # 从该素材中截取一段 (用素材的一部分，避免只用开头)
+        clip_dur = _get_media_duration(clip)
+        offset_in_clip = (seg_s * 15) % max(clip_dur, 1)  # 取素材中不同位置
+        offset_in_clip = min(offset_in_clip, max(clip_dur - dur, 0))
+
+        # 用 FFmpeg 截取该素材的一段
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-ss", str(offset_in_clip),
+            "-i", clip,
+            "-t", str(dur),
+            "-vf", f"scale={resolution.replace('x',':')},setsar=1,fps=30",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            out,
+        ], capture_output=True, timeout=120, check=True)
+        seg_files.append(out)
+
+    # 4. 简单 concat 拼接 (含交叉淡变的 xfade 链 >10段容易 FFmpeg 崩溃)
+    #    用 concat demuxer 直接拼接，素材切换本身已提供视觉变化
+    concat_list = _create_concat_list(seg_files)
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "concat", "-safe", "0", "-i", concat_list,
+        "-i", audio_path,
+        "-af", "afade=t=in:d=1,afade=t=out:st={}:d=1".format(max(0, total_duration - 1)),
+    ]
+
+    if subtitles_path and os.path.exists(subtitles_path):
+        cmd += ["-vf", f"subtitles={subtitles_path}"]
+
+    cmd += ["-shortest", "-c:v", "libx264", "-preset", "medium", "-b:v", DEFAULT_BITRATE,
+            "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p", output_path]
+
+    subprocess.run(cmd, capture_output=True, check=True, timeout=600)
+
+    # 清理
+    import shutil
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+    logger.info(f"锚点驱动合成完成: {output_path}")
+    return output_path
 
 
 def concat_segments(segment_files: list[str], output_path: str = "final.mp4") -> str:
@@ -306,20 +540,35 @@ def _render_segment(
     start_sec: float,
     end_sec: float,
     output_path: str,
+    subtitles_path: str | None = None,
+    resolution: str = DEFAULT_RESOLUTION,
 ):
     """渲染单个分段（裁剪音频+对齐素材）"""
     duration = end_sec - start_sec
+    # 用 concat 合并所有素材作为视频源
+    concat_file = _create_concat_list(material_clips)
+
+    filters = [
+        f"[0:v]setpts=PTS-STARTPTS,scale={resolution.replace('x',':')},fps=30[v]",
+        f"[1:a]atrim=start={start_sec}:duration={duration},asetpts=PTS-STARTPTS[a]",
+    ]
+
+    if subtitles_path and os.path.exists(subtitles_path):
+        filters.append(f"[v]subtitles={subtitles_path}[vo]")
+        map_v = "[vo]"
+    else:
+        map_v = "[v]"
+
     cmd = [
         "ffmpeg", "-y",
-        "-i", material_clips[0] if material_clips else "",
-        "-ss", str(start_sec),
+        "-f", "concat", "-safe", "0", "-i", concat_file,
         "-i", audio_path,
-        "-t", str(duration),
-        "-c:v", "libx264",
-        "-preset", "medium",
-        "-c:a", "aac",
-        "-pix_fmt", "yuv420p",
+        "-filter_complex", ";".join(filters),
+        "-map", map_v, "-map", "[a]",
         "-shortest",
+        "-c:v", "libx264", "-preset", "medium", "-b:v", DEFAULT_BITRATE,
+        "-c:a", "aac", "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
         output_path,
     ]
-    subprocess.run(cmd, capture_output=True, check=True)
+    subprocess.run(cmd, capture_output=True, check=True, timeout=600)
