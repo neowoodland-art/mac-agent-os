@@ -252,22 +252,32 @@ def build_app() -> gr.Blocks:
                 gr.Markdown("#### 📁 历史脚本")
                 with gr.Row():
                     refresh_list_btn = gr.Button("🔄 刷新列表", scale=1)
-                script_list = gr.Dataframe(
-                    headers=["项目ID", "风格", "段落数", "生成日期"],
-                    label="已生成的脚本",
-                    interactive=False,
-                )
+                    script_list_md = gr.Markdown("点击刷新查看已生成的脚本")
+                
+                with gr.Row():
+                    view_pid = gr.Textbox(label="查看脚本（粘贴项目ID）", placeholder="如 vid_20260504_8817", scale=2)
+                    view_btn = gr.Button("📖 查看", scale=1)
+                
+                with gr.Row():
+                    with gr.Column():
+                        gr.Markdown("##### YAML")
+                        view_yaml = gr.Textbox(label="", lines=8, max_lines=15)
+                    with gr.Column():
+                        gr.Markdown("##### MD")
+                        view_md = gr.Textbox(label="", lines=8, max_lines=15)
                 
                 # 历史脚本回调
                 def list_scripts():
                     from pathlib import Path
                     output_dir = Path(__file__).parent / "scripts_output"
                     yamls = sorted(output_dir.glob("*.yaml"), reverse=True)
-                    rows = []
+                    if not yamls:
+                        return "（暂无已生成的脚本）"
+                    
+                    lines = ["| 项目ID | 风格 | 段落 | 日期 |",
+                             "|--------|------|------|------|"]
                     for y in yamls:
                         pid = y.stem
-                        md = output_dir / f"{pid}.md"
-                        # 读取 YAML 获取元数据
                         import yaml as pyyaml
                         try:
                             data = pyyaml.safe_load(y.read_text(encoding='utf-8'))
@@ -277,10 +287,23 @@ def build_app() -> gr.Blocks:
                             style = '?'; segs = '?'
                         date = pid.split('_')[1] if '_' in pid else '?'
                         date = f"{date[:4]}-{date[4:6]}-{date[6:8]}" if len(date)>=8 else '?'
-                        rows.append([pid, style, str(segs), date])
-                    return rows if rows else [["（暂无脚本）", "", "", ""]]
+                        lines.append(f"| `{pid}` | {style} | {segs}段 | {date} |")
+                    lines.append("\n复制项目ID到下方输入框查看具体内容")
+                    return "\n".join(lines)
                 
-                refresh_list_btn.click(list_scripts, outputs=[script_list])
+                def view_script(pid):
+                    if not pid:
+                        return "请输入项目ID", ""
+                    from pathlib import Path
+                    output_dir = Path(__file__).parent / "scripts_output"
+                    yaml_path = output_dir / f"{pid.strip()}.yaml"
+                    md_path = output_dir / f"{pid.strip()}.md"
+                    yaml_c = yaml_path.read_text(encoding='utf-8') if yaml_path.exists() else "文件不存在"
+                    md_c = md_path.read_text(encoding='utf-8') if md_path.exists() else "文件不存在"
+                    return yaml_c, md_c
+                
+                refresh_list_btn.click(list_scripts, outputs=[script_list_md])
+                view_btn.click(view_script, inputs=[view_pid], outputs=[view_yaml, view_md])
                 
                 # 脚本工厂回调
                 def toggle_source(source):
@@ -527,21 +550,21 @@ def build_app() -> gr.Blocks:
                     
                     summary = " | ".join([f"{cm.PLATFORM_LABELS.get(p,p)}: {c}条" for p, c in platform_count.items()])
                     
-                    # Markdown 表格
-                    lines = ["| # | 平台 | 类型 | 标题 | 作者 | 内容量 | 匹配度 |",
-                             "|---|------|------|------|------|--------|--------|"]
+                    # Markdown 表格（紧凑格式）
+                    lines = ["| # | 平台 | 标题（点击链接查看原文） | 作者 |",
+                             "|---|------|--------------------------|------|"]
                     for i, r in enumerate(results, 1):
-                        title = (r.get("title", "") or "")[:35]
-                        author = (r.get("author", "") or "")[:12]
-                        ctype = r.get("type", "")
-                        size_h = r.get("size_hint", "")
+                        title = (r.get("title", "") or "")[:40]
+                        author = (r.get("author", "") or "")[:10]
                         label = r.get("label", "")
-                        score = "★" * r.get("score", 1)
-                        lines.append(f"| {i} | {label} | {ctype} | {title} | {author} | {size_h} | {score} |")
+                        url = (r.get("url", "") or "")
+                        # 加链接
+                        linked_title = f"[{title}]({url})" if url else title
+                        lines.append(f"| {i} | {label} | {linked_title} | {author} |")
                     
                     md = "\n".join(lines)
-                    md += f"\n\n✅ 共 {len(results)} 条结果。{summary}"
-                    md += "\n\n复制左侧序号（如 `1,3,5`）到下方输入框查看详情"
+                    md += f"\n\n✅ 共 **{len(results)}** 条。{summary}"
+                    md += "\n\n> 复制上方序号（如 `1,3,5`）到右侧输入框查看详情。点击标题链接直接打开原文。"
                     
                     return md, results
                 
