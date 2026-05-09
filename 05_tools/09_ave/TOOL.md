@@ -1,8 +1,8 @@
-# TOOL.md — AVE v2.3 (AudioScore Video Engine)
+# TOOL.md — AVE v3.0 (AudioScore Video Engine)
 
-> **工具版本**: v2.3
+> **工具版本**: v3.0
 > **接入日期**: 2026-05-04
-> **最后更新**: 2026-05-08
+> **最后更新**: 2026-05-09
 > **维护者**: ghai
 > **路径方案**: local.yaml + local_paths.py（无软链接，多机安全）
 > **Python**: ~/.workbuddy/binaries/python/versions/3.13.12/
@@ -195,7 +195,63 @@ YAML 导演脚本 ──→ main.py generate
 - 字幕样式: 字号 = height × 4.4% (竖屏1080p→84px), 位置 = 底部上方20%, 描边3px
 - `--duck` BGM 避让: 基于字级时间戳, 说话时 BGM=0.15, 间隙时 BGM=0.50, 300ms 过渡
 - `--anchor-transitions` 锚点画面切换: librosa 检测静音段, 在切换点切换素材
-- 数字人 Wan2.2: 头像 + 音频 → 对口型视频, 片尾缓存复用 (0成本重复使用)
+- `--beat-sync` (v3.0): BGM 节拍检测 → 拍点切换素材 → xfade 过渡
+- 费用追踪: `lib/cost_tracker.py` 每次 API 调用自动记录费用
+
+## 文件中转仓库
+
+即梦/火山引擎 API 需要图片/视频/音频的公网 HTTP URL。
+
+```
+仓库: git@gitee.com:babycalf/ghvideo.git
+直链: https://gitee.com/babycalf/ghvideo/raw/master/{filename}
+用途: 存储 API 调用所需的临时媒体文件
+本地: agent-local/tools/ave/ghvideo/
+上传: python lib/ghvideo_upload.py 文件1 文件2
+```
+
+## 策略体系 (v3.0)
+
+视频工厂按 4 种策略组织, 生产时选择策略 + 提供内容即可:
+
+```
+请求: {策略, 内容素材}
+    │
+    ├─→ 口播策略 ✅ (当前)
+    │   文案 → TTS → Pexels素材 → BGM避让 → 锚点切换 → 精确字幕 → 数字人片头片尾
+    │   适用: 知识分享、励志金句、故事讲述
+    │
+    ├─→ 卡点策略 🔧 (待开发)
+    │   BGM → 节拍检测 → 素材/图片 → 拍点切换 → xfade过渡 → 文字叠加
+    │   适用: 卡点视频、节奏混剪
+    │
+    ├─→ 数字人策略 🔧 (待开发)
+    │   DreamActor M1: 照片 + 参考视频 → 动作模仿视频
+    │   OmniHuman: 头像 + 音频 → 对口型数字人
+    │   适用: 数字人出镜、动作模仿
+    │
+    └─→ 模板策略 🔍 (调研中)
+        pyJianYingDraft/CapCutAPI → 程序化生成剪映草稿 → 渲染导出
+        适用: 批量生产、模板复用
+```
+
+### 各策略依赖
+
+| 策略 | 核心依赖 | API | 状态 |
+|:-----|:---------|:----|:----:|
+| 口播 | CosyVoice + Pexels + mlx-audiocraft | 阿里云 + Pexels | ✅ 可用 |
+| 卡点 | librosa + FFmpeg xfade | 无 | ✅ P1 完成 |
+| 数字人 | OmniHuman / DreamActor M1 | 火山引擎 | ✅ OmniHuman + DreamActor 均已可用 |
+| 模板 | pyJianYingDraft / CapCutAPI | 无(本地剪映) | 🔍 调研中 |
+
+### 实施优先级
+
+| 阶段 | 内容 | 状态 |
+|:----|:-----|:----:|
+| P1 | beat-sync 卡点模式 | 🔜 下一个 |
+| P2 | DreamActor M1 动作模仿接入 | ⏳ |
+| P3 | 视频工厂 CLI (策略路由) | ⏳ |
+| P4 | 剪映模板集成 | 🔍 |
 
 ### 待优化
 - 生成速度: mlx-audiocraft 在 M1 上 10s 需 ~46s (~4.7x)

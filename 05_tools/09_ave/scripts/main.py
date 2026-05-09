@@ -98,6 +98,16 @@ def main():
     p_dh.add_argument("--output", default="/tmp/ave_digital_human.mp4", help="输出路径")
     p_dh.add_argument("--resolution", default="480P", choices=["480P", "720P"], help="分辨率")
 
+    # ── beat-sync ──
+    p_bs = sub.add_parser("beat-sync", help="卡点视频 (BGM节拍驱动画面切换)")
+    p_bs.add_argument("--bgm", required=True, help="BGM 音频路径")
+    p_bs.add_argument("--clips", nargs="*", default=[], help="素材路径列表 (可选)")
+    p_bs.add_argument("--search", default="", help="Pexels 搜索关键词 (素材不够时补充)")
+    p_bs.add_argument("--output", default="/tmp/ave_beat_sync.mp4", help="输出路径")
+    p_bs.add_argument("--group-size", type=int, default=4, help="每组节拍数 (默认4)")
+    p_bs.add_argument("--texts", nargs="*", default=[], help="每段叠加的文字 (可选)")
+    p_bs.add_argument("--resolution", default="1080x1920", help="分辨率")
+
     args = parser.parse_args()
 
     # ─── dispatch ───
@@ -227,6 +237,34 @@ def main():
         import os as _os
         size_mb = _os.path.getsize(result) / 1024 / 1024
         print(f"\n✅ 数字人完成: {result} ({size_mb:.1f}MB)")
+
+    elif args.command == "beat-sync":
+        from composer.beat_sync import compose_beat_sync
+        from lib.config import load_config
+
+        cfg = load_config()
+        pexels_key = cfg.get("pexels", {}).get("api_key", "")
+
+        print(f"[AVE] Beat-Sync 卡点视频")
+        print(f"  BGM: {args.bgm}")
+        print(f"  素材: {len(args.clips)} 个 + 搜索 '{args.search}'")
+        print(f"  节拍分组: {args.group_size}拍/组")
+        if args.texts:
+            print(f"  文字: {len(args.texts)} 段")
+
+        compose_beat_sync(
+            bgm_path=args.bgm,
+            output_path=args.output,
+            material_clips=args.clips or None,
+            group_size=args.group_size,
+            resolution=args.resolution,
+            texts=args.texts or None,
+            pexels_api_key=pexels_key,
+            pexels_search=args.search,
+        )
+        import os as _os
+        sz_mb = _os.path.getsize(args.output) / 1024 / 1024
+        print(f"\n✅ Beat-Sync 完成: {args.output} ({sz_mb:.0f}MB)")
 
     elif args.command == "generate":
         cfg = load_config()
