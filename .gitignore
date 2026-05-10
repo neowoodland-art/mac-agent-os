@@ -82,6 +82,9 @@ system-check-report-*.md
 # 本机 Matrix 路径配置（每台机器独立）
 05_tools/07_matrix/local.yaml
 
+# SMS 验证码配置（含API Key，每台机器独立）
+05_tools/07_matrix/scripts/config/sms.yaml
+
 # 配置备份
 backup_*/
 # 本机数据目录（不同步）

@@ -2,34 +2,60 @@
 短信验证码 — API 自动获取（wx.tyhtak.com）
 
 代替手动输入，自动轮询 API 获取验证码。
+配置从 ../config/sms.yaml 读取，不再硬编码。
 """
 import asyncio
 import re
 import time
+import os
 from typing import Optional
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 import json
+import yaml
 
 from .base import SMSHandler
 
+# 默认值（会被 config/sms.yaml 覆盖）
 API_KEY = "gtmsg2026"
 PHONE = "15370103682"
 BASE_URL = "https://wx.tyhtak.com/api/biz/msg/messages"
+POLL_INTERVAL = 3
+TIMEOUT = 120
+
+
+def _load_config() -> dict:
+    """从 config/sms.yaml 读取配置"""
+    config_path = os.path.join(
+        os.path.dirname(__file__),  # account/sms/
+        "..", "..", "..", "..",     # → scripts/
+        "config", "sms.yaml"
+    )
+    config_path = os.path.normpath(config_path)
+    try:
+        with open(config_path) as f:
+            data = yaml.safe_load(f)
+            return data.get("sms", {})
+    except (FileNotFoundError, yaml.YAMLError):
+        return {}
 
 
 class ApiSMSHandler(SMSHandler):
     """通过 API 自动获取短信验证码"""
 
-    def __init__(self, api_key: str = API_KEY, phone: str = PHONE):
-        self.api_key = api_key
-        self.phone = phone
+    def __init__(self, api_key: str = None, phone: str = None):
+        cfg = _load_config()
+        self.api_key = api_key or cfg.get("api_key", API_KEY)
+        self.phone = phone or cfg.get("phone", PHONE)
+        self.base_url = cfg.get("base_url", BASE_URL)
+        self.poll_interval = cfg.get("poll_interval", POLL_INTERVAL)
+        self.default_timeout = cfg.get("timeout", TIMEOUT)
         self._last_id: Optional[int] = None
         self._cancel_flag = False
 
     def _fetch_messages(self) -> list:
         """调用 API 获取短信列表"""
-        url = f"{BASE_URL}?api_key={self.api_key}&receiver_phone={self.phone}&page=1&per_page=20"
+        url = f"{self.base_url}?api_key={self.api_key}&receiver_phone={self.phone}&page=1&per_page=20"
         try:
             req = Request(url, headers={"User-Agent": "curl/7.0"})
             resp = urlopen(req, timeout=10)
@@ -75,7 +101,7 @@ class ApiSMSHandler(SMSHandler):
         """
         print(f"  📱 等待短信验证码 ({platform})")
         print(f"    手机号: {self.phone}")
-        print(f"    轮询间隔: 3秒  超时: {timeout}秒")
+        print(f"    轮询间隔: {self.poll_interval}秒  超时: {timeout}秒")
 
         self._cancel_flag = False
         self._last_id = None
@@ -88,7 +114,7 @@ class ApiSMSHandler(SMSHandler):
 
         start = time.time()
         while not self._cancel_flag and (time.time() - start) < timeout:
-            await asyncio.sleep(3)
+            await asyncio.sleep(self.poll_interval)
 
             msgs = self._fetch_messages()
             if not msgs:
