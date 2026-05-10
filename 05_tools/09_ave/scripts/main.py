@@ -108,6 +108,32 @@ def main():
     p_bs.add_argument("--texts", nargs="*", default=[], help="每段叠加的文字 (可选)")
     p_bs.add_argument("--resolution", default="1080x1920", help="分辨率")
 
+    # ── video-factory ──
+    p_vf = sub.add_parser("video-factory", help="视频工厂 (统一生产入口)")
+    p_vf.add_argument("--strategy", required=True, choices=["口播", "卡点", "数字人", "status"],
+                      help="生产策略")
+    # 通用参数
+    p_vf.add_argument("--output", default="", help="输出路径")
+    # 口播参数
+    p_vf.add_argument("--script", default="", help="脚本文件路径 (口播)")
+    p_vf.add_argument("--clips-per-segment", type=int, default=2, help="每段素材数")
+    p_vf.add_argument("--bgm", default=None, help="BGM 路径")
+    p_vf.add_argument("--no-duck", action="store_true", help="关闭BGM避让")
+    p_vf.add_argument("--no-anchor", action="store_true", help="关闭锚点切换")
+    p_vf.add_argument("--no-subtitles", action="store_true", help="关闭字幕")
+    # 卡点参数
+    p_vf.add_argument("--search", default="", help="Pexels搜索词 (卡点)")
+    p_vf.add_argument("--clips", nargs="*", default=[], help="素材列表 (卡点)")
+    p_vf.add_argument("--group-size", type=int, default=4, help="节拍分组 (卡点)")
+    p_vf.add_argument("--texts", nargs="*", default=[], help="叠加文字 (卡点)")
+    # 数字人参数
+    p_vf.add_argument("--image", default="", help="头像图片 (数字人)")
+    p_vf.add_argument("--text", default="", help="文案 (数字人)")
+    p_vf.add_argument("--resolution", default="480P", choices=["480P", "720P"], help="分辨率")
+    p_vf.add_argument("--mode", default="对口型", choices=["对口型", "动作模仿"],
+                      help="数字人模式")
+    p_vf.add_argument("--video", default=None, help="参考视频 (动作模仿)")
+
     args = parser.parse_args()
 
     # ─── dispatch ───
@@ -265,6 +291,70 @@ def main():
         import os as _os
         sz_mb = _os.path.getsize(args.output) / 1024 / 1024
         print(f"\n✅ Beat-Sync 完成: {args.output} ({sz_mb:.0f}MB)")
+
+    elif args.command == "video-factory":
+        from video_factory import run_oral, run_beat, run_digital_human, show_status
+
+        strategy = args.strategy
+        output = args.output or {
+            "口播": "/tmp/ave_oral.mp4",
+            "卡点": "/tmp/ave_beat.mp4",
+            "数字人": "/tmp/ave_dh.mp4",
+        }.get(strategy, "/tmp/ave_factory.mp4")
+
+        if strategy == "status":
+            show_status()
+            return
+
+        print(f"\n🎬 AVE 视频工厂 → 策略: {strategy}")
+        print("=" * 40)
+
+        if strategy == "口播":
+            if not args.script:
+                print("❌ 口播策略需要 --script 参数")
+                return
+            run_oral(
+                script=args.script,
+                output=output,
+                clips_per_segment=args.clips_per_segment,
+                bgm=args.bgm,
+                duck=not args.no_duck,
+                anchor=not args.no_anchor,
+                subtitles=not args.no_subtitles,
+            )
+
+        elif strategy == "卡点":
+            if not args.bgm:
+                print("❌ 卡点策略需要 --bgm 参数")
+                return
+            run_beat(
+                bgm=args.bgm,
+                output=output,
+                search=args.search,
+                group_size=args.group_size,
+                clips=args.clips,
+                texts=args.texts,
+            )
+
+        elif strategy == "数字人":
+            if not args.image:
+                print("❌ 数字人策略需要 --image 参数")
+                return
+            if not args.text and args.mode == "对口型":
+                print("❌ 对口型模式需要 --text 参数")
+                return
+            run_digital_human(
+                image=args.image,
+                text=args.text,
+                output=output,
+                resolution=args.resolution,
+                mode=args.mode,
+                video=args.video,
+            )
+
+        # 显示费用汇总
+        from lib.cost_tracker import get_tracker
+        get_tracker().summary()
 
     elif args.command == "generate":
         cfg = load_config()

@@ -96,5 +96,40 @@ def main():
             print(f"❌ 推送失败: {r2.stderr[:200]}")
 
 
+def upload_and_get_url(file_path: str) -> str:
+    """
+    上传文件到 ghvideo 仓库并返回公网直链
+
+    参数:
+      file_path: 本地文件路径
+
+    返回:
+      公网直链 URL
+    """
+    import shutil
+    name = Path(file_path).name
+    dest = REPO_DIR / name
+
+    # 复制文件到仓库
+    shutil.copy2(file_path, str(dest))
+
+    # 提交推送
+    subprocess.run(["git", "-C", str(REPO_DIR), "add", name], capture_output=True)
+    subprocess.run(["git", "-C", str(REPO_DIR), "commit", "-m", f"upload {name}"],
+                   capture_output=True)
+    r = subprocess.run(["git", "-C", str(REPO_DIR), "push", "origin", "master"],
+                       capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        # pull 再试
+        subprocess.run(["git", "-C", str(REPO_DIR), "pull", "--rebase", "origin", "master"],
+                       capture_output=True, timeout=30)
+        subprocess.run(["git", "-C", str(REPO_DIR), "push", "origin", "master"],
+                       capture_output=True, timeout=60)
+
+    url = f"{RAW_BASE}/{name}"
+    print(f"  上传完成: {url}")
+    return url
+
+
 if __name__ == "__main__":
     main()
