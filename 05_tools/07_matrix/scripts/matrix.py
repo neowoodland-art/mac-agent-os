@@ -141,8 +141,12 @@ def cmd_nurture_run(args):
     engines = {}
     for a in data.get("accounts", []):
         if a["id"] in identities:
-            bt = a.get("browser_type", "chrome")
-            engines[a["id"]] = "camoufox" if bt == "camoufox" else "chrome"
+            # 优先检查 identity_dir（有则用 Camoufox），否则按 browser_type 判断
+            if a.get("identity_dir"):
+                engines[a["id"]] = "camoufox"
+            else:
+                bt = a.get("browser_type", "chrome")
+                engines[a["id"]] = "camoufox" if bt == "camoufox" else "chrome"
 
     behavior_config = None
     if args.behavior:
@@ -161,7 +165,7 @@ def cmd_nurture_run(args):
         rounds=args.rounds or 10,
         headless=args.headless or False,
         engines=engines,
-        daemon=getattr(args, 'daemon', False),
+        daemon=True,  # 默认开启：脚本退出后保持浏览器窗口
     ))
 
 
@@ -388,7 +392,7 @@ def main():
     p_nur_run.add_argument("-r", "--rounds", type=int, default=10, help="循环轮数")
     p_nur_run.add_argument("--headless", action="store_true", help="无头模式")
     p_nur_run.add_argument("--behavior", help="行为配置JSON")
-    p_nur_run.add_argument("--daemon", action="store_true", help="完成后保持浏览器连接不退出")
+    p_nur_run.add_argument("--daemon", action="store_true", help="完成后保持浏览器连接不退出（默认开启）")
     p_nur_run.set_defaults(func=cmd_nurture_run)
 
     p_nur_sched = nur_sub.add_parser("schedule", help="设置定时任务")

@@ -1,15 +1,19 @@
 """
-短信验证码处理（接口预留）
+短信验证码处理
 
 使用方式：
-  from matrix_modules.account.sms import SMSHandler
+  from matrix_modules.account.sms import SMSHandler, ManualSMSHandler, ApiSMSHandler
 
-  handler = SMSHandler()
-  code = await handler.wait("抖音", timeout=120)  # 等待短信，最多120秒
-  # 当前默认实现是 manual.py（手动输入）
-  # 以后可替换为 aliyun.py / telegram.py 等自动方案
+  # 自动模式（API 轮询）
+  handler = ApiSMSHandler()
+  code = await handler.wait("抖音", timeout=120)
+
+  # 手动模式
+  handler = ManualSMSHandler()
+  code = await handler.wait("抖音")
 """
 
 from .base import SMSHandler, ManualSMSHandler
+from .api import ApiSMSHandler
 
-__all__ = ["SMSHandler", "ManualSMSHandler"]
+__all__ = ["SMSHandler", "ManualSMSHandler", "ApiSMSHandler"]

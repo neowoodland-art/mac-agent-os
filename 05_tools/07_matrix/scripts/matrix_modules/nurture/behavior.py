@@ -51,6 +51,15 @@ DEFAULT_CONFIG = {
         'max_break': 20,              # 轮间最长休息(秒)
     },
 
+    # ★ 反检测 — 拟人化操作策略（2026-05-04）
+    'anti_detection': {
+        'card_position_range': [0, 4],    # 点卡片时选第几个（0=第1个）
+        'search_result_range': [1, 4],    # 搜索结果点第几个（0=第1个）
+        'use_keyboard_like': False,       # 是否用键盘 L 键点赞（预留）
+        'use_close_button': False,        # 是否用X按钮返回（预留）
+        'scroll_method': 'mouse',         # 切换方式: mouse/keyboard/js
+    },
+
     # 异常处理
     'retry': {
         'max_retries': 2,            # 操作失败最大重试次数
@@ -128,6 +137,18 @@ class BehaviorConfig:
     def linger_after_action(self) -> float:
         """操作后的停留"""
         la = self._cfg['attention']['linger_after_action']
+
+    # ── 反检测方法 ────────────────────────────────────────
+
+    def card_position(self) -> int:
+        """随机选视频卡片位置（避免每次都点第1个）"""
+        cr = self._cfg['anti_detection']['card_position_range']
+        return random.randint(cr[0], cr[1])
+
+    def search_result_position(self) -> int:
+        """随机选搜索结果位置（避免每次都点第1个）"""
+        sr = self._cfg['anti_detection']['search_result_range']
+        return random.randint(sr[0], sr[1])
         return random.uniform(la[0], la[1])
 
     # ── 轮间休息 ──────────────────────────────────────────

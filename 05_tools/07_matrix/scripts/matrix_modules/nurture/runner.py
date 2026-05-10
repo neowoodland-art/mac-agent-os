@@ -15,6 +15,7 @@ import sys
 import time
 from pathlib import Path
 from typing import List, Optional
+import subprocess
 
 # 路径注入
 SCRIPTS_DIR = Path(__file__).parent.parent.parent
@@ -26,6 +27,39 @@ LOCAL_ROOT = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "mat
 SCRIPTS = SCRIPTS_DIR
 BP_DIR = SCRIPTS_DIR.parent / "blueprints"
 CHROME_BIN = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+
+def _move_camoufox_window(identity_dir: str, target_left: int, target_top: int):
+    """用 AppleScript 将对应 Camoufox 窗口移动到指定位置"""
+    try:
+        profile_path = identity_dir.rstrip('/') + '/user_data'
+        # 通过 profile 路径匹配进程，然后移动其窗口
+        script = f'''
+set profilePath to "{profile_path}"
+tell application "System Events"
+    set procList to every process whose name contains "camoufox"
+    repeat with proc in procList
+        set pid to unix id of proc
+        try
+            set cmdLine to do shell script "ps -p " & pid & " -o command= 2>/dev/null | head -1"
+            if cmdLine contains profilePath then
+                set winList to every window of proc
+                repeat with w in winList
+                    set position of w to {{{target_left}, {target_top}}}
+                end repeat
+            end if
+        end try
+    end repeat
+end tell
+'''
+        result = subprocess.run(['osascript', '-e', script],
+                                capture_output=True, timeout=5, text=True)
+        if result.returncode == 0:
+            print(f"  🪟 窗口移至 ({target_left},{target_top})")
+        else:
+            print(f"  ⚠️ 窗口移动失败: {result.stderr[:80]}")
+    except Exception as e:
+        print(f"  ⚠️ 窗口移动异常: {e}")
 
 
 def load_accounts_config() -> list:
@@ -87,10 +121,8 @@ async def _force_window_size(conn, engine: str, width: int, height: int):
             print(f"  ⚠️ Chrome CDP 调窗失败: {e}")
 
 
-async def _camoufox_open_window(conn, width: int, height: int):
-    """Camoufox: 通过 window.open 创建指定尺寸的新窗口
-    Firefox 的 resizeTo 被 Playwright 禁用，但 window.open 尺寸参数原生生效
-    """
+async def _camoufox_open_window(conn, width: int, height: int, left: int = 0, top: int = 0):
+    """Camoufox: 通过 window.open 创建指定尺寸和位置的新窗口"""
     import asyncio
 
     # 监听新窗口事件
@@ -104,7 +136,7 @@ async def _camoufox_open_window(conn, width: int, height: int):
     # 创建指定尺寸的新窗口
     await conn.page.evaluate(f"""
         window.open('about:blank', 'main',
-            'width={width},height={height},left=0,top=0,' +
+            'width={width},height={height},left={left},top={top},' +
             'menubar=no,toolbar=no,location=no,status=no');
     """)
 
@@ -126,13 +158,23 @@ async def _camoufox_open_window(conn, width: int, height: int):
     except:
         pass
 
+    # 新窗口带到前端（确保后续操作有焦点）
+    try:
+        await new_page.bring_to_front()
+    except:
+        pass
+    await asyncio.sleep(0.5)
+
     return new_page
 
 
-def load_identity_config(identity_name: str) -> dict:
+def load_identity_config(identity_name: str, identity_dir_override: str = None) -> dict:
     """加载身份配置（含可选的行为覆盖）"""
     import yaml
-    config_path = LOCAL_ROOT / "identities" / identity_name / "config.yaml"
+    if identity_dir_override:
+        config_path = Path(identity_dir_override) / "config.yaml"
+    else:
+        config_path = LOCAL_ROOT / "identities" / identity_name / "config.yaml"
     with open(config_path, encoding='utf-8') as f:
         return yaml.safe_load(f)
 
@@ -161,165 +203,1149 @@ def _log(msg: str, log_file: str = None):
             pass
 
 
-async def run_one_round(conn, page, behavior: BehaviorConfig, log_file: str = None):
-    """单轮养号 —— 真人化流程
+async def _safe_goto(page, url: str, timeout: int = 15, conn=None):
+    """安全导航——三级保底：goto → JS跳转 → CDP强制导航"""
+    # 第一级：Playwright goto
+    try:
+        await page.goto(url, timeout=timeout * 1000, wait_until="domcontentloaded")
+        return True
+    except Exception:
+        pass
+
+    # 第二级：JS 强制跳转
+    try:
+        await page.evaluate(f"window.location.href = '{url}'")
+        await asyncio.sleep(3)
+        return True
+    except Exception:
+        pass
+
+    # 第三级：CDP 强制导航（页面完全卡死时的保底）
+    try:
+        if conn and hasattr(conn, 'cdp_session') and conn.cdp_session:
+            await conn.cdp_session.send("Page.navigate", {"url": url})
+            await asyncio.sleep(3)
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
+
+async def _activate_window():
+    """用 AppleScript 激活 Camoufox 窗口（确保在最前端）"""
+    try:
+        script = 'tell application "System Events" to set frontmost of every process whose name contains "camoufox" to true'
+        subprocess.run(['osascript', '-e', script], capture_output=True, timeout=3)
+    except:
+        pass
+
+
+async def _dismiss_popups(page):
+    """移除新手教学指引弹窗"""
+    try:
+        for text in ["我知道了", "关闭", "跳过", "下一步"]:
+            btn = page.locator(f'button:has-text("{text}")').first
+            if await btn.count() > 0:
+                await btn.click()
+                await asyncio.sleep(0.3)
+    except:
+        pass
+
+
+SCREENSHOT_DIR = LOCAL_ROOT / "screenshots"
+
+
+async def _take_screenshot(page, identity_name: str, label: str):
+    """截图保存，供后续AI分析"""
+    try:
+        SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%H%M%S")
+        path = str(SCREENSHOT_DIR / f"{identity_name}_{label}_{ts}.png")
+        await page.screenshot(path=path, full_page=False)
+        return path
+    except:
+        return None
+
+
+async def _check_anchor(page, anchor_type: str, timeout: float = 3.0) -> bool:
+    """检测页面锚点，判断当前在什么状态
+
+    anchor_type:
+      - 'video_page': 是否在视频播放页（有video元素）
+      - 'home_page':  是否在首页/精选页（有卡片列表）
+      - 'video_playing': 视频是否正在播放
+      - 'has_videos':  页面是否有视频链接
+    """
+    try:
+        if anchor_type == 'video_page':
+            vc = await asyncio.wait_for(
+                page.evaluate("document.querySelectorAll('video').length"), timeout=timeout
+            )
+            return vc > 0
+        elif anchor_type == 'home_page':
+            has_cards = await asyncio.wait_for(
+                page.evaluate("document.querySelectorAll('.discover-video-card-item').length > 0"),
+                timeout=timeout
+            )
+            return has_cards
+        elif anchor_type == 'video_playing':
+            playing = await asyncio.wait_for(
+                page.evaluate("""() => {
+                    const v = document.querySelector('video');
+                    return v ? !v.paused && v.readyState > 0 : false;
+                }"""), timeout=timeout
+            )
+            return playing
+        elif anchor_type == 'has_videos':
+            links = await asyncio.wait_for(
+                page.evaluate("document.querySelectorAll('a[href*=\"/video/\"]').length > 0"),
+                timeout=timeout
+            )
+            return links
+    except:
+        pass
+    return False
+
+
+async def _retry_enter_video(conn, page, identity_name: str, log_file: str,
+                              max_retries: int = 3) -> bool:
+    """进入视频播放页（含锚点检测 + 重试 + 截图）
 
     流程：
-    1. 进入推荐页
-    2. 看5个视频（滑动切换），每个随机观看 4-15秒
-    3. 5个中随机选1个点赞、1个收藏（可能相同）
-    4. 在搜索框输入关键词 → 搜索 → 看结果视频
+    1. 导航到首页 → 检测首页锚点（卡片列表）
+    2. 点击卡片 → 检测播放页锚点（video元素）
+    3. 失败则刷新重试，3次仍失败则截图
+    """
+    for attempt in range(1, max_retries + 1):
+        # 导航到首页
+        _log(f"    📍 尝试进入播放页 ({attempt}/{max_retries})", log_file)
+        ok = await _safe_goto(page, "https://www.douyin.com/", conn=conn)
+        if not ok:
+            _log(f"    ⚠️ 首页导航失败", log_file)
+            continue
+        await asyncio.sleep(random.uniform(2, 4))
+        await _dismiss_popups(page)
+
+        # 检测首页锚点
+        if not await _check_anchor(page, 'home_page', timeout=5):
+            _log(f"    ⚠️ 未检测到首页锚点（卡片列表）", log_file)
+            continue
+
+        # 窗口激活 + 双击卡片（确保播放）
+        try:
+            await _activate_window()
+            card = page.locator('.discover-video-card-item').first
+            if await card.count() == 0:
+                continue
+            await card.click()      # 第1次点击：打开播放
+            await asyncio.sleep(1)
+            await card.click()      # 第2次点击：确保播放（暂停→恢复）
+            await asyncio.sleep(3)
+        except:
+            continue
+
+        # 检测播放页锚点：video > 0
+        if await _check_anchor(page, 'video_page', timeout=3):
+            _log(f"    ✅ 进入播放页（video锚点确认）", log_file)
+            # 点击视频区域确保焦点（让键盘事件正确路由到播放器）
+            try:
+                vid = page.locator('video').first
+                if await vid.count() > 0:
+                    box = await vid.bounding_box()
+                    if box:
+                        await page.mouse.click(box['x'] + box['width']//2,
+                                               box['y'] + box['height']//3)
+                        await asyncio.sleep(0.5)
+            except:
+                pass
+            # 检查是否覆盖播放模式
+            try:
+                ac = await page.evaluate(
+                    "document.querySelectorAll('.discover-video-card-item').length")
+                if ac > 20:
+                    _log(f"    📌 覆盖播放(cards={ac})", log_file)
+            except:
+                pass
+            return True
+
+        # 备选：直接导航到视频URL
+        try:
+            link = await page.evaluate(
+                "document.querySelector('a[href*=\"/video/\"]')?.href"
+            )
+            if link:
+                await _safe_goto(page, link, conn=conn)
+                await asyncio.sleep(2)
+                if await _check_anchor(page, 'video_page', timeout=3):
+                    _log(f"    ✅ 视频URL导航进入播放页", log_file)
+                    return True
+        except:
+            pass
+
+        _log(f"    ⚠️ 第{attempt}次未进入播放页", log_file)
+
+    # 3次全失败，截图让AI分析
+    ss = await _take_screenshot(page, identity_name, "enter_fail")
+    if ss:
+        _log(f"    📸 截图已保存: {ss}", log_file)
+    _log(f"    ❌ 连续{max_retries}次无法进入播放页，请检查截图", log_file)
+    return False
+
+
+async def _swipe_down(page, log_file: str) -> bool:
+    """下滑切换视频（Playwright真实键盘）→ 检测video是否真正切换"""
+    try:
+        # 下滑前记录video状态
+        before = await asyncio.wait_for(
+            page.evaluate("""() => {
+                const v = document.querySelector('video');
+                return v ? {src: v.src, paused: v.paused, ready: v.readyState} : null;
+            }"""), timeout=3
+        )
+        # 下滑切换视频：鼠标滚轮 + 键盘 ArrowDown 双重尝试
+        try:
+            await page.bring_to_front()
+        except:
+            pass
+
+        # 方式A：鼠标滚轮（在覆盖播放模式下有效）
+        await page.mouse.wheel(0, 800)
+        await asyncio.sleep(2)
+        after = await asyncio.wait_for(
+            page.evaluate("""() => {
+                const v = document.querySelector('video');
+                return v ? {src: v.src, paused: v.paused, ready: v.readyState} : null;
+            }"""), timeout=3
+        )
+        switched = False
+        if before and after and after['src'] != before['src'] and after['src']:
+            switched = True
+
+        if not switched:
+            # 方式B：键盘 ArrowDown
+            await page.keyboard.press('ArrowDown')
+            await asyncio.sleep(2)
+            after = await asyncio.wait_for(
+                page.evaluate("""() => {
+                    const v = document.querySelector('video');
+                    return v ? {src: v.src, paused: v.paused, ready: v.readyState} : null;
+                }"""), timeout=3
+            )
+            if before and after and after['src'] != before['src'] and after['src']:
+                switched = True
+
+        if not switched:
+            _log(f"    📊 src相同={before['src'][:30] if before else 'N/A'}...", log_file)
+        return switched
+    except Exception as e:
+        _log(f"    ⚠️ 下滑异常: {str(e)[:30]}", log_file)
+        return False
+
+
+async def run_one_round(conn, page, behavior: BehaviorConfig, log_file: str = None,
+                         identity_name: str = "unknown"):
+    """单轮养号 —— 锚点驱动的视频浏览循环
+
+    流程（原子化操作 + 锚点验证 + 重试）：
+    1. 进入播放页（含3次重试 + 截图）
+    2. 下滑看视频（含video切换锚点检测）
+       - 间隔 8~20 秒（随机）
+       - 每3~6个视频随机点赞
+    3. 搜索
     """
     _log(f"  🔄 开始新一轮", log_file)
 
-    # 回到首页
-    await page.goto("https://www.douyin.com/", timeout=15000, wait_until="domcontentloaded")
-    await asyncio.sleep(random.uniform(1, 2))
-    try:
-        await conn.remove_overlays()
-    except:
-        pass
+    # ── Step 1: 进入播放页（带锚点检测 + 重试）──
+    entered = await _retry_enter_video(conn, page, identity_name, log_file)
+    if not entered:
+        return 0
 
-    TOTAL_VIDEOS = 5
+    # ── Step 2: 下滑看视频（锚点驱动）──
+    DURATION = 0.1  # 分钟（测试模式）
+    start_ts = time.time()
+    video_count = 0
+    last_video_ts = time.time()
+    _log(f"    📹 开始滑视频（{DURATION}min，间隔8~20s随机）", log_file)
 
-    # ── 先确定点赞/收藏位置（浏览前定好）──
-    like_idx = random.randint(0, TOTAL_VIDEOS - 1)
-    collect_idx = random.randint(0, TOTAL_VIDEOS - 1)
-
-    # ── Phase 1: 浏览 5 个视频 ──
-    # 抖音精选页使用瀑布流卡片（无 <a> 链接），需点击卡片进入视频
-    for vi in range(TOTAL_VIDEOS):
-        _log(f"    📹 视频 {vi+1}/{TOTAL_VIDEOS}", log_file)
-
-        # 每次先回到 feed 首页（视频播放完回首页找下一个卡片）
-        if vi > 0:
-            await page.goto("https://www.douyin.com/", timeout=15000, wait_until="domcontentloaded")
-            await asyncio.sleep(random.uniform(1.5, 3))
-
-        # 找视频卡片并点击
-        clicked = False
-        try:
-            # 先滚动加载更多卡片
-            if vi > 0:
-                await page.evaluate("window.scrollBy(0, 400)")
-                await asyncio.sleep(1)
-
-            clicked = await page.evaluate("""() => {
-                // 尝试多种选择器找视频卡片
-                const cards = document.querySelectorAll(
-                    '.discover-video-card-item, ' +
-                    '[class*=\"video-card\"], ' +
-                    '[class*=\"VideoCard\"], ' +
-                    '.waterfall-videoCardCon'
-                );
-                if (cards.length > 0) {
-                    // 点击第1个
-                    cards[0].click();
-                    return true;
-                }
-                // 备选：找图片点击
-                const imgs = document.querySelectorAll('[class*=\"video-card-img\"]');
-                if (imgs.length > 0) {
-                    imgs[0].click();
-                    return true;
-                }
-                return false;
-            }""")
-        except:
-            pass
-
-        if not clicked:
-            _log(f"      无法找到视频卡片，跳过", log_file)
-            continue
-
-        # 等待页面跳转到视频页
-        await asyncio.sleep(random.uniform(2, 4))
-
-        # 观看（随机 4-15 秒）
-        watch_sec = random.uniform(4, 15)
-        _log(f"      观看 {watch_sec:.0f}s...", log_file)
+    while time.time() - start_ts < DURATION * 60:
+        # 看视频：8~20秒随机，足够看完一个短视频
+        watch_sec = random.uniform(8, 20)
         await asyncio.sleep(watch_sec)
+        video_count += 1
+        _log(f"    📹 #{video_count} 看了{watch_sec:.0f}s", log_file)
 
-        # 点赞（如果这个视频被选中）
-        if vi == like_idx:
+        # 随机点赞（每3~6个视频）
+        if video_count % random.randint(3, 6) == 0:
             try:
-                r = await page.evaluate("""() => {
-                    const b = document.querySelector('[data-e2e="feed-active-video-double-like"]')
-                        || document.querySelector('[data-e2e="like-count"]');
-                    if (b) { b.click(); return 'ok'; }
-                    return '-';
-                }""")
-                if r == 'ok':
-                    _log(f"      👍 点赞 (第{vi+1}个)", log_file)
+                btn = page.locator(
+                    '[data-e2e="feed-active-video-double-like"], '
+                    '[data-e2e="like-count"]'
+                ).first
+                if await btn.count() > 0:
+                    await btn.click()
+                    _log(f"      👍 #{video_count}", log_file)
+                    await asyncio.sleep(random.uniform(1, 2))
             except:
                 pass
-            await asyncio.sleep(random.uniform(0.5, 1.5))
 
-        # 收藏（如果这个视频被选中）
-        if vi == collect_idx:
+        # 下滑切换（含video锚点检测）
+        switched = await _swipe_down(page, log_file)
+        if not switched:
+            _log(f"    ⚠️ video未切换，尝试备用下滑", log_file)
             try:
-                r = await page.evaluate("""() => {
-                    const b = document.querySelector('[data-e2e="video-collect"]');
-                    return b ? (b.click(), 'ok') : '-';
-                }""")
-                if r == 'ok':
-                    _log(f"      ⭐ 收藏 (第{vi+1}个)", log_file)
+                await page.keyboard.press('ArrowDown')
+                await asyncio.sleep(2)
             except:
-                pass
-            await asyncio.sleep(random.uniform(0.5, 1.5))
+                # 下滑失败：回退到首页重试
+                _log(f"    🔄 下滑连续失败，回退首页重试", log_file)
+                recovered = await _retry_enter_video(
+                    conn, page, identity_name, log_file, max_retries=1
+                )
+                if not recovered:
+                    _log(f"    ❌ 无法恢复，退出本轮", log_file)
+                    break
 
-    # ── Phase 2: 搜索框搜索 ──
-    search_keywords = ["搞笑", "美食", "旅行", "萌宠", "科技", "音乐", "舞蹈", "健身"]
-    keyword = random.choice(search_keywords)
+        # 进度报告
+        if video_count % 8 == 0:
+            elapsed = time.time() - start_ts
+            _log(f"    📹 #{video_count} | 已过{elapsed/60:.0f}min", log_file)
+
+    # ── Step 2.5: 播放页交互（随机点赞/评论/关注等）──
+    await _player_interactions(page, identity_name, log_file, count=1)
+
+    _log(f"    \u23f1\ufe0f 评论测试完成，停留5秒让你检查", log_file)
+    await asyncio.sleep(5)
+    return video_count
+
+    # ── Step 3: 搜索 ──
+    await _safe_goto(page, "https://www.douyin.com/", conn=conn)
+    await asyncio.sleep(2)
+    await _activate_window()
+    keyword = random.choice(["搞笑", "美食", "旅行", "萌宠", "科技", "音乐"])
     _log(f"    🔍 搜索: {keyword}", log_file)
-
     try:
-        # 在搜索框输入关键词
+        # 输入关键词
         await page.evaluate(f"""() => {{
-            const input = document.querySelector('input[placeholder*="搜索"]');
-            if (!input) return;
-            // 设置值并触发事件
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                window.HTMLInputElement.prototype, 'value'
-            ).set;
-            nativeInputValueSetter.call(input, '{keyword}');
-            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+            const i = document.querySelector('input[placeholder*="搜索"]');
+            if (!i) return;
+            i.value = '{keyword}';
+            i.dispatchEvent(new Event('input', {{bubbles: true}}));
         }}""")
-        await asyncio.sleep(random.uniform(0.5, 1))
-
+        await asyncio.sleep(0.5)
         # 点击搜索按钮
         await page.evaluate("""() => {
-            const btn = [...document.querySelectorAll('button')]
+            const b = [...document.querySelectorAll('button')]
                 .find(b => b.textContent.includes('搜索'));
-            if (btn) btn.click();
+            if (b) b.click();
         }""")
-        await asyncio.sleep(random.uniform(2, 4))
+        await asyncio.sleep(3)
+        _log(f"    ✅ 搜索结果已加载", log_file)
 
-        # 在搜索结果中点一个视频
-        try:
-            result_link = await page.evaluate("""() => {
+        # 点击第一个搜索结果视频（窗口激活 + 双击）
+        await _activate_window()
+        clicked = False
+        # 方式1: a[href*="/video/"] 点击
+        link = page.locator('a[href*="/video/"]').first
+        if await link.count() > 0:
+            await link.click()
+            await asyncio.sleep(1)
+            await link.click()
+            _log(f"    ▶️ 点击搜索结果视频(a标签)", log_file)
+            clicked = True
+        else:
+            # 方式2: 找搜索容器中的第一个可点击卡片
+            try:
+                card = page.locator(
+                    '[class*="search"] [class*="card"], '
+                    '[class*="result"] a, '
+                    '[class*="search"] a'
+                ).first
+                if await card.count() > 0:
+                    await card.click()
+                    await asyncio.sleep(1)
+                    await card.click()
+                    _log(f"    ▶️ 点击搜索卡片", log_file)
+                    clicked = True
+            except:
+                pass
+
+        if not clicked:
+            # 方式3: JS 收集链接，导航到第一个
+            link = await page.evaluate("""() => {
                 const links = [...document.querySelectorAll('a[href*="/video/"]')];
-                return links.length > 0
-                    ? links[Math.floor(Math.random() * Math.min(links.length, 3))].href
-                    : null;
+                return links.length > 0 ? links[0].href : null;
             }""")
-            if result_link:
-                await page.goto(result_link, timeout=15000, wait_until="domcontentloaded")
-                search_watch = random.uniform(5, 12)
-                _log(f"      搜索视频观看 {search_watch:.0f}s", log_file)
-                await asyncio.sleep(search_watch)
+            if link:
+                await _safe_goto(page, link, conn=conn)
+                _log(f"    ▶️ 导航到搜索结果视频", log_file)
+                clicked = True
+
+        if not clicked:
+            # 方式4: Tab+Enter 键盘导航到第一个结果
+            for _ in range(5):
+                await page.keyboard.press('Tab')
+                await asyncio.sleep(0.3)
+            await page.keyboard.press('Enter')
+            await asyncio.sleep(3)
+            v = await page.evaluate("document.querySelectorAll('video').length")
+            if v >= 2:
+                _log(f"    ▶️ Tab+Enter 进入搜索结果(video={v})", log_file)
+                clicked = True
+
+        if clicked:
+            await asyncio.sleep(random.uniform(5, 10))
+        else:
+            _log(f"    ⚠️ 未找到搜索结果视频", log_file)
+    except:
+        _log(f"    ⚠️ 搜索异常", log_file)
+
+    return video_count
+
+
+# ── 评论状态机 ────────────────────────────────────────────
+
+COMMENT_STATES = {
+    "closed":       "评论区未打开",
+    "panel_open":   "评论面板已打开",
+    "input_focused": "输入框已聚焦",
+    "text_entered": "文本已输入",
+    "sent":         "评论已发送",
+    "verify_code":  "验证码弹窗",
+    "failed":       "操作失败",
+}
+
+COMMENT_TRANSITIONS = {
+    "closed":       ["panel_open"],
+    "panel_open":   ["input_focused"],
+    "input_focused": ["text_entered"],
+    "text_entered":  ["sent", "verify_code"],
+    "sent":         [],   # 终态
+    "verify_code":  [],   # 需要人工介入
+}
+
+
+class CommentStateMachine:
+    """评论区状态机"""
+
+    def __init__(self, page, log_file: str):
+        self.page = page
+        self.log_file = log_file
+        self.state = "closed"
+        self._history = []
+
+    def _transition(self, to_state: str):
+        """记录状态迁移"""
+        self._history.append((self.state, to_state))
+        _log(f"      🔄 状态: {self.state} → {to_state} ({COMMENT_STATES.get(to_state, '?')})",
+             self.log_file)
+        self.state = to_state
+
+    async def detect(self) -> str:
+        """检测当前评论区状态"""
+        try:
+            state_js = """() => {
+                // 检测评论区面板
+                const panel = document.querySelector('[class*="comment-header"]')
+                    || document.querySelector('[class*="comment-input"]')
+                    || document.querySelector('[class*="Comment"]')
+                    || document.querySelector('[class*="chat"]')
+                    || document.querySelector('[class*="commentContainer"]');
+
+                // 检测编辑器
+                const editor = document.querySelector('.public-DraftEditor-content')
+                    || document.querySelector('[contenteditable="true"]')
+                    || document.querySelector('[class*="DraftEditor"] [contenteditable]')
+                    || document.querySelector('textarea')
+                    || document.querySelector('input[type="text"]');
+
+                // 检测 activeElement 是否可编辑
+                const ae = document.activeElement;
+                const editorActive = ae && (ae.isContentEditable
+                    || ae.getAttribute('contenteditable') === 'true'
+                    || ae.closest('[contenteditable]'));
+
+                // 检测输入框是否有内容
+                let hasText = false;
+                if (editor) {
+                    const txt = editor.textContent || '';
+                    hasText = txt.trim().length > 0;
+                }
+
+                // 检测验证码弹窗
+                const verifyInput = document.querySelector('input[placeholder*="验证码"]');
+
+                // 检测评论是否已发送（页面文本中是否有刚发的评论—需要调用方传参）
+                return {
+                    has_panel: !!panel,
+                    has_editor: !!editor,
+                    editor_active: editorActive,
+                    has_text: hasText,
+                    has_verify: !!verifyInput,
+                };
+            }"""
+            result = await asyncio.wait_for(
+                self.page.evaluate(state_js), timeout=3
+            )
+        except Exception:
+            result = {}
+
+        # 状态推断
+        if result.get("has_verify"):
+            return "verify_code"
+        if result.get("has_text") and result.get("editor_active"):
+            return "text_entered"
+        if result.get("editor_active"):
+            return "input_focused"
+        if result.get("has_panel") or result.get("has_editor"):
+            return "panel_open"
+        return "closed"
+
+    async def ensure_open(self) -> bool:
+        """确保评论区打开 → 返回是否成功"""
+        detected = await self.detect()
+        if detected == "verify_code":
+            _log(f"      ⚠️ 检测到验证码弹窗，无法继续", self.log_file)
+            self._transition("verify_code")
+            return False
+        if detected in ("panel_open", "input_focused", "text_entered"):
+            _log(f"      ✅ 评论区已打开 (state={detected})", self.log_file)
+            self._transition("panel_open")
+            return True
+
+        # 策略A: 键盘 'x' 键（先确保视频焦点）
+        _log(f"      🖱️ 点击视频区域获取焦点", self.log_file)
+        try:
+            vid = self.page.locator('video').first
+            if await vid.count() > 0:
+                box = await vid.bounding_box()
+                if box:
+                    await self.page.mouse.click(
+                        box['x'] + box['width'] // 2,
+                        box['y'] + box['height'] // 3
+                    )
+                    await asyncio.sleep(0.5)
         except:
             pass
-    except Exception as e:
-        _log(f"    ⚠️ 搜索异常: {type(e).__name__}", log_file)
 
-    # 回到首页
+        _log(f"      ⌨️ 'x' 键打开评论区", self.log_file)
+        try:
+            await _activate_window()
+            await asyncio.sleep(0.3)
+            await self.page.keyboard.press('x')
+            await asyncio.sleep(2)
+        except Exception as e:
+            _log(f"      ⚠️ 键盘异常: {str(e)[:30]}", self.log_file)
+
+        # 验证
+        detected = await self.detect()
+        if detected in ("panel_open", "input_focused", "text_entered"):
+            _log(f"      ✅ 键盘 'x' 打开评论区成功", self.log_file)
+            self._transition("panel_open")
+            return True
+
+        # 策略B: DOM 找评论图标点击（兜底，与原 interact.comment 一致）
+        _log(f"      🎯 DOM 找评论图标点击", self.log_file)
+        try:
+            clicked = await asyncio.wait_for(self.page.evaluate("""() => {
+                const btn = document.querySelector('[data-e2e="video-comment-count"]');
+                if (btn) { btn.click(); return true; }
+                const btn2 = document.querySelector('[data-e2e="feed-comment-icon"]');
+                if (btn2) { btn2.click(); return true; }
+                // 也找 [class*="comment"] 的按钮
+                const allBtns = [...document.querySelectorAll('button, a, [class*="comment"]')];
+                const commentBtn = allBtns.find(el => {
+                    const t = (el.textContent || '').toLowerCase();
+                    return t.includes('评论') || el.className.includes('comment');
+                });
+                if (commentBtn) { commentBtn.click(); return true; }
+                return false;
+            }"""), timeout=5)
+            if clicked:
+                await asyncio.sleep(2)
+                detected = await self.detect()
+                if detected in ("panel_open", "input_focused", "text_entered"):
+                    _log(f"      ✅ DOM 评论图标点击成功", self.log_file)
+                    self._transition("panel_open")
+                    return True
+        except Exception as e:
+            _log(f"      ⚠️ DOM 评论图标异常: {str(e)[:30]}", self.log_file)
+
+        _log(f"      ❌ 评论区打开失败 (state={detected})", self.log_file)
+        return False
+
+    async def focus_input(self) -> bool:
+        """聚焦输入框 → 双击模式
+
+        双击之间不做任何操作（page.evaluate 会干扰焦点）。
+        """
+        detected = await self.detect()
+        if detected == "input_focused":
+            _log(f"      ✅ 输入框已聚焦（无需操作）", self.log_file)
+            self._transition("input_focused")
+            return True
+
+        # 校验：必须在 panel_open 状态
+        if detected != "panel_open":
+            _log(f"      ⚠️ 不在 panel_open 状态 (state={detected})，跳过聚焦", self.log_file)
+            return False
+
+        # ── 策略1: Playwright locator 点编辑器（最接近真人操作）──
+        _log(f"      🎯 Playwright locator 点编辑器", self.log_file)
+        try:
+            editor = self.page.locator('.public-DraftEditor-content').first
+            if await editor.count() > 0:
+                await editor.click(timeout=5000)
+                await asyncio.sleep(0.5)
+                await editor.click(timeout=5000)  # 双击
+                await asyncio.sleep(0.5)
+                detected = await self.detect()
+                if detected == "input_focused":
+                    _log(f"      ✅ Playwright 双击聚焦成功", self.log_file)
+                    self._transition("input_focused")
+                    return True
+        except Exception as e:
+            _log(f"      ⚠️ Playwright locator 异常: {str(e)[:30]}", self.log_file)
+
+        # ── 策略2: DOM focus + click ──
+        _log(f"      🎯 DOM 方式聚焦", self.log_file)
+        dom_ok = await self._dom_focus_editor()
+        if dom_ok:
+            await asyncio.sleep(0.5)
+            await self._dom_focus_editor()  # 第2次
+            await asyncio.sleep(0.5)
+            detected = await self.detect()
+            if detected == "input_focused":
+                _log(f"      ✅ DOM 聚焦成功", self.log_file)
+                self._transition("input_focused")
+                return True
+
+        # ── 策略3: 坐标双击 ──
+        _log(f"      🖱️ 坐标双击聚焦", self.log_file)
+        await _activate_window()
+        win_size = await self._get_window_size()
+        from matrix_modules.nurture.ui_layout import calc_input_position
+        tx, ty = calc_input_position(win_size["width"], win_size["height"])
+        _log(f"      🖱️ 坐标 ({tx}, {ty})", self.log_file)
+
+        await self.page.mouse.move(tx, ty, steps=8)
+        await asyncio.sleep(0.3)
+        await self.page.mouse.click(tx, ty)
+        await asyncio.sleep(1)
+        await self.page.mouse.click(tx, ty)
+        await asyncio.sleep(0.5)
+
+        detected = await self.detect()
+        if detected == "input_focused":
+            _log(f"      ✅ 坐标双击聚焦成功", self.log_file)
+            self._transition("input_focused")
+            return True
+
+        _log(f"      ⚠️ 所有聚焦方式均失败 (state={detected})", self.log_file)
+        return False
+
+    async def _dom_focus_editor(self) -> bool:
+        """通过 DOM focus() + click() 聚焦编辑器——排除不可见/隐藏元素"""
+        js = """() => {
+            // 只找可见的、有合理尺寸的编辑器
+            const candidates = [
+                document.querySelector('.public-DraftEditor-content'),
+                document.querySelector('[contenteditable="true"][role="combobox"]'),
+                document.querySelector('[data-e2e="comment-editor"] [contenteditable]'),
+                document.querySelector('[class*="DraftEditor"] [contenteditable]'),
+                document.querySelector('[contenteditable="true"]'),
+            ].filter(el => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                return r.width > 20 && r.height > 10;  // 排除隐藏元素
+            });
+            if (candidates.length === 0) return JSON.stringify({ok: false, reason: 'no visible editor'});
+            const ed = candidates[0];
+            ed.focus();
+            ed.click();
+            ed.dispatchEvent(new Event('focus', {bubbles: true}));
+            ed.dispatchEvent(new Event('click', {bubbles: true}));
+            const rect = ed.getBoundingClientRect();
+            return JSON.stringify({
+                ok: true, tag: ed.tagName, cls: (ed.className||'').slice(0,30),
+                ph: (ed.placeholder||''),
+                x: Math.round(rect.left + rect.width/2),
+                y: Math.round(rect.top + rect.height/2)
+            });
+        }"""
+        try:
+            result = await asyncio.wait_for(self.page.evaluate(js), timeout=3)
+            parsed = json.loads(result)
+            if parsed.get("ok"):
+                _log(f"      DOM编辑器位置: ({parsed.get('x','?')}, {parsed.get('y','?')}) tag={parsed.get('tag','?')}",
+                     self.log_file)
+                return True
+        except Exception as e:
+            _log(f"      DOM focus 异常: {str(e)[:30]}", self.log_file)
+        return False
+
+    async def _get_window_size(self) -> dict:
+        """获取浏览器 viewport 尺寸"""
+        try:
+            return await asyncio.wait_for(self.page.evaluate(
+                "() => ({width: window.innerWidth, height: window.innerHeight})"
+            ), timeout=3)
+        except Exception:
+            return {"width": 702, "height": 783}
+
+    def get_history(self) -> list:
+        return list(self._history)
+
+
+async def _send_comment(page, log_file: str, window_size: tuple = None):
+    """发送评论 —— 状态机版：三步走，每一步都验证
+
+    流程:
+      1. 状态检测 + 确保评论区打开
+      2. DOM聚焦/坐标点击 + 输入文本
+      3. 发送 + 验证
+
+    每一步失败都有 fallback 策略：
+      - Step 1 失败 → 重试 KeyX
+      - Step 2 DOM 失败 → 坐标兜底
+      - Step 3 DOM 发送失败 → Alt+Enter
+    
+    不依赖硬编码坐标。所有坐标从窗口右边缘动态计算。
+    """
+    from matrix_modules.nurture.comment_corpus import get_comment
+    comment = get_comment(keyword="推荐")
+    _log(f"    \U0001f4ac 评论状态机开始", log_file)
+    _log(f"    \U0001f4ac 评论内容: \"{comment}\"", log_file)
+
+    # 初始化状态机
+    sm = CommentStateMachine(page, log_file)
+
+    # ── Step 1: 打开评论区 ──
+    _log(f"    ─── Step 1: 打开评论区 ───", log_file)
+    opened = await sm.ensure_open()
+    if not opened:
+        # 重试一次
+        _log(f"    🔄 重试: 再次 KeyX", log_file)
+        await asyncio.sleep(1)
+        opened = await sm.ensure_open()
+        if not opened:
+            _log(f"    ❌ 评论区打开失败，跳过评论", log_file)
+            return False
+
+    # ── Step 2: 聚焦输入框 + 输入文本 ──
+    _log(f"    ─── Step 2: 聚焦 + 输入 ───", log_file)
+    focused = await sm.focus_input()
+    if not focused:
+        _log(f"    ❌ 输入框聚焦失败，跳过评论", log_file)
+        return False
+
+    # 输入文本 — keyboard.type 优先（Draft.js 兼容），execCommand 兜底
+    _log(f"    ⌨️ 键盘输入: \"{comment[:20]}\"...", log_file)
     try:
-        await conn.remove_overlays()
+        await page.keyboard.type(comment, delay=40)
+        await asyncio.sleep(1)
+    except Exception as e:
+        _log(f"      ⚠️ 键盘输入异常: {str(e)[:30]}", log_file)
+
+    # 验证编辑器内容
+    try:
+        has_text = await asyncio.wait_for(page.evaluate(
+            "() => document.querySelector('.public-DraftEditor-content')?.textContent?.length > 0"
+        ), timeout=3)
+        _log(f"      🔍 输入确认: {'✅' if has_text else '❌'}", log_file)
+    except:
+        has_text = False
+
+    if not has_text:
+        # 兜底: 逐个字符 insertText（触发 React 状态更新）
+        _log(f"      🔧 execCommand 兜底注入", log_file)
+        try:
+            await asyncio.wait_for(page.evaluate(f'''() => {{
+                const ed = document.querySelector('.public-DraftEditor-content')
+                    || document.querySelector('[contenteditable="true"][role="combobox"]');
+                if (!ed) return false;
+                ed.focus();
+                ed.textContent = '';
+                const sel = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(ed);
+                sel.removeAllRanges();
+                sel.addRange(range);
+                for (const ch of "{comment}") {{
+                    document.execCommand('insertText', false, ch);
+                }}
+                return ed.textContent.length > 0;
+            }}'''), timeout=5)
+            _log(f"      ✅ execCommand 注入完成", log_file)
+            has_text = True
+        except Exception as e:
+            _log(f"      ⚠️ execCommand 异常: {str(e)[:30]}", log_file)
+
+    if not has_text:
+        _log(f"    ❌ 无法输入文本，跳过评论", log_file)
+        return False
+
+    # 等 React 处理
+    await asyncio.sleep(1.5)
+
+    sm._transition("text_entered")
+
+    # ── Step 3: 发送 + 验证 ──
+    _log(f"    ─── Step 3: 发送 ───", log_file)
+    send_result = await _send_comment_execute(page, log_file)
+    _log(f"      ��� 发送结果: {send_result}", log_file)
+
+    if send_result == "verify_code":
+        sm._transition("verify_code")
+        _log(f"    ⚠️ 验证码弹窗，自动获取验证码", log_file)
+        ok = await _check_verify_code(page, log_file)
+        if ok:
+            _log(f"    ✅ 验证码已提交", log_file)
+            sm._transition("sent")
+            return True
+        else:
+            _log(f"    ⚠️ 验证码处理失败", log_file)
+            return "verify_code"
+
+    # 等待页面更新
+    await asyncio.sleep(3)
+
+    # 验证：检查评论列表区域是否有刚发的评论（避免输入框内容误判）
+    try:
+        found = await asyncio.wait_for(page.evaluate(
+            f"() => {{ const list = document.querySelector('[data-e2e=\"comment-list\"]') || document.querySelector('[class*=\"comment-list\"]') || document.body; return list.innerText.includes('{comment}'); }}"
+        ), timeout=3)
+        _log(f"      🔍 页面出现评论: {'✅' if found else '❌'}", log_file)
+    except:
+        found = False
+
+    if found:
+        sm._transition("sent")
+        _log(f"    ✅ 评论发送并确认！", log_file)
+        return True
+    else:
+        _log(f"    ⚠️ 评论发送后未在页面找到", log_file)
+        return True  # 乐观返回：可能未被刷新渲染
+
+
+async def _send_comment_execute(page, log_file: str) -> str:
+    """执行发送操作：找发送按钮 → Ctrl+Enter → Alt+Enter
+
+    Returns:
+        'ok' | 'verify_code' | 'failed'
+    """
+    # 尝试3次找发送按钮（React 可能需要时间更新 UI）
+    for attempt in range(3):
+        try:
+            send_btn = await asyncio.wait_for(page.evaluate("""() => {
+                // 找发送/确认按钮（可能在上箭头图标上）
+                const btns = [...document.querySelectorAll('button, [class*="send"], [class*="submit"], [class*="confirm"]')];
+                const send = btns.find(b =>
+                    (b.textContent || '').includes('发送')
+                    || (b.textContent || '').includes('发布')
+                    || b.className.includes('send')
+                    || b.className.includes('submit')
+                    || b.className.includes('confirm')
+                    || (b.querySelector('svg') && b.className.includes('arrow'))  // 上箭头图标
+                );
+                if (send) {
+                    send.click();
+                    return 'clicked';
+                }
+                return 'not_found';
+            }"""), timeout=3)
+            if send_btn == 'clicked':
+                _log(f"      第{attempt+1}次尝试: 找到发送按钮 ✅", log_file)
+                break
+        except:
+            pass
+        await asyncio.sleep(0.5)
+    else:
+        _log(f"      发送按钮未找到，键盘兜底", log_file)
+        # 键盘兜底：Ctrl+Enter → Alt+Enter
+        try:
+            await page.keyboard.press('Control+Enter')
+            await asyncio.sleep(0.5)
+        except:
+            pass
+        try:
+            await page.keyboard.press('Alt+Enter')
+            _log(f"      ⌨️ Alt+Enter 触发", log_file)
+        except:
+            pass
+
+    await asyncio.sleep(2)
+
+    # 验证码检测
+    try:
+        has_code = await asyncio.wait_for(page.evaluate(
+            "() => !!document.querySelector('input[placeholder*=\"\\u9a8c\\u8bc1\\u7801\"]')"
+        ), timeout=3)
+        if has_code:
+            return "verify_code"
     except:
         pass
 
-    return TOTAL_VIDEOS
+    return "ok"
+async def _check_verify_code(page, log_file: str):
+    """检测验证码弹窗，自动获取并回填验证码"""
+    try:
+        has_popup = await page.evaluate("""() => {
+            return !!(document.querySelector('input[placeholder*="验证码"]')
+                   || document.querySelector('[class*="verify"]')
+                   || document.body.innerText.includes('验证码已发送'));
+        }""")
+        if not has_popup:
+            return False
+
+        _log(f"    ⚠️ 检测到验证码弹窗！", log_file)
+
+        # 自动获取验证码（API 轮询）
+        from matrix_modules.account.sms import ApiSMSHandler
+        handler = ApiSMSHandler()
+        code = await handler.wait("抖音", timeout=120)
+
+        if not code or len(code) not in (4, 5, 6):
+            _log(f"    ⏰ 未获取到有效验证码({code})，跳过", log_file)
+            # fallback: 手动输入
+            import sys
+            print("\n⚠️  API 未获取到验证码，请手动输入")
+            sys.stdout.write("验证码: "); sys.stdout.flush()
+            code = sys.stdin.readline().strip()
+            if len(code) not in (4, 5, 6):
+                return False
+
+        # 回填验证码
+        _log(f"    📝 回填验证码: {code}", log_file)
+        await page.evaluate(f"""() => {{
+            const inp = document.querySelector('input[placeholder*="验证码"]');
+            if (inp) {{
+                inp.value = '{code}';
+                inp.dispatchEvent(new Event('input', {{bubbles: true}}));
+            }}
+        }}""")
+        await asyncio.sleep(0.5)
+
+        # 点击确认/提交
+        confirm = page.locator(
+            'button:has-text("确认"), '
+            'button:has-text("提交"), '
+            'button:has-text("验证")'
+        ).first
+        if await confirm.count() > 0:
+            await confirm.click()
+            _log(f"    ✅ 验证码已提交", log_file)
+
+        await asyncio.sleep(2)
+        return True
+
+    except Exception as e:
+        _log(f"    ⚠️ 验证码处理异常: {str(e)[:30]}", log_file)
+        return False
+
+
+# ── 页面级状态检测 ───────────────────────────────────────
+
+PAGE_STATES = {
+    "unknown":      "未知页面",
+    "grid":         "首页/精选页（卡片列表）",
+    "player":       "视频播放页（有 video 元素）",
+    "search":       "搜索结果页",
+    "search_player": "搜索结果中的播放页",
+    "profile":      "个人主页",
+}
+
+
+async def _detect_page_state(page) -> str:
+    """检测当前页面状态（与原 _check_anchor 风格一致）
+
+    播放页判定：有 video 元素即视为播放页（与 _check_anchor('video_page') 一致）
+    """
+    try:
+        js = """() => {
+            const url = location.href;
+            const vc = document.querySelectorAll('video').length;
+            const cards = document.querySelectorAll('.discover-video-card-item, [data-e2e="alink-item"]').length;
+            const title = document.title || '';
+
+            // 有 video → 播放页（jingxuan 页点击卡片后也会打开视频）
+            if (vc > 0) return 'player';
+
+            // 搜索页
+            if (url.includes('/search/') || document.querySelector('[data-e2e="searchbar-input"]')) {
+                if (vc > 0) return 'search_player';
+                return 'search';
+            }
+            // 首页：有卡片列表
+            if (cards > 0 || title.includes('精选') || title.includes('推荐')) return 'grid';
+            // 个人主页
+            if (url.includes('/user/')) return 'profile';
+            return 'unknown';
+        }"""
+        return await asyncio.wait_for(page.evaluate(js), timeout=3)
+    except Exception:
+        return "unknown"
+
+
+async def _ensure_player_state(page, identity_name: str, log_file: str) -> bool:
+    """确保在视频播放页（与原 _retry_enter_video 风格一致）
+
+    流程：
+      1. 检测是否有 video → 有则已播放页
+      2. 没有 → 导航 douyin.com → 点卡片（与原流程一致）
+      3. 验证：video > 0
+    """
+    # 快速检测：有 video 就认为是播放页
+    vc = await _check_anchor(page, 'video_page', timeout=3)
+    if vc:
+        _log(f"    ✅ 已有视频播放页 (video={vc})", log_file)
+        return True
+
+    # 没有 video → 需要进入播放页
+    _log(f"    🔄 没有视频，进入播放页...", log_file)
+    try:
+        for attempt in range(3):
+            await _safe_goto(page, "https://www.douyin.com/?recommend=1", timeout=15)
+            await asyncio.sleep(random.uniform(2, 4))
+            await _dismiss_popups(page)
+
+            # 找卡片（与原 _retry_enter_video 相同）
+            card = page.locator('.discover-video-card-item').first
+            cc = await card.count()
+            if cc == 0:
+                _log(f"    ⚠️ 未找到卡片 (attempt={attempt})", log_file)
+                continue
+
+            await _activate_window()
+            await card.click()
+            await asyncio.sleep(1)
+            await card.click()
+            await asyncio.sleep(3)
+
+            vc = await _check_anchor(page, 'video_page', timeout=3)
+            if vc:
+                # 点视频区域获取焦点（与原流程相同）
+                try:
+                    vid = page.locator('video').first
+                    if await vid.count() > 0:
+                        box = await vid.bounding_box()
+                        if box:
+                            await page.mouse.click(box['x'] + box['width']//2,
+                                                   box['y'] + box['height']//3)
+                except:
+                    pass
+                _log(f"    ✅ 进入播放页成功", log_file)
+                return True
+
+            _log(f"    ⚠️ 第{attempt+1}次未进入播放页", log_file)
+
+    except Exception as e:
+        _log(f"    ⚠️ 进入播放页异常: {str(e)[:40]}", log_file)
+
+    _log(f"    ❌ 无法进入播放页", log_file)
+    return False
+
+
+async def _player_interactions(page, identity_name: str, log_file: str,
+                                 count: int = 4):
+    """播放页交互阶段：状态感知 + 行为链执行
+
+    流程:
+      0. 检测并确保在播放页（不在则恢复）
+      1. 随机选择行为链或单步操作
+      2. 每步验证是否成功
+
+    行为链 = 一组顺序相关的操作
+    使用抖音快捷键（比DOM选择器更可靠）
+    """
+    # ── Step 0: 确保在播放页 ──
+    _log(f"    🎮 播放页交互 ×{count}", log_file)
+    ok = await _ensure_player_state(page, identity_name, log_file)
+    if not ok:
+        _log(f"    ❌ 不在播放页，跳过交互", log_file)
+        return
+
+    # ── 原子操作库 ──
+    SINGLE_OPS = [
+        ('like',           'KeyZ', 5),           # 点赞（高频）
+        ('follow',         'KeyG', 2),            # 关注
+        ('seek_fwd',       'ArrowRight', 2),      # 快进
+        ('seek_bwd',       'ArrowLeft', 2),       # 快退
+        ('toggle_loop',    'KeyP', 1),             # 连播
+        ('toggle_mute',    'KeyM', 1),             # 静音
+        ('toggle_display', 'KeyJ', 1),             # 清屏
+    ]
+
+    # ── 行为链 ──
+    CHAINS = [
+        # 评论链（发一条评论 + 看评论 + 关闭）
+        [
+            ('open_comment', 'KeyX'),
+            ('type_comment', 'input'),
+            ('wait_10s', 'wait'),
+            ('scroll_comment', 'scroll'),
+        ],
+    ]
+
+    for i in range(count):
+        await asyncio.sleep(random.uniform(1.5, 4))
+
+        # 先检测当前页面状态，每轮保证在播放页
+        state = await _detect_page_state(page)
+        if state not in ("player", "search_player"):
+            _log(f"    ⚠️ 第{i+1}轮不在播放页(state={state})，尝试恢复", log_file)
+            recovered = await _ensure_player_state(page, identity_name, log_file)
+            if not recovered:
+                _log(f"    ❌ 无法恢复播放页，跳过剩余交互", log_file)
+                break
+
+        # 执行行为链
+        if CHAINS:
+            chain = random.choice(CHAINS)
+            _log(f"      🔗 行为链 #{CHAINS.index(chain)+1}", log_file)
+            for op_name, method in chain:
+                await asyncio.sleep(random.uniform(0.5, 1.5))
+                try:
+                    if method == 'scroll':
+                        await page.mouse.wheel(0, random.randint(200, 600))
+                        await asyncio.sleep(random.uniform(0.5, 1))
+                        await page.mouse.wheel(0, random.randint(100, 400))
+                        _log(f"        📜 {op_name}", log_file)
+                    elif method == 'dom':
+                        btn = page.locator(
+                            'button:has-text("收藏"), '
+                            '[class*="collect"], '
+                            '[title*="收藏"]'
+                        ).first
+                        if await btn.count() > 0:
+                            await btn.click()
+                            _log(f"        🎯 {op_name} (dom)", log_file)
+                        else:
+                            _log(f"        ⚠️ {op_name} 未找到dom", log_file)
+                    elif method == 'wait':
+                        _log(f"        ⏳ 等待10秒让你检查...", log_file)
+                        await asyncio.sleep(10)
+                    elif method == 'input':
+                        if op_name == 'type_comment':
+                            await _send_comment(page, log_file)
+                        else:
+                            _log(f"        ⚠️ 未知input操作: {op_name}", log_file)
+                    else:
+                        await page.keyboard.press(method)
+                        _log(f"        🎯 {op_name} ({method})", log_file)
+                except Exception as e:
+                    _log(f"        ⚠️ {op_name}: {str(e)[:20]}", log_file)
+        else:
+            # 单个随机操作
+            op_name, method, _ = random.choices(
+                SINGLE_OPS, weights=[w for _,_,w in SINGLE_OPS], k=1
+            )[0]
+            try:
+                await page.keyboard.press(method)
+                _log(f"      🎯 {op_name} ({method})", log_file)
+            except Exception as e:
+                _log(f"      ⚠️ {op_name}: {str(e)[:20]}", log_file)
 
 
 async def _execute_op(page, conn, op: str, args: dict, behavior: BehaviorConfig):
@@ -408,13 +1434,26 @@ async def nurture_loop(identity_name: str,
         print(f"❌ 账号 '{identity_name}' 未在 accounts.yaml 中找到")
         return
 
-    identity_dir = str(LOCAL_ROOT / "identities" / identity_name)
-    config = load_identity_config(identity_name)
+    # 确定真实身份目录：优先使用 accounts.yaml 中的 identity_dir
+    custom_identity = acct.get("identity_dir")
+    if custom_identity:
+        custom_path = LOCAL_ROOT / custom_identity
+        if custom_path.exists():
+            identity_dir = str(custom_path)
+        else:
+            identity_dir = str(LOCAL_ROOT / "identities" / identity_name)
+    else:
+        identity_dir = str(LOCAL_ROOT / "identities" / identity_name)
 
-    # 确定引擎
+    config = load_identity_config(identity_name, identity_dir_override=identity_dir)
+
+    # 确定引擎：有 identity_dir 就用 Camoufox，否则按 browser_type 判断
     if engine == "auto":
-        bt = acct.get("browser_type", "chrome")
-        engine = "camoufox" if bt == "camoufox" else "chrome"
+        if acct.get("identity_dir"):
+            engine = "camoufox"
+        else:
+            bt = acct.get("browser_type", "chrome")
+            engine = "camoufox" if bt == "camoufox" else "chrome"
 
     # 加载行为配置
     identity_behavior = config.get("behavior", {})
@@ -429,6 +1468,12 @@ async def nurture_loop(identity_name: str,
         w_width, w_height = int(cfg_win[0]), int(cfg_win[1])
     else:
         w_width, w_height = 702, 783
+    # 获取窗口位置（从 accounts.yaml 读取，保存窗口位置记忆）
+    win_pos = acct.get("window_position", [0, 0])
+    if isinstance(win_pos, (list, tuple)) and len(win_pos) == 2:
+        w_left, w_top = int(win_pos[0]), int(win_pos[1])
+    else:
+        w_left, w_top = 0, 0
 
     print(f"\n{'='*55}")
     print(f" 🦀 {identity_name} — {blueprint_name} ({rounds}轮) [{eng_name}]")
@@ -448,25 +1493,21 @@ async def nurture_loop(identity_name: str,
             identity_dir=identity_dir,
             headless=headless,
             window=(702, 783),
+            window_position=(w_left, w_top),
         )
 
     await conn.connect()
     await conn.init_anti_detection()
 
-    # 强制设置窗口大小
+    # Camoufox: 窗口位置由用户手动调整，脚本启动时不自动移动
+    # （AppleScript 定位不准确，用户已反馈）
     if engine == "camoufox":
-        # Camoufox: 用 window.open 创建正确尺寸的物理窗口
-        new_page = await _camoufox_open_window(conn, w_width, w_height)
-        if new_page:
-            conn.page = new_page
-            # 新窗口的 viewport 由 Camoufox config 注入自动处理
-            print(f"  📐 Camoufox 窗口: {w_width}×{w_height}")
+        print(f"  📐 Camoufox 窗口: {w_width}×{w_height}")
     else:
         await _force_window_size(conn, engine, w_width, w_height)
 
     # 进入抖音首页
-    await conn.page.goto("https://www.douyin.com/",
-                         timeout=20000, wait_until="domcontentloaded")
+    await _safe_goto(conn.page, "https://www.douyin.com/", conn=conn)
     # 导航后重设反检测（确保 UA/触摸/视口全部生效）
     await conn.init_anti_detection()
     await asyncio.sleep(2)
@@ -480,8 +1521,7 @@ async def nurture_loop(identity_name: str,
         return [...new Set(links.map(a => a.href))].slice(0, 5);
     }""")
     if video_links:
-        await conn.page.goto(random.choice(video_links),
-                             timeout=15000, wait_until="domcontentloaded")
+        await _safe_goto(conn.page, random.choice(video_links), conn=conn)
         # 视频页也重新设置
         await conn.init_anti_detection()
         await asyncio.sleep(bhv.click_delay())
@@ -497,7 +1537,7 @@ async def nurture_loop(identity_name: str,
         _log(f"{'='*40}", LOG_FILE)
 
         try:
-            p = await run_one_round(conn, conn.page, bhv, LOG_FILE)
+            p = await run_one_round(conn, conn.page, bhv, LOG_FILE, identity_name=identity_name)
             passed_rounds += 1
 
             await conn.remove_overlays()
@@ -523,6 +1563,25 @@ async def nurture_loop(identity_name: str,
     _log(f"    轮数: {passed_rounds}/{rounds}", LOG_FILE)
     _log(f"    浏览视频: ~{passed_rounds * 3} 个", LOG_FILE)
     _log(f"    耗时: {elapsed:.0f}s ({elapsed/60:.1f}min)", LOG_FILE)
+
+    # 保存窗口位置
+    try:
+        if conn.page:
+            pos = await conn.page.evaluate("() => ({x: window.screenX, y: window.screenY})")
+            # 写入 accounts.yaml
+            import yaml
+            acct_path = str(Path.home() / "workbuddy-agent-os/agent-local/tools/matrix/config/accounts.yaml")
+            with open(acct_path) as f:
+                acct_data = yaml.safe_load(f)
+            for a in acct_data.get("accounts", []):
+                if a.get("id") == identity_name:
+                    a["window_position"] = [pos["x"], pos["y"]]
+                    break
+            with open(acct_path, "w") as f:
+                yaml.dump(acct_data, f, default_flow_style=False, allow_unicode=True)
+            _log(f"    📐 窗口位置已保存: ({pos['x']}, {pos['y']})", LOG_FILE)
+    except:
+        pass
 
     # ── Daemon 保持模式 ──
     if daemon:

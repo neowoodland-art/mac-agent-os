@@ -31,7 +31,8 @@ class CDPConnector:
                  headless: bool = True, window: tuple = (702, 783),
                  profile_dir: str = None,
                  locale: list = None,
-                 identity_dir: str = None):
+                 identity_dir: str = None,
+                 window_position: tuple = (0, 0)):
         """
         browser_type: auto / chromium / firefox / camoufox
         - auto: 根据端口自动判断（9301+ 为 Firefox/Camoufox）
@@ -49,6 +50,7 @@ class CDPConnector:
         - identity_dir: identities/{name}/ 目录路径
           设置后将自动加载 config.yaml 中的固化指纹，
           使用 persistent_context=True + user_data_dir 启动
+        - window_position: 窗口在屏幕上的位置 (left, top)，写入 xulstore
         """
         self.port = port
         self.browser_type = browser_type
@@ -57,6 +59,7 @@ class CDPConnector:
         self.profile_dir = profile_dir
         self.locale = locale or ["zh-CN"]
         self.identity_dir = identity_dir
+        self.window_position = window_position
         
         self._playwright = None
         self._camoufox_browser = None  # Camoufox native browser handle
@@ -156,6 +159,15 @@ class CDPConnector:
             w_width, w_height = self.window
 
         # 构建 Camoufox 参数
+        # 清理残留锁文件（防止上次非正常退出导致启动失败）
+        for lock_file in [".parentlock", ".startup-incomplete", "lock"]:
+            try:
+                lf = Path(user_data_dir) / lock_file
+                if lf.exists():
+                    lf.unlink()
+            except:
+                pass
+
         kwargs = {
             'persistent_context': True,
             'user_data_dir': user_data_dir,
@@ -215,7 +227,7 @@ class CDPConnector:
                 "chrome://browser/content/browser.xhtml": {
                     "main-window": {
                         "screenX": "0",
-                        "screenY": "0",
+                        "screenY": "30",
                         "width": str(w_width),
                         "height": str(w_height),
                         "sizemode": "normal"
@@ -373,30 +385,7 @@ class CDPConnector:
         except Exception:
             pass
 
-        # App 跳转拦截
-        blocked_schemes = [
-            "xhdsdiscover://*", "snssdk1128://*", "snssdk1233://*",
-            "kuaishou://*", "zhihu://*", "weixin://*",
-            "alipays://*", "taobao://*", "openapp.jdmobile://*", "intent://*",
-        ]
-        await self.cdp_session.send("Fetch.enable", {
-            "patterns": [
-                {"urlPattern": s, "requestStage": "Request"}
-                for s in blocked_schemes
-            ]
-        })
-
-        async def handle_paused(event):
-            try:
-                await self.cdp_session.send("Fetch.failRequest", {
-                    "requestId": event["requestId"],
-                    "errorReason": "Aborted"
-                })
-            except Exception:
-                pass
-
-        self.cdp_session.on("Fetch.requestPaused", handle_paused)
-        print("✅ 反检测已就绪（平板模式 702x783 + iPad UA + App跳转拦截）")
+        print("✅ 反检测已就绪（平板模式 702x783 + iPad UA + 触摸模拟）")
         return self.cdp_session
 
     # ─── 导航 ───────────────────────────────────────────────────
