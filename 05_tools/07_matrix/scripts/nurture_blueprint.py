@@ -68,17 +68,21 @@ async def op_watch(p):
     return 'PLAYER'
 
 async def op_comment(p, text='好内容'):
-    # 1. 开评论
-    v = p.locator('video').first
-    if await v.count()>0:
-        bx = await v.bounding_box()
-        if bx: await p.mouse.click(bx['x']+bx['width']//2,bx['y']+bx['height']//3)
-    await asyncio.sleep(0.5)
-    await p.keyboard.press('x'); await asyncio.sleep(2)
+    # 1. 开评论（前置锚点：检查是否已打开）
     s = await read_state(p)
-    if not s['hasCL']:
-        await p.evaluate("""()=>{var b=document.querySelector('[data-e2e="video-comment-count"]')||document.querySelector('[data-e2e="feed-comment-icon"]');if(b)b.click();}""")
-        await asyncio.sleep(2)
+    if s['hasCL']:
+        log('  评论区已开，跳过')
+    else:
+        v = p.locator('video').first
+        if await v.count()>0:
+            bx = await v.bounding_box()
+            if bx: await p.mouse.click(bx['x']+bx['width']//2,bx['y']+bx['height']//3)
+        await asyncio.sleep(0.5)
+        await p.keyboard.press('x'); await asyncio.sleep(2)
+        s = await read_state(p)
+        if not s['hasCL']:
+            await p.evaluate("""()=>{var b=document.querySelector('[data-e2e="video-comment-count"]')||document.querySelector('[data-e2e="feed-comment-icon"]');if(b)b.click();}""")
+            await asyncio.sleep(2)
 
     # 2. 激活编辑器（缓慢移动到479,687→单击）
     for step in range(8):

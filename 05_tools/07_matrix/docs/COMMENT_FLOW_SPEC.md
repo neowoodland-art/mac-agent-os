@@ -65,15 +65,19 @@
 
 ### 操作步骤
 ```
-1. _activate_window()
-2. vid = locator('video').first
-3. box = vid.bounding_box()
-4. mouse.click(box.center)     # 点视频中心获得焦点
-5. sleep(0.5)
-6. keyboard.press('x')          # x 键开评论
-7. sleep(2)
-8. 验证: [data-e2e="comment-list"] 是否存在
-9. 如果不存在 → DOM 点评论图标兜底
+1. 前置锚点检测: [data-e2e="comment-list"] 是否存在？
+   → 已存在：跳过（评论区已开）
+   → 不存在：继续
+
+2. _activate_window()
+3. vid = locator('video').first
+4. box = vid.bounding_box()
+5. mouse.click(box.center)     # 点视频中心获得焦点
+6. sleep(0.5)
+7. keyboard.press('x')          # x 键开评论
+8. sleep(2)
+9. 验证: [data-e2e="comment-list"] 是否存在
+10. 如果不存在 → DOM 点评论图标兜底
 ```
 
 ### 后置状态：C_PANEL
@@ -82,6 +86,24 @@
   - [data-e2e="comment-list"] 可见
   - 输入框尚未加载（懒加载）
 ```
+
+---
+
+## 2b. 原子操作：close_comments（评论区 → 关闭）
+
+### 前置状态：C_PANEL
+```
+特征码: [data-e2e="comment-list"] 可见
+```
+
+### 操作步骤
+```
+1. keyboard.press('Escape')  或  keyboard.press('x')
+2. sleep(1)
+3. 验证: [data-e2e="comment-list"] 不可见
+```
+
+### 后置状态：P_FULL
 
 ---
 
