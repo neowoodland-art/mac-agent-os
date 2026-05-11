@@ -104,13 +104,38 @@ async def op_comment(p, text='好内容'):
             subprocess.run(['osascript','-e','tell application "System Events" to key code 36 using option down'], timeout=5)
             await asyncio.sleep(3)
             s = await read_state(p)
-            if s['hasVerify']: log('  📱 触发验证码')
+            if s['hasVerify']:
+                log('  📱 触发验证码 → 自动获取')
+                await _handle_verify(p)
             # 5. 关评论区
             if s['hasCL']:
                 await p.keyboard.press('x'); await asyncio.sleep(1)
                 log('  🅧 评论区已关闭')
             return 'COMMENTED'
     return 'PLAYER'
+
+async def _handle_verify(p):
+    """验证码弹窗：自动获取+回填+确认"""
+    from matrix_modules.account.sms import ApiSMSHandler
+    handler = ApiSMSHandler()
+    code = await handler.wait("抖音", timeout=120)
+    if not code or len(code) not in (4,5,6):
+        log(f'  ⚠️ 未获取到有效验证码: {code}')
+        return
+    log(f'  📝 回填验证码: {code}')
+    await p.evaluate(f"""() => {{
+        var inp = document.querySelector('input[placeholder*="验证码"]');
+        if (!inp) return;
+        inp.value = '{code}';
+        inp.dispatchEvent(new Event('input', {{bubbles: true}}));
+    }}""")
+    await asyncio.sleep(0.5)
+    # 点确认按钮
+    btn = p.locator('button:has-text("确认"), button:has-text("提交"), button:has-text("验证")').first
+    if await btn.count() > 0:
+        await btn.click()
+        log('  ✅ 验证码已提交')
+        await asyncio.sleep(2)
 
 async def op_close_comments(p):
     """关闭评论区（前置锚点：hasCL=True）"""
