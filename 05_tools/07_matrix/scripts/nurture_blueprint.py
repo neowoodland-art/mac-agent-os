@@ -220,7 +220,6 @@ async def reset_to_home(page, alog):
 async def main():
     import sys
     args = sys.argv[1:]
-    # 第一个数字参数 = 小时数，其余 = 账号名
     duration_h = 2.0
     accts = []
     for a in args:
@@ -230,43 +229,61 @@ async def main():
     duration_s = duration_h * 3600
     log(f'养号 {len(accts)}个账号 × {duration_h}h → {accts}')
 
-    async def run_one(acct):
+    # 窗口位置策略：
+    #   1个: (0,0) 左上
+    #   2个: (0,0) + (720,0) 平铺不重叠
+    #   3个: (0,0) + (500,0) + (750,0)
+    def calc_pos(idx, total):
+        if total == 1: return (0, 0)
+        if total == 2: return (0, 0) if idx == 0 else (720, 0)
+        # total == 3
+        return [(0, 0), (500, 0), (750, 0)][idx]
+
+    async def run_one(acct, idx):
         alog = make_logger(acct)
-        ID_DIR = os.path.expanduser(f'~/workbuddy-agent-os/agent-local/tools/matrix/identities/{acct}')
-        alog('启动')
-        conn = CDPConnector(identity_dir=ID_DIR, headless=False, window=(702,783), window_position=(652,0))
-        await conn.connect(); p = conn.page; await conn.init_anti_detection()
-        await op_goto_home(p)
-        alog('🏠 首页就绪')
+        try:
+            ID_DIR = os.path.expanduser(f'~/workbuddy-agent-os/agent-local/tools/matrix/identities/{acct}')
+            alog(f'启动 (pos={calc_pos(idx, len(accts))})')
+            conn = CDPConnector(identity_dir=ID_DIR, headless=False, window=(702,783), window_position=calc_pos(idx, len(accts)))
+            await conn.connect(); p = conn.page; await conn.init_anti_detection()
+            await op_goto_home(p)
+            alog('🏠 首页就绪')
 
-        t_start = time.time()
-        rounds = 0
-        fails = 0
-        while time.time() - t_start < duration_s:
-            rounds += 1
-            alog(f'=== 第{rounds}轮 ===')
-            await run_blueprint(p, BLUEPRINT_NURTURE, alog)
-            s = await read_state(p)
+            t_start = time.time()
+            rounds = 0
+            fails = 0
+            while time.time() - t_start < duration_s:
+                try:
+                    rounds += 1
+                    alog(f'=== 第{rounds}轮 ===')
+                    await run_blueprint(p, BLUEPRINT_NURTURE, alog)
+                    s = await read_state(p)
 
-            if s.get('vc',0) < 2 and not s.get('hasCL'):
-                fails += 1
-                alog(f'⚠️ 异常状态 vc={s["vc"]} CL={s["hasCL"]} (连续{fails}次)')
-                if fails >= 3:
-                    alog(f'❌ 连续{fails}次异常，触发重置')
-                    await reset_to_home(p, alog)
-                    fails = 0
-            else:
-                fails = 0
+                    if s.get('vc',0) < 2 and not s.get('hasCL'):
+                        fails += 1
+                        alog(f'⚠️ 异常状态 vc={s["vc"]} CL={s["hasCL"]} (连续{fails}次)')
+                        if fails >= 3:
+                            alog(f'❌ 连续{fails}次异常，触发重置')
+                            await reset_to_home(p, alog)
+                            fails = 0
+                    else:
+                        fails = 0
 
-            elapsed = (time.time() - t_start) / 60
-            alog(f'已运行{elapsed:.0f}min / {duration_h*60:.0f}min')
+                    elapsed = (time.time() - t_start) / 60
+                    alog(f'已运行{elapsed:.0f}min / {duration_h*60:.0f}min')
+                except Exception as e:
+                    alog(f'⚠️ 轮次异常: {str(e)[:50]}')
+                    fails += 1
+                    if fails >= 3:
+                        alog('❌ 连续3次异常，重置')
+                        try: await reset_to_home(p, alog)
+                        except: pass
+                        fails = 0
+            alog('⏹ 结束')
+        except Exception as e:
+            alog(f'❌ 账号异常退出: {str(e)[:60]}')
 
-    await asyncio.gather(*[run_one(a) for a in accts])
-
-    await run_blueprint(p, BLUEPRINT_NURTURE)
-
-    log('\n✅ 完成，浏览器保持打开')
-    while True: await asyncio.sleep(10)
+    await asyncio.gather(*[run_one(accts[i], i) for i in range(len(accts))])
 
 if __name__ == '__main__':
     try: asyncio.run(main())
