@@ -105,8 +105,9 @@ async def op_comment(p, text='好内容'):
             await asyncio.sleep(3)
             s = await read_state(p)
             if s['hasVerify']:
-                log('  📱 触发验证码 → 自动获取')
-                await _handle_verify(p)
+                log('  📱 触发验证码！弹窗已保留，请分析')
+                log('  ⏸️ 脚本暂停，浏览器保持打开')
+                return 'VERIFY'
             # 5. 关评论区
             if s['hasCL']:
                 await p.keyboard.press('x'); await asyncio.sleep(1)
@@ -153,52 +154,114 @@ async def op_close_comments(p):
 BLUEPRINT_NURTURE = [
     ("进入视频",    op_enter_video, {}, 1.0),
     ("观看",        op_watch,       {}, 1.0),
-    ("点赞",        op_like,        {}, 0.4),  # 40% 概率
+    ("点赞",        op_like,        {}, 0.4),
     ("下滑",        op_swipe_down,  {}, 1.0),
     ("观看",        op_watch,       {}, 1.0),
     ("点赞",        op_like,        {}, 0.3),
     ("下滑",        op_swipe_down,  {}, 1.0),
     ("观看",        op_watch,       {}, 1.0),
-    ("评论",        op_comment,     {'text':'好内容，已三连'}, 0.5),  # 50% 概率评论
+    ("评论",        op_comment,     {'text':'好内容'}, 0.5),
     ("下滑",        op_swipe_down,  {}, 1.0),
     ("观看",        op_watch,       {}, 1.0),
     ("点赞",        op_like,        {}, 0.3),
     ("评论",        op_comment,     {'text':'涨知识了'}, 0.5),
+    ("下滑",        op_swipe_down,  {}, 1.0),
+    ("观看",        op_watch,       {}, 1.0),
+    ("点赞",        op_like,        {}, 0.3),
+    ("评论",        op_comment,     {'text':'好内容，已三连'}, 0.5),
 ]
 
 # ═══════════════════════════════════════════════
 # 执行引擎
 # ═══════════════════════════════════════════════
 
-async def run_blueprint(page, blueprint):
+def make_logger(acct):
+    """返回绑定账号名的日志函数"""
+    def alog(m):
+        t = time.strftime("%H:%M:%S")
+        line = f'[{t}][{acct}] {m}'
+        with open(LOG, 'a') as f: f.write(line + '\n')
+        print(line, flush=True)
+    return alog
+
+async def log_state(p, alog, tag=''):
+    """记录当前页面状态（接受 alog 参数）"""
+    s = await read_state(p)
+    alog(f'{tag} 状态: ae={s["aeTag"]} vc={s["vc"]} CL={s["hasCL"]} Ed={s["hasEd"]} text="{s["edText"]}" url={s["url"]}')
+
+async def run_blueprint(page, blueprint, alog):
     state = 'HOME'
-    log(f'执行蓝图 ({len(blueprint)}步)')
     for i, (name, fn, kwargs, prob) in enumerate(blueprint):
         if random.random() > prob:
-            log(f'  [{i+1}] {name} → 跳过(概率{prob})')
+            alog(f'  [{i+1}] {name} → 跳过')
             continue
-        log(f'  [{i+1}] {name}...')
+        alog(f'  [{i+1}] {name}...')
         try:
             state = await fn(page, **kwargs)
         except Exception as e:
-            log(f'  ⚠️ {name}异常: {str(e)[:30]}')
-            state = await read_state(page)
-            state = 'PLAYER' if state.get('vc',0)>=2 else 'HOME'
-        log(f'    → {state}')
+            alog(f'  ⚠️ {name}异常: {str(e)[:40]}')
+            await log_state(page, alog, '  异常时')
+            state = 'PLAYER' if (await read_state(page)).get('vc',0)>=2 else 'HOME'
+        alog(f'    → {state}')
         await asyncio.sleep(random.uniform(0.5,1.5))
-    log(f'蓝图完成，最终状态: {state}')
+    alog(f'蓝图完成 → {state}')
+
+async def reset_to_home(page, alog):
+    """重置到首页"""
+    alog('🔄 重置到首页')
+    await page.goto('https://www.douyin.com/', timeout=20000)
+    await asyncio.sleep(4)
+    alog('🏠 首页就绪')
 
 # ═══════════════════════════════════════════════
 # 启动
 # ═══════════════════════════════════════════════
 
 async def main():
-    ID_DIR = os.path.expanduser('~/workbuddy-agent-os/agent-local/tools/matrix/identities/douyin_01_camo')
-    conn = CDPConnector(identity_dir=ID_DIR, headless=False, window=(702,783), window_position=(652,0))
-    await conn.connect(); p = conn.page; await conn.init_anti_detection()
+    import sys
+    args = sys.argv[1:]
+    # 第一个数字参数 = 小时数，其余 = 账号名
+    duration_h = 2.0
+    accts = []
+    for a in args:
+        if a.replace('.','').isdigit(): duration_h = float(a)
+        else: accts.append(a)
+    if not accts: accts = ['douyin_01_camo', 'douyin_02_camo', 'douyin_camo01']
+    duration_s = duration_h * 3600
+    log(f'养号 {len(accts)}个账号 × {duration_h}h → {accts}')
 
-    await op_goto_home(p)
-    log('🏠 首页就绪')
+    async def run_one(acct):
+        alog = make_logger(acct)
+        ID_DIR = os.path.expanduser(f'~/workbuddy-agent-os/agent-local/tools/matrix/identities/{acct}')
+        alog('启动')
+        conn = CDPConnector(identity_dir=ID_DIR, headless=False, window=(702,783), window_position=(652,0))
+        await conn.connect(); p = conn.page; await conn.init_anti_detection()
+        await op_goto_home(p)
+        alog('🏠 首页就绪')
+
+        t_start = time.time()
+        rounds = 0
+        fails = 0
+        while time.time() - t_start < duration_s:
+            rounds += 1
+            alog(f'=== 第{rounds}轮 ===')
+            await run_blueprint(p, BLUEPRINT_NURTURE, alog)
+            s = await read_state(p)
+
+            if s.get('vc',0) < 2 and not s.get('hasCL'):
+                fails += 1
+                alog(f'⚠️ 异常状态 vc={s["vc"]} CL={s["hasCL"]} (连续{fails}次)')
+                if fails >= 3:
+                    alog(f'❌ 连续{fails}次异常，触发重置')
+                    await reset_to_home(p, alog)
+                    fails = 0
+            else:
+                fails = 0
+
+            elapsed = (time.time() - t_start) / 60
+            alog(f'已运行{elapsed:.0f}min / {duration_h*60:.0f}min')
+
+    await asyncio.gather(*[run_one(a) for a in accts])
 
     await run_blueprint(p, BLUEPRINT_NURTURE)
 
