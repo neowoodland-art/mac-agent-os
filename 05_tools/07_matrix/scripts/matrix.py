@@ -65,6 +65,9 @@ def cmd_account_list(args):
         engine = a.get("browser_type", "chrome")
         notes = a.get("notes", "")
         identity = a.get("identity_dir", "-")
+        phone = a.get("phone", "")
+        phone_str = f" 📞{phone}" if phone else ""
+        print(f"  • {acct_id:15s} | {platform:8s} | {engine:10s}{phone_str} | {notes}")
         print(f"  • {acct_id:15s} | {platform:8s} | {engine:10s} | {notes}")
         if identity != "-":
             ud = LOCAL_ROOT / identity / "user_data"
@@ -105,7 +108,9 @@ def cmd_account_status(args):
             ud = LOCAL_ROOT / identity / "user_data"
             # 简单判断：user_data 目录有文件且不是空的
             has_state = ud.exists() and len(list(ud.glob("*"))) > 2
-            print(f"  {'✅' if has_state else '❌'} {acct_id:15s} | {'已初始化' if has_state else '未登录'} | {identity}")
+            phone = a.get("phone", "")
+            phone_str = f" 📞{phone}" if phone else ""
+            print(f"  {'✅' if has_state else '❌'} {acct_id:15s} | {'已初始化' if has_state else '未登录'}{phone_str} | {identity}")
         else:
             print(f"  ⚪ {acct_id:15s} | 使用 Chrome Profile")
 
