@@ -105,7 +105,19 @@ async def op_comment(p, text='好内容'):
             await asyncio.sleep(3)
             s = await read_state(p)
             if s['hasVerify']: log('  📱 触发验证码')
+            # 5. 关评论区
+            if s['hasCL']:
+                await p.keyboard.press('x'); await asyncio.sleep(1)
+                log('  🅧 评论区已关闭')
             return 'COMMENTED'
+    return 'PLAYER'
+
+async def op_close_comments(p):
+    """关闭评论区（前置锚点：hasCL=True）"""
+    s = await read_state(p)
+    if s['hasCL']:
+        await p.keyboard.press('x'); await asyncio.sleep(1)
+        return 'PLAYER'
     return 'PLAYER'
 
 # ═══════════════════════════════════════════════

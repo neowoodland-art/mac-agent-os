@@ -307,7 +307,18 @@ class CDPConnector:
         2. camoufox 类型 → Camoufox 原生（临时 profile）
         3. 其他 → CDP 连接（Chrome/Firefox）
         """
+        # 先杀残留 Camoufox 进程 + 清理锁文件
+        import subprocess
+        subprocess.run(['pkill', '-f', 'camoufox'], capture_output=True, timeout=5)
+        await asyncio.sleep(2)
+
         if self.identity_dir:
+            # 清理锁文件
+            for lock in ['.parentlock', '.startup-incomplete', 'lock']:
+                try:
+                    lf = Path(self.identity_dir) / 'user_data' / lock
+                    if lf.exists(): lf.unlink()
+                except: pass
             await self._launch_camoufox_persistent()
         else:
             bt = self._resolve_browser_type()
