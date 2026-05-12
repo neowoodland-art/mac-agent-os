@@ -15,7 +15,7 @@ from typing import Optional
 # 配置
 # ═══════════════════════════════════════════════
 
-SMS_INPUT_SELECTOR = 'input[placeholder*="验证码"]'
+SMS_INPUT_SELECTOR = "input[placeholder*='验证码']"
 LOGIN_PANEL_ID = '#login-panel-new'
 ONEKEY_TEXT = '一键登录'
 CONFIRM_BTN_TEXTS = ['确认', '提交', '验证', '登录']
@@ -131,16 +131,49 @@ async def click_confirm_system(page):
 # 主流程
 # ═══════════════════════════════════════════════
 
-async def sms_login(page, log_func=print) -> bool:
+async def sms_login(page, account_name: str = '', log_func=print) -> bool:
     """SMS 验证码登录完整流程
 
     Args:
         page: Playwright page
+        account_name: 账号名（用于查手机号），为空则用 sms.yaml 默认
         log_func: 日志函数
 
     Returns:
         True=登录成功, False=失败
     """
+    # 从 accounts.yaml 查手机号
+    phone = ''
+    if account_name:
+        import yaml, os
+        cfg_path = os.path.expanduser('~/workbuddy-agent-os/agent-local/tools/matrix/config/accounts.yaml')
+        try:
+            with open(cfg_path) as f:
+                data = yaml.safe_load(f)
+            for a in data.get('accounts', []):
+                if a.get('id') == account_name:
+                    phone = a.get('phone', '')
+                    break
+        except: pass
+    log_func(f'📞 手机号: {phone or "默认"}({account_name})')
+
+    if not await has_login_panel(page):
+        log_func('❌ 未检测到登录面板')
+        return False
+
+    # ── Step 1: 点一键登录 ──
+    log_func('📱 Step 1: 点击一键登录')
+    await click_onekey_login(page)
+
+    if not await has_sms_input(page):
+        log_func('❌ 未弹出验证码输入框')
+        return False
+    log_func('✅ 验证码输入框已出现')
+
+    # ── Step 2: 轮询获取验证码（含超时重发）──
+    log_func('📡 Step 2: 获取验证码')
+    from matrix_modules.account.sms import ApiSMSHandler
+    handler = ApiSMSHandler(phone=phone) if phone else ApiSMSHandler()
     if await is_logged_in(page):
         log_func('✅ 已登录，跳过')
         return True
