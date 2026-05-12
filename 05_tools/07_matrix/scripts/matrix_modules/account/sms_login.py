@@ -18,7 +18,7 @@ from typing import Optional
 SMS_INPUT_SELECTOR = "input[placeholder*='验证码']"
 LOGIN_PANEL_ID = '#login-panel-new'
 ONEKEY_TEXT = '一键登录'
-CONFIRM_BTN_TEXTS = ['确认', '提交', '验证', '登录']
+CONFIRM_BTN_TEXTS = ['确认', '提交', '验证', '登录', '确定', '下一步', '立即登录']
 RESEND_TEXTS = ['重新发送', '获取验证码', '重发']
 
 # ═══════════════════════════════════════════════
@@ -80,9 +80,10 @@ async def click_resend(page):
     return clicked
 
 async def fill_code(page, code: str):
-    """填入验证码"""
+    """填入验证码（用 JS 设置 value + dispatch input）"""
+    # 用双引号避免单引号冲突
     await page.evaluate(f"""() => {{
-        var inp = document.querySelector('{SMS_INPUT_SELECTOR}');
+        var inp = document.querySelector("input[placeholder*='验证码']");
         if (!inp) return;
         inp.value = '{code}';
         inp.dispatchEvent(new Event('input', {{bubbles: true}}));
@@ -173,7 +174,8 @@ async def sms_login(page, account_name: str = '', log_func=print) -> bool:
     # ── Step 2: 轮询获取验证码（含超时重发）──
     log_func('📡 Step 2: 获取验证码')
     from matrix_modules.account.sms import ApiSMSHandler
-    handler = ApiSMSHandler(phone=phone) if phone else ApiSMSHandler()
+    # 确保 phone 非空才传入
+    handler = ApiSMSHandler(phone=phone) if phone and phone.strip() else ApiSMSHandler()
     if await is_logged_in(page):
         log_func('✅ 已登录，跳过')
         return True
@@ -194,7 +196,8 @@ async def sms_login(page, account_name: str = '', log_func=print) -> bool:
     # ── Step 2: 轮询获取验证码（含超时重发）──
     log_func('📡 Step 2: 获取验证码')
     from matrix_modules.account.sms import ApiSMSHandler
-    handler = ApiSMSHandler()
+    handler = ApiSMSHandler(phone=phone) if phone and phone.strip() else ApiSMSHandler()
+    code = ''
 
     code = ''
     for attempt in range(3):  # 最多3次获取尝试

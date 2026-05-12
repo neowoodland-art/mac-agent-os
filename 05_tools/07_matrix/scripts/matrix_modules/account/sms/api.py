@@ -73,19 +73,23 @@ class ApiSMSHandler(SMSHandler):
 
         匹配模式：验证码后跟4-6位数字
         """
-        # 常见格式: 【平台】验证码556314，10分钟内有效。
-        m = re.search(r'验证码[：:]\s*(\d{4,6})', content)
+        # 常见格式: 【平台】验证码556314 / 验证码，346758 / 验证码:729472
+        m = re.search(r'验证码[：:，,]\s*(\d{4,6})', content)
         if m:
             return m.group(1)
+        # 验证码直接跟数字（无分隔符）
         m = re.search(r'验证码(\d{4,6})', content)
         if m:
             return m.group(1)
         # 兜底：提取4-6位纯数字（避免提取手机号等长数字）
         nums = re.findall(r'\b(\d{4,6})\b', content)
         if nums:
-            # 优先取6位，其次4位
+            # 优先取6位，其次4位；排除明显的年份/月份
             for n in nums:
-                if len(n) in (4, 6):
+                if len(n) == 6 and n[0] != '2':  # 6位且不是年份
+                    return n
+            for n in nums:
+                if len(n) in (4, 6) and n not in ('2024','2025','2026'):  # 排除年份
                     return n
         return None
 
@@ -106,11 +110,12 @@ class ApiSMSHandler(SMSHandler):
         self._cancel_flag = False
         self._last_id = None
 
-        # 先获取当前最新消息 ID，避免取到旧消息
+        # 先获取当前最新消息 ID-1，避免错过最新一条
         msgs = self._fetch_messages()
         if msgs:
-            self._last_id = max(m.get("id", 0) for m in msgs)
-            print(f"    当前最新消息ID: {self._last_id}")
+            max_id = max(m.get("id", 0) for m in msgs)
+            self._last_id = max_id - 1  # 减 1 确保最新一条也被检查
+            print(f"    当前最新消息ID: {max_id} (last_id={self._last_id})")
 
         start = time.time()
         while not self._cancel_flag and (time.time() - start) < timeout:
