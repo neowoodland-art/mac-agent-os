@@ -176,12 +176,19 @@ BLUEPRINT_NURTURE = [
 # ═══════════════════════════════════════════════
 
 def make_logger(acct):
-    """返回绑定账号名的日志函数"""
+    """返回绑定账号名的日志函数，每个账号独立日志文件"""
+    log_file = f'/tmp/nurture_{acct}.log'
+    try: open(log_file, 'w').close()
+    except: pass
+
     def alog(m):
         t = time.strftime("%H:%M:%S")
         line = f'[{t}][{acct}] {m}'
         with open(LOG, 'a') as f: f.write(line + '\n')
+        with open(log_file, 'a') as f: f.write(line + '\n')
         print(line, flush=True)
+
+    alog.log_file = log_file
     return alog
 
 async def log_state(p, alog, tag=''):

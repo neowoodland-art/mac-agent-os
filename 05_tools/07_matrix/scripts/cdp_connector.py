@@ -223,11 +223,28 @@ class CDPConnector:
         try:
             import json as _j
             xul_path = Path(user_data_dir) / "xulstore.json"
+            # 从 accounts.yaml 读取窗口位置，回退到 self.window_position
+            cfg_path = Path(self.identity_dir).parent.parent / "config" / "accounts.yaml"
+            cfg_x, cfg_y = self.window_position
+            try:
+                import yaml as _y
+                if cfg_path.exists():
+                    with open(cfg_path) as _f:
+                        _cfg = _y.safe_load(_f)
+                    for _a in _cfg.get("accounts", []):
+                        if _a.get("identity_dir", "").rstrip('/') == self.identity_dir.rstrip('/') or \
+                           _a.get("id") in self.identity_dir:
+                            _wp = _a.get("window_position")
+                            if _wp and len(_wp) == 2:
+                                cfg_x, cfg_y = int(_wp[0]), int(_wp[1])
+                            break
+            except: pass
+
             xul_data = {
                 "chrome://browser/content/browser.xhtml": {
                     "main-window": {
-                        "screenX": "0",
-                        "screenY": "30",
+                        "screenX": str(cfg_x),
+                        "screenY": str(cfg_y),
                         "width": str(w_width),
                         "height": str(w_height),
                         "sizemode": "normal"
