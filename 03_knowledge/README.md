@@ -20,7 +20,7 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 |----------|----------|--------|----------|
 | [[00_inbox]] | 📥 收件箱（待提纯） | 8 | 2026-05-03 |
 | [[01_submissions]] | 📤 提交箱（待归集） | 3 | 2026-05-03 |
-| [[10_concepts]] | 💡 概念层 | 5 | 2026-05-10 |
+| [[10_concepts]] | 💡 概念层 | 6 | 2026-05-13 |
 | [[20_methods]] | 🔧 方法层 | 3 | 2026-05-01 |
 | [[30_facts]] | 📋 事实层 | 0 | — |
 | [[40_references]] | 📎 参考层 | 1 | 2026-05-10 |
@@ -42,6 +42,7 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | 3 | [[10_concepts/global-accounting-strategic-loss\|全局算账——主动亏损与战略放弃]] | ghai 个人洞察 | 2026-05-03 |
 | 4 | [[10_concepts/mao-ten-thinking-methods\|毛选十条经典思维]] | 抖音@慧晨晨 | 2026-05-06 |
 | 5 | [[10_concepts/money-making-logic-value-creation\|搞钱的底层逻辑——价值创造与有效努力]] | ghai 整理 | 2026-05-06 |
+| 6 | [[10_concepts/family-succession-capability-first\|家族传承与托举——能力优先还是公平优先]] | 11岁孩子的视角 | 2026-05-13 |
 
 ### 🔧 方法层（20_methods/）
 
