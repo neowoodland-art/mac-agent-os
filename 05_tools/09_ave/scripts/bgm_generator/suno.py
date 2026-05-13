@@ -162,7 +162,7 @@ def _try_mlx_audiocraft(mood: str, duration: float, output: str) -> str | None:
         logger.info("  mlx-audiocraft 未安装，跳过 Tier 2")
         return None
 
-    # mood→prompt 映射 (已验证的 BGM 提示词)
+    # mood→prompt 映射 (与 BGM_LIBRARY.md 同步)
     prompts = {
         "calm": "soft ambient piano, gentle pad, nature sounds, 60 BPM, no percussion, no vocals",
         "soothing": "warm ambient drone, slow strings, peaceful atmosphere, 50 BPM, no vocals",
@@ -175,6 +175,12 @@ def _try_mlx_audiocraft(mood: str, duration: float, output: str) -> str | None:
         "funny": "playful xylophone, quirky light music, cartoon style, 100 BPM, no vocals",
         "inspiring": "uplifting cinematic, building strings, triumphant, 85 BPM, no vocals",
         "normal": "soft background music, gentle, ambient, 70 BPM, no vocals",
+        # ── BGM_LIBRARY.md 扩展 ──
+        "epic": "epic orchestral, brass and strings, powerful drums, triumphant, building tension, 120 BPM, no vocals",
+        "tech": "electronic futuristic, synth pads, pulsing beat, modern, innovative, 120 BPM, no vocals",
+        "warm": "warm acoustic guitar, soft piano, gentle, cozy atmosphere, 80 BPM, no vocals",
+        "cinematic": "cinematic ambient, orchestral swells, emotional strings, majestic, 80 BPM, no vocals",
+        "documentary": "documentary style, soft piano, ambient strings, professional, serious, 90 BPM, no vocals",
     }
     prompt = prompts.get(mood, prompts["normal"])
 
