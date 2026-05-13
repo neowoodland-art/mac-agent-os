@@ -18,12 +18,12 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 
 | 英文目录 | 中文名称 | 文件数 | 最后更新 |
 |----------|----------|--------|----------|
-| [[00_inbox]] | 📥 收件箱（待提纯） | 3 | 2026-05-03 |
+| [[00_inbox]] | 📥 收件箱（待提纯） | 8 | 2026-05-03 |
 | [[01_submissions]] | 📤 提交箱（待归集） | 3 | 2026-05-03 |
-| [[10_concepts]] | 💡 概念层 | 4 | 2026-05-03 |
+| [[10_concepts]] | 💡 概念层 | 5 | 2026-05-10 |
 | [[20_methods]] | 🔧 方法层 | 3 | 2026-05-01 |
 | [[30_facts]] | 📋 事实层 | 0 | — |
-| [[40_references]] | 📎 参考层 | 0 | — |
+| [[40_references]] | 📎 参考层 | 1 | 2026-05-10 |
 | [[50_resources]] | 🛠 资源层 | 0 | — |
 | [[60_opinions]] | 💭 观点层 | 0 | — |
 | [[90_archive]] | 🗄 归档层 | 1 | 2026-05-03 |
@@ -40,6 +40,8 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | 1 | [[10_concepts/social-wisdom-10-rules\|十条社会处世智慧]] | 抖音@袁本初有干货 | 2026-05-03 |
 | 2 | [[10_concepts/power-of-naming-reality\|命名现实的力量——情绪叙事与精神图腾]] | ghai 个人洞察 | 2026-05-03 |
 | 3 | [[10_concepts/global-accounting-strategic-loss\|全局算账——主动亏损与战略放弃]] | ghai 个人洞察 | 2026-05-03 |
+| 4 | [[10_concepts/mao-ten-thinking-methods\|毛选十条经典思维]] | 抖音@慧晨晨 | 2026-05-06 |
+| 5 | [[10_concepts/money-making-logic-value-creation\|搞钱的底层逻辑——价值创造与有效努力]] | ghai 整理 | 2026-05-06 |
 
 ### 🔧 方法层（20_methods/）
 
@@ -53,8 +55,14 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 
 | 箱 | 数量 | 查看 |
 |----|------|------|
-| 收件箱（00_inbox/） | 3 条待提纯 | [[00_inbox/]] |
+| 收件箱（00_inbox/） | 8 条待提纯 | [[00_inbox/]] |
 | 提交箱（01_submissions/） | 3 条待归集 | [[01_submissions/]] |
+
+### 📎 参考层（40_references/）
+
+| # | 条目 | 说明 |
+|---|------|------|
+| 1 | [[40_references/matrix-sms-verification\|SMS 验证码自动接收]] | Matrix 养号系统短信验证码自动获取模块 |
 
 ### 🗄 归档（90_archive/）
 
