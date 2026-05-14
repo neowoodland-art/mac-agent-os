@@ -56,21 +56,25 @@ def _parse_sections(raw):
     return sections
 
 
-def _wait_for_response(max_wait=40, check_interval=5, session="doubao"):
-    """智能等待：检测到回复内容后等 10 秒确保写完"""
-    for i in range(max_wait // check_interval):
-        time.sleep(check_interval)
-        body = _oc(["browser", session, "eval", "document.body.innerText"], timeout=10)
-        current_len = len(body or "")
-        has_markers = any(m in (body or "") for m in ["【完整字幕】", "【提示词", "【操作步骤】"])
+def _wait_for_response(session="doubao", max_wait=45):
+    """发送后等回复：检测页面文本是否显著增长"""
+    # 记录发送前的页面长度
+    before = len(_oc(["browser", session, "eval", "document.body.innerText"], timeout=10) or "")
+    
+    for i in range(max_wait // 5):
+        time.sleep(5)
+        body = _oc(["browser", session, "eval", "document.body.innerText"], timeout=10) or ""
+        current_len = len(body)
+        growth = current_len - before
         
-        if has_markers and current_len > 300:
-            print(f"    ⏳ 检测到回复，等 10 秒收尾...", flush=True)
+        # 页面增长超过 500 字 → AI 在回复了
+        if growth > 500:
+            # 再等 10 秒收尾
             time.sleep(10)
             return _oc(["browser", session, "eval", "document.body.innerText"], timeout=10) or ""
         
         if i > 0 and i % 2 == 0:
-            print(f"    ⏳ {(i+1)*check_interval}s...({current_len}字)", flush=True)
+            print(f"    ⏳ {(i+1)*5}s...增长{growth}字", flush=True)
     
     return _oc(["browser", session, "eval", "document.body.innerText"], timeout=10)
 
