@@ -56,32 +56,23 @@ def _parse_sections(raw):
     return sections
 
 
-def _wait_for_response(max_wait=60, check_interval=3):
-    """智能等待：检测回复内容稳定了就返回"""
-    last_len = 0
-    stable_rounds = 0
+def _wait_for_response(max_wait=40, check_interval=5, session="doubao"):
+    """智能等待：检测到回复内容后等 10 秒确保写完"""
     for i in range(max_wait // check_interval):
         time.sleep(check_interval)
-        body = _oc(["browser", "doubao", "eval", "document.body.innerText"], timeout=10)
+        body = _oc(["browser", session, "eval", "document.body.innerText"], timeout=10)
         current_len = len(body or "")
-        # 检测是否有【完整字幕】等标记出现（豆包正在回复）
         has_markers = any(m in (body or "") for m in ["【完整字幕】", "【提示词", "【操作步骤】"])
         
-        if has_markers and current_len > 200:
-            if current_len == last_len:
-                stable_rounds += 1
-                if stable_rounds >= 2:  # 连续两次长度不变，认为回复完成
-                    return body or ""
-            else:
-                stable_rounds = 0
-            last_len = current_len
+        if has_markers and current_len > 300:
+            print(f"    ⏳ 检测到回复，等 10 秒收尾...", flush=True)
+            time.sleep(10)
+            return _oc(["browser", session, "eval", "document.body.innerText"], timeout=10) or ""
         
-        elapsed = (i + 1) * check_interval
-        if elapsed % 12 == 0:
-            print(f"    ⏳ {elapsed}s 等待中...({current_len}字)", flush=True)
+        if i > 0 and i % 2 == 0:
+            print(f"    ⏳ {(i+1)*check_interval}s...({current_len}字)", flush=True)
     
-    # 超时，返回当前内容
-    return _oc(["browser", "doubao", "eval", "document.body.innerText"], timeout=10)
+    return _oc(["browser", session, "eval", "document.body.innerText"], timeout=10)
 
 
 class DoubaoDriver:
@@ -141,7 +132,7 @@ class DoubaoDriver:
                 timeout=5)
 
             # 3. 智能等待回复
-            raw = _wait_for_response()
+            raw = _wait_for_response(session=self.doubao_session)
             sections = _parse_sections(raw or "")
 
             elapsed = round(time.time() - t0, 1)
