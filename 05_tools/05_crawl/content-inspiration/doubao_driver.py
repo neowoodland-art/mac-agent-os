@@ -1,16 +1,15 @@
 """
-豆包浏览器驱动 v5 —— 连续会话 + 稳定提取
+豆包浏览器驱动 v6 —— 独立标签页 + 智能等待
 
 改进：
-  1. 连续对话：整个 session 只开一次豆包，所有视频在同一个对话中分析
-  2. 稳定提取：直接用 prompt 中的【】标记做切分，不依赖数字序号
-  3. 会话分离：抖音页面和豆包页面用不同的 session，不互相干扰
+  1. 豆包保持独立标签页，不关闭，不 rebind
+  2. 抖音用另一个标签页，互不干扰
+  3. 智能等待：检测回复完成度，不等固定时间
 """
 
 import re, json, time, os, subprocess
 from pathlib import Path
 
-OUTPUT_DIR = Path(__file__).parent / "scripts_output"
 OPENCLI = os.path.expanduser("~/.workbuddy/binaries/node/versions/22.12.0/bin/opencli")
 
 ANALYSIS_PROMPT = """请从这段视频内容中提取所有知识性内容，按以下格式完整记录，不要概括，不要总结：
@@ -33,7 +32,7 @@ ANALYSIS_PROMPT = """请从这段视频内容中提取所有知识性内容，�
 记住：只提取不总结，不要分析结构，不要分析背景音乐。"""
 
 
-def _oc(args: list, timeout: int = 30) -> str:
+def _oc(args, timeout=30):
     env = {**os.environ, "NODE_OPTIONS": ""}
     for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
         env.pop(k, None)
@@ -44,125 +43,131 @@ def _oc(args: list, timeout: int = 30) -> str:
         return ""
 
 
-def _send_and_wait(text: str, wait_time: int = 25) -> str:
-    """向当前 session 的输入框发送文字并等待回复"""
-    _oc(["browser", "doubao", "type", "--nth", "0", "textarea", text], timeout=15)
-    time.sleep(1)
-    _oc(["browser", "doubao", "eval",
-         "document.querySelector('textarea').dispatchEvent("
-         "new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,bubbles:true}))"],
-        timeout=5)
-    time.sleep(wait_time)
-    return _oc(["browser", "doubao", "eval", "document.body.innerText"], timeout=10)
-
-
-def _parse_sections(raw: str) -> dict:
-    """从豆包回复中按【】标记提取各段落"""
+def _parse_sections(raw):
+    """按【】标记提取各段落"""
     sections = {}
-    # 定义要提取的标记
-    markers = [
-        "完整字幕", "提示词/指令原文", "提示词", "指令原文",
-        "操作步骤", "关键参数", "核心技巧"
-    ]
+    markers = ["完整字幕", "提示词/指令原文", "提示词", "指令原文", "操作步骤", "关键参数", "核心技巧"]
     for marker in markers:
-        # 找 【xxx】 或 'xxx：' 或 'xxx:'
-        patterns = [
-            rf'【{re.escape(marker)}】\s*([\s\S]*?)(?=【|\Z)',
-            rf'{re.escape(marker)}[：:]\s*([\s\S]*?)(?=【|\d[.、]|\Z)',
-        ]
-        for pat in patterns:
-            m = re.search(pat, raw)
-            if m:
-                content = m.group(1).strip()
-                # 清理 prompt 本身的说明文字
-                content = re.sub(r'逐句记录.*|如果视频中.*|视频中演示.*|视频中提到.*|记住：.*', '', content)
-                sections[marker] = content.strip()
-                break
+        m = re.search(rf'【{re.escape(marker)}】\s*([\s\S]*?)(?=【|\Z)', raw)
+        if m:
+            content = m.group(1).strip()
+            content = re.sub(r'逐句记录.*|如果视频中.*|视频中演示.*|视频中提到.*|记住：.*', '', content)
+            sections[marker] = content
     return sections
 
 
+def _wait_for_response(max_wait=60, check_interval=3):
+    """智能等待：检测回复内容稳定了就返回"""
+    last_len = 0
+    stable_rounds = 0
+    for i in range(max_wait // check_interval):
+        time.sleep(check_interval)
+        body = _oc(["browser", "doubao", "eval", "document.body.innerText"], timeout=10)
+        current_len = len(body or "")
+        # 检测是否有【完整字幕】等标记出现（豆包正在回复）
+        has_markers = any(m in (body or "") for m in ["【完整字幕】", "【提示词", "【操作步骤】"])
+        
+        if has_markers and current_len > 200:
+            if current_len == last_len:
+                stable_rounds += 1
+                if stable_rounds >= 2:  # 连续两次长度不变，认为回复完成
+                    return body or ""
+            else:
+                stable_rounds = 0
+            last_len = current_len
+        
+        elapsed = (i + 1) * check_interval
+        if elapsed % 12 == 0:
+            print(f"    ⏳ {elapsed}s 等待中...({current_len}字)", flush=True)
+    
+    # 超时，返回当前内容
+    return _oc(["browser", "doubao", "eval", "document.body.innerText"], timeout=10)
+
+
 class DoubaoDriver:
-    """豆包分析驱动 v5"""
+    """豆包分析驱动 v6"""
 
     def __init__(self):
-        self.session_started = False
+        self.doubao_ready = False
+        self.douyin_session = "douyin"
+        self.doubao_session = "doubao"
 
     def start_session(self):
-        """启动豆包会话（只需一次）"""
-        _oc(["browser", "doubao", "bind"], timeout=5)
-        time.sleep(1)
-        _oc(["browser", "doubao", "open", "https://www.doubao.com/chat"], timeout=15)
+        """启动豆包会话（只一次，标签页保持打开）"""
+        # 先开一个空白标签给 douyin session
+        _oc(["browser", self.douyin_session, "bind"], timeout=5)
+        time.sleep(0.5)
+        # 开新标签给 doubao session（在新标签页打开豆包）
+        _oc(["browser", self.doubao_session, "tab", "new", "https://www.doubao.com/chat"], timeout=15)
         time.sleep(5)
-        self.session_started = True
-        print("  ✅ 豆包会话已启动")
+        self.doubao_ready = True
+        print("  ✅ 豆包会话已启动（独立标签页）")
 
-    def end_session(self):
-        """结束会话"""
-        self.session_started = False
-
-    def analyze_video(self, url: str) -> dict:
+    def analyze_video(self, url):
         """分析单个视频"""
         t0 = time.time()
         try:
-            # 1. 抖音 session 提取视频文字
-            _oc(["browser", "douyin", "bind"], timeout=5)
-            time.sleep(1)
-            _oc(["browser", "douyin", "open", url], timeout=15)
+            # 1. 抖音标签页：打开视频提取文字
+            _oc(["browser", self.douyin_session, "bind"], timeout=5)
+            time.sleep(0.5)
+            _oc(["browser", self.douyin_session, "open", url], timeout=15)
             time.sleep(6)
-            page_text = _oc(["browser", "douyin", "eval", "document.body.innerText"], timeout=10)
+            page_text = _oc(["browser", self.douyin_session, "eval", "document.body.innerText"], timeout=10)
             page_text = re.sub(r'^\{[^}]*"result"[^}]*"|^"[}]$', '', page_text).strip()
             
             if not page_text or len(page_text) < 50:
                 return {"success": False, "error": "无法提取视频页内容", "url": url}
 
-            # 清理噪音
-            lines = page_text.split('\n')
-            useful = []
+            # 清理
             skip_kw = ['开启读屏', '读屏标签', '精选', '推荐', '搜索',
                       '关注', '朋友', '我的', '直播', '放映厅', '壁纸',
                       '通知', '私信', '投稿', '登录', '倍速', '智能',
                       '清屏', '连播', '点击加载更多', '展开', '条回复',
                       '评论', '广告投放', '用户服务']
-            for l in lines:
-                t = l.strip()
-                if len(t) > 5 and not any(kw in t for kw in skip_kw):
-                    useful.append(t)
-            context = '\n'.join(useful[:30])
-            msg = f"视频 {url}\n\n视频内容：\n{context}\n\n{ANALYSIS_PROMPT}"
-
-            # 2. 切回豆包 session 发送
-            _oc(["browser", "doubao", "bind"], timeout=5)
-            time.sleep(1)
+            useful = [l.strip() for l in page_text.split('\n') 
+                     if len(l.strip()) > 5 and not any(k in l for k in skip_kw)]
             
-            raw = _send_and_wait(msg)
-            sections = _parse_sections(raw)
+            msg = f"视频 {url}\n\n视频内容：\n{chr(10).join(useful[:30])}\n\n{ANALYSIS_PROMPT}"
+
+            # 2. 豆包标签页（已存在，直接 type）
+            _oc(["browser", self.doubao_session, "bind"], timeout=5)
+            time.sleep(0.5)
+            _oc(["browser", self.doubao_session, "type", "--nth", "0", "textarea", msg], timeout=15)
+            time.sleep(1)
+            # 触发发送
+            _oc(["browser", self.doubao_session, "eval",
+                 "document.querySelector('textarea').dispatchEvent("
+                 "new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,bubbles:true}))"],
+                timeout=5)
+
+            # 3. 智能等待回复
+            raw = _wait_for_response()
+            sections = _parse_sections(raw or "")
 
             elapsed = round(time.time() - t0, 1)
             return {
                 "success": True,
                 "url": url,
                 "elapsed": elapsed,
-                "raw_response": raw,
+                "raw_response": raw or "",
                 "sections": sections,
             }
         except Exception as e:
             return {"success": False, "error": str(e), "url": url}
 
-    def analyze_profile(self, profile_url: str, max_videos: int = 5) -> list[dict]:
-        """分析主播主页的全部视频（连续会话）"""
-        # 获取视频列表
+    def analyze_profile(self, profile_url, max_videos=5):
+        """分析主播主页"""
         _oc(["browser", "profile", "bind"], timeout=5)
         _oc(["browser", "profile", "open", profile_url], timeout=15)
         time.sleep(8)
-        _oc(["browser", "profile", "scroll", "down"])
-        time.sleep(3)
-        _oc(["browser", "profile", "scroll", "down"])
-        time.sleep(3)
-        
+        for _ in range(2):
+            _oc(["browser", "profile", "scroll", "down"])
+            time.sleep(3)
+
         links_raw = _oc(["browser", "profile", "eval",
             "JSON.stringify(Array.from(document.querySelectorAll('a[href*=\"/video/\"]'))"
-            ".slice(0," + str(max_videos) + ").map(a => ({url: a.href, title: (a.textContent||'').trim().slice(0,40)})))"
-        ], timeout=10)
+            f".slice(0,{max_videos}).map(a=>({{url:a.href,title:(a.textContent||'').trim().slice(0,40)}})))"],
+            timeout=10)
         try:
             videos = json.loads(links_raw)
         except:
@@ -171,9 +176,8 @@ class DoubaoDriver:
         if not videos:
             return [{"success": False, "error": "无法获取视频列表", "url": profile_url}]
 
-        # 启动豆包会话
         self.start_session()
-        print(f"  ✅ 获取到 {len(videos)} 个视频，开始分析（同一对话）")
+        print(f"  ✅ 获取到 {len(videos)} 个视频")
 
         results = []
         for i, v in enumerate(videos):
@@ -182,13 +186,11 @@ class DoubaoDriver:
             r["title"] = v.get("title", "")
             results.append(r)
             time.sleep(2)
-
         return results
 
 
-# 一键接口
-def analyze_video(url: str) -> dict:
+def analyze_video(url):
     return DoubaoDriver().analyze_video(url)
 
-def analyze_profile(url: str, max_n: int = 5) -> list[dict]:
+def analyze_profile(url, max_n=5):
     return DoubaoDriver().analyze_profile(url, max_n)
