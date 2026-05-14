@@ -100,26 +100,43 @@ class DoubaoDriver:
         return result
 
     def _parse_response(self, raw: str) -> dict:
-        """解析豆包回复为结构化字段"""
-        result = {
-            "core_point": "",
-            "full_text": "",
-            "quotes": "",
-            "music": "",
-            "structure": "",
-        }
-        sections = re.split(r'[一二三四五]、', raw)
+        """从豆包回复中提取结构化内容"""
+        # 找到 AI 回复正文（在用户消息和"快速"/"超能模式"之间的内容）
+        # 移除开头 UI 噪音
+        body = raw
+        # 找第一个分析标记
+        for marker in ['一、核心观点', '1. 核心观点', '核心观点', '核心']:
+            pos = body.find(marker)
+            if pos > 0:
+                body = body[pos:]
+                break
+
+        # 截取到"快速"或"参考"前
+        for end_marker in ['\n快速', '\n超能模式', '\n参考', '需要我帮你']:
+            pos = body.find(end_marker)
+            if pos > 0:
+                body = body[:pos]
+                break
+
+        result = {"core_point": "", "full_text": "", "quotes": "", "music": "", "structure": ""}
+        sections = re.split(r'[一二三四五四五]、', body)
         for s in sections:
-            if '核心' in s or '观点' in s:
-                result["core_point"] = s.strip()
-            elif '文案' in s or '字幕' in s:
-                result["full_text"] = s.strip()
-            elif '金句' in s:
-                result["quotes"] = s.strip()
-            elif '音乐' in s or 'BGM' in s or '配乐' in s:
-                result["music"] = s.strip()
-            elif '结构' in s:
-                result["structure"] = s.strip()
+            s = s.strip()
+            if any(kw in s for kw in ['核心观点', '核心']):
+                result["core_point"] = s
+            elif any(kw in s for kw in ['完整文案', '字幕']):
+                result["full_text"] = s
+            elif any(kw in s for kw in ['金句']):
+                result["quotes"] = s
+            elif any(kw in s for kw in ['音乐', 'BGM', '配乐']):
+                result["music"] = s
+            elif any(kw in s for kw in ['结构']):
+                result["structure"] = s
+
+        # 如果都没有提取到，把整个 body 作为 core_point
+        if not any(result.values()):
+            result["core_point"] = body[:500]
+
         return result
 
     # ============ 对外接口 ============
