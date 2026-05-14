@@ -22,8 +22,24 @@ echo "[2/4] 安装 CloakBrowser..."
 pip install cloakbrowser 2>&1 | tail -1
 python3 -c "import cloakbrowser; print('  ✅ CloakBrowser v'+str(getattr(cloakbrowser,'__version__','?')))" 2>&1
 
-# 3. 验证
-echo "[3/4] 验证..."
+# 3. Peekaboo token 优化配置
+echo "[3/4] Peekaboo token 优化..."
+mkdir -p ~/.peekaboo
+if [ ! -f ~/.peekaboo/config.json ]; then
+  cat > ~/.peekaboo/config.json << 'CONF'
+{
+  // Peekaboo 配置 — token 优化版
+  "log": { "level": "error" },        // 只输出错误
+  "output": { "format": "json" }       // JSON 输出节省 token
+}
+CONF
+  echo "  ✅ 已创建 token 优化配置"
+else
+  echo "  ⏭ 配置已存在，跳过"
+fi
+
+# 4. 验证
+echo "[4/4] 验证..."
 peekaboo --version 2>&1
 echo "  ✅ 升级完成"
 

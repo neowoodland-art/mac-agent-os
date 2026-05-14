@@ -10,7 +10,10 @@
     },
     "peekaboo": {
       "command": "npx",
-      "args": ["-y", "@steipete/peekaboo", "mcp"]
+      "args": ["-y", "@steipete/peekaboo", "mcp", "--json", "--log-level", "error"],
+      "env": {
+        "PEEKABOO_LOG_LEVEL": "error"
+      }
     }
   }
 }

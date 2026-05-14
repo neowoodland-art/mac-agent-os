@@ -25,16 +25,30 @@ npm install -g @steipete/peekaboo       # npm（推荐）
 peekaboo permissions status
 ```
 
-## MCP 配置
+## MCP 配置（token 优化版）
 
-已在 `01_core/mcp.json` 注册。
+已在 `01_core/mcp.json` 注册，带 token 节省参数：
+```json
+"peekaboo": {
+  "command": "npx",
+  "args": ["-y", "@steipete/peekaboo", "mcp", "--json", "--log-level", "error"]
+}
+```
+
+- `--json`：输出机器可读 JSON，比默认文本小 60-80%
+- `--log-level error`：只输出错误，不输出 info/warning 日志
 
 ## 常用命令
 
 ```bash
-peekaboo image                    # 截图
-peekaboo list apps                # 列出应用
+peekaboo image                    # 截图（自动保存）
+peekaboo list apps --json         # JSON 格式输出（节省 token）
 peekaboo click "按钮"             # 视觉点击
 peekaboo type "文字"              # 输入
-peekaboo "打开抖音并搜索毛选"      # 自然语言
 ```
+
+## Token 节省技巧
+
+- 命令后加 `--json`：输出量减少 60-80%
+- 截图时指定区域：`peekaboo image --area`，避免全屏大图
+- 不需要时关闭 MCP：`peekaboo daemon stop`
