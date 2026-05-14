@@ -6,6 +6,7 @@
 - [tool] Peekaboo v3 桌面 GUI 自动化——屏幕视觉识别+鼠标键盘操作 → 02_skills/peekaboo_controller/ (KB-20260514-001)
 - [tool] CloakBrowser 源码级反爬浏览器——30/30反爬检测通过 → 02_skills/cloakbrowser_controller/ (KB-20260514-002)
 - [system] Peekaboo 使用策略层：截图冷却5s/上限20次/缓存30s → 02_skills/peekaboo_controller/policy.py
+- [method] AI提示词驱动文生视频——AICG造梦局10条视频知识提取 → 20_methods/ (KB-20260514-KB)
 - [system] 升级文档：Peekaboo + CloakBrowser 集成说明 → 99_system/upgrade_notes/
 
 ### 变更

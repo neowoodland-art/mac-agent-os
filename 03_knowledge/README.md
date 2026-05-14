@@ -21,13 +21,13 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | [[00_inbox]] | 📥 收件箱（待提纯） | 8 | 2026-05-03 |
 | [[01_submissions]] | 📤 提交箱（待归集） | 3 | 2026-05-03 |
 | [[10_concepts]] | 💡 概念层 | 6 | 2026-05-13 |
-| [[20_methods]] | 🔧 方法层 | 3 | 2026-05-01 |
+| [[20_methods]] | 🔧 方法层 | 4 | 2026-05-14 |
 | [[30_facts]] | 📋 事实层 | 0 | — |
 | [[40_references]] | 📎 参考层 | 3 | 2026-05-14 |
 | [[50_resources]] | 🛠 资源层 | 0 | — |
 | [[60_opinions]] | 💭 观点层 | 0 | — |
 | [[90_archive]] | 🗄 归档层 | 1 | 2026-05-03 |
-| **总计** | | **16** | **2026-05-14** |
+| **总计** | | **17** | **2026-05-14** |
 
 ---
 
@@ -51,6 +51,7 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | 1 | [[20_methods/Redmi-12C_20260501_agentos_upgrade\|agentos 升级流程]] | 统一模块升级标准流程 |
 | 2 | [[20_methods/Redmi-12C_20260501_auth_manager\|auth_manager 认证模块]] | 多账号登录管理 |
 | 3 | [[20_methods/Redmi-12C_20260501_camoufox_fix\|Camoufox 反检测修复]] | 浏览器指纹伪装修复记录 |
+| 4 | [[20_methods/ai-prompt-video-knowledge\|AI提示词驱动文生视频知识合集]] | AICG造梦局10条视频批量提取 |
 
 ### 📥 待处理箱
 
