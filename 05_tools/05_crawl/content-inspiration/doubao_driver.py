@@ -1,13 +1,10 @@
 """
-豆包浏览器驱动 v4 —— OpenCLI 浏览器控制
+豆包浏览器驱动 v5 —— 连续会话 + 稳定提取
 
-流程（全自动）：
-  1. OpenCLI 打开抖音视频页
-  2. 提取页面完整文字（标题+描述+章节字幕）
-  3. 构造分享文案 → 发给豆包
-  4. 提取结构化分析结果
-
-无需点击分享按钮，无需人工复制链接。
+改进：
+  1. 连续对话：整个 session 只开一次豆包，所有视频在同一个对话中分析
+  2. 稳定提取：直接用 prompt 中的【】标记做切分，不依赖数字序号
+  3. 会话分离：抖音页面和豆包页面用不同的 session，不互相干扰
 """
 
 import re, json, time, os, subprocess
@@ -16,18 +13,27 @@ from pathlib import Path
 OUTPUT_DIR = Path(__file__).parent / "scripts_output"
 OPENCLI = os.path.expanduser("~/.workbuddy/binaries/node/versions/22.12.0/bin/opencli")
 
-ANALYSIS_PROMPT = """帮我总结这个视频的内容，包括以下5点：
-1. 核心观点：视频的核心思想是什么？
-2. 完整文案：视频里的每一句话/文案
-3. 金句摘录：值得记录的句子
-4. 背景音乐：用了什么风格的音乐
-5. 内容结构：视频怎么组织的（开头/主体/结尾）
+ANALYSIS_PROMPT = """请从这段视频内容中提取所有知识性内容，按以下格式完整记录，不要概括，不要总结：
 
-请按序号清晰输出。"""
+【完整字幕】
+逐句记录视频中的每一句话，一字不差
+
+【提示词/指令原文】
+如果视频中出现了AI提示词、模板、指令，请完整抄录，一字不改
+
+【操作步骤】
+视频中演示的具体操作流程，分步骤详细记录
+
+【关键参数】
+视频中提到的工具名称、参数设置、具体数字等
+
+【核心技巧】
+视频中传授的具体方法、技巧、经验
+
+记住：只提取不总结，不要分析结构，不要分析背景音乐。"""
 
 
 def _oc(args: list, timeout: int = 30) -> str:
-    """执行 OpenCLI 命令"""
     env = {**os.environ, "NODE_OPTIONS": ""}
     for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
         env.pop(k, None)
@@ -38,168 +44,145 @@ def _oc(args: list, timeout: int = 30) -> str:
         return ""
 
 
+def _send_and_wait(text: str, wait_time: int = 25) -> str:
+    """向当前 session 的输入框发送文字并等待回复"""
+    _oc(["browser", "doubao", "type", "--nth", "0", "textarea", text], timeout=15)
+    time.sleep(1)
+    _oc(["browser", "doubao", "eval",
+         "document.querySelector('textarea').dispatchEvent("
+         "new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,bubbles:true}))"],
+        timeout=5)
+    time.sleep(wait_time)
+    return _oc(["browser", "doubao", "eval", "document.body.innerText"], timeout=10)
+
+
+def _parse_sections(raw: str) -> dict:
+    """从豆包回复中按【】标记提取各段落"""
+    sections = {}
+    # 定义要提取的标记
+    markers = [
+        "完整字幕", "提示词/指令原文", "提示词", "指令原文",
+        "操作步骤", "关键参数", "核心技巧"
+    ]
+    for marker in markers:
+        # 找 【xxx】 或 'xxx：' 或 'xxx:'
+        patterns = [
+            rf'【{re.escape(marker)}】\s*([\s\S]*?)(?=【|\Z)',
+            rf'{re.escape(marker)}[：:]\s*([\s\S]*?)(?=【|\d[.、]|\Z)',
+        ]
+        for pat in patterns:
+            m = re.search(pat, raw)
+            if m:
+                content = m.group(1).strip()
+                # 清理 prompt 本身的说明文字
+                content = re.sub(r'逐句记录.*|如果视频中.*|视频中演示.*|视频中提到.*|记住：.*', '', content)
+                sections[marker] = content.strip()
+                break
+    return sections
+
+
 class DoubaoDriver:
-    """豆包分析驱动（OpenCLI 版）"""
+    """豆包分析驱动 v5"""
 
     def __init__(self):
-        self.session = "doubao"
+        self.session_started = False
 
-    # ============ 1. 提取视频页文字 ============
-
-    def _extract_video_page(self, url: str) -> str:
-        """打开视频页，提取所有可见文字"""
-        # 绑定 session
-        _oc(["browser", self.session, "bind"], timeout=5)
+    def start_session(self):
+        """启动豆包会话（只需一次）"""
+        _oc(["browser", "doubao", "bind"], timeout=5)
         time.sleep(1)
-        # 打开视频
-        _oc(["browser", self.session, "open", url], timeout=15)
-        time.sleep(6)
-        # 提取文字
-        text = _oc(["browser", self.session, "eval", "document.body.innerText"], timeout=10)
-        # 清理 JSON 包装
-        text = re.sub(r'^\{[^}]*"result"[^}]*"|^"[}]$', '', text)
-        return text.strip()
+        _oc(["browser", "doubao", "open", "https://www.doubao.com/chat"], timeout=15)
+        time.sleep(5)
+        self.session_started = True
+        print("  ✅ 豆包会话已启动")
 
-    def _build_share_text(self, url: str, page_text: str) -> str:
-        """从页面文字构造分享文案"""
-        # 清理无用行
-        lines = page_text.split('\n')
-        useful = [l for l in lines if len(l.strip()) > 3 and not any(
-            kw in l for kw in ['开启读屏', '读屏标签', '精选', '推荐', '搜索',
-                               '关注', '朋友', '我的', '直播', '放映厅',
-                               '壁纸', '通知', '私信', '投稿', '登录',
-                               '倍速', '智能', '清屏', '连播',
-                               '展开', '条回复', '评论'])]
-        context = '\n'.join(useful[:50])  # 取前50行有用内容
-        return f"【抖音视频】\n{context}\n\n视频链接：{url}"
-
-    # ============ 2. 豆包分析 ============
-
-    def _send_to_doubao(self, text: str) -> str:
-        """发送文字到豆包并提取回复"""
-        # 打开豆包
-        _oc(["browser", self.session, "open", "https://www.doubao.com/chat"], timeout=15)
-        time.sleep(4)
-
-        # 输入内容
-        msg = f"{text}\n\n{ANALYSIS_PROMPT}"
-        _oc(["browser", self.session, "type", "--nth", "0", "textarea", msg], timeout=15)
-        time.sleep(1)
-
-        # JS 触发发送
-        _oc(["browser", self.session, "eval",
-             "document.querySelector('textarea').dispatchEvent("
-             "new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,bubbles:true}))"],
-            timeout=5)
-
-        # 等回复
-        time.sleep(25)
-
-        # 提取
-        result = _oc(["browser", self.session, "eval", "document.body.innerText"], timeout=10)
-        return result
-
-    def _parse_response(self, raw: str) -> dict:
-        """从豆包回复中提取结构化内容"""
-        # 找到 AI 回复正文（在用户消息和"快速"/"超能模式"之间的内容）
-        # 移除开头 UI 噪音
-        body = raw
-        # 找第一个分析标记
-        for marker in ['一、核心观点', '1. 核心观点', '核心观点', '核心']:
-            pos = body.find(marker)
-            if pos > 0:
-                body = body[pos:]
-                break
-
-        # 截取到"快速"或"参考"前
-        for end_marker in ['\n快速', '\n超能模式', '\n参考', '需要我帮你']:
-            pos = body.find(end_marker)
-            if pos > 0:
-                body = body[:pos]
-                break
-
-        result = {"core_point": "", "full_text": "", "quotes": "", "music": "", "structure": ""}
-        sections = re.split(r'[一二三四五四五]、', body)
-        for s in sections:
-            s = s.strip()
-            if any(kw in s for kw in ['核心观点', '核心']):
-                result["core_point"] = s
-            elif any(kw in s for kw in ['完整文案', '字幕']):
-                result["full_text"] = s
-            elif any(kw in s for kw in ['金句']):
-                result["quotes"] = s
-            elif any(kw in s for kw in ['音乐', 'BGM', '配乐']):
-                result["music"] = s
-            elif any(kw in s for kw in ['结构']):
-                result["structure"] = s
-
-        # 如果都没有提取到，把整个 body 作为 core_point
-        if not any(result.values()):
-            result["core_point"] = body[:500]
-
-        return result
-
-    # ============ 对外接口 ============
+    def end_session(self):
+        """结束会话"""
+        self.session_started = False
 
     def analyze_video(self, url: str) -> dict:
-        """分析单个视频，返回结构化结果"""
+        """分析单个视频"""
         t0 = time.time()
         try:
-            print(f"  📄 提取视频页文字...")
-            page_text = self._extract_video_page(url)
+            # 1. 抖音 session 提取视频文字
+            _oc(["browser", "douyin", "bind"], timeout=5)
+            time.sleep(1)
+            _oc(["browser", "douyin", "open", url], timeout=15)
+            time.sleep(6)
+            page_text = _oc(["browser", "douyin", "eval", "document.body.innerText"], timeout=10)
+            page_text = re.sub(r'^\{[^}]*"result"[^}]*"|^"[}]$', '', page_text).strip()
+            
             if not page_text or len(page_text) < 50:
                 return {"success": False, "error": "无法提取视频页内容", "url": url}
 
-            share = self._build_share_text(url, page_text)
-            print(f"  ✅ 已提取 {len(share)} 字，发送给豆包...")
+            # 清理噪音
+            lines = page_text.split('\n')
+            useful = []
+            skip_kw = ['开启读屏', '读屏标签', '精选', '推荐', '搜索',
+                      '关注', '朋友', '我的', '直播', '放映厅', '壁纸',
+                      '通知', '私信', '投稿', '登录', '倍速', '智能',
+                      '清屏', '连播', '点击加载更多', '展开', '条回复',
+                      '评论', '广告投放', '用户服务']
+            for l in lines:
+                t = l.strip()
+                if len(t) > 5 and not any(kw in t for kw in skip_kw):
+                    useful.append(t)
+            context = '\n'.join(useful[:30])
+            msg = f"视频 {url}\n\n视频内容：\n{context}\n\n{ANALYSIS_PROMPT}"
 
-            raw = self._send_to_doubao(share)
-            parsed = self._parse_response(raw)
+            # 2. 切回豆包 session 发送
+            _oc(["browser", "doubao", "bind"], timeout=5)
+            time.sleep(1)
+            
+            raw = _send_and_wait(msg)
+            sections = _parse_sections(raw)
 
             elapsed = round(time.time() - t0, 1)
             return {
                 "success": True,
                 "url": url,
                 "elapsed": elapsed,
-                "raw_response": raw[-2000:],
-                **parsed,
+                "raw_response": raw,
+                "sections": sections,
             }
         except Exception as e:
             return {"success": False, "error": str(e), "url": url}
 
     def analyze_profile(self, profile_url: str, max_videos: int = 5) -> list[dict]:
-        """分析主播主页的全部视频"""
-        print(f"  🔍 获取主播视频列表...")
-        uid = profile_url.strip("/").split("/")[-1]
+        """分析主播主页的全部视频（连续会话）"""
+        # 获取视频列表
+        _oc(["browser", "profile", "bind"], timeout=5)
+        _oc(["browser", "profile", "open", profile_url], timeout=15)
+        time.sleep(8)
+        _oc(["browser", "profile", "scroll", "down"])
+        time.sleep(3)
+        _oc(["browser", "profile", "scroll", "down"])
+        time.sleep(3)
+        
+        links_raw = _oc(["browser", "profile", "eval",
+            "JSON.stringify(Array.from(document.querySelectorAll('a[href*=\"/video/\"]'))"
+            ".slice(0," + str(max_videos) + ").map(a => ({url: a.href, title: (a.textContent||'').trim().slice(0,40)})))"
+        ], timeout=10)
         try:
-            r = _oc(["browser", self.session, "open", profile_url], timeout=15)
-            time.sleep(5)
-            text = _oc(["browser", self.session, "eval", "document.body.innerText"], timeout=10)
-            print(f"  📄 页面文字 {len(text)} 字")
-        except:
-            pass
-
-        # 通过 OpenCLI 获取视频列表
-        try:
-            r = _oc(["douyin", "user-videos", uid, "-f", "json", "--limit", str(max_videos)], timeout=30)
-            data = json.loads(r) if r else {}
-            items = data if isinstance(data, list) else data.get("data", [data])
-            videos = [{"url": v.get("url", ""), "title": v.get("title", "")} for v in items[:max_videos] if v.get("url")]
+            videos = json.loads(links_raw)
         except:
             videos = []
 
         if not videos:
             return [{"success": False, "error": "无法获取视频列表", "url": profile_url}]
 
-        print(f"  ✅ 获取到 {len(videos)} 个视频")
+        # 启动豆包会话
+        self.start_session()
+        print(f"  ✅ 获取到 {len(videos)} 个视频，开始分析（同一对话）")
+
         results = []
         for i, v in enumerate(videos):
-            print(f"  [{i+1}/{len(videos)}] {v['title'][:30]}...")
+            print(f"\n  [{i+1}/{len(videos)}] {v.get('title','')[:30]}...")
             r = self.analyze_video(v["url"])
             r["title"] = v.get("title", "")
             results.append(r)
-            if i < len(videos) - 1:
-                time.sleep(3)
+            time.sleep(2)
+
         return results
 
 
