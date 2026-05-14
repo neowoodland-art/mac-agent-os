@@ -1,7 +1,7 @@
 ---
 name: web_crawler
-version: 1.1.0
-description: 网页抓取+反爬技能——Scrapling 三引擎自适应抓取、Crawl4AI 智能过滤、Playwright 反检测
+version: 1.2.0
+description: 网页抓取+反爬技能——Scrapling 三引擎自适应抓取、Crawl4AI 智能过滤、CloakBrowser 反检测
 triggers:
   - 抓取
   - 爬取
@@ -24,7 +24,11 @@ triggers:
 |----------|------|------|
 | 低（静态页面） | Scrapling 静态模式 | 最快，无需浏览器 |
 | 中（动态渲染） | Scrapling 动态模式 | Camoufox 隐身浏览器 |
-| 高（Cloudflare 等） | Playwright + Stealth | 完整浏览器模拟+反检测 |
+| 高（Cloudflare 等） | **CloakBrowser** | 源码级反爬，30/30检测通过（2026-05 新增） |
+
+> **2026-05-14 更新**：Playwright + Stealth 已替换为 CloakBrowser。
+> CloakBrowser 是源码级修改的 Chromium，49项 C++ 补丁修改指纹，
+> 通过率远高于 JS 注入方案。安装：`pip install cloakbrowser`
 
 ## 执行流程
 

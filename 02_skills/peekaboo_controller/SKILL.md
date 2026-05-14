@@ -21,26 +21,20 @@ macOS 桌面 GUI 自动化。像素级视觉识别操控屏幕，不依赖 DOM/�
 
 ```bash
 npm install -g @steipete/peekaboo       # npm（推荐）
-# 验证权限（必须 Granted）
+# 验证权限
 peekaboo permissions status
 ```
 
-## MCP 配置（已注册 01_core/mcp.json）
+## MCP 配置
 
-```json
-"peekaboo": {
-  "command": "npx",
-  "args": ["-y", "@steipete/peekaboo", "mcp"]
-}
-```
+已在 `01_core/mcp.json` 注册。
 
 ## 常用命令
 
 ```bash
-peekaboo image                    # 截图（最前窗口）
+peekaboo image                    # 截图
 peekaboo list apps                # 列出应用
-peekaboo click "按钮文字"          # 视觉点击
-peekaboo type "输入文字"           # 输入
-peekaboo scroll                   # 滚动
-peekaboo "自然语言指令"            # 综合调度
+peekaboo click "按钮"             # 视觉点击
+peekaboo type "文字"              # 输入
+peekaboo "打开抖音并搜索毛选"      # 自然语言
 ```

@@ -1,0 +1,74 @@
+---
+name: cloakbrowser_controller
+version: 1.0.0
+description: CloakBrowser 源码级反爬浏览器——替代 agent-browser/Playwright，30/30反爬检测通过
+triggers:
+  - 爬虫
+  - 反爬
+  - 浏览器自动化
+  - 采集
+  - 抓取
+  - 绕过验证码
+  - cloakbrowser
+---
+
+# CloakBrowser Controller Skill
+
+## 概述
+
+源码级修改的 Chromium 分发版，49项 C++ 补丁修改指纹，30/30反爬检测全部通过。
+**只替换浏览器操作层，不涉及 Matrix 养号的 Camoufox（已深度适配）。**
+
+## 安装
+
+```bash
+pip install cloakbrowser
+# 首次运行自动下载 ~200MB Chromium 二进制
+# 后续自动更新
+```
+
+## API 用法（与 Playwright 完全兼容）
+
+```python
+# 旧：Playwright（易被检测）
+# from playwright.sync_api import sync_playwright
+
+# 新：CloakBrowser（30/30通过）
+from cloakbrowser import launch
+
+browser = launch(humanize=True)   # humanize 启用人类行为模拟
+page = browser.new_page()
+page.goto("https://protected-site.com")
+# ... 标准的 Playwright API
+browser.close()
+```
+
+## 在系统中的应用
+
+### 1. web_crawler 高级引擎
+
+替换 Playwright stealth 引擎：
+
+```python
+# web_crawler 引擎选择
+反爬级别 → 引擎
+低（静态）→ Scrapling（最快）
+高（Cloudflare等）→ CloakBrowser（新增，默认）
+```
+
+### 2. content-inspiration 采集引擎
+
+替换 agent-browser 进行抖音/网页内容采集：
+
+```python
+# collect.py 采集引擎
+platform == "douyin" 且需要浏览器 → CloakBrowser（优先）
+platform == "douyin" 且 CloakBrowser 失败 → 回退 OpenCLI
+```
+
+## 注意事项
+
+- **Matrix 养号的 Camoufox 不动** — 账号适配已完成，换内核需重写
+- CloakBrowser 首次启动会下载 ~200MB 二进制，需等待
+- 建议与 Scrapling 配合使用：静态页走 Scrapling，高反爬走 CloakBrowser
+- 与 Peekaboo 无冲突：CloakBrowser 做浏览器操作，Peekaboo 做桌面GUI/OCR
