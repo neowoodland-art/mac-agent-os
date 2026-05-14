@@ -20,7 +20,13 @@ peekaboo permissions status 2>&1 | grep -q "Granted" && echo "  ✅ 权限已开
 # 2. 安装 CloakBrowser
 echo "[2/4] 安装 CloakBrowser..."
 pip install cloakbrowser 2>&1 | tail -1
-python3 -c "import cloakbrowser; print('  ✅ CloakBrowser v'+str(getattr(cloakbrowser,'__version__','?')))" 2>&1
+echo "  ⏳ 首次启动自动下载 ~350MB Chromium..."
+/Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/python3 -c "
+from cloakbrowser import launch
+b = launch(humanize=True)
+print(f'  ✅ CloakBrowser 就绪 (Chromium: {b.version})')
+b.close()
+" 2>&1
 
 # 3. Peekaboo token 优化配置
 echo "[3/4] Peekaboo token 优化..."

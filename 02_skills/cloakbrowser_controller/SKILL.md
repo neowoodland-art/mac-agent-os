@@ -22,9 +22,22 @@ triggers:
 ## 安装
 
 ```bash
-pip install cloakbrowser
-# 首次运行自动下载 ~200MB Chromium 二进制
-# 后续自动更新
+# agent-os venv（本机）
+/Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/python3 -m pip install cloakbrowser
+
+# 首次运行自动下载 ~350MB Chromium 二进制到 ~/.cloakbrowser/
+# 二进制位置: ~/.cloakbrowser/chromium-145.0.7632.109.2/Chromium.app
+```
+
+## 验证
+
+```python
+from cloakbrowser import launch
+b = launch(humanize=True)
+page = b.new_page()
+page.goto("https://www.baidu.com")
+print(page.title())  # → "百度一下，你就知道"
+b.close()
 ```
 
 ## API 用法（与 Playwright 完全兼容）
