@@ -50,5 +50,29 @@ peekaboo type "文字"              # 输入
 ## Token 节省技巧
 
 - 命令后加 `--json`：输出量减少 60-80%
-- 截图时指定区域：`peekaboo image --area`，避免全屏大图
+- 截图时指定区域或窗口，避免全屏大图
 - 不需要时关闭 MCP：`peekaboo daemon stop`
+
+## 使用策略（防滥用）
+
+内置 `policy.py` 策略层，自动控制截图频率和用量：
+
+| 规则 | 值 | 说明 |
+|------|----|------|
+| 截图冷却 | 5 秒 | 两次截图之间至少间隔 5 秒 |
+| 单会话上限 | 20 次 | 一次对话最多截 20 张 |
+| 缓存有效期 | 30 秒 | 同一应用 30 秒内复用缓存 |
+| 优先级顺序 | DOM → API → 文本 → **截图最后** | 截图是最后手段 |
+
+```python
+# 使用策略层（推荐）
+from policy import screenshot, reset, status
+
+path = screenshot("抖音")          # 带冷却/上限检查
+path = screenshot("抖音", force=True)  # 跳过检查（手动确认时用）
+reset()                              # 新对话前重置
+print(status())                      # 查看用量
+```
+
+> **原则**：能用 DOM 不用截图，能用 API 不用浏览器。
+> Peekaboo 是做**兜底**的，不是主路径。
