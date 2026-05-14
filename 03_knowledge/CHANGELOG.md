@@ -1,11 +1,25 @@
 # 知识库变更日志
 
-## 2026-05-13
+## 2026-05-14
 
 ### 新增
-- [concept] 家族传承与托举——能力优先还是公平优先 → 10_concepts/ (KB-20260513-001)
+- [tool] Peekaboo v3 桌面 GUI 自动化——屏幕视觉识别+鼠标键盘操作 → 02_skills/peekaboo_controller/ (KB-20260514-001)
+- [tool] CloakBrowser 源码级反爬浏览器——30/30反爬检测通过 → 02_skills/cloakbrowser_controller/ (KB-20260514-002)
+- [system] Peekaboo 使用策略层：截图冷却5s/上限20次/缓存30s → 02_skills/peekaboo_controller/policy.py
+- [system] 升级文档：Peekaboo + CloakBrowser 集成说明 → 99_system/upgrade_notes/
 
-## 2026-05-10
+### 变更
+- web_crawler 引擎升级 v1.2.0：Playwright + Stealth → CloakBrowser（高反爬引擎）
+- MCP 配置新增 Peekaboo 服务（带 --json --log-level error token优化）
+- 本机安装验证：Peekaboo v3.1.2 + CloakBrowser v0.3.28
+
+### 保留不动
+- Matrix 养号（Camoufox）— 已深度适配，不更换内核
+- OpenCLI — 不变
+- Scrapling/Crawl4AI — 不变
+- httpx — 不变
+
+## 2026-05-13
 
 ### 新增
 - [system] Matrix 养号系统 SMS 验证码自动接收 → 40_references/ (KB-20260510-001)

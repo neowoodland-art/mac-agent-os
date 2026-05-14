@@ -3,7 +3,7 @@ id: KB-HOME
 title: "AgentOS 知识库"
 type: homepage
 date_created: 2026-04-25
-date_modified: 2026-05-03
+date_modified: "2026-05-14"
 description: "AgentOS 智能体操作系统知识库首页——中文映射 + 目录导览 + 工具链总览"
 ---
 
@@ -23,11 +23,11 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | [[10_concepts]] | 💡 概念层 | 6 | 2026-05-13 |
 | [[20_methods]] | 🔧 方法层 | 3 | 2026-05-01 |
 | [[30_facts]] | 📋 事实层 | 0 | — |
-| [[40_references]] | 📎 参考层 | 1 | 2026-05-10 |
+| [[40_references]] | 📎 参考层 | 3 | 2026-05-14 |
 | [[50_resources]] | 🛠 资源层 | 0 | — |
 | [[60_opinions]] | 💭 观点层 | 0 | — |
 | [[90_archive]] | 🗄 归档层 | 1 | 2026-05-03 |
-| **总计** | | **14** | **2026-05-03** |
+| **总计** | | **16** | **2026-05-14** |
 
 ---
 
@@ -64,6 +64,8 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | # | 条目 | 说明 |
 |---|------|------|
 | 1 | [[40_references/matrix-sms-verification\|SMS 验证码自动接收]] | Matrix 养号系统短信验证码自动获取模块 |
+| 2 | [[40_references/peekaboo-v3-integration\|Peekaboo v3 桌面GUI自动化]] | macOS 屏幕视觉识别+鼠标键盘操作 |
+| 3 | [[40_references/cloakbrowser-integration\|CloakBrowser 反爬浏览器]] | 源码级 Chromium，30/30反爬检测通过 |
 
 ### 🗄 归档（90_archive/）
 
