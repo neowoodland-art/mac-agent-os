@@ -213,6 +213,8 @@ def _search_api(
             params=params,
             headers={"Authorization": api_key},
             timeout=15,
+            # 绕过系统代理（SOCKS5 可能导致 SSL 连接失败）
+            trust_env=False,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -275,7 +277,7 @@ def _download(url: str, api_key: str, query: str) -> Optional[str]:
         return local_path
 
     try:
-        resp = httpx.get(url, headers={"Authorization": api_key}, timeout=60, follow_redirects=True)
+        resp = httpx.get(url, headers={"Authorization": api_key}, timeout=60, follow_redirects=True, trust_env=False)
         resp.raise_for_status()
         with open(local_path, "wb") as f:
             f.write(resp.content)

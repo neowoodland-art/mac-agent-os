@@ -76,6 +76,14 @@ class MaterialConfig(BaseModel):
     fallback: bool = True
 
 
+class CharacterRef(BaseModel):
+    """角色引用（定妆照锁定）"""
+    name: str = Field(description="角色名")
+    description: str = Field(description="角色描述块（跨场景一致性注入）")
+    grid_path: Optional[str] = Field(default="", description="定妆照网格图路径")
+    lip_sync: bool = Field(default=False, description="是否对角色视频做 LipSync")
+
+
 class AvatarConfig(BaseModel):
     image_url: Optional[str] = None
     provider: str = "wan2.2_s2v"
@@ -92,6 +100,7 @@ class Segment(BaseModel):
     avatar: Optional[dict] = None
     material: MaterialConfig = MaterialConfig()
     subtitles: bool = True
+    character_ref: Optional[str] = Field(default=None, description="引用角色名（对应 meta.character_refs）")
 
 
 class VoiceMeta(BaseModel):
@@ -108,6 +117,7 @@ class Meta(BaseModel):
     output: OutputMeta = OutputMeta()
     avatar: Optional[AvatarConfig] = None
     material: dict = {"fallback": True}
+    character_refs: list[CharacterRef] = Field(default=[], description="角色引用列表（定妆照一致性）")
 
 
 class DirectorScript(BaseModel):

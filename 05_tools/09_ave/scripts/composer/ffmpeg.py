@@ -203,6 +203,68 @@ def duck_bgm(
     return output_path
 
 
+def _apply_ken_burns(input_path: str, output_path: str, resolution: str = DEFAULT_RESOLUTION) -> str:
+    """
+    对视频素材施加随机 Ken Burns 效果（缩放+平移），让画面动起来。
+
+    策略：先获取原始尺寸，判断横竖屏，选择合适的缩放+裁切方案。
+    竖屏素材(720x1280等)：放大后以宽度为基准裁切到1080。
+    """
+    import random
+    duration = _get_media_duration(input_path)
+    if duration < 1.0:
+        duration = 5.0
+
+    target_w, target_h = [int(x) for x in resolution.split("x")]
+
+    # 获取原视频尺寸
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0",
+         "-show_entries", "stream=width,height",
+         "-of", "csv=p=0", input_path],
+        capture_output=True, text=True, timeout=10
+    )
+    parts = probe.stdout.strip().split(",")
+    src_w, src_h = int(parts[0]), int(parts[1]) if len(parts) >= 2 else (target_w, target_h)
+
+    # 判断方向
+    is_portrait = src_h > src_w  # 竖屏
+
+    if is_portrait and src_w >= target_w:
+        # 竖屏且宽度够 → 只用缩放覆盖高度，平移只在竖直方向
+        zoom = random.uniform(1.10, 1.25)
+        d = f"max(t,0.001)/{max(duration,1)}"
+        trajectory = random.choice(["center_zoom", "pan_up", "pan_down"])
+        if trajectory == "center_zoom":
+            x, y = f"(iw-{target_w})/2", f"(ih-{target_h})/2"
+        elif trajectory == "pan_up":
+            x, y = f"(iw-{target_w})/2", f"(ih-{target_h})*(1-{d})"
+        else:  # pan_down
+            x, y = f"(iw-{target_w})/2", f"(ih-{target_h})*{d}"
+        kb_type = trajectory
+    else:
+        # 横屏或小尺寸 → 仅缩放填充，不做平移（避免负值）
+        zoom = max(target_w / max(src_w, 1), target_h / max(src_h, 1)) * 1.05
+        x, y = f"(iw-{target_w})/2", f"(ih-{target_h})/2"
+        kb_type = "center"
+
+    filter_str = (
+        f"scale=iw*{zoom}:ih*{zoom}:flags=lanczos,"
+        f"crop={target_w}:{target_h}:{x}:{y},"
+        f"setsar=1,fps=30"
+    )
+
+    cmd = [
+        "ffmpeg", "-y", "-i", input_path,
+        "-vf", filter_str,
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "25",
+        "-an", output_path,
+    ]
+    subprocess.run(cmd, capture_output=True, timeout=300, check=True)
+    logger.debug(f"Ken Burns [{kb_type} @ {zoom:.2f}x] → {output_path}")
+    return output_path
+
+
 def compose_video(
     material_clips: list[str],
     audio_path: str,
@@ -212,6 +274,7 @@ def compose_video(
     transitions: list[str] | None = None,
     subtitles_path: str | None = None,
     total_duration: float | None = None,
+    ken_burns: bool = True,
 ) -> str:
     """
     视频合成: 素材片段 + 音频 + 字幕 → final.mp4
@@ -222,6 +285,7 @@ def compose_video(
     - transitions: 每段之间的过渡效果 (fade/cut/dissolve)，长度=clips数-1
     - subtitles_path: ASS/SRT 字幕文件路径 (可选)
     - total_duration: 视频总时长(秒)，用于裁剪素材匹配音频
+    - ken_burns: 是否对每个素材施加随机缩放/平移动效（默认开启）
 
     **素材时长自动匹配策略**:
     如果所有素材总时长 < 音频时长 → 末尾慢放/循环最后一段
@@ -232,13 +296,26 @@ def compose_video(
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"音频文件不存在: {audio_path}")
 
-    # 1. 创建素材拼接文件列表
-    concat_file = _create_concat_list(material_clips)
+    # 1. 可选择对素材施加 Ken Burns 动效（逐素材预处理）
+    final_clips = material_clips
+    if ken_burns:
+        import tempfile, shutil
+        ken_dir = tempfile.mkdtemp(prefix="ave_kenburns_")
+        processed = []
+        for idx, clip in enumerate(material_clips):
+            out = os.path.join(ken_dir, f"kb_{idx:03d}.mp4")
+            _apply_ken_burns(clip, out, resolution)
+            processed.append(out)
+        final_clips = processed
+        logger.info(f"Ken Burns 已应用于 {len(final_clips)} 个素材")
 
-    # 2. 获取音频总时长
+    # 2. 创建素材拼接文件列表
+    concat_file = _create_concat_list(final_clips)
+
+    # 3. 获取音频总时长
     audio_duration = _get_media_duration(audio_path)
 
-    # 3. 构建 FFmpeg 命令
+    # 4. 构建 FFmpeg 命令
     cmd = [
         "ffmpeg", "-y",
         "-f", "concat", "-safe", "0", "-i", concat_file,
@@ -247,15 +324,15 @@ def compose_video(
 
     filters = []
 
-    # 4. 如果素材总时长 > 音频时长，裁剪
-    materials_duration = sum(_get_media_duration(c) for c in material_clips)
+    # 5. 如果素材总时长 > 音频时长，裁剪
+    materials_duration = sum(_get_media_duration(c) for c in final_clips)
     output_duration = audio_duration
 
-    # 5. 视频流处理
-    filters.append(f"[0:v]setpts=PTS-STARTPTS,scale={resolution.replace('x',':')},fps={fps}[v]")
-    filters.append(f"[1:a]volume=1.0[a]")
+    # 6. 视频流处理（Ken Burns 已预处理，这里只做字幕叠加）
+    filters.append(f"[0:v]setpts=PTS-STARTPTS,fps={fps}[v]")
+    filters.append("[1:a]volume=1.0[a]")
 
-    # 6. 字幕叠加 (ASS 格式支持中文最好)
+    # 7. 字幕叠加
     if subtitles_path and os.path.exists(subtitles_path):
         filters.append(f"[v]subtitles={subtitles_path}[vo]")
         map_v = "[vo]"
@@ -267,14 +344,13 @@ def compose_video(
     cmd.extend(["-filter_complex", filter_complex])
     cmd.extend(["-map", map_v, "-map", "[a]"])
 
-    # 7. 时长匹配: 用 -shortest 使视频对齐音频时长
-    #    无论素材比音频长还是短，都截取到音频时长
+    # 8. 时长匹配
     logger.info(f"  素材总时长: {materials_duration:.1f}s, 音频时长: {audio_duration:.1f}s")
     if materials_duration < audio_duration:
         logger.warning(f"素材不足，尾部会黑屏补齐")
     cmd.extend(["-shortest"])
 
-    # 8. 编码参数
+    # 9. 编码参数
     cmd.extend([
         "-c:v", "libx264",
         "-preset", "medium",
@@ -295,6 +371,10 @@ def compose_video(
     except subprocess.CalledProcessError as e:
         logger.error(f"FFmpeg 执行失败: {e.stderr.decode(errors='replace')[:500]}")
         raise
+
+    # 清理临时文件
+    if ken_burns:
+        shutil.rmtree(ken_dir, ignore_errors=True)
 
     return output_path
 

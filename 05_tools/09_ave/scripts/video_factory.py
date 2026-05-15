@@ -54,6 +54,21 @@ def run_oral(script: str, output: str, clips_per_segment: int,
 
     print(f"[视频工厂] 口播策略: {script}")
 
+    # Dashboard 埋点: 创建 production 记录
+    try:
+        from lib.dashboard import init_db, log_production, log_step, complete_production
+        init_db()
+        dash_pid = log_production(
+            strategy="口播",
+            script_path=script,
+            script_name=os.path.basename(script) if script else "",
+        )
+        if dash_pid > 0:
+            from lib.cost_tracker import set_current_production_id
+            set_current_production_id(dash_pid)
+    except Exception:
+        dash_pid = -1
+
     # 1. 读取脚本
     if script.endswith((".yaml", ".yml")):
         with open(script, encoding="utf-8") as f:
@@ -78,6 +93,8 @@ def run_oral(script: str, output: str, clips_per_segment: int,
         text_all, "/tmp/ave_factory_voice.wav",
         api_key=ak, voice_id=vid,
     )
+    if dash_pid > 0:
+        log_step(dash_pid, "tts", "completed", detail=f"{len(text_all)}字")
     tracker = get_tracker()
     tracker.log("CosyVoice", chars=len(text_all), note=f"口播TTS {len(segments)}段")
 
@@ -96,6 +113,8 @@ def run_oral(script: str, output: str, clips_per_segment: int,
         tracker.log("Pexels", note=f"搜索: {keyword}")
     clip_paths = [c[0] for c in all_clips]
     print(f"  素材: {len(clip_paths)} 个")
+    if dash_pid > 0:
+        log_step(dash_pid, "search_material", "completed", detail=f"搜索到 {len(clip_paths)} 个素材")
 
     # 4. BGM + 避让 + 混音
     print("  [3/6] 混音...")
@@ -171,8 +190,44 @@ def run_oral(script: str, output: str, clips_per_segment: int,
             compose_video(clip_paths, final_audio, output,
                           resolution="1080x1920", subtitles_path=subtitles_path)
 
-    # 7. 数字人片头片尾 (可选)
-    print("  [6/6] 检查数字人片头片尾...")
+    if dash_pid > 0:
+        log_step(dash_pid, "compose", "completed", cost=0, detail=f"{audio_duration:.0f}s 视频")
+
+    # 7. LipSync 后处理 (如果脚本指定了角色且有定妆照)
+    print("  [6/7] 检查 LipSync 后处理...")
+    character_refs = script_data.get("meta", {}).get("character_refs", [])
+    lipsync_needed = False
+    for seg in segments:
+        if seg.get("character_ref") and any(
+            cr.get("lip_sync") for cr in character_refs if cr.get("name") == seg["character_ref"]
+        ):
+            lipsync_needed = True
+            break
+    if lipsync_needed:
+        print("    角色 LipSync 已启用, 尝试后处理...")
+        try:
+            cfg = load_config()
+            fal_key = cfg.get("fal", {}).get("api_key", "")
+            if fal_key:
+                from composer.lipsync import lipsync_audio_to_video
+                lipsync_result = lipsync_audio_to_video(
+                    video_path=output,
+                    audio_path=voice_path,
+                    output_path=output.replace(".mp4", "_lipsync.mp4"),
+                )
+                # 替换原视频
+                import shutil
+                shutil.move(lipsync_result, output)
+                print(f"    ✅ LipSync 完成")
+                if dash_pid > 0:
+                    log_step(dash_pid, "lipsync", "completed", detail="口型对齐")
+            else:
+                print("    ⏭️ 未配置 fal.ai API Key, 跳过 LipSync")
+        except Exception as e:
+            print(f"    ⚠️ LipSync 失败: {e} (不影响主线流程)")
+
+    # 8. 检查数字人片头片尾 (可选)
+    print("  [7/7] 检查数字人片头片尾...")
     avatar_cfg = script_data.get("meta", {}).get("avatar", {})
     opening_text = avatar_cfg.get("opening_text", "")
     closing_text = avatar_cfg.get("closing_text", "")
@@ -185,6 +240,20 @@ def run_oral(script: str, output: str, clips_per_segment: int,
 
     sz_mb = os.path.getsize(output) / 1024 / 1024
     print(f"\n✅ 口播完成: {output} ({sz_mb:.0f}MB, {audio_duration:.0f}s)")
+
+    # Dashboard: 完成 production
+    if dash_pid > 0:
+        try:
+            complete_production(
+                dash_pid, status="completed", output_path=output,
+                duration_sec=audio_duration,
+                total_cost=get_tracker()._total_cost(),
+            )
+            from lib.cost_tracker import set_current_production_id
+            set_current_production_id(0)
+        except Exception:
+            pass
+
     return output
 
 

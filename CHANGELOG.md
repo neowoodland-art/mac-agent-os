@@ -1,5 +1,26 @@
 # AgentOS 项目变更日志
 
+## [4.1.0] - 2026-05-15
+
+### 联邦式多机协同架构（V2.1）
+- **新增 `docs/DASHBOARD_DATA_LAYER_V2.md`** — 联邦式数据架构完整设计文档
+- **新增 7 大协同子系统**：
+  1. 状态机（heartbeat.json, 5-10min 周期, 15min 离线判定）
+  2. 事件总线（events/ 跨机事件日志, 10 种事件类型）
+  3. 任务协作（tasks/ 异步文件机制, pending→in_progress→completed）
+  4. 加密通讯（RSA-4096 密钥对, 公钥注册/私钥本地, encrypted/ 加密消息）
+  5. 知识双向同步（拉取总知识库更新 + 推送本地知识到 submissions/）
+  6. 自动升级（versions.json 版本清单, breaking 自动/手动双模式）
+  7. 文件直传（SSH rsync 全自动 + AirDrop 半自动备选）
+- **新增 `guardd` 守护进程**：7 模块主循环, launchd 安装, 5 分钟周期, 全规则引擎 0 token 消耗
+- **新增 `cross_machine/` 子目录**：events/ status/ tasks/ encrypted/ knowledge/
+- **README.md 升级 v4.1.0**：新增"多机联邦协作"章节 + 第四层导航
+- **新增安全边界**：私钥/API Key 固定在 agent-local/identity/secrets/, 永不进入 agent-sync/
+
+### 文档更新
+- 新增 03_knowledge/99_system/ 知识卡片：联邦式多机协同架构
+- 新增 01_core/MAINTENANCE_GUIDE.md guardd 运维章节
+
 ## [4.0.0] - 2026-05-03
 
 ### 系统文档体系重构

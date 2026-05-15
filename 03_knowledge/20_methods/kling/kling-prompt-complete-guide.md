@@ -258,6 +258,15 @@ collected_by: claw@chengzigedeAir
 | 8 | 可灵AI视频生成与提示词的描述关系 | ✅ 全结构化 |
 | 9-16 | 运镜控制、首尾帧、角色一致、音效等专题 | 📝 专题提取 |
 
+## 相关文档
+
+同一目录下的关联文档：
+
+| 文件 | 内容 | 最近更新 |
+|------|------|:--------:|
+| [角色一致性定妆照方案](./character-consistency-reference-sheet.md) | 多视角 Character Sheet、九宫格、定妆照方案全攻略 | 2026-05-15 |
+| [AI视频唇形同步方案调研](./lip-sync-solutions-comparison.md) | Kling LipSync、LatentSync、Wav2Lip 等方案对比与成本分析 | 2026-05-15 |
+
 ## 采集信息
 
 - **采集工具**: OpenCLI browser + 豆包网页版

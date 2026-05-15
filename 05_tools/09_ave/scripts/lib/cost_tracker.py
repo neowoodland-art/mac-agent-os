@@ -30,6 +30,8 @@ PRICING = {
     "CosyVoice_per_char": 0.002,
     # Pexels (免费)
     "Pexels": 0,
+    # Kling LipSync (fal.ai, $0.014/5s ≈ ¥0.10/s)
+    "KlingLipSync_per_s": 0.10,  # ¥0.10/秒 ≈ $0.014/5s
 }
 
 # ── 日志路径 ───────────────────────────────────────────────
@@ -62,6 +64,9 @@ class CostTracker:
         if service == "CosyVoice":
             unit_price = PRICING.get("CosyVoice_per_char", 0.002)
             cost = round(chars * unit_price, 4)
+        elif service == "KlingLipSync":
+            unit_price = PRICING.get("KlingLipSync_per_s", 0.10)
+            cost = round(duration * unit_price, 4) if status == "success" else 0.0
         elif service == "Pexels":
             cost = 0.0
         else:
@@ -84,6 +89,24 @@ class CostTracker:
         # 追加到日志文件
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+        # 同步写入 Dashboard DB (如果当前有 production)
+        if _current_production_id > 0:
+            try:
+                from lib.dashboard import log_cost as _dash_log_cost
+                _dash_log_cost(
+                    production_id=_current_production_id,
+                    service=service,
+                    step_name=note.split(" ")[0] if " " in note else "",
+                    duration_s=duration,
+                    resolution=resolution,
+                    chars=chars,
+                    cost_yuan=cost,
+                    status=status,
+                    note=note,
+                )
+            except ImportError:
+                pass  # dashboard 模块不可用时不报错
 
         # 实时输出
         if cost > 0:
@@ -129,6 +152,26 @@ class CostTracker:
 
     def get_session_log(self) -> list[dict]:
         return self._session_log
+
+    def _total_cost(self) -> float:
+        """当前会话累计费用"""
+        return sum(r["cost_yuan"] for r in self._session_log)
+
+
+# ── Dashboard 集成 ─────────────────────────────────────────
+# 当前 production_id, 由 video_factory / main.py 设置
+# CostTracker.log() 检测到该值 > 0 时自动写 dashboard DB
+_current_production_id: int = 0
+
+
+def set_current_production_id(pid: int):
+    """设置当前 production ID, 后续 cost log 自动关联"""
+    global _current_production_id
+    _current_production_id = pid
+
+
+def get_current_production_id() -> int:
+    return _current_production_id
 
 
 # ── 全局单例 (在 main.py 中使用) ────────────────────────────

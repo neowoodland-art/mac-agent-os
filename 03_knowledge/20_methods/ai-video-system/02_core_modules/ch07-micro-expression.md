@@ -65,6 +65,15 @@
 
 ---
 
+## 关联文档
+
+角色一致性和定妆照方案见知识库 `20_methods/kling/`：
+
+| 文件 | 内容 |
+|------|------|
+| [角色一致性定妆照方案](../../kling/character-consistency-reference-sheet.md) | 多视角 Character Sheet、九宫格网格法、参考图锚定、LoRA 训练 |
+| [AI视频唇形同步方案调研](../../kling/lip-sync-solutions-comparison.md) | Kling LipSync、LatentSync、Wav2Lip 等方案对比 |
+
 ## 核心知识
 
 ### 情绪→微表情映射

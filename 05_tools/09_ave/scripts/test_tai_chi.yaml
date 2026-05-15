@@ -1,0 +1,90 @@
+meta:
+  project_id: "test_001"
+  style: storytelling
+  voice:
+    provider: aliyun
+    voice_id: cosyvoice-v3.5-plus-bailian-f92cac2a41ce4fc78153c6097755a60e
+    default_emotion: 轻松讲述
+  bgm:
+    provider: chord_pad
+    genre: warm
+    tempo: 80
+    mood: warm
+  output:
+    resolution: 1080x1920
+    fps: 30
+segments:
+- id: 1
+  text: "今天我要讲一个真实的故事。"
+  duration_sec: 5
+  voice_emotion: 轻松讲述
+  bgm_section: intro
+  material:
+    source: pexels
+    search: "cat"
+    transition_in: fade_in
+- id: 2
+  text: "我家养了一只橘猫，名字叫大橘。"
+  duration_sec: 5
+  voice_emotion: 轻松讲述
+  bgm_section: main
+  material:
+    source: pexels
+    search: "orange cat"
+- id: 3
+  text: "大橘有个奇怪的爱好——每天早上六点，它会准时蹲在阳台的瑜伽垫上，开始打太极。"
+  duration_sec: 8
+  voice_emotion: 轻松讲述
+  bgm_section: main
+  material:
+    source: pexels
+    search: "cat yoga"
+- id: 4
+  text: "你没听错，打太极。"
+  duration_sec: 4
+  voice_emotion: 轻松讲述
+  bgm_section: main
+  material:
+    source: pexels
+    search: "cat funny"
+- id: 5
+  text: "它的动作实在太标准了——野马分鬃、白鹤亮翅、搂膝拗步，一套下来行云流水。"
+  duration_sec: 8
+  voice_emotion: 轻松讲述
+  bgm_section: main
+  material:
+    source: pexels
+    search: "animal funny"
+- id: 6
+  text: "更离谱的是，如果你在它练功的时候打扰它，它会瞪你一眼，然后换个地方继续打。"
+  duration_sec: 7
+  voice_emotion: 轻松讲述
+  bgm_section: main
+  material:
+    source: pexels
+    search: "cat angry"
+- id: 7
+  text: "后来我调了监控才发现，它是在偷看我奶奶晨练，看了一年，学会了。"
+  duration_sec: 7
+  voice_emotion: 轻松讲述
+  bgm_section: main
+  material:
+    source: pexels
+    search: "cat watching"
+- id: 8
+  text: "现在大橘在我们小区已经出名了，每天早上都有人专门来看它打太极。"
+  duration_sec: 6
+  voice_emotion: 轻松讲述
+  bgm_section: climax
+  material:
+    source: pexels
+    search: "cat celebrity"
+- id: 9
+  text: "所以下次有人说猫不如狗聪明，你就告诉他：有一种猫，比你还会养生。"
+  duration_sec: 6
+  voice_emotion: 轻松讲述
+  bgm_section: outro
+  material:
+    source: pexels
+    search: "smart cat"
+    transition_out: fade_out

@@ -1,6 +1,6 @@
 # AgentOS 系统操作速查手册
 
-> 版本：v1.0 | 最后更新：2026-05-03
+> 版本：v1.1 | 最后更新：2026-05-15
 > 用途：换机安装 / 日常同步 / 升级技能 / 角色切换——所有系统级操作一览
 > 仓库策略：主电脑双仓库（Gitee + GitHub），其他电脑仅 Gitee
 
@@ -257,7 +257,76 @@ agentos --version
 
 ---
 
-## 八、不用做的事
+## 八、guardd 守护进程运维
+
+guardd 是 AgentOS 联邦多机协同守护进程，每 300 秒执行一轮 7 模块循环（心跳/任务/版本/记忆/知识/加密/清理）。
+
+### 安装
+
+```bash
+cd ~/workbuddy-agent-os/agent-sync/05_tools/00_setup/guardd
+bash scripts/install.sh
+```
+
+安装后 guardd 会通过 launchd 自动管理，重启后也会自动运行。
+
+### 手动控制
+
+```bash
+# 查看守护进程状态
+launchctl print gui/$(id -u)/com.agentos.guardd
+
+# 立即执行一次（不等待周期）
+launchctl kickstart -k gui/$(id -u)/com.agentos.guardd
+
+# 手动测试执行（调试用）
+python3 ~/workbuddy-agent-os/agent-sync/05_tools/00_setup/guardd/guardd.py
+
+# 暂停守护进程（不卸载）
+launchctl bootout gui/$(id -u)/com.agentos.guardd
+
+# 恢复守护进程
+launchctl bootstrap gui/$(id -u)/com.agentos.guardd
+
+# 彻底卸载
+launchctl bootout gui/$(id -u)/com.agentos.guardd || true
+rm -f ~/Library/LaunchAgents/com.agentos.guardd.plist
+```
+
+### 查看运行状态
+
+```bash
+# 最近一次执行结果
+cat ~/workbuddy-agent-os/agent-local/runtime/guardd/last_run.json
+
+# 完整日志
+cat ~/workbuddy-agent-os/agent-local/runtime/guardd/guardd.log
+
+# 错误日志
+cat ~/workbuddy-agent-os/agent-local/runtime/guardd/errors.log
+```
+
+### 7 模块说明
+
+| 模块 | 职责 | 输出 |
+|------|------|------|
+| heartbeat | 采集 CPU/内存/磁盘 → 写入心跳 | `cross_machine/status/{host}/heartbeat.json` |
+| task_worker | 扫描并执行分配至本机的跨机任务 | `cross_machine/tasks/completed/` |
+| upgrade_checker | 版本清单比对，发现更新后发事件 | `cross_machine/events/` + 本地 version 记录 |
+| memory_triage | 过滤本地记忆，推送通用内容到提交箱 | `agent-local/submissions/memory_triage/` |
+| knowledge_sync | 检测知识库变更 + 推送本地提交 | 事件日志 + `03_knowledge/01_submissions/` |
+| encrypted_channel | 解密 RSA-4096 加密消息（需 cryptography） | `agent-local/identity/secrets/received/` |
+| cleanup | 清理超过 30 天的旧事件和已完成任务 | 删除过期文件 |
+
+### 依赖说明
+
+- **基本运行**：Python 标准库（无额外依赖）
+- **加密消息**：需安装 `cryptography` 库（`pip install cryptography`）
+- **日志自动轮转**：launchd 管理的 stdout/stderr 日志不会自动截断，建议定期检查 `agent-local/runtime/guardd/` 目录大小
+
+---
+
+## 九、不用做的事
 
 | 操作 | 什么时候需要 | 备注 |
 |------|-------------|------|
@@ -268,7 +337,7 @@ agentos --version
 
 ---
 
-## 九、快速查询：我怎么知道该做什么？
+## 十、快速查询：我怎么知道该做什么？
 
 | 场景 | 你的问题 | 答案 |
 |------|---------|------|
@@ -278,3 +347,5 @@ agentos --version
 | 核心 | "改了 SOUL.md，另一台怎么生效？" | 走 **五、升级核心配置** |
 | 角色 | "这台机器以后只做采集" | 走 **六、切换机器角色** |
 | CLI | "agentos 有新版了" | 走 **七、升级 agentos CLI** |
+| 集群 | "怎样查看各机器是否在线？" | 走 **八、guardd**，查看 `cross_machine/status/{host}/heartbeat.json` |
+| 集群 | "怎么给另一台机器发加密消息？" | 走 **八、guardd**，参考 encrypted_channel 模块 |

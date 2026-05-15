@@ -40,6 +40,25 @@ print(page.title())  # → "百度一下，你就知道"
 b.close()
 ```
 
+### 代理环境
+
+如使用代理，需在 Python 代码中设置环境变量：
+
+```python
+import os
+os.environ['HTTPS_PROXY'] = 'socks5://127.0.0.1:6478'   # SOCKS5
+os.environ['HTTP_PROXY'] = 'socks5://127.0.0.1:6478'     # 或 http 代理
+```
+
+### 预下载二进制
+
+```python
+from cloakbrowser.download import ensure_binary, binary_info
+info = binary_info()
+print(info["installed"])          # 是否已下载
+ensure_binary()                   # 预下载 Chromium 二进制
+```
+
 ## API 用法（与 Playwright 完全兼容）
 
 ```python

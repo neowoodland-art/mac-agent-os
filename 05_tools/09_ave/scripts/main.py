@@ -108,6 +108,31 @@ def main():
     p_bs.add_argument("--texts", nargs="*", default=[], help="每段叠加的文字 (可选)")
     p_bs.add_argument("--resolution", default="1080x1920", help="分辨率")
 
+    # ── character-sheet ──
+    p_cs = sub.add_parser("character-sheet", help="定妆照 Grid Method 生成")
+    p_cs.add_argument("--desc", required=True, help="角色描述")
+    p_cs.add_argument("--output", default="", help="输出路径")
+    p_cs.add_argument("--lang", default="zh", choices=["zh", "en"], help="语言")
+    p_cs.add_argument("--extract", action="store_true", help="裁出 6 张单格图")
+    p_cs.add_argument("--save", default="", help="保存到角色库 (角色名)")
+    p_cs.add_argument("--list", action="store_true", help="列出已保存角色")
+    p_cs.add_argument("--force", action="store_true", help="强制重新生成")
+
+    # ── lipsync ──
+    p_ls = sub.add_parser("lipsync", help="Kling LipSync 唇形同步")
+    p_ls.add_argument("--mode", required=True, choices=["audio-to-video", "text-to-video"], help="模式")
+    p_ls.add_argument("--video", required=True, help="输入视频路径")
+    p_ls.add_argument("--audio", default="", help="输入音频 (audio-to-video)")
+    p_ls.add_argument("--text", default="", help="口播文本 (text-to-video, ≤120字)")
+    p_ls.add_argument("--voice-id", default="default", help="音色ID (text-to-video)")
+    p_ls.add_argument("--output", default="", help="输出路径")
+    p_ls.add_argument("--force", action="store_true", help="强制重新生成")
+
+    # ── dashboard ──
+    p_db = sub.add_parser("dashboard", help="启动 Dashboard 后端")
+    p_db.add_argument("--port", type=int, default=9988, help="端口 (默认 9988)")
+    p_db.add_argument("--no-reload", action="store_true", help="关闭热重载")
+
     # ── video-factory ──
     p_vf = sub.add_parser("video-factory", help="视频工厂 (统一生产入口)")
     p_vf.add_argument("--strategy", required=True, choices=["口播", "卡点", "数字人", "status"],
@@ -266,7 +291,6 @@ def main():
 
     elif args.command == "beat-sync":
         from composer.beat_sync import compose_beat_sync
-        from lib.config import load_config
 
         cfg = load_config()
         pexels_key = cfg.get("pexels", {}).get("api_key", "")
@@ -291,6 +315,70 @@ def main():
         import os as _os
         sz_mb = _os.path.getsize(args.output) / 1024 / 1024
         print(f"\n✅ Beat-Sync 完成: {args.output} ({sz_mb:.0f}MB)")
+
+    elif args.command == "character-sheet":
+        from character_sheet import generate_grid, save_character, list_characters
+        if args.list:
+            chars = list_characters()
+            if not chars:
+                print("暂无已保存角色")
+            else:
+                print(f"已保存角色 ({len(chars)}):")
+                for c in chars:
+                    print(f"  {c['name']:20s} → {c.get('grid_path', '无网格图')}")
+            return
+
+        result = generate_grid(
+            desc=args.desc,
+            output_path=args.output,
+            lang=args.lang,
+            extract_cells=args.extract,
+            force=args.force,
+        )
+        print(f"\n✅ 定妆照: {result['grid']}")
+        if result.get("cells"):
+            for c in result["cells"]:
+                print(f"  单格: {c}")
+        import hashlib
+        save_name = args.save or f"char_{hashlib.md5(args.desc.encode()).hexdigest()[:8]}"
+        save_character(save_name, args.desc, result["grid"])
+        print(f"✅ 角色已保存: {save_name}")
+
+    elif args.command == "lipsync":
+        from composer.lipsync import lipsync_audio_to_video, lipsync_text_to_video
+
+        if args.mode == "audio-to-video":
+            if not args.audio:
+                print("❌ audio-to-video 模式需要 --audio 参数")
+                return
+            out = lipsync_audio_to_video(
+                video_path=args.video,
+                audio_path=args.audio,
+                output_path=args.output,
+                force=args.force,
+            )
+        elif args.mode == "text-to-video":
+            if not args.text:
+                print("❌ text-to-video 模式需要 --text 参数")
+                return
+            out = lipsync_text_to_video(
+                video_path=args.video,
+                text=args.text,
+                voice_id=args.voice_id,
+                output_path=args.output,
+                force=args.force,
+            )
+        print(f"\n✅ LipSync 完成: {out}")
+
+    elif args.command == "dashboard":
+        import uvicorn
+        port = args.port
+        reload = not args.no_reload
+        print(f"📊 AVE Dashboard API → http://localhost:{port}")
+        print(f"   总览:     http://localhost:{port}/api/summary")
+        print(f"   生产列表: http://localhost:{port}/api/productions")
+        print(f"   资产列表: http://localhost:{port}/api/assets")
+        uvicorn.run("dashboard.app:app", host="0.0.0.0", port=port, reload=reload)
 
     elif args.command == "video-factory":
         from video_factory import run_oral, run_beat, run_digital_human, show_status
@@ -440,39 +528,51 @@ def main():
         # 字幕: 用字级时间戳计算每段精确起止
         subtitles_path = None
         if args.subtitles and segments and word_ts:
-            # 从全部字的时间戳重建全文 (word_ts 每条有 text/begin_time/end_time)
+            # 拼接原始文字（含 \n 分隔符）
+            text_all = "\n".join(s["text"] for s in segments)
+            # CosyVoice 返回的字符级时间戳不含 \n，清理后匹配
+            text_clean = text_all.replace("\n", "")
+            full_text_from_ts = "".join(w["text"] for w in word_ts)
+
             # 计算每个字的累积字符位置
             char_positions = []
             acc = 0
             for w in word_ts:
                 char_positions.append(acc)
                 acc += len(w["text"])
-            full_text_from_ts = "".join(w["text"] for w in word_ts)
 
-            cursor = 0
+            cursor = 0  # 当前段在 text_clean 中的起始搜索位置
             for seg in segments:
                 seg_text = seg["text"]
+                pos = cursor  # 默认从上一段结束位置开始
+                char_end = pos + len(seg_text)
+                seg_words = []
+
                 try:
-                    pos = full_text_from_ts.index(seg_text, cursor)
-                    char_end = pos + len(seg_text)
-                    # 找到 pos ≤ 累积位置 < char_end 的字
-                    seg_word_indices = [i for i in range(len(word_ts))
-                                        if char_positions[i] >= pos
-                                        and char_positions[i] + len(word_ts[i]["text"]) <= char_end]
-                    seg_words = [word_ts[i] for i in seg_word_indices] if seg_word_indices else []
+                    found = text_clean.index(seg_text, cursor)
+                    pos = found
+                    char_end = found + len(seg_text)
                 except ValueError:
-                    seg_words = []
+                    # 匹配失败说明 CosyVoice 返回文本与原始不精确对齐
+                    # 回退到按比例估算（基于 cursor 位置）
+                    pass
+
+                # 找到该段文字范围内的字级时间戳
+                seg_words = [w for i, w in enumerate(word_ts)
+                             if char_positions[i] >= pos
+                             and char_positions[i] + len(w["text"]) <= char_end]
 
                 if seg_words:
                     seg["start_sec"] = seg_words[0]["begin_time"] / 1000.0
                     seg["end_sec"] = seg_words[-1]["end_time"] / 1000.0
                 else:
-                    # 回退: 按全长比例估算
+                    # 无匹配字，按文字比例估算
+                    total_chars = max(len(text_clean), 1)
                     total_ms = word_ts[-1]["end_time"]
-                    seg["start_sec"] = (pos / max(len(full_text_from_ts), 1)) * total_ms / 1000.0
-                    seg["end_sec"] = (char_end / max(len(full_text_from_ts), 1)) * total_ms / 1000.0
+                    seg["start_sec"] = (pos / total_chars) * total_ms / 1000.0
+                    seg["end_sec"] = (char_end / total_chars) * total_ms / 1000.0
 
-                cursor = pos + len(seg_text)
+                cursor = char_end
 
             subtitles_path = "/tmp/ave_subtitles.ass"
             create_subtitles(segments, subtitles_path, resolution=(1080, 1920))
@@ -515,7 +615,8 @@ def main():
             else:
                 compose_video(clip_paths, mixed_audio, args.output,
                               resolution="1080x1920",
-                              subtitles_path=subtitles_path)
+                              subtitles_path=subtitles_path,
+                              ken_burns=True)
 
         print(f"\n✅ 生成完成: {args.output}")
         clip_total = sum(c[1] for c in all_clips)

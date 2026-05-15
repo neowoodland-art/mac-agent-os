@@ -3,6 +3,7 @@
 ## 2026-05-15
 
 ### 新增
+- [system] 联邦式多机协同架构（V2.1）——三层数据架构+7大协同子系统+guardd守护进程 → 99_system/architecture/federated-multi-machine-architecture.md (KB-20260515-004)
 - [method] 邵氏电影美学AI提示词技巧——依士曼胶片+高调硬光+影棚置景 → 20_methods/ (KB-20260515-002) ← 抖音@黄一鸣AI 单视频提取
 - [method] AI提示词驱动文生视频——李导（Agent版）10条视频知识提取 → 20_methods/ (KB-20260515-001) ← 抖音@李导（Agent版）前10条视频批量提取
 - [method] 可灵AI提示词完全知识手册——文生视频/图生视频提示词工程 → 20_methods/kling/ (KB-20260515-003) ← 抖音16条可灵AI教程视频提取 · 105条知识条目
