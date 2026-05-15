@@ -1,10 +1,11 @@
 """
-豆包浏览器驱动 v6 —— 独立标签页 + 智能等待
+豆包浏览器驱动 v7.1 —— 稳定等待法
 
 改进：
   1. 豆包保持独立标签页，不关闭，不 rebind
   2. 抖音用另一个标签页，互不干扰
-  3. 智能等待：检测回复完成度，不等固定时间
+  3. 稳定等待法：触发增长后等连续 3 轮无变化才算完成，防止提前截断
+  4. 改用 fill + click #flow-end-msg-send 替代 KeyboardEvent（React兼容）
 """
 
 import re, json, time, os, subprocess
@@ -44,43 +45,96 @@ def _oc(args, timeout=30):
 
 
 def _parse_sections(raw):
-    """按【】标记提取各段落"""
+    """
+    按标记提取各段落。
+    支持两种格式：
+      - 【】格式（旧）
+      - === 标题 === 格式（新，豆包AI常用）
+    """
     sections = {}
-    markers = ["完整字幕", "提示词/指令原文", "提示词", "指令原文", "操作步骤", "关键参数", "核心技巧"]
-    for marker in markers:
-        m = re.search(rf'【{re.escape(marker)}】\s*([\s\S]*?)(?=【|\Z)', raw)
-        if m:
-            content = m.group(1).strip()
-            content = re.sub(r'逐句记录.*|如果视频中.*|视频中演示.*|视频中提到.*|记住：.*', '', content)
-            sections[marker] = content
+    
+    # 先找 AI 回复的起始位置（跳过用户消息）
+    lines = raw.split('\n')
+    ai_start = -1
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if (stripped.startswith('===') and 
+            any(k in stripped for k in ['完整字幕', '提示词', '操作步骤', '关键参数', '核心技巧'])):
+            next_chunk = '\n'.join(lines[i:i+4])
+            if '逐句记录' not in next_chunk and '如果视频' not in next_chunk:
+                ai_start = i
+                break
+    
+    ai_raw = '\n'.join(lines[ai_start:]) if ai_start >= 0 else raw
+    
+    # 格式1：=== 标题 === 内容
+    pattern = r'===\s*([^=]+?)\s*===\s*([\s\S]*?)(?====\s*[^=]|$)'
+    for m in re.finditer(pattern, ai_raw):
+        title = m.group(1).strip()
+        content = m.group(2).strip()
+        skip = ['逐句记录', '视频中演示', '视频中提到', '如果视频', '记住：', '完整抄录']
+        if content and len(content) > 5 and not any(s in content[:40] for s in skip):
+            sections[title] = content
+    
+    # 格式2：旧格式 【】兜底
+    if not sections:
+        markers = ["完整字幕", "提示词/指令原文", "提示词", "指令原文", "操作步骤", "关键参数", "核心技巧"]
+        for marker in markers:
+            m = re.search(rf'【{re.escape(marker)}】\s*([\s\S]*?)(?=【|\Z)', raw)
+            if m:
+                content = m.group(1).strip()
+                content = re.sub(r'逐句记录.*|如果视频中.*|视频中演示.*|视频中提到.*|记住：.*', '', content)
+                sections[marker] = content
+    
     return sections
 
 
-def _wait_for_response(session="doubao", max_wait=45):
-    """发送后等回复：检测页面文本是否显著增长"""
-    # 记录发送前的页面长度
+def _wait_for_response(session="doubao", max_wait=120, min_growth=500, stable_checks=3):
+    """
+    稳定等待法：检测页面文本显著增长后，再等连续 stable_checks 轮无变化才算完成。
+    防止 AI 还在生成就被提前截断的老 bug。
+    """
     before = len(_oc(["browser", session, "eval", "document.body.innerText"], timeout=10) or "")
+    prev_len = before
+    stable_count = 0
+    triggered = False
     
     for i in range(max_wait // 5):
         time.sleep(5)
         body = _oc(["browser", session, "eval", "document.body.innerText"], timeout=10) or ""
         current_len = len(body)
-        growth = current_len - before
+        growth = current_len - prev_len
+        total_growth = current_len - before
         
-        # 页面增长超过 500 字 → AI 在回复了
-        if growth > 500:
-            # 再等 10 秒收尾
-            time.sleep(10)
-            return _oc(["browser", session, "eval", "document.body.innerText"], timeout=10) or ""
+        has_sections = '===完整字幕' in body or '===操作步骤' in body or '===核心技巧' in body
+        
+        if total_growth > min_growth or has_sections:
+            triggered = True
+        
+        if triggered:
+            if growth == 0:
+                stable_count += 1
+            else:
+                stable_count = 0  # 还在增长，重置
         
         if i > 0 and i % 2 == 0:
-            print(f"    ⏳ {(i+1)*5}s...增长{growth}字", flush=True)
+            status = f"    ⏳ {(i+1)*5}s...总增长{total_growth}字"
+            if triggered:
+                status += f" (稳定{stable_count}/{stable_checks})" if growth == 0 else " (增长中)"
+            if has_sections:
+                status += " ✅含结构"
+            print(status, flush=True)
+        
+        if triggered and stable_count >= stable_checks:
+            print(f"    ✅ 回复稳定，确认完成", flush=True)
+            return body
     
+    print(f"    ⏰ 超时({max_wait}s)，返回当前内容", flush=True)
     return _oc(["browser", session, "eval", "document.body.innerText"], timeout=10)
 
 
 class DoubaoDriver:
-    """豆包分析驱动 v6"""
+    """豆包分析驱动 v7.1（稳定等待法）"""
 
     def __init__(self):
         self.doubao_ready = False
@@ -124,16 +178,14 @@ class DoubaoDriver:
             
             msg = f"视频 {url}\n\n视频内容：\n{chr(10).join(useful[:30])}\n\n{ANALYSIS_PROMPT}"
 
-            # 2. 豆包标签页（已存在，直接 type）
+            # 2. 豆包标签页（已存在，用 fill 填入 + click 发送按钮）
             _oc(["browser", self.doubao_session, "bind"], timeout=5)
             time.sleep(0.5)
-            _oc(["browser", self.doubao_session, "type", "--nth", "0", "textarea", msg], timeout=15)
+            _oc(["browser", self.doubao_session, "fill", "--nth", "0", "textarea", msg], timeout=15)
             time.sleep(1)
-            # 触发发送
-            _oc(["browser", self.doubao_session, "eval",
-                 "document.querySelector('textarea').dispatchEvent("
-                 "new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,bubbles:true}))"],
-                timeout=5)
+            # 触发发送（React 页面无法通过 dispatchEvent 捕获 KeyboardEvent）
+            # 优先使用显式发送按钮 click，这个按钮有 id=flow-end-msg-send
+            _oc(["browser", self.doubao_session, "click", "#flow-end-msg-send"], timeout=5)
 
             # 3. 智能等待回复
             raw = _wait_for_response(session=self.doubao_session)

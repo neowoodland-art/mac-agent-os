@@ -3,7 +3,7 @@ id: KB-HOME
 title: "AgentOS 知识库"
 type: homepage
 date_created: 2026-04-25
-date_modified: "2026-05-14"
+date_modified: "2026-05-15"
 description: "AgentOS 智能体操作系统知识库首页——中文映射 + 目录导览 + 工具链总览"
 ---
 
@@ -21,13 +21,13 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | [[00_inbox]] | 📥 收件箱（待提纯） | 8 | 2026-05-03 |
 | [[01_submissions]] | 📤 提交箱（待归集） | 3 | 2026-05-03 |
 | [[10_concepts]] | 💡 概念层 | 6 | 2026-05-13 |
-| [[20_methods]] | 🔧 方法层 | 4 | 2026-05-14 |
+| [[20_methods]] | 🔧 方法层 | 26 | 2026-05-15 |
 | [[30_facts]] | 📋 事实层 | 0 | — |
 | [[40_references]] | 📎 参考层 | 3 | 2026-05-14 |
 | [[50_resources]] | 🛠 资源层 | 0 | — |
 | [[60_opinions]] | 💭 观点层 | 0 | — |
 | [[90_archive]] | 🗄 归档层 | 1 | 2026-05-03 |
-| **总计** | | **17** | **2026-05-14** |
+| **总计** | | **38** | **2026-05-15** |
 
 ---
 
@@ -52,6 +52,37 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | 2 | [[20_methods/Redmi-12C_20260501_auth_manager\|auth_manager 认证模块]] | 多账号登录管理 |
 | 3 | [[20_methods/Redmi-12C_20260501_camoufox_fix\|Camoufox 反检测修复]] | 浏览器指纹伪装修复记录 |
 | 4 | [[20_methods/ai-prompt-video-knowledge\|AI提示词驱动文生视频知识合集]] | AICG造梦局10条视频批量提取 |
+| 5 | [[20_methods/shaoshi-film-aesthetics-prompts\|邵氏电影美学AI提示词技巧]] | 黄一鸣AI—依士曼胶片+高调硬光+影棚置景 |
+| 6 | [[20_methods/li-dao-ai-video-prompts\|AI提示词驱动文生视频——李导（Agent版）知识合集]] | 李导（Agent版）10条AI短视频提示词批量提取 |
+| 7 | [[20_methods/kling/kling-prompt-complete-guide\|可灵AI提示词完全知识手册]] | 可灵AI文生视频/图生视频全维度教程 · 105条知识 |
+| 8 | [[20_methods/ai-video-system/INDEX\|🎬 AI视频提示词系统创作教科书]] | 19章教科书体系 · 结果推导方法论 · 87,000字 |
+
+### 🎬 AI视频提示词知识体系（20_methods/ai-video-system/）
+
+| 区域 | 说明 | 状态 |
+|------|------|------|
+| [[20_methods/ai-video-system/INDEX.md\|体系总索引]] | 19章框架 + 采集状态追踪 + 现有关联 | 🟢 19章全部完成 |
+| [[20_methods/ai-video-system/02_core_modules/ch03-parameters.md\|Ch3: 基础定调参数]] | 画质/质感/稳定性的参数选型 | 🟢 完整参数指南 |
+| [[20_methods/ai-video-system/02_core_modules/ch04-storyboard-camera.md\|Ch4: 分镜时序与运镜]] | 叙事结果→分镜节奏→运镜方式 | 🟢 完整 |
+| [[20_methods/ai-video-system/02_core_modules/ch05-lighting-color.md\|Ch5: 光影色调]] | 情绪目标→光影方案→色调参数 | 🟢 完整 |
+| [[20_methods/ai-video-system/02_core_modules/ch06-audio-design.md\|Ch6: 音频设计]] | 背景音乐/音效/对白的声音叙事 | 🟢 完整 |
+| [[20_methods/ai-video-system/02_core_modules/ch07-micro-expression.md\|Ch7: 人物微表情]] | 角色微表情/情绪控制/动作细节 | 🟢 完整 |
+| [[20_methods/ai-video-system/04_tools_models/ch12-model-comparison.md\|Ch12: 大模型对比]] | Runway/Pika/Gen-2/SVD差异 | 🟢 完整 |
+| [[20_methods/ai-video-system/03_applications/ch09-anime-style.md\|Ch9: 动漫风格创作]] | 角色公式+10种模板+三视图法 | 🟢 完整 |
+| [[20_methods/ai-video-system/07_trends/ch18-problem-solving.md\|Ch18: 问题解决]] | 4类问题+提示词修复方案 | 🟢 完整 |
+| [[20_methods/ai-video-system/99_assets/result-driven-template.md\|结果推导模板]] | 从想要的成果反推完整指令链 | ✅ 已创建 |
+| [[20_methods/ai-video-system/99_assets/collection-queue.md\|采集队列]] | P0-P3分级采集任务管理 | ✅ 已创建 |
+| [[20_methods/ai-video-system/01_foundation/ch01-core-logic.md\|Ch1: 底层逻辑]] | AI执行本质+信息传递模型 | 🟢 完整 |
+| [[20_methods/ai-video-system/01_foundation/ch02-result-driven.md\|Ch2: 结果推导方法论]] | 从目标反推指令锚点 | 🟢 完整 |
+| [[20_methods/ai-video-system/03_applications/ch08-film-style.md\|Ch8: 电影风格创作]] | 电影级提示词+邵氏美学 | 🟢 完整 |
+| [[20_methods/ai-video-system/03_applications/ch10-commercial-tvc.md\|Ch10: 商业广告/TVC]] | AI-TVC完整工作流 | 🟢 完整 |
+| [[20_methods/ai-video-system/03_applications/ch11-sci-fi-fantasy.md\|Ch11: 科幻奇幻风格]] | 赛博朋克+太空+奇幻模板 | 🟢 完整 |
+| [[20_methods/ai-video-system/04_tools_models/ch13-tool-workflow.md\|Ch13: 工具实操与工作流]] | 四大工具详解+跨工具联动 | 🟢 完整 |
+| [[20_methods/ai-video-system/05_script_narrative/ch14-script-to-prompt.md\|Ch14: 脚本叙事]] | 小说→分镜四步工作流 | 🟢 完整 |
+| [[20_methods/ai-video-system/05_script_narrative/ch15-narrative-structure.md\|Ch15: 叙事结构]] | AI叙事优劣势+策略 | 🟢 完整 |
+| [[20_methods/ai-video-system/06_practice/ch16-practice-path.md\|Ch16: 实践路径]] | 模仿→创新三阶段 | 🟢 完整 |
+| [[20_methods/ai-video-system/06_practice/ch17-resource-library.md\|Ch17: 资源库]] | 博主/工具/提示词资源索引 | 🟢 完整 |
+| [[20_methods/ai-video-system/07_trends/ch19-trends.md\|Ch19: 行业趋势]] | 技术演进+未来方向 | 🟢 完整 |
 
 ### 📥 待处理箱
 
