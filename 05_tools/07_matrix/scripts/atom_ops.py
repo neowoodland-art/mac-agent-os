@@ -58,7 +58,7 @@ class AtomOps:
         "grid_page":       '[data-e2e="alink-item"]',                 # 首页卡片列表
         "video_player":    '[data-e2e="video-player-digg"]',           # 视频播放器(有点赞按钮)
         "search_input":    '[data-e2e="searchbar-input"]',             # 搜索框
-        "login_avatar":    '[data-e2e="user-avatar"]',                 # 登录头像
+        "login_avatar":    '[class*="user"] img[src*="douyinpic.com"]',  # 已登录头像
         "like_btn":        '[data-e2e="video-player-digg"]',           # 点赞按钮
         "collect_btn":     '[data-e2e="video-player-collect"]',        # 收藏按钮
         "next_arrow":      '[data-e2e="video-switch-next-arrow"]',     # 下一条
@@ -437,3 +437,81 @@ class AtomOps:
                 "title": title[:30],
             }
         return await self._execute("check_login", pre, exe, timeout=10)
+
+    # ─── 全屏视频页评论（新路径）─────────────────────────────
+
+    async def comment_on_video_url(self, url: str, text: str = "好内容") -> AtomResult:
+        """打开视频链接 → 评论 → 回精选页
+
+        与旧路径(op_comment)区别:
+          旧: 弹窗播放器 + KeyX开评论 + 双击激活 + Alt+Enter
+          新: 全屏视频页 + 输入框可见 + 单击激活 + Enter
+
+        Args:
+            url: 抖音视频分享链接
+            text: 评论内容
+
+        Returns:
+            AtomResult
+        """
+        import subprocess
+
+        async def pre():
+            return True
+
+        async def exe():
+            # 1. 导航到视频
+            await self.page.goto(url, timeout=30000, wait_until="domcontentloaded")
+            await asyncio.sleep(5)
+
+            # 2. 滚动到输入框并激活 Draft.js
+            await self.page.evaluate("""() => {
+                const el = document.querySelector('[class*="comment-input-inner"]');
+                if (el) { el.scrollIntoView({behavior:'instant', block:'center'}); el.click(); }
+            }""")
+            await asyncio.sleep(2)
+
+            # 确认编辑器激活
+            draft = await self.page.evaluate(
+                "() => document.querySelector('.public-DraftEditor-content') ? true : false"
+            )
+            if not draft:
+                return {"ok": False, "step": "activate_draft", "reason": "Draft.js 未激活"}
+
+            # 3. pbcopy + Meta+V 粘贴中文
+            subprocess.run(['osascript', '-e', f'set the clipboard to "{text}"'], timeout=5)
+            await self.page.keyboard.press("Meta+v")
+            await asyncio.sleep(1)
+
+            pasted = await self.page.evaluate("""() => {
+                const d = document.querySelector('.public-DraftEditor-content');
+                return d ? d.textContent.trim() : '';
+            }""")
+            if not pasted:
+                return {"ok": False, "step": "paste", "reason": "粘贴失败"}
+
+            # 4. Enter 发送
+            await self.page.keyboard.press("Enter")
+            await asyncio.sleep(3)
+
+            # 5. 验证发送
+            sent = await self.page.evaluate("""() => {
+                const d = document.querySelector('.public-DraftEditor-content');
+                const p = document.querySelector('[class*="comment-input-inner"]');
+                return {
+                    draftEmpty: d ? d.textContent.trim() === '' : '?',
+                    placeholder: p ? p.textContent.trim().slice(0,20) : '?',
+                };
+            }""")
+            ok = sent.get("draftEmpty") is True and "留下" in (sent.get("placeholder") or "")
+
+            # 6. 回精选页
+            await self.page.goto("https://www.douyin.com/", timeout=20000, wait_until="domcontentloaded")
+            await asyncio.sleep(3)
+
+            return {"ok": ok, "text": text, "sent": sent, "url": url}
+
+        async def post():
+            return True
+
+        return await self._execute("comment_on_video_url", pre, exe, post, timeout=60)

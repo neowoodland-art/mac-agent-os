@@ -100,8 +100,8 @@ async def op_comment(p, text='好内容'):
         await p.keyboard.press('Meta+v'); await asyncio.sleep(2)
         s = await read_state(p)
         if s['edText']:
-            # 4. Alt+Enter 发送
-            subprocess.run(['osascript','-e','tell application "System Events" to key code 36 using option down'], timeout=5)
+            # 4. Enter 发送（2026-05-15 从 Alt+Enter 改为 Enter，适配抖音新版评论发送）
+            await p.keyboard.press("Enter")
             await asyncio.sleep(3)
             s = await read_state(p)
             if s['hasVerify']:

@@ -909,7 +909,7 @@ async def _send_comment(page, log_file: str, window_size: tuple = None):
     每一步失败都有 fallback 策略：
       - Step 1 失败 → 重试 KeyX
       - Step 2 DOM 失败 → 坐标兜底
-      - Step 3 DOM 发送失败 → Alt+Enter
+      - Step 3 DOM 发送失败 → Enter
     
     不依赖硬编码坐标。所有坐标从窗口右边缘动态计算。
     """
@@ -940,13 +940,15 @@ async def _send_comment(page, log_file: str, window_size: tuple = None):
         _log(f"    ❌ 输入框聚焦失败，跳过评论", log_file)
         return False
 
-    # 输入文本 — keyboard.type 优先（Draft.js 兼容），execCommand 兜底
-    _log(f"    ⌨️ 键盘输入: \"{comment[:20]}\"...", log_file)
+    # 输入文本 — pbcopy + Meta+V（Draft.js 唯一可靠方式，keyboard.type 和 execCommand 均不触发 React 状态更新）
+    _log(f"    ⌨️ 输入: \"{comment[:20]}\"...", log_file)
     try:
-        await page.keyboard.type(comment, delay=40)
-        await asyncio.sleep(1)
+        import subprocess
+        subprocess.run(['osascript', '-e', f'set the clipboard to "{comment}"'], timeout=5)
+        await page.keyboard.press('Meta+v')
+        await asyncio.sleep(1.5)
     except Exception as e:
-        _log(f"      ⚠️ 键盘输入异常: {str(e)[:30]}", log_file)
+        _log(f"      ⚠️ 粘贴异常: {str(e)[:30]}", log_file)
 
     # 验证编辑器内容
     try:
@@ -958,32 +960,7 @@ async def _send_comment(page, log_file: str, window_size: tuple = None):
         has_text = False
 
     if not has_text:
-        # 兜底: 逐个字符 insertText（触发 React 状态更新）
-        _log(f"      🔧 execCommand 兜底注入", log_file)
-        try:
-            await asyncio.wait_for(page.evaluate(f'''() => {{
-                const ed = document.querySelector('.public-DraftEditor-content')
-                    || document.querySelector('[contenteditable="true"][role="combobox"]');
-                if (!ed) return false;
-                ed.focus();
-                ed.textContent = '';
-                const sel = window.getSelection();
-                const range = document.createRange();
-                range.selectNodeContents(ed);
-                sel.removeAllRanges();
-                sel.addRange(range);
-                for (const ch of "{comment}") {{
-                    document.execCommand('insertText', false, ch);
-                }}
-                return ed.textContent.length > 0;
-            }}'''), timeout=5)
-            _log(f"      ✅ execCommand 注入完成", log_file)
-            has_text = True
-        except Exception as e:
-            _log(f"      ⚠️ execCommand 异常: {str(e)[:30]}", log_file)
-
-    if not has_text:
-        _log(f"    ❌ 无法输入文本，跳过评论", log_file)
+        _log(f"    ❌ 粘贴失败，跳过评论", log_file)
         return False
 
     # 等 React 处理
@@ -1063,15 +1040,10 @@ async def _send_comment_execute(page, log_file: str) -> str:
         await asyncio.sleep(0.5)
     else:
         _log(f"      发送按钮未找到，键盘兜底", log_file)
-        # 键盘兜底：Ctrl+Enter → Alt+Enter
+        # 键盘兜底：Enter（2026-05-15 从 Alt+Enter 改为 Enter，适配新版发送）
         try:
-            await page.keyboard.press('Control+Enter')
-            await asyncio.sleep(0.5)
-        except:
-            pass
-        try:
-            await page.keyboard.press('Alt+Enter')
-            _log(f"      ⌨️ Alt+Enter 触发", log_file)
+            await page.keyboard.press('Enter')
+            _log(f"      ⌨️ Enter 触发", log_file)
         except:
             pass
 
@@ -1565,23 +1537,8 @@ async def nurture_loop(identity_name: str,
     _log(f"    耗时: {elapsed:.0f}s ({elapsed/60:.1f}min)", LOG_FILE)
 
     # 保存窗口位置
-    try:
-        if conn.page:
-            pos = await conn.page.evaluate("() => ({x: window.screenX, y: window.screenY})")
-            # 写入 accounts.yaml
-            import yaml
-            acct_path = str(Path.home() / "workbuddy-agent-os/agent-local/tools/matrix/config/accounts.yaml")
-            with open(acct_path) as f:
-                acct_data = yaml.safe_load(f)
-            for a in acct_data.get("accounts", []):
-                if a.get("id") == identity_name:
-                    a["window_position"] = [pos["x"], pos["y"]]
-                    break
-            with open(acct_path, "w") as f:
-                yaml.dump(acct_data, f, default_flow_style=False, allow_unicode=True)
-            _log(f"    📐 窗口位置已保存: ({pos['x']}, {pos['y']})", LOG_FILE)
-    except:
-        pass
+    # 窗口位置固定使用 accounts.yaml 中的配置值，不保存回写
+    # （Camoufox 启动偏移会导致保存的坐标偏离预期，每次启动都应从配置读取）
 
     # ── Daemon 保持模式 ──
     if daemon:
