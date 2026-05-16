@@ -21,13 +21,13 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | [[00_inbox]] | 📥 收件箱（待提纯） | 8 | 2026-05-03 |
 | [[01_submissions]] | 📤 提交箱（待归集） | 3 | 2026-05-03 |
 | [[10_concepts]] | 💡 概念层 | 6 | 2026-05-13 |
-| [[20_methods]] | 🔧 方法层 | 28 | 2026-05-16 |
+| [[20_methods]] | 🔧 方法层 | 8 | 2026-05-16 |
 | [[30_facts]] | 📋 事实层 | 0 | — |
 | [[40_references]] | 📎 参考层 | 3 | 2026-05-14 |
 | [[50_resources]] | 🛠 资源层 | 0 | — |
 | [[60_opinions]] | 💭 观点层 | 0 | — |
 | [[90_archive]] | 🗄 归档层 | 1 | 2026-05-03 |
-| **总计** | | **40** | **2026-05-16** |
+| **总计** | | **19** | **2026-05-16** |
 
 ---
 
@@ -48,16 +48,14 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 
 | # | 知识条目 | 说明 |
 |---|---------|------|
-| 1 | [[20_methods/Redmi-12C_20260501_agentos_upgrade\|agentos 升级流程]] | 统一模块升级标准流程 |
-| 2 | [[20_methods/Redmi-12C_20260501_auth_manager\|auth_manager 认证模块]] | 多账号登录管理 |
-| 3 | [[20_methods/Redmi-12C_20260501_camoufox_fix\|Camoufox 反检测修复]] | 浏览器指纹伪装修复记录 |
-| 4 | [[20_methods/ai-prompt-video-knowledge\|AI提示词驱动文生视频知识合集]] | AICG造梦局10条视频批量提取 |
-| 5 | [[20_methods/shaoshi-film-aesthetics-prompts\|邵氏电影美学AI提示词技巧]] | 黄一鸣AI—依士曼胶片+高调硬光+影棚置景 |
-| 6 | [[20_methods/li-dao-ai-video-prompts\|AI提示词驱动文生视频——李导（Agent版）知识合集]] | 李导（Agent版）10条AI短视频提示词批量提取 |
-| 7 | [[20_methods/kling/kling-prompt-complete-guide\|可灵AI提示词完全知识手册]] | 可灵AI文生视频/图生视频全维度教程 · 105条知识 |
-| 8 | [[20_methods/ai-video-system/INDEX\|🎬 AI视频提示词系统创作教科书]] | 19章教科书体系 · 结果推导方法论 · 87,000字 |
-| 9 | [[20_methods/video-shooting-cool-techniques\|视频拍摄酷炫技巧完全手册]] | 转场·灯光·动作衔接·10大技巧 |
-| 10 | [[20_methods/video-shooting-cool-techniques/case-cool-is-a-feeling\|"帅是一种感觉"案例拆解]] | 小万几13秒爆款全拆解+标准化流程 |
+| 1 | [[20_methods/ai-video-system/INDEX\|🎬 AI视频提示词系统创作教科书]] | 19章教科书体系 · 结果推导方法论 · 87,000字 |
+| 2 | [[20_methods/kling/character-consistency-reference-sheet\|可灵角色一致性速查表]] | 跨镜头角色锁定方案 |
+| 3 | [[20_methods/kling/lip-sync-solutions-comparison\|唇形同步方案对比]] | Kling/GPT-4o/Lip-Sync技术横评 |
+| 4 | [[20_methods/kling/kling-prompt-complete-guide\|可灵AI提示词完全知识手册]] | 可灵全维度教程 · 105条知识 |
+| 5 | [[20_methods/li-dao-ai-video-prompts\|李导AI提示词知识合集]] | 李导（Agent版）10条视频提示词提取 |
+| 6 | [[20_methods/shaoshi-film-aesthetics-prompts\|邵氏电影美学AI提示词技巧]] | 黄一鸣AI—依士曼胶片+高调硬光+影棚置景 |
+| 7 | [[20_methods/ai-prompt-video-knowledge\|AICG造梦局知识合集]] | AI提示词驱动文生视频10条批量提取 |
+| 8 | [[20_methods/video-shooting-cool-techniques\|视频拍摄酷炫技巧完全手册]] | 转场·灯光·动作衔接·10大技巧 · 爆款拆解 |
 
 ### 🎬 AI视频提示词知识体系（20_methods/ai-video-system/）
 
