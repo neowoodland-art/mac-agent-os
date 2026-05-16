@@ -433,11 +433,11 @@ async function loadMachines() {
           <div><span style="color:var(--text2)">当前任务</span><br>${m.current_task||'无'}</div>
         </div>
 
-        <div style="font-size:12px;color:var(--text2);margin-bottom:2px">磁盘: ${m.disk_used_gb.toFixed(0)}G / ${m.disk_total_gb.toFixed(0)}G</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:2px">磁盘: ${(m.disk_used_gb||0).toFixed(0)}G / ${(m.disk_total_gb||0).toFixed(0)}G</div>
         ${diskBar}
         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
           <span>已用 ${diskPct}%</span>
-          <span>剩余 ${m.disk_avail_gb.toFixed(0)}G</span>
+          <span>剩余 ${(m.disk_avail_gb||0).toFixed(0)}G</span>
         </div>
 
         ${m.is_duplicate ? `<div style="margin-top:8px;padding:4px 8px;background:rgba(245,158,11,.1);border-radius:4px;font-size:11px;color:var(--amber)">⚠ hostname 变更: 原名 ${m.duplicate_of||''}</div>` : ''}

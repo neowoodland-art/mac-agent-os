@@ -57,7 +57,9 @@ class GuarddPlugin(DashboardPlugin):
                     "last_seen": last_seen,
                     "os": data.get("os", ""),
                     "cpu_load": data.get("cpu", {}).get("load_1m", 0),
-                    "disk_available_gb": data.get("disk", {}).get("available_gb", 0),
+                    "disk_total_gb": data.get("disk", {}).get("total_gb", 0),
+                    "disk_used_gb": data.get("disk", {}).get("used_gb", 0),
+                    "disk_avail_gb": data.get("disk", {}).get("available_gb", 0),
                     "guardd_version": data.get("guardd_version", ""),
                     "current_task": data.get("current_task"),
                 })
