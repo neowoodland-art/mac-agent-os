@@ -12,7 +12,9 @@ date_created: 2026-05-15
 date_modified: 2026-05-15
 version: 1
 collected_by: claw@MacBookAir
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # 邵氏电影美学AI提示词技巧
 

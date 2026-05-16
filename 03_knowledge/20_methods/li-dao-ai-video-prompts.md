@@ -12,7 +12,9 @@ date_created: 2026-05-15
 date_modified: 2026-05-15
 version: 4
 collected_by: claw@chengzigedeAir
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # AI提示词驱动文生视频——李导（Agent版）知识合集
 

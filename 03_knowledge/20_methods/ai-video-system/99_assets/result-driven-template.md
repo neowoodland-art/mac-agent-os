@@ -3,7 +3,9 @@ title: "结果推导创作模板"
 type: template
 date: 2026-05-15
 usage: "从目标视频效果反推提示词/参数/工具/流程"
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # 结果推导创作模板
 

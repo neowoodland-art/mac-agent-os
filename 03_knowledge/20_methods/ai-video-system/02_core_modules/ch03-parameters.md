@@ -4,7 +4,9 @@ title: "基础定调参数：锁死'底层标准'"
 status: complete
 last_updated: 2026-05-15
 result_driven: "从想要的画质/质感/稳定性选择参数组合"
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # Ch3: 基础定调参数
 

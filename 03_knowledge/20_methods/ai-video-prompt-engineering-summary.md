@@ -11,7 +11,9 @@ source: "知识库同步 + 全网调研"
 date_created: 2026-05-15
 date_modified: 2026-05-15
 version: 1
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # AI视频素材生成——提示词工程与分镜脚本方法汇总
 

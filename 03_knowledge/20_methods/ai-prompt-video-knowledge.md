@@ -11,7 +11,9 @@ source: "抖音@AICG造梦局 10条视频批量提取"
 date_created: 2026-05-14
 date_modified: 2026-05-14
 version: 1
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # AI提示词驱动文生视频——知识合集
 

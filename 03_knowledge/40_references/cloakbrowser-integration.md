@@ -13,7 +13,9 @@ date_created: 2026-05-14
 date_modified: 2026-05-14
 version: 1
 summary: "源码级修改的 Chromium 分发版，49项 C++ 补丁修改指纹，30/30反爬检测全部通过。API兼容 Playwright，改一行 import 即可迁移。"
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # CloakBrowser 源码级反爬浏览器
 

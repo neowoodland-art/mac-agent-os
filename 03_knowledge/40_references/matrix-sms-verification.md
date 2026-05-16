@@ -13,7 +13,9 @@ date_created: 2026-05-10
 date_modified: 2026-05-10
 version: 1
 summary: "SMS 验证码自动接收模块，通过 wx.tyhtak.com API 轮询获取短信验证码，替代手动输入。配置已从源码提取到 config/sms.yaml。"
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # SMS 验证码自动接收模块
 

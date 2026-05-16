@@ -374,10 +374,12 @@ def main():
         import uvicorn
         port = args.port
         reload = not args.no_reload
-        print(f"📊 AVE Dashboard API → http://localhost:{port}")
-        print(f"   总览:     http://localhost:{port}/api/summary")
-        print(f"   生产列表: http://localhost:{port}/api/productions")
-        print(f"   资产列表: http://localhost:{port}/api/assets")
+        print(f"📊 AVE Dashboard")
+        print(f"   → 前端页面: http://localhost:{port}")
+        print(f"   → API 总览: http://localhost:{port}/api/summary")
+        print(f"   → API 生产:  http://localhost:{port}/api/productions")
+        print(f"   → API 资产:  http://localhost:{port}/api/assets")
+        print(f"   → API 文档:  http://localhost:{port}/docs")
         uvicorn.run("dashboard.app:app", host="0.0.0.0", port=port, reload=reload)
 
     elif args.command == "video-factory":

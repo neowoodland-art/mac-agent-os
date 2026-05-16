@@ -1,5 +1,55 @@
 # 知识库变更日志
 
+
+## 2026-05-16
+
+### 归档
+- [concept] 10条社会智慧，每一条都藏着处世真相 → 10_concepts/ (KB-20260516-001)
+- [concept] 10条社会智慧 - 视频文案 → 10_concepts/ (KB-20260516-002)
+- [concept] 10条社会智慧 - AI总结 → 10_concepts/ (KB-20260516-003)
+- [method] AI视频提示词系统创作教科书 · 知识体系索引 → 20_methods/ (KB-20260516-004)
+- [method] 统一升级引擎 agentos upgrade → 20_methods/ (KB-20260516-005)
+- [method] 原子化登录管理模块 auth_manager → 20_methods/ (KB-20260516-006)
+- [method] Camoufox 集成修复记录 → 20_methods/ (KB-20260516-007)
+- [method] AI提示词驱动文生视频——博主干货提取（10/11条） → 20_methods/ (KB-20260516-008)
+- [method] AI提示词驱动文生视频——AICG造梦局10条视频知识提取 → 20_methods/ (KB-20260516-009)
+- [method] AI视频素材生成——提示词工程与分镜脚本方法汇总 → 20_methods/ (KB-20260516-010)
+- [method] ch01-core-logic → 20_methods/ (KB-20260516-011)
+- [method] ch02-result-driven → 20_methods/ (KB-20260516-012)
+- [method] 基础定调参数：锁死'底层标准 → 20_methods/ (KB-20260516-013)
+- [method] 分镜时序与运镜：让AI'懂剪辑 → 20_methods/ (KB-20260516-014)
+- [method] 光影色调：定义'情绪与氛围 → 20_methods/ (KB-20260516-015)
+- [method] ch06-audio-design → 20_methods/ (KB-20260516-016)
+- [method] ch07-micro-expression → 20_methods/ (KB-20260516-017)
+- [method] ch08-film-style → 20_methods/ (KB-20260516-018)
+- [method] ch09-anime-style → 20_methods/ (KB-20260516-019)
+- [method] ch10-commercial-tvc → 20_methods/ (KB-20260516-020)
+- [method] ch11-sci-fi-fantasy → 20_methods/ (KB-20260516-021)
+- [method] ch12-model-comparison → 20_methods/ (KB-20260516-022)
+- [method] ch13-tool-workflow → 20_methods/ (KB-20260516-023)
+- [method] ch14-script-to-prompt → 20_methods/ (KB-20260516-024)
+- [method] ch15-narrative-structure → 20_methods/ (KB-20260516-025)
+- [method] ch16-practice-path → 20_methods/ (KB-20260516-026)
+- [method] ch17-resource-library → 20_methods/ (KB-20260516-027)
+- [method] ch18-problem-solving → 20_methods/ (KB-20260516-028)
+- [method] ch19-trends → 20_methods/ (KB-20260516-029)
+- [method] character-consistency-reference-sheet → 20_methods/ (KB-20260516-030)
+- [reference] CloakBrowser 源码级反爬浏览器 → 40_references/ (KB-20260516-031)
+- [method] AI视频提示词系统 · 采集队列 → 20_methods/ (KB-20260516-032)
+- [method] cross-domain → 20_methods/ (KB-20260516-033)
+- [method] 可灵AI提示词完全知识手册——文生视频/图生视频提示词工程 → 20_methods/ (KB-20260516-034)
+- [method] knowledge-review → 20_methods/ (KB-20260516-035)
+- [method] AI提示词驱动文生视频——李导（Agent版）10条视频知识提取 → 20_methods/ (KB-20260516-036)
+- [method] lip-sync-solutions-comparison → 20_methods/ (KB-20260516-037)
+- [reference] Matrix 养号系统 SMS 验证码自动接收 → 40_references/ (KB-20260516-038)
+- [method] meta-thinking → 20_methods/ (KB-20260516-039)
+- [reference] Peekaboo v3 桌面 GUI 自动化 → 40_references/ (KB-20260516-040)
+- [method] 邵氏电影美学AI提示词技巧——依士曼胶片+高调硬光+影棚置景 → 20_methods/ (KB-20260516-041)
+- [method] stuck-intervention → 20_methods/ (KB-20260516-042)
+
+### 跳过（重复）
+- 结果推导创作模板
+
 ## 2026-05-15
 
 ### 新增

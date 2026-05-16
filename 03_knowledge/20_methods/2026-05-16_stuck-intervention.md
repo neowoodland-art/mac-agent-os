@@ -1,13 +1,21 @@
 ---
-title: "stuck-intervention"
-source_dir: 03_knowledge/20_methods
-source_file: stuck-intervention.md
-date: 2026-05-03
-collected_date: 2026-05-03
-tags: 
+id: KB-20260516-042
+title: ""
+type: method
+status: published
 nature: method
-domain: general
-status: inbox
+domain: [general]
+subdomain: []
+tags: ["待补充"]
+confidence: 0.5
+source: ""
+source_type: unknown
+date_created: 2026-05-16
+date_modified: 2026-05-16
+version: 1
+previous_version: ""
+superseded_by: ""
+summary: ""
 ---
 
 # stuck-intervention
