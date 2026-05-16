@@ -21,13 +21,13 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | [[00_inbox]] | 📥 收件箱（待提纯） | 8 | 2026-05-03 |
 | [[01_submissions]] | 📤 提交箱（待归集） | 3 | 2026-05-03 |
 | [[10_concepts]] | 💡 概念层 | 6 | 2026-05-13 |
-| [[20_methods]] | 🔧 方法层 | 26 | 2026-05-15 |
+| [[20_methods]] | 🔧 方法层 | 28 | 2026-05-16 |
 | [[30_facts]] | 📋 事实层 | 0 | — |
 | [[40_references]] | 📎 参考层 | 3 | 2026-05-14 |
 | [[50_resources]] | 🛠 资源层 | 0 | — |
 | [[60_opinions]] | 💭 观点层 | 0 | — |
 | [[90_archive]] | 🗄 归档层 | 1 | 2026-05-03 |
-| **总计** | | **38** | **2026-05-15** |
+| **总计** | | **40** | **2026-05-16** |
 
 ---
 
@@ -56,6 +56,8 @@ description: "AgentOS 智能体操作系统知识库首页——中文映射 + �
 | 6 | [[20_methods/li-dao-ai-video-prompts\|AI提示词驱动文生视频——李导（Agent版）知识合集]] | 李导（Agent版）10条AI短视频提示词批量提取 |
 | 7 | [[20_methods/kling/kling-prompt-complete-guide\|可灵AI提示词完全知识手册]] | 可灵AI文生视频/图生视频全维度教程 · 105条知识 |
 | 8 | [[20_methods/ai-video-system/INDEX\|🎬 AI视频提示词系统创作教科书]] | 19章教科书体系 · 结果推导方法论 · 87,000字 |
+| 9 | [[20_methods/video-shooting-cool-techniques\|视频拍摄酷炫技巧完全手册]] | 转场·灯光·动作衔接·10大技巧 |
+| 10 | [[20_methods/video-shooting-cool-techniques/case-cool-is-a-feeling\|"帅是一种感觉"案例拆解]] | 小万几13秒爆款全拆解+标准化流程 |
 
 ### 🎬 AI视频提示词知识体系（20_methods/ai-video-system/）
 
