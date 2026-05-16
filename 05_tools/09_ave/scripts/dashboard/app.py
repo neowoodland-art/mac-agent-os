@@ -22,9 +22,11 @@ if str(_script_dir) not in sys.path:
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from lib.dashboard import (
     init_db, get_summary, get_productions,
-    get_production_detail, get_assets,
+    get_production_detail, get_assets, get_cost_breakdown,
 )
 
 app = FastAPI(
@@ -41,6 +43,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── 静态文件 ──────────────────────────────────────────────
+_static_dir = Path(__file__).parent / "static"
+_static_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+
+@app.get("/")
+def index():
+    """Dashboard 前端页面"""
+    index_path = _static_dir / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return {"error": "index.html not found"}
 
 
 @app.on_event("startup")
@@ -97,6 +113,14 @@ def api_assets(
 @app.get("/api/health")
 def health():
     return {"status": "ok", "version": "1.0.0"}
+
+
+# ── 费用分析 ──────────────────────────────────────────────
+
+@app.get("/api/costs/breakdown")
+def api_cost_breakdown():
+    """按策略的费用统计"""
+    return get_cost_breakdown()
 
 
 # ── 直接运行 ──────────────────────────────────────────────

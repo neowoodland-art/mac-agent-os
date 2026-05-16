@@ -13,7 +13,9 @@ date_created: 2026-05-14
 date_modified: 2026-05-14
 version: 1
 summary: "macOS 桌面 GUI 自动化工具，像素级视觉识别+鼠标键盘操作。通过 MCP 协议集成到 WorkBuddy。"
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # Peekaboo v3 桌面 GUI 自动化
 

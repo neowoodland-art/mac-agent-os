@@ -4,7 +4,9 @@ title: "分镜时序与运镜：让AI'懂剪辑'"
 status: complete
 last_updated: 2026-05-15
 result_driven: "叙事结果→分镜节奏→运镜方式→多镜头一致性"
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # Ch4: 分镜时序与运镜
 

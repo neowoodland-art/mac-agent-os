@@ -1,13 +1,21 @@
 ---
-title: "原子化登录管理模块 auth_manager"
-source_dir: 03_knowledge/20_methods
-source_file: Redmi-12C_20260501_auth_manager.md
-date: 2026-05-03
-collected_date: 2026-05-03
-tags: [登录检测, Cookie管理, 自动化, matrix]
+id: KB-20260516-006
+title: ""
+type: method
+status: published
 nature: method
-domain: 效率
-status: inbox
+domain: [效率]
+subdomain: []
+tags: ["待补充"]
+confidence: 0.5
+source: ""
+source_type: unknown
+date_created: 2026-05-16
+date_modified: 2026-05-16
+version: 1
+previous_version: ""
+superseded_by: ""
+summary: ""
 ---
 
 # 原子化登录管理模块 auth_manager

@@ -3,7 +3,9 @@ title: "AI视频提示词系统 · 采集队列"
 type: queue
 date: 2026-05-15
 description: "按优先级排列的待采集任务，对应各个章节"
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # 采集队列
 

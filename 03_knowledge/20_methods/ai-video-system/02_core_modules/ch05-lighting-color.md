@@ -4,7 +4,9 @@ title: "光影色调：定义'情绪与氛围'"
 status: partial
 last_updated: 2026-05-15
 result_driven: "情绪目标→光影方案→色调参数"
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # Ch5: 光影色调
 

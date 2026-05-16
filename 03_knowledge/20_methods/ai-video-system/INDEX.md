@@ -9,7 +9,9 @@ date_created: 2026-05-15
 date_modified: 2026-05-15
 version: "1.0"
 description: "以'结果推导'为核心的 AI 视频提示词系统知识体, 覆盖文生视频/图生视频/动漫/电影全维度"
----
+
+collected: true
+collected_date: 2026-05-16---
 
 # AI 视频提示词系统创作教科书 · 知识体系
 

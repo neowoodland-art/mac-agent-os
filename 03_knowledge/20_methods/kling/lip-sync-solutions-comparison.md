@@ -1,3 +1,8 @@
+---
+collected: true
+collected_date: 2026-05-16
+---
+
 # AI 视频唇形同步（Lip-Sync）方案调研与成本对比
 
 > 最后更新: 2026-05-15 | 来源: Kling 官方文档 + 开源社区测评 + 论文

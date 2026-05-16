@@ -471,3 +471,26 @@ def get_summary() -> dict:
         return {}
     finally:
         conn.close()
+
+
+def get_cost_breakdown() -> list[dict]:
+    """按策略统计费用"""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        rows = conn.execute(
+            """SELECT strategy,
+                      COUNT(*) as count,
+                      COALESCE(SUM(duration_sec), 0) as total_duration,
+                      COALESCE(SUM(total_cost), 0) as total_cost,
+                      ROUND(AVG(total_cost), 2) as avg_cost
+               FROM productions
+               GROUP BY strategy
+               ORDER BY total_cost DESC"""
+        ).fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+    finally:
+        conn.close()

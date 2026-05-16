@@ -1,3 +1,8 @@
+---
+collected: true
+collected_date: 2026-05-16
+---
+
 # 角色一致性定妆照方案（参考图/多视角 Character Sheet/九宫格）
 
 > 最后更新: 2026-05-15 | 来源: Kling 官方文档 + 社区实践 + 论文调研
