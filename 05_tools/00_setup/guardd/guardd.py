@@ -325,7 +325,7 @@ def _handle_notify_event(task):
 # ────────────────────────────────────────────────────────────
 
 def module_upgrade_checker():
-    """检查版本清单，发现新版本时触发更新事件"""
+    """检查版本清单，发现新版本时触发更新事件 + 非破坏性更新自动执行"""
     remote_versions = _read_json(VERSIONS_FILE)
     if not remote_versions:
         logger.info("  版本清单不可用，跳过")
@@ -334,12 +334,12 @@ def module_upgrade_checker():
     local_versions = _get_local_versions()
     components = remote_versions.get("components", {})
     updates_found = []
+    auto_upgraded = []
 
     for name, spec in components.items():
         local_ver = local_versions.get(name, {}).get("version", "0.0.0")
         remote_ver = spec.get("current", "0.0.0")
 
-        # 简单版本比较（字符串比较适用于 semver 主版本号比较）
         if remote_ver != local_ver:
             is_breaking = spec.get("breaking_change", False)
             updates_found.append({
@@ -350,23 +350,41 @@ def module_upgrade_checker():
                 "description": spec.get("description", ""),
             })
 
-    if updates_found:
-        for u in updates_found:
-            action = "需确认" if u["breaking"] else "自动"
-            logger.info(f"  发现更新: {u['component']} {u['from']} → {u['to']} ({action})")
+            # 自动执行非破坏性更新
+            if not is_breaking:
+                install_script = spec.get("install_script", "")
+                if install_script:
+                    script_path = AGENT_SYNC / install_script
+                    if script_path.exists():
+                        try:
+                            subprocess.run(["bash", str(script_path)], check=True,
+                                          capture_output=True, timeout=120)
+                            auto_upgraded.append(name)
+                            logger.info(f"    ✅ 自动升级 {name}: {local_ver}→{remote_ver}")
+                            _write_event("component_upgraded", {
+                                "component": name, "from": local_ver, "to": remote_ver
+                            })
+                        except subprocess.CalledProcessError as e:
+                            logger.error(f"    ❌ 自动升级 {name} 失败: {e.stderr.decode()[:200]}")
+                        except FileNotFoundError:
+                            logger.info(f"    ⏭ 升级脚本不存在: {install_script}")
+                    else:
+                        logger.info(f"    ℹ️ {name} 有更新 {local_ver}→{remote_ver}，无安装脚本")
 
+    if updates_found:
+        if auto_upgraded:
+            logger.info(f"  已自动升级: {', '.join(auto_upgraded)}")
+        breaking = [u for u in updates_found if u['breaking']]
+        if breaking:
+            logger.info(f"  ⚠️ 破坏性更新待处理: {', '.join(b['component'] for b in breaking)}")
         _write_event("upgrades_available", {
-            "updates": updates_found,
+            "updates": updates_found, "auto_upgraded": auto_upgraded,
             "check_time": datetime.now(timezone.utc).isoformat(),
         })
-
-        # 保存最新版本到本地（标记为已通知）
         new_local = {}
         for name, spec in components.items():
-            new_local[name] = {
-                "version": spec["current"],
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
+            new_local[name] = {"version": spec["current"],
+                              "updated_at": datetime.now(timezone.utc).isoformat()}
         _save_local_versions(new_local)
     else:
         logger.info("  所有组件已最新")
@@ -536,16 +554,15 @@ def module_knowledge_sync():
 # ────────────────────────────────────────────────────────────
 
 def module_encrypted_channel():
-    """解密发往本机的加密消息"""
+    """解密发往本机的加密消息 → 解密后提示用户"""
     if not DIR_ENCRYPTED_PENDING.exists():
         return
 
-    # 查找本地私钥
     private_key_path = DIR_SECRETS / "private_key.pem"
     if not private_key_path.exists():
         logger.info("  无私钥文件，跳过加密频道")
+        return
 
-    # 扫描待处理消息
     found = 0
     for f in sorted(DIR_ENCRYPTED_PENDING.iterdir()):
         if not f.name.endswith(".json"):
@@ -562,48 +579,63 @@ def module_encrypted_channel():
 
         found += 1
         msg_id = msg.get("id", f.stem)
-        logger.info(f"  发现加密消息 [{msg_id}]")
+        msg_type = msg.get("type", "unknown")
+        sender = msg.get("sender", "unknown")
+        logger.info(f"  发现加密消息 [{msg_id}] from={sender} type={msg_type}")
 
-        # 解密（如果私钥存在且 cryptography 可用）
-        if private_key_path.exists():
-            try:
-                from cryptography.hazmat.primitives import hashes, serialization
-                from cryptography.hazmat.primitives.asymmetric import padding
+        # 创建用户通知文件（可用于前端/外部提示）
+        notice = {
+            "msg_id": msg_id, "sender": sender, "type": msg_type,
+            "description": msg.get("description", ""),
+            "received_at": datetime.now(timezone.utc).isoformat(),
+            "needs_action": True,
+        }
+        notice_dir = DIR_GUARDD_LOG / "notifications"
+        notice_dir.mkdir(parents=True, exist_ok=True)
+        (notice_dir / f"{msg_id}.json").write_text(
+            json.dumps(notice, indent=2, ensure_ascii=False), encoding="utf-8")
 
-                encrypted_data = msg.get("payload", "")
-                if encrypted_data:
-                    # 解密流程
-                    with open(private_key_path, "rb") as key_file:
-                        private_key = serialization.load_pem_private_key(
-                            key_file.read(),
-                            password=None,
-                        )
+        # 如果是文件传输请求，特别标注
+        if msg_type == "file_transfer":
+            logger.info(f"  🔄 文件传输请求: {msg.get('description', '')}")
+            notice["action_type"] = "approve_transfer"
 
-                    try:
-                        decrypted = private_key.decrypt(
-                            bytes.fromhex(encrypted_data),
-                            padding.OAEP(
-                                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                algorithm=hashes.SHA256(),
-                                label=None,
-                            ),
-                        )
-                        # 写入 received/
-                        received_dir = DIR_SECRETS / "received"
-                        received_dir.mkdir(parents=True, exist_ok=True)
-                        out_path = received_dir / f"{msg_id}.json"
-                        out_path.write_text(decrypted.decode("utf-8"), encoding="utf-8")
-                        logger.info(f"    解密成功 → {out_path}")
-                        _write_event("message_decrypted", {"msg_id": msg_id})
-                    except Exception as e:
-                        logger.error(f"    解密失败: {e}")
-                        _write_event("message_decrypt_failed", {"msg_id": msg_id, "error": str(e)})
-            except ImportError:
-                logger.info("    未安装 cryptography 库，跳过解密")
-        else:
-            logger.info(f"    消息待解密 (需私钥): {msg_id}")
+        # 尝试解密
+        try:
+            from cryptography.hazmat.primitives import hashes, serialization
+            from cryptography.hazmat.primitives.asymmetric import padding
+            encrypted_data = msg.get("payload", "")
+            if encrypted_data:
+                with open(private_key_path, "rb") as key_file:
+                    private_key = serialization.load_pem_private_key(key_file.read(), password=None)
+                decrypted = private_key.decrypt(
+                    bytes.fromhex(encrypted_data),
+                    padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                                 algorithm=hashes.SHA256(), label=None),
+                )
+                received_dir = DIR_SECRETS / "received"
+                received_dir.mkdir(parents=True, exist_ok=True)
+                out_path = received_dir / f"{msg_id}.json"
+                out_path.write_text(decrypted.decode("utf-8"), encoding="utf-8")
+                logger.info(f"    ✅ 解密成功 → {out_path}")
+                notice["decrypted"] = True
+                notice["output"] = str(out_path)
+                _write_event("message_decrypted", {"msg_id": msg_id})
+            else:
+                # 无 payload 的消息（如请求类），确认收到即可
+                logger.info(f"    ℹ️ 无加密载荷，确认收到")
+                notice["decrypted"] = True
+        except Exception as e:
+            logger.error(f"    ⚠️ 解密失败: {e}")
+            notice["decrypted"] = False
+            notice["error"] = str(e)
+            _write_event("message_decrypt_failed", {"msg_id": msg_id, "error": str(e)})
 
-        # 移出待处理区
+        # 更新通知状态
+        notice["needs_action"] = False
+        (notice_dir / f"{msg_id}.json").write_text(
+            json.dumps(notice, indent=2, ensure_ascii=False), encoding="utf-8")
+
         _safe_move(f, DIR_ENCRYPTED_PROCESSED)
 
     if found == 0:
@@ -658,6 +690,59 @@ def module_cleanup():
 
 
 # ════════════════════════════════════════════════════════════
+# 模块 8：同步检查 (sync_checker)
+# ════════════════════════════════════════════════════════════
+# 自动 git pull → 检测变更 → 触发协同更新
+# ────────────────────────────────────────────────────────────
+
+def module_sync_checker():
+    """自动拉取远程变更，检测是否有新的协同任务"""
+    if not (AGENT_SYNC / ".git").exists():
+        logger.info("  非 git 仓库，跳过同步检查")
+        return
+
+    try:
+        # 1. git pull 获取远程变更
+        result = subprocess.run(
+            ["git", "pull"],
+            capture_output=True, text=True, timeout=30,
+            cwd=str(AGENT_SYNC),
+        )
+        output = result.stdout.strip()
+        stderr = result.stderr.strip()
+
+        if "Already up to date" in output:
+            logger.info("  远程仓库已最新")
+            return
+
+        if result.returncode == 0:
+            # 有更新！
+            changed = "has new commits" in output or "Fast-forward" in output
+            if changed or "files changed" in output:
+                # 提取变更统计
+                stats = ""
+                for line in output.split("\n"):
+                    if "files changed" in line:
+                        stats = line.strip()
+                        break
+                logger.info(f"  🔄 检测到远程更新: {stats or output[:80]}")
+                _write_event("sync_updated", {
+                    "summary": output[:500],
+                    "hostname": HOSTNAME,
+                })
+            else:
+                logger.info(f"  git pull 输出: {output[:200]}")
+        else:
+            logger.warning(f"  git pull 失败: {stderr[:200]}")
+    except subprocess.TimeoutExpired:
+        logger.warning("  git pull 超时 (30s)")
+    except FileNotFoundError:
+        logger.info("  git 未安装，跳过同步检查")
+    except Exception as e:
+        logger.warning(f"  git pull 异常: {e}")
+
+
+# ════════════════════════════════════════════════════════════
 # 主循环
 # ════════════════════════════════════════════════════════════
 
@@ -672,6 +757,7 @@ def main():
         ("memory_triage", module_memory_triage),
         ("knowledge_sync", module_knowledge_sync),
         ("encrypted_channel", module_encrypted_channel),
+        ("sync_checker", module_sync_checker),
         ("cleanup", module_cleanup),
     ]
 
