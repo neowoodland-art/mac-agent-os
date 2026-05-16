@@ -1,6 +1,6 @@
 # 多机部署与同步更新指南
 
-> 版本: 1.0.0 | 最后更新: 2026-05-16
+> 版本: 1.1.0 | 最后更新: 2026-05-16
 > 适用: AgentOS 联邦架构下所有主机
 
 ---
@@ -32,6 +32,9 @@
 | `05_tools/09_ave/scripts/dashboard/static/index.html` | 删除 | 迁出到 `10_dashboard/` |
 | `05_tools/10_dashboard/` | 新增 | 系统级监控面板（完整模块） |
 | `03_knowledge/versions.json` | 新增 | guardd 版本跟踪清单 |
+| `10_dashboard/app.py` | 修改 | v1.1.0 新增 `/api/machines` 联邦机器状态接口 |
+| `10_dashboard/static/index.html` | 修改 | 新增「机器状态」面板（含在线/离线/磁盘/CPU） |
+| `requirements.txt` | 修改 | 新增 fastapi / uvicorn 依赖 |
 | `05_tools/09_ave/scripts/composer/hybrid.py` | 新增 | Sprint 2 口播+卡点融合 |
 | `05_tools/09_ave/scripts/composer/speed_ramp.py` | 新增 | Sprint 2 变速卡点引擎 |
 | `05_tools/09_ave/scripts/asset_manager/` | 新增 | 素材资产管理 |
@@ -56,6 +59,8 @@ git pull
 - `05_tools/09_ave/scripts/main.py` 更新（dashboard 命令）
 - `05_tools/09_ave/scripts/lib/dashboard.py` 更新（Python 3.9 修复）
 - `03_knowledge/versions.json` 出现（版本跟踪）
+- `05_tools/10_dashboard/static/index.html` 新增「机器状态」导航项
+- `requirements.txt` 新增 fastapi / uvicorn（需重新安装依赖）
 
 ### 步骤 2：检查旧 Dashboard 进程（如已启动过）
 
@@ -95,6 +100,9 @@ cd ~/workbuddy-agent-os/agent-sync/05_tools/10_dashboard
 ```bash
 curl http://localhost:9988/api/health
 # 预期: {"status":"ok","version":"1.0.0","plugins":{"ave":"available"}}
+
+curl http://localhost:9988/api/machines
+# 预期: {"machhes":[ ... ],"total":N} 显示联邦内所有主机状态
 ```
 
 ### 步骤 5：验证 guardd 正常运行（无需重启）

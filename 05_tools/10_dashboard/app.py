@@ -17,6 +17,7 @@ API:
   GET  /api/assets/disk          — 磁盘占用
   GET  /api/costs/breakdown      — 费用分析
   GET  /api/health               — 健康检查
+  GET  /api/machines             — 机器状态（联邦心跳）
 
 用法:
   # 通过 AVE main.py (推荐, 自动处理 path)
@@ -32,6 +33,8 @@ import sys
 import os
 from pathlib import Path
 from typing import Optional
+from datetime import datetime, timezone
+import json
 
 # ── 添加 AVE scripts 目录到 sys.path ──────────────────────
 # Dashboard 需要读取 AVE 的 DB, 因此需要能 import lib.dashboard
@@ -294,6 +297,113 @@ def health():
             for name in _PLUGINS
         },
     }
+
+
+# ═══════════════════════════════════════════════════════════
+# 机器状态（联邦心跳）
+# ═══════════════════════════════════════════════════════════
+
+_CROSS_MACHINE_DIR = Path(__file__).resolve().parent.parent.parent / "04_memory" / "cross_machine"
+
+
+@app.get("/api/machines")
+def api_machines():
+    """读取联邦心跳 JSON，返回各主机状态"""
+    status_dir = _CROSS_MACHINE_DIR / "status"
+    if not status_dir.is_dir():
+        return {"machines": [], "error": "status_dir_not_found"}
+
+    now = datetime.now(timezone.utc)
+    machines = []
+
+    for host_dir in sorted(status_dir.iterdir()):
+        if not host_dir.is_dir():
+            continue
+        hb_file = host_dir / "heartbeat.json"
+        if not hb_file.exists():
+            continue
+        try:
+            hb = json.loads(hb_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+
+        # 计算离线状态
+        last_seen_str = hb.get("last_seen", "")
+        try:
+            last_seen = datetime.fromisoformat(last_seen_str)
+            delta_min = (now - last_seen).total_seconds() / 60
+        except (ValueError, TypeError):
+            last_seen = None
+            delta_min = 9999
+
+        if delta_min < 5:
+            online_status = "online"
+        elif delta_min < 60:
+            online_status = "recent"
+        else:
+            online_status = "offline"
+
+        disk = hb.get("disk", {})
+        total_gb = disk.get("total_gb", 0)
+        used_gb = disk.get("used_gb", 0)
+        avail_gb = disk.get("available_gb", 0)
+        disk_pct = round(used_gb / total_gb * 100, 1) if total_gb > 0 else 0
+
+        machines.append({
+            "hostname": hb.get("hostname", host_dir.name),
+            "dir_name": host_dir.name,
+            "role": hb.get("role", "unknown"),
+            "os": hb.get("os", ""),
+            "arch": hb.get("cpu", {}).get("arch", ""),
+            "cpu_load": hb.get("cpu", {}).get("load_1m", 0),
+            "disk_total_gb": total_gb,
+            "disk_used_gb": used_gb,
+            "disk_avail_gb": avail_gb,
+            "disk_used_pct": disk_pct,
+            "guardd_version": hb.get("guardd_version", ""),
+            "last_seen": last_seen_str,
+            "minutes_ago": round(delta_min, 1),
+            "status": online_status,
+            "current_task": hb.get("current_task"),
+        })
+
+    # 去重：相同 total_gb + os + 相近 used_gb(±10G) 视为同一台
+    # hostname 变化(如 Redmi-12C→192.168.31.96)会导致相同机器有多个目录
+    seen_groups = []
+    deduped = []
+
+    def _find_group(m):
+        for g in seen_groups:
+            if (m["disk_total_gb"] != g["disk_total_gb"] or m["os"] != g["os"]):
+                continue
+            if abs(m["disk_used_gb"] - g["disk_used_gb"]) > 10:
+                continue
+            return g
+        return None
+
+    for m in machines:
+        group = _find_group(m)
+        if group is not None:
+            # 同一台机器，保留最新心跳
+            if m["minutes_ago"] < group["minutes_ago"]:
+                group["duplicate_of"] = group["hostname"]
+                group["hostname"] = m["hostname"]
+                group["dir_name"] = m["dir_name"]
+                group["minutes_ago"] = m["minutes_ago"]
+                group["last_seen"] = m["last_seen"]
+                group["status"] = m["status"]
+                group["disk_used_gb"] = m["disk_used_gb"]
+                group["disk_avail_gb"] = m["disk_avail_gb"]
+                group["disk_used_pct"] = m["disk_used_pct"]
+                group["cpu_load"] = m["cpu_load"]
+                group["current_task"] = m["current_task"]
+                group["is_duplicate"] = True
+        else:
+            m["is_duplicate"] = False
+            seen_groups.append(m)
+            deduped.append(m)
+
+    return {"machines": deduped, "total": len(deduped), "raw_count": len(machines)}
 
 
 # ── 直接运行 ──────────────────────────────────────────────

@@ -40,6 +40,11 @@ chromadb>=1.0.0
 # 语音转文字（voice-summary 使用）
 openai-whisper>=20231117
 
+# ─── Dashboard ─────────────────────────────────────────────────
+# 系统监控面板（05_tools/10_dashboard/ 使用）
+fastapi>=0.110.0
+uvicorn>=0.27.0
+
 # ─── 安装后必须执行 ────────────────────────────────────────────
 # Playwright 浏览器引擎下载（需网络通畅）：
 #   /Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/playwright install chromium

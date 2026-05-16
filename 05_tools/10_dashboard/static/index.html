@@ -111,6 +111,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div class="nav-item active" data-view="productions" onclick="switchView('productions')">📋 生产列表</div>
   <div class="nav-item" data-view="assets" onclick="switchView('assets')">💾 资产</div>
   <div class="nav-item" data-view="costs" onclick="switchView('costs')">💰 费用</div>
+  <div class="nav-item" data-view="machines" onclick="switchView('machines')">🖥 机器状态</div>
   <div style="flex:1"></div>
   <div class="nav-item" onclick="location.reload()">🔄 刷新</div>
 </nav>
@@ -153,6 +154,15 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div id="costBreakdown"></div>
 </div>
 
+<!-- Machine status view -->
+<div id="view-machines" class="hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:18px">🖥 机器状态</h2>
+    <span id="machineCount" style="font-size:13px;color:var(--text2)"></span>
+  </div>
+  <div id="machineGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px"></div>
+</div>
+
 <!-- Production detail modal -->
 <div id="detailModal" class="hidden"></div>
 
@@ -174,12 +184,13 @@ loadPlugins();
 function switchView(view) {
   currentView = view;
   document.querySelectorAll('.nav-item').forEach(e => e.classList.toggle('active', e.dataset.view === view));
-  ['productions','assets','costs'].forEach(v => {
+  ['productions','assets','costs','machines'].forEach(v => {
     document.getElementById('view-' + v).classList.toggle('hidden', v !== view);
   });
   if (view === 'productions') loadProductions();
   if (view === 'assets') loadAssets();
   if (view === 'costs') loadCosts();
+  if (view === 'machines') loadMachines();
 }
 
 // ── Stats ──
@@ -365,6 +376,76 @@ async function loadPlugins() {
     }
     if (count) count.textContent = avail.length;
   } catch(e) { /* 插件信息非关键 */ }
+}
+
+// ── Machine Status ──
+async function loadMachines() {
+  const el = document.getElementById('machineGrid');
+  const countEl = document.getElementById('machineCount');
+  el.innerHTML = '<div class="loading">读取联邦心跳中...</div>';
+  try {
+    const r = await fetch(`${API}/api/machines`);
+    const d = await r.json();
+    const machines = d.machines || [];
+    countEl.textContent = `共 ${machines.length} 台主机`;
+
+    if (!machines.length) {
+      el.innerHTML = '<div class="error" style="padding:40px">无心跳数据</div>';
+      return;
+    }
+
+    el.innerHTML = machines.map(m => {
+      const isOnline = m.status === 'online';
+      const isRecent = m.status === 'recent';
+      const dotColor = isOnline ? 'var(--green)' : isRecent ? 'var(--amber)' : 'var(--red)';
+      const statusText = isOnline ? '在线' : isRecent ? '近期' : '离线';
+      const minutesAgo = m.minutes_ago;
+      const timeStr = minutesAgo < 60
+        ? `${minutesAgo.toFixed(0)} 分钟前`
+        : `${(minutesAgo/60).toFixed(1)} 小时前`;
+
+      // 磁盘条
+      const diskPct = m.disk_used_pct || 0;
+      const diskColor = diskPct > 85 ? 'var(--red)' : diskPct > 60 ? 'var(--amber)' : 'var(--green)';
+      const diskBar = `<div style="height:6px;background:var(--bg3);border-radius:3px;margin:6px 0;overflow:hidden">
+        <div style="height:100%;width:${diskPct}%;background:${diskColor};border-radius:3px;transition:width .3s"></div>
+      </div>`;
+
+      // 角色标签
+      const roleColor = m.role === 'master' ? 'var(--primary)' : m.role === 'node' ? 'var(--blue)' : 'var(--text2)';
+
+      return `<div style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid ${isOnline ? 'rgba(34,197,94,.2)' : 'var(--border)'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:10px;height:10px;border-radius:50%;background:${dotColor};display:inline-block;"></span>
+            <div>
+              <div style="font-weight:600;font-size:15px">${m.hostname}</div>
+              <div style="font-size:11px;color:var(--text2)">${m.os} · ${m.arch||''}</div>
+            </div>
+          </div>
+          <span style="padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:${roleColor}22;color:${roleColor};border:1px solid ${roleColor}44">${m.role}</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-bottom:12px">
+          <div><span style="color:var(--text2)">guardd</span><br>v${m.guardd_version||'-'}</div>
+          <div><span style="color:var(--text2)">最后心跳</span><br>${timeStr}</div>
+          <div><span style="color:var(--text2)">CPU 负载</span><br>${m.cpu_load||'-'}</div>
+          <div><span style="color:var(--text2)">当前任务</span><br>${m.current_task||'无'}</div>
+        </div>
+
+        <div style="font-size:12px;color:var(--text2);margin-bottom:2px">磁盘: ${m.disk_used_gb.toFixed(0)}G / ${m.disk_total_gb.toFixed(0)}G</div>
+        ${diskBar}
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
+          <span>已用 ${diskPct}%</span>
+          <span>剩余 ${m.disk_avail_gb.toFixed(0)}G</span>
+        </div>
+
+        ${m.is_duplicate ? `<div style="margin-top:8px;padding:4px 8px;background:rgba(245,158,11,.1);border-radius:4px;font-size:11px;color:var(--amber)">⚠ hostname 变更: 原名 ${m.duplicate_of||''}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
+  }
 }
 
 // ── Keyboard ──
