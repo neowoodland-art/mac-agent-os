@@ -52,6 +52,7 @@ from fastapi import HTTPException
 # ── 插件系统 ───────────────────────────────────────────────
 from plugins.base import DashboardPlugin
 from plugins.ave import AVEDashboardPlugin
+from plugins.guardd import GuarddPlugin
 
 # 注册所有插件
 _PLUGINS: dict[str, DashboardPlugin] = {}
@@ -62,6 +63,7 @@ def _register_plugins():
     """扫描并注册所有插件"""
     plugins_to_register = [
         AVEDashboardPlugin,
+        GuarddPlugin,
     ]
 
     for plugin_cls in plugins_to_register:
