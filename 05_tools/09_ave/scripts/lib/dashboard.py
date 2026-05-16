@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 AVE dashboard — 生产监控数据层
 

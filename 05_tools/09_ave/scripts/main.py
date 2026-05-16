@@ -98,6 +98,15 @@ def main():
     p_dh.add_argument("--output", default="/tmp/ave_digital_human.mp4", help="输出路径")
     p_dh.add_argument("--resolution", default="480P", choices=["480P", "720P"], help="分辨率")
 
+    # ── speed-ramp ──
+    p_sr = sub.add_parser("speed-ramp", help="变速卡点 (缓变速度曲线)")
+    p_sr.add_argument("--input", required=True, help="输入视频路径")
+    p_sr.add_argument("--output", default="/tmp/ave_speed_ramp.mp4", help="输出路径")
+    p_sr.add_argument("--speed", type=float, default=1.0, help="匀速倍率 (默认1.0, 不启用curve时使用)")
+    p_sr.add_argument("--curve", default="", help="缓变曲线, 逗号分隔 (例: 0.7,1.0,1.3)")
+    p_sr.add_argument("--segments", type=int, default=6, help="缓变分段数 (默认6)")
+    p_sr.add_argument("--no-audio", action="store_true", help="关闭音频变速")
+
     # ── beat-sync ──
     p_bs = sub.add_parser("beat-sync", help="卡点视频 (BGM节拍驱动画面切换)")
     p_bs.add_argument("--bgm", required=True, help="BGM 音频路径")
@@ -107,6 +116,22 @@ def main():
     p_bs.add_argument("--group-size", type=int, default=4, help="每组节拍数 (默认4)")
     p_bs.add_argument("--texts", nargs="*", default=[], help="每段叠加的文字 (可选)")
     p_bs.add_argument("--resolution", default="1080x1920", help="分辨率")
+
+    # ── hybrid ──
+    p_hy = sub.add_parser("hybrid", help="口播+卡点融合 (人声锚点+BGM能量变速)")
+    p_hy.add_argument("--voice", required=True, help="人声 WAV 路径")
+    p_hy.add_argument("--bgm", required=True, help="BGM 音频路径")
+    p_hy.add_argument("--clips", nargs="*", default=[], help="素材路径列表 (可选)")
+    p_hy.add_argument("--search", default="", help="Pexels 搜索关键词 (素材不够时补充)")
+    p_hy.add_argument("--output", default="/tmp/ave_hybrid.mp4", help="输出路径")
+    p_hy.add_argument("--texts", nargs="*", default=[], help="每段字幕文字 (可选)")
+    p_hy.add_argument("--resolution", default="1080x1920", help="分辨率")
+    p_hy.add_argument("--no-speed-ramp", action="store_true", help="关闭能量驱动变速")
+    p_hy.add_argument("--base-speed", type=float, default=1.0, help="基础速度 (默认1.0)")
+    p_hy.add_argument("--high-speed", type=float, default=1.5, help="高能段速度 (默认1.5)")
+    p_hy.add_argument("--low-speed", type=float, default=0.7, help="低能段速度 (默认0.7)")
+    p_hy.add_argument("--group-size", type=int, default=4, help="BGM 节拍分组 (默认4)")
+    p_hy.add_argument("--min-silence", type=float, default=0.15, help="最小静音时长 (默认0.15s)")
 
     # ── character-sheet ──
     p_cs = sub.add_parser("character-sheet", help="定妆照 Grid Method 生成")
@@ -128,14 +153,42 @@ def main():
     p_ls.add_argument("--output", default="", help="输出路径")
     p_ls.add_argument("--force", action="store_true", help="强制重新生成")
 
+    # ── story ──
+    p_st = sub.add_parser("story", help="角色叙事故事线 (多场景角色一致性)")
+    p_st.add_argument("--script", required=True, help="导演脚本 YAML 路径")
+    p_st.add_argument("--character", default="", help="角色名 (从角色库加载描述块)")
+    p_st.add_argument("--block", default="", help="角色描述块 (可选, 避免从角色库加载)")
+    p_st.add_argument("--lang", default="en", choices=["en", "zh"], help="Prompt 语言")
+    p_st.add_argument("--model", default="turbo", choices=["turbo", "pro"], help="Kling 模型")
+    p_st.add_argument("--duration", type=int, default=5, choices=[5, 10], help="每场景视频时长(秒)")
+    p_st.add_argument("--output-dir", default="", help="输出目录 (默认自动生成)")
+    p_st.add_argument("--seed", type=int, default=42, help="固定 seed (角色一致性)")
+    p_st.add_argument("--force", action="store_true", help="强制重新生成")
+    p_st.add_argument("--dry-run", action="store_true", help="仅展示场景分解结果，不生成视频")
+
     # ── dashboard ──
     p_db = sub.add_parser("dashboard", help="启动 Dashboard 后端")
     p_db.add_argument("--port", type=int, default=9988, help="端口 (默认 9988)")
     p_db.add_argument("--no-reload", action="store_true", help="关闭热重载")
 
+    # ── asset (素材资产管理) ──
+    p_as = sub.add_parser("asset", help="素材资产管理 (索引/搜索/清理)")
+    p_as.add_argument("action", choices=["scan", "list", "tags", "stats", "cleanup", "disk"],
+                      help="操作")
+    p_as.add_argument("--keyword", default="", help="搜索关键字")
+    p_as.add_argument("--type", dest="asset_type", default="", help="筛选类型 video/audio/image")
+    p_as.add_argument("--source", default="", help="筛选来源 (materials/kling/...)")
+    p_as.add_argument("--tag", default="", help="筛选标签")
+    p_as.add_argument("--limit", type=int, default=30, help="返回条数")
+    p_as.add_argument("--days", type=int, default=30, help="清理: N 天前的孤立素材")
+    p_as.add_argument("--dry-run", action="store_true", help="清理: 仅预览不删除")
+    p_as.add_argument("--production", type=int, default=0, help="关联 production ID")
+    p_as.add_argument("--force-rescan", action="store_true", help="强制全量重新扫描")
+    p_as.add_argument("--show-meta", action="store_true", help="显示元数据详情")
+
     # ── video-factory ──
     p_vf = sub.add_parser("video-factory", help="视频工厂 (统一生产入口)")
-    p_vf.add_argument("--strategy", required=True, choices=["口播", "卡点", "数字人", "status"],
+    p_vf.add_argument("--strategy", required=True, choices=["口播", "卡点", "数字人", "口播+卡点", "故事", "status"],
                       help="生产策略")
     # 通用参数
     p_vf.add_argument("--output", default="", help="输出路径")
@@ -158,6 +211,14 @@ def main():
     p_vf.add_argument("--mode", default="对口型", choices=["对口型", "动作模仿"],
                       help="数字人模式")
     p_vf.add_argument("--video", default=None, help="参考视频 (动作模仿)")
+    # 故事参数
+    p_vf.add_argument("--character", default="", help="角色名 (故事策略)")
+    p_vf.add_argument("--block", default="", help="角色描述块 (故事策略)")
+    p_vf.add_argument("--story-model", default="turbo", choices=["turbo", "pro"], help="Kling 模型 (故事策略)")
+    p_vf.add_argument("--story-duration", type=int, default=5, choices=[5, 10], help="每场景时长 (故事策略)")
+    p_vf.add_argument("--story-lang", default="en", choices=["en", "zh"], help="Prompt 语言 (故事策略)")
+    p_vf.add_argument("--seed", type=int, default=42, help="固定 seed (故事策略)")
+    p_vf.add_argument("--story-dry-run", action="store_true", help="仅展示场景分解 (故事策略)")
 
     args = parser.parse_args()
 
@@ -289,6 +350,31 @@ def main():
         size_mb = _os.path.getsize(result) / 1024 / 1024
         print(f"\n✅ 数字人完成: {result} ({size_mb:.1f}MB)")
 
+    elif args.command == "speed-ramp":
+        from composer.speed_ramp import speed_ramp
+
+        curve = None
+        if args.curve:
+            curve = [float(x.strip()) for x in args.curve.split(",")]
+
+        print(f"[AVE] 变速卡点: {args.input}")
+        if curve:
+            print(f"  曲线: {'→'.join(f'{c:.2f}x' for c in curve)}, {args.segments}段")
+        else:
+            print(f"  匀速: {args.speed:.2f}x")
+
+        result = speed_ramp(
+            input_path=args.input,
+            output_path=args.output,
+            speed=args.speed,
+            curve=curve,
+            segments=args.segments,
+            keep_audio=not args.no_audio,
+        )
+        import os as _os
+        sz_mb = _os.path.getsize(result) / 1024 / 1024
+        print(f"\n✅ 变速完成: {result} ({sz_mb:.0f}MB)")
+
     elif args.command == "beat-sync":
         from composer.beat_sync import compose_beat_sync
 
@@ -315,6 +401,38 @@ def main():
         import os as _os
         sz_mb = _os.path.getsize(args.output) / 1024 / 1024
         print(f"\n✅ Beat-Sync 完成: {args.output} ({sz_mb:.0f}MB)")
+
+    elif args.command == "hybrid":
+        from composer.hybrid import compose_hybrid
+
+        cfg = load_config()
+        pexels_key = cfg.get("pexels", {}).get("api_key", "")
+
+        print(f"[AVE] 口播+卡点融合")
+        print(f"  人声: {args.voice}")
+        print(f"  BGM:  {args.bgm}")
+        print(f"  素材: {len(args.clips)} 个 + 搜索 '{args.search}'")
+        print(f"  变速: {'关闭' if args.no_speed_ramp else f'开启 ({args.low_speed:.1f}~{args.high_speed:.1f}x)'}")
+
+        compose_hybrid(
+            voice_path=args.voice,
+            bgm_path=args.bgm,
+            output_path=args.output,
+            material_clips=args.clips or None,
+            resolution=args.resolution,
+            texts=args.texts or None,
+            pexels_api_key=pexels_key,
+            pexels_search=args.search,
+            enable_speed_ramp=not args.no_speed_ramp,
+            base_speed=args.base_speed,
+            high_speed=args.high_speed,
+            low_speed=args.low_speed,
+            group_size=args.group_size,
+            min_silence_sec=args.min_silence,
+        )
+        import os as _os
+        sz_mb = _os.path.getsize(args.output) / 1024 / 1024
+        print(f"\n✅ 融合完成: {args.output} ({sz_mb:.0f}MB)")
 
     elif args.command == "character-sheet":
         from character_sheet import generate_grid, save_character, list_characters
@@ -370,26 +488,164 @@ def main():
             )
         print(f"\n✅ LipSync 完成: {out}")
 
+    elif args.command == "story":
+        from story_director.scene_planner import plan_scenes, export_scenes
+        from story_director.temporal_bridge import enrich_scenes_with_bridges
+        from story_director.batch_generator import run_story_pipeline
+
+        cfg = load_config()
+
+        # 加载角色描述块
+        character_block = args.block
+        if not character_block and args.character:
+            from character_sheet import load_character
+            char = load_character(args.character)
+            if char:
+                character_block = char.get("description", "")
+                print(f"  从角色库加载 '{args.character}': {character_block[:40]}...")
+            else:
+                print(f"  ⚠️ 角色 '{args.character}' 未找到, 使用空描述块")
+
+        print(f"🎬 AVE 故事线: {args.script}")
+        print(f"  角色: {args.character or '(无)'}")
+        print(f"  Seed: {args.seed}")
+
+        # Step 1: 场景分解
+        print("\n[1/3] 场景分解...")
+        scenes = plan_scenes(
+            script_path=args.script,
+            character_name=args.character or None,
+            character_block=character_block,
+            lang=args.lang,
+        )
+        print(f"  → {len(scenes)} 个场景")
+
+        # Step 2: 桥接
+        print("\n[2/3] 构建过渡桥接...")
+        enriched = enrich_scenes_with_bridges(scenes, character_block=character_block)
+        tmp_scenes_path = f"/tmp/ave_story_scenes_{int(time.time())}.json"
+        export_scenes(scenes, tmp_scenes_path, character_block=character_block,
+                      lang=args.lang, seed=args.seed)
+        print(f"  → 导出 {tmp_scenes_path}")
+
+        if args.dry_run:
+            print("\n⏸️  Dry-run 模式 — 仅展示场景分解:")
+            for s in enriched:
+                bridge = s.get("bridge_to_next", {})
+                print(f"\n  Scene {s['scene_id']}: {s.get('duration_sec', '?')}s "
+                      f"char={s.get('character_ref', 'none')} "
+                      f"trans={bridge.get('type', '-') if bridge else '-'}")
+                print(f"    Prompt: {s.get('prompt', '')[:80]}...")
+            return
+
+        # Step 3: 批量生成
+        print("\n[3/3] 批量 Kling 生成...")
+        result = run_story_pipeline(
+            scenes_path=tmp_scenes_path,
+            output_dir=args.output_dir,
+            model=args.model,
+            duration=args.duration,
+            force=args.force,
+        )
+
+        print(f"\n✅ 故事线完成")
+        print(f"   输出目录: {result['output_dir']}")
+        print(f"   拼接脚本: {result['concat_script']}")
+
+        for r in result["results"]:
+            icon = "✅" if r["status"] == "success" else "💾" if r["status"] == "cached" else "❌"
+            print(f"  {icon} Scene {r['scene_id']:2d}: {r.get('path', 'N/A')}")
+
+        from lib.cost_tracker import get_tracker
+        get_tracker().summary()
+
     elif args.command == "dashboard":
+        # 系统 Dashborad 已迁移到 05_tools/10_dashboard/
+        # 添加路径并启动
+        _dash_dir = Path(__file__).resolve().parent.parent.parent / "10_dashboard"
+        if str(_dash_dir) not in sys.path:
+            sys.path.insert(0, str(_dash_dir))
         import uvicorn
         port = args.port
         reload = not args.no_reload
-        print(f"📊 AVE Dashboard")
+        print(f"📊 系统监控面板")
         print(f"   → 前端页面: http://localhost:{port}")
+        print(f"   → 插件列表: http://localhost:{port}/api/plugins")
         print(f"   → API 总览: http://localhost:{port}/api/summary")
         print(f"   → API 生产:  http://localhost:{port}/api/productions")
         print(f"   → API 资产:  http://localhost:{port}/api/assets")
         print(f"   → API 文档:  http://localhost:{port}/docs")
-        uvicorn.run("dashboard.app:app", host="0.0.0.0", port=port, reload=reload)
+        uvicorn.run("app:app", host="0.0.0.0", port=port, reload=reload)
+
+    elif args.command == "asset":
+        from asset_manager.index import AssetIndex
+        from asset_manager.cache import CacheManager
+        from asset_manager.tags import AssetSearch
+
+        action = args.action
+
+        if action == "scan":
+            cm = CacheManager()
+            if args.force_rescan:
+                logger.info("强制全量扫描...")
+                result = cm.scan_all(production_id=args.production)
+            else:
+                logger.info("增量扫描...")
+                result = cm.scan_new(force_rescan=False)
+            print(f"\n  扫描完成: 新增 {result.get('total_new', 0)} 个素材")
+            if "per_dir" in result:
+                for d, n in result["per_dir"].items():
+                    if n > 0:
+                        print(f"    [{d}] +{n}")
+
+        elif action == "list":
+            srch = AssetSearch()
+            tags = [args.tag] if args.tag else None
+            results = srch.search(
+                keyword=args.keyword,
+                asset_type=args.asset_type or None,
+                source=args.source or None,
+                tags=tags,
+                limit=args.limit,
+            )
+            srch.print_results(results, show_meta=args.show_meta)
+
+        elif action == "tags":
+            srch = AssetSearch()
+            srch.print_tag_cloud()
+
+        elif action == "stats":
+            idx = AssetIndex()
+            idx.print_summary()
+
+        elif action == "cleanup":
+            cm = CacheManager()
+            result = cm.cleanup(days=args.days, dry_run=args.dry_run)
+            if args.dry_run:
+                print(f"\n  预览: 将清理 {result['deleted']} 个文件, "
+                      f"释放 {result['freed_bytes']/1024/1024:.1f} MB")
+                for f in result["files"][:10]:
+                    print(f"    {f}")
+                if len(result["files"]) > 10:
+                    print(f"    ... 还有 {len(result['files'])-10} 个")
+            else:
+                print(f"\n  已清理: {result['deleted']} 个文件, "
+                      f"释放 {result['freed_bytes']/1024/1024:.1f} MB")
+
+        elif action == "disk":
+            cm = CacheManager()
+            cm.print_disk_usage()
 
     elif args.command == "video-factory":
-        from video_factory import run_oral, run_beat, run_digital_human, show_status
+        from video_factory import run_oral, run_beat, run_digital_human, run_hybrid, run_story, show_status
 
         strategy = args.strategy
         output = args.output or {
             "口播": "/tmp/ave_oral.mp4",
             "卡点": "/tmp/ave_beat.mp4",
             "数字人": "/tmp/ave_dh.mp4",
+            "口播+卡点": "/tmp/ave_hybrid.mp4",
+            "故事": "/tmp/ave_story.mp4",
         }.get(strategy, "/tmp/ave_factory.mp4")
 
         if strategy == "status":
@@ -440,6 +696,52 @@ def main():
                 resolution=args.resolution,
                 mode=args.mode,
                 video=args.video,
+            )
+
+        elif strategy == "口播+卡点":
+            if not args.bgm or not args.script:
+                print("❌ 口播+卡点策略需要 --bgm 和 --script 参数")
+                return
+            # 先合成人声
+            from voice_synthesizer.aliyun import synthesize
+            cfg = load_config()
+            ak = cfg.get("aliyun", {}).get("api_key", "")
+            vid = cfg.get("aliyun", {}).get("voice_id", "")
+            voice_path = "/tmp/ave_factory_hybrid_voice.wav"
+            with open(args.script, encoding="utf-8") as f:
+                text = f.read()
+            print("  [1/3] 合成人声...")
+            synthesize(text, voice_path, api_key=ak, voice_id=vid)
+            run_hybrid(
+                voice=voice_path,
+                bgm=args.bgm,
+                output=output,
+                search=args.search,
+                group_size=args.group_size,
+                clips=args.clips,
+                texts=args.texts,
+                enable_speed_ramp=not args.no_speed_ramp,
+                base_speed=args.base_speed,
+                high_speed=args.high_speed,
+                low_speed=args.low_speed,
+                min_silence=args.min_silence,
+            )
+
+        elif strategy == "故事":
+            if not args.script:
+                print("❌ 故事策略需要 --script 参数")
+                return
+            run_story(
+                script=args.script,
+                output=output,
+                character=args.character,
+                block=args.block,
+                story_model=args.story_model,
+                story_duration=args.story_duration,
+                story_lang=args.story_lang,
+                seed=args.seed,
+                dry_run=args.story_dry_run,
+                force=getattr(args, 'force', False),
             )
 
         # 显示费用汇总

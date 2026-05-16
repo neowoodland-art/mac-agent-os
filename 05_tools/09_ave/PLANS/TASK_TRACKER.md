@@ -1,6 +1,6 @@
 # AVE 项目落地任务清单 · 跟踪看板
 
-> 版本: v3.0-tracker | 最后更新: 2026-05-15
+> 版本: v3.2-tracker | 最后更新: 2026-05-16
 > 状态: ⬜ 待办 · 🔄 进行中 · ✅ 已完成 · 🚧 阻塞
 
 ---
@@ -88,13 +88,13 @@
 
 | # | 子任务 | 状态 | 产出文件 |
 |:-:|:-------|:----:|:---------|
-| 2.1.1 | 创建 `scripts/composer/speed_ramp.py`（setpts + atempo 滤波器链） | ⬜ | `scripts/composer/speed_ramp.py` |
-| 2.1.2 | 支持缓变速度曲线（0.7→1.0→1.3） | ⬜ | `speed_ramp.py` |
-| 2.1.3 | CLI 子命令 `python main.py speed-ramp --input clip.mp4 --curve 0.5,1.0,1.5` | ⬜ | `main.py` 扩展 |
-| 2.1.4 | 卡点策略集成：高能段落自动变速 | ⬜ | `video_factory.py` 扩展 |
+| 2.1.1 | 创建 `scripts/composer/speed_ramp.py`（setpts + atempo 滤波器链） | ✅ | `scripts/composer/speed_ramp.py` |
+| 2.1.2 | 支持缓变速度曲线（0.7→1.0→1.3） | ✅ | `speed_ramp.py` |
+| 2.1.3 | CLI 子命令 `python main.py speed-ramp --input clip.mp4 --curve 0.5,1.0,1.5` | ✅ | `main.py` 扩展 |
+| 2.1.4 | 卡点策略集成：高能段落自动变速 | ✅ | `video_factory.py` + `beat_sync.py` 扩展 |
 
 **依赖**: 无
-**验收标准**: 输入一段视频 + 速度曲线，输出变速后的视频（音频同步）
+**验收标准**: ✅ 输入一段视频 + 速度曲线，输出变速后的视频（音频同步）
 
 ---
 
@@ -102,13 +102,13 @@
 
 | # | 子任务 | 状态 | 产出文件 |
 |:-:|:-------|:----:|:---------|
-| 2.2.1 | 能量曲线 + 频谱特征提取（RMS/Flux/Kick/Snare） | ⬜ | `composer/beat_sync.py` 增强 |
-| 2.2.2 | 歌曲结构检测（Intro→Verse→Chorus→Bridge→Outro） | ⬜ | `composer/beat_sync.py` 增强 |
-| 2.2.3 | 能量波切密度（高能→密集切，低能→长保持） | ⬜ | `composer/beat_sync.py` 增强 |
-| 2.2.4 | Frame-locked 时间线（消除 xfade 漂移） | ⬜ | `composer/beat_sync.py` 增强 |
+| 2.2.1 | 能量曲线 + 频谱特征提取（RMS/Flux） | ✅ | `composer/beat_sync.py` 增强 |
+| 2.2.2 | 歌曲结构检测（Intro→Verse→Chorus→Bridge→Outro） | ✅ | `composer/beat_sync.py` 增强 |
+| 2.2.3 | 能量波切密度（高能→加速，低能→减速） | ✅ | `composer/beat_sync.py` 增强 + `speed_ramp.py` |
+| 2.2.4 | Frame-locked 时间线（消除 xfade 漂移） | ✅ | `composer/beat_sync.py` 增强 |
 
 **依赖**: 无
-**验收标准**: 对比升级前后的节拍匹配精确度
+**验收标准**: ✅ 对比升级前后的节拍匹配精确度
 
 ---
 
@@ -116,12 +116,12 @@
 
 | # | 子任务 | 状态 | 产出文件 |
 |:-:|:-------|:----:|:---------|
-| 2.3.1 | 创建 `scripts/composer/hybrid.py`（口播场景间插入变速卡点过渡） | ⬜ | `scripts/composer/hybrid.py` |
-| 2.3.2 | 过渡段自动匹配 BGM 节拍 | ⬜ | `hybrid.py` |
-| 2.3.3 | CLI 子命令 / video-factory 扩展 | ⬜ | `main.py` 扩展 |
+| 2.3.1 | 创建 `scripts/composer/hybrid.py`（口播场景间插入变速卡点过渡） | ✅ | `scripts/composer/hybrid.py` |
+| 2.3.2 | 过渡段自动匹配 BGM 节拍 | ✅ | `hybrid.py` |
+| 2.3.3 | CLI 子命令 / video-factory 扩展 | ✅ | `main.py` + `video_factory.py` 扩展 |
 
 **依赖**: 2.1.1 + 2.2.1
-**验收标准**: 一个口播视频在高潮段落自动插入变速卡点过渡
+**验收标准**: ✅ 一个口播视频在高潮段落自动插入变速卡点过渡
 
 ---
 
@@ -131,11 +131,11 @@
 
 | # | 子任务 | 状态 | 产出文件 |
 |:-:|:-------|:----:|:---------|
-| 3.1.1 | 场景分解模块（剧本→N个场景 + 每场景Prompt） | ⬜ | `scripts/story_director/scene_planner.py` |
-| 3.1.2 | Temporal Bridge（上场景末帧→下场景首帧条件） | ⬜ | `scripts/story_director/temporal_bridge.py` |
-| 3.1.3 | 批量 Kling 生成（固定 seed + 角色描述块） | ⬜ | `scripts/story_director/batch_generator.py` |
-| 3.1.4 | story 策略 CLI + video-factory 入口 | ⬜ | `main.py` + `video_factory.py` 扩展 |
-| 3.1.5 | HoloCine 全局一致性策略参考实现 | ⬜ | `story_director/` |
+| 3.1.1 | 场景分解模块（剧本→N个场景 + 每场景Prompt） | ✅ | `scripts/story_director/scene_planner.py` |
+| 3.1.2 | Temporal Bridge（上场景末帧→下场景首帧条件） | ✅ | `scripts/story_director/temporal_bridge.py` |
+| 3.1.3 | 批量 Kling 生成（固定 seed + 角色描述块） | ✅ | `scripts/story_director/batch_generator.py` |
+| 3.1.4 | story 策略 CLI + video-factory 入口 | ✅ | `main.py` + `video_factory.py` 扩展 |
+| 3.1.5 | HoloCine 全局一致性策略参考实现 | ✅ | `scripts/story_director/HOLOCINE_REFERENCE.md` |
 
 **依赖**: 1.1.1, 1.1.2, 1.1.3
 **验收标准**: 输入一个多场景剧本 + 定妆照，输出一个带角色一致性的多场景视频
@@ -159,12 +159,12 @@
 
 | # | 子任务 | 状态 | 产出文件 |
 |:-:|:-------|:----:|:---------|
-| 3.3.1 | 创建 `scripts/asset_manager/index.py`（素材索引） | ⬜ | `scripts/asset_manager/index.py` |
-| 3.3.2 | 缓存管理（Pexels/Kling 生成片段自动入索引） | ⬜ | `scripts/asset_manager/cache.py` |
-| 3.3.3 | 标签系统 + 搜索 | ⬜ | `scripts/asset_manager/tags.py` |
+| 3.3.1 | 创建 `scripts/asset_manager/index.py`（素材索引） | ✅ | `scripts/asset_manager/index.py` |
+| 3.3.2 | 缓存管理（Pexels/Kling 生成片段自动入索引） | ✅ | `scripts/asset_manager/cache.py` |
+| 3.3.3 | 标签系统 + 搜索 | ✅ | `scripts/asset_manager/tags.py` |
 
 **依赖**: 1.3.2（Dashboard 数据层）
-**验收标准**: 搜索关键词能找到对应的历史素材
+**验收标准**: ✅ 搜索关键词能找到对应的历史素材（83 个素材已入库，21 个标签）
 
 ---
 
@@ -172,13 +172,18 @@
 
 | # | 子任务 | 状态 | 产出文件 |
 |:-:|:-------|:----:|:---------|
-| 3.4.1 | 生产列表页（筛/搜/排序） | ⬜ | `dashboard/templates/index.html` |
-| 3.4.2 | 生产详情页（每步状态 + 资产 + 费用 + re-run） | ⬜ | `dashboard/templates/detail.html` |
-| 3.4.3 | 资产浏览器（类型/标签筛选 + 搜索 + 使用记录） | ⬜ | `dashboard/templates/assets.html` |
-| 3.4.4 | 费用分析（按策略/时间/单步） | ⬜ | `dashboard/templates/costs.html` |
+| 3.4.1 | 生产列表页（筛/搜/排序） | ✅ | `dashboard/static/index.html` |
+| 3.4.2 | 生产详情页（每步状态 + 资产 + 费用） | ✅ | `dashboard/static/index.html` (弹窗视图) |
+| 3.4.3 | 资产浏览器（类型/标签筛选 + 搜索） | ✅ | `dashboard/static/index.html` |
+| 3.4.4 | 费用分析（按策略 + 汇总） | ✅ | `dashboard/static/index.html` + `/api/costs/breakdown` |
+| 3.4.5 | **系统级迁移**：Dashboard 从 AVE 迁至 `05_tools/10_dashboard/` | ✅ | 2026-05-16 插件框架落地 |
 
-**依赖**: 1.3.5（后端 API）+ 3.3（资产索引）
-**验收标准**: 打开浏览器能看到所有 production 和数据
+**依赖**: 1.3.5（后端 API）✅ 已完成
+**验收标准**: ✅ 打开浏览器能看到所有 production 和数据
+**⚠️ 架构变更**: Dashboard 已从 AVE 解耦为系统级模块
+  - 新路径: `05_tools/10_dashboard/` (插件式数据源架构)
+  - AVE 是第一个数据源插件 (`plugins/ave.py`)
+  - 兼容: `main.py dashboard` 命令自动重定向
 
 ---
 
@@ -199,10 +204,11 @@
 | 策略 | 当前状态 | Sprint 1 后 | Sprint 2 后 | Sprint 3 后 |
 |:----|:--------:|:----------:|:----------:|:----------:|
 | **口播** | ✅ 可用 | ✅ + 定妆照 + LipSync | ✅ + 变速过渡 | ✅ + 资产索引 + Dashboard |
-| **卡点** | ✅🔧 可用但粗糙 | ✅🔧 | ✅ 节拍升级 + 变速 | ✅ |
+| **卡点** | ✅ 可用 | ✅🔧 | ✅ 节拍升级 + 变速 + 帧锁定 | ✅ |
 | **数字人** | ✅ 可用 | ✅ + LipSync 增强 | ✅ | ✅ |
+| **口播+卡点** | ✅ 新增 | — | ✅ 融合管线 | ✅ |
 | **角色叙事** | ❌ 不存在 | ❌ | ❌ | ✅ 初版可用 |
-| **Dashboard** | ❌ 不存在 | 🔄 数据层在积累 | 🔄 数据在积累 | ✅ 前端可用 |
+| **Dashboard** | ✅ 可用 | ✅ 数据层 + 前端 | ✅ 中文界面 | ✅ |
 
 ---
 

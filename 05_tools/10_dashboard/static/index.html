@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AVE Dashboard</title>
+<title>系统监控面板</title>
 <style>
 :root {
   --bg: #0f1117; --bg2: #1a1d2e; --bg3: #232740;
@@ -100,7 +100,14 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 </head>
 <body>
 <nav class="sidebar">
-  <h1>AVE <span>v1</span></h1>
+  <h1>🖥 系统监控 <span>v1</span></h1>
+  <div style="margin-bottom:16px;padding:8px 12px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2);">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>
+      <span id="pluginBadge">AVE 视频工厂</span>
+    </div>
+    <div style="font-size:11px;color:var(--text2);opacity:.7;">模块: <span id="pluginCount">1</span> 个</div>
+  </div>
   <div class="nav-item active" data-view="productions" onclick="switchView('productions')">📋 生产列表</div>
   <div class="nav-item" data-view="assets" onclick="switchView('assets')">💾 资产</div>
   <div class="nav-item" data-view="costs" onclick="switchView('costs')">💰 费用</div>
@@ -119,9 +126,9 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
       <option>口播</option><option>卡点</option><option>数字人</option><option>test</option>
     </select>
     <select id="filterStatus"><option value="">全部状态</option>
-      <option>completed</option><option>failed</option><option>running</option>
+      <option value="completed">已完成</option><option value="failed">失败</option><option value="running">运行中</option>
     </select>
-    <input id="searchInput" placeholder="搜索 script_name..." oninput="debounceSearch()">
+    <input id="searchInput" placeholder="搜索脚本名称..." oninput="debounceSearch()">
     <button onclick="loadProductions()">查询</button>
   </div>
   <div id="productionList"></div>
@@ -132,7 +139,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 <div id="view-assets" class="hidden">
   <div class="filter-bar">
     <select id="assetTypeFilter"><option value="">全部类型</option>
-      <option>generated_clip</option><option>character_sheet</option><option>bgm</option><option>script</option>
+      <option value="generated_clip">视频片段</option><option value="character_sheet">定妆照</option><option value="bgm">背景音乐</option><option value="script">脚本</option>
     </select>
     <input id="assetSearch" placeholder="搜索标签..." oninput="debounceAssetSearch()">
     <button onclick="loadAssets()">查询</button>
@@ -161,6 +168,7 @@ let searchTimer;
 // ── Init ──
 loadStats();
 loadProductions();
+loadPlugins();
 
 // ── Navigation ──
 function switchView(view) {
@@ -179,12 +187,14 @@ async function loadStats() {
   try {
     const r = await fetch(`${API}/api/summary`);
     const d = await r.json();
+    // 从插件式响应中提取 AVE 数据
+    const ave = d.ave || d;
     document.getElementById('statsBar').innerHTML = `
-      <div class="stat-card"><div class="label">总产量</div><div class="value">${d.total_productions||0}</div><div class="sub">本月 ${d.month_productions||0}</div></div>
-      <div class="stat-card"><div class="label">累计费用</div><div class="value">¥${(d.total_cost||0).toFixed(2)}</div><div class="sub">本月 ¥${(d.month_cost||0).toFixed(2)}</div></div>
-      <div class="stat-card"><div class="label">成功</div><div class="value" style="color:var(--green)">${d.completed||0}</div></div>
-      <div class="stat-card"><div class="label">失败</div><div class="value" style="color:var(--red)">${d.failed||0}</div></div>
-      <div class="stat-card"><div class="label">资产总数</div><div class="value">${d.total_assets||0}</div></div>
+      <div class="stat-card"><div class="label">总产量</div><div class="value">${ave.total_productions||0}</div><div class="sub">本月 ${ave.month_productions||0}</div></div>
+      <div class="stat-card"><div class="label">累计费用</div><div class="value">¥${(ave.total_cost||0).toFixed(2)}</div><div class="sub">本月 ¥${(ave.month_cost||0).toFixed(2)}</div></div>
+      <div class="stat-card"><div class="label">成功</div><div class="value" style="color:var(--green)">${ave.completed||0}</div></div>
+      <div class="stat-card"><div class="label">失败</div><div class="value" style="color:var(--red)">${ave.failed||0}</div></div>
+      <div class="stat-card"><div class="label">资产总数</div><div class="value">${ave.total_assets||0}</div></div>
     `;
   } catch(e) { document.getElementById('statsBar').innerHTML = `<div class="error">❌ 连接失败</div>`; }
 }
@@ -210,7 +220,7 @@ async function loadProductions(page) {
     if (!filtered.length) { el.innerHTML = '<div class="error">未找到匹配记录</div>'; return; }
 
     el.innerHTML = `<table><thead><tr>
-      <th>ID</th><th>策略</th><th>脚本</th><th>状态</th><th>费用</th><th>时长</th><th>时间</th>
+      <th>编号</th><th>策略</th><th>脚本</th><th>状态</th><th>费用</th><th>时长</th><th>时间</th>
     </tr></thead><tbody>${filtered.map(p => `<tr onclick="showDetail(${p.id})">
       <td>#${p.id}</td>
       <td>${p.strategy||'-'}</td>
@@ -312,11 +322,12 @@ async function loadCosts() {
   const el2 = document.getElementById('costBreakdown');
   try {
     const r = await fetch(`${API}/api/summary`);
-    const s = await r.json();
+    const d = await r.json();
+    const s = d.ave || d;
     el1.innerHTML = `<div class="stats" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat-card"><div class="label">总费用</div><div class="value">¥${(s.total_cost||0).toFixed(2)}</div></div>
       <div class="stat-card"><div class="label">本月费用</div><div class="value">¥${(s.month_cost||0).toFixed(2)}</div></div>
-      <div class="stat-card"><div class="label">平均费用/production</div><div class="value">¥${s.total_productions ? (s.total_cost/s.total_productions).toFixed(2) : '0.00'}</div></div>
+      <div class="stat-card"><div class="label">平均费用/生产</div><div class="value">¥${s.total_productions ? (s.total_cost/s.total_productions).toFixed(2) : '0.00'}</div></div>
     </div>`;
 
     // 按策略统计 (专用API)
@@ -340,8 +351,23 @@ async function loadCosts() {
   } catch(e) { el1.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`; }
 }
 
+// ── Plugins ──
+async function loadPlugins() {
+  try {
+    const r = await fetch(`${API}/api/plugins`);
+    const d = await r.json();
+    const plugins = d.plugins || [];
+    const avail = plugins.filter(p => p.available);
+    const badge = document.getElementById('pluginBadge');
+    const count = document.getElementById('pluginCount');
+    if (badge && avail.length) {
+      badge.textContent = avail.map(p => p.label).join(' · ');
+    }
+    if (count) count.textContent = avail.length;
+  } catch(e) { /* 插件信息非关键 */ }
+}
+
 // ── Keyboard ──
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
-</script>
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });</script>
 </body>
 </html>

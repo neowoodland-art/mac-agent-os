@@ -1,0 +1,24 @@
+{
+  "$schema": "v1",
+  "last_updated": "2026-05-16T13:30:00+08:00",
+  "components": {
+    "dashboard": {
+      "current": "1.0.0",
+      "previous": "0.0.0",
+      "breaking_change": true,
+      "description": "Dashboard 系统级迁移：09_ave/scripts/dashboard/ → 05_tools/10_dashboard/，插件式架构，路径和启动方式变更"
+    },
+    "ave_core": {
+      "current": "4.1.0",
+      "previous": "4.0.0",
+      "breaking_change": false,
+      "description": "Sprint 2 P1 完成：变速卡点引擎/节拍检测升级/口播+卡点融合管线"
+    },
+    "guardd": {
+      "current": "1.0.0",
+      "previous": "1.0.0",
+      "breaking_change": false,
+      "description": "无变动"
+    }
+  }
+}

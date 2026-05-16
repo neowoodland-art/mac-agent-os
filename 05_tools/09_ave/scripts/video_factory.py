@@ -41,6 +41,14 @@ STRATEGIES = {
         "desc": "OmniHuman(对口型) / DreamActor(动作模仿)",
         "default_output": "/tmp/ave_digital_human.mp4",
     },
+    "口播+卡点": {
+        "desc": "人声锚点+BGM能量变速→帧锁定拼接",
+        "default_output": "/tmp/ave_hybrid.mp4",
+    },
+    "故事": {
+        "desc": "剧本→场景分解→Kling批量生成→角色一致性拼接",
+        "default_output": "/tmp/ave_story.mp4",
+    },
 }
 
 
@@ -356,6 +364,171 @@ def run_digital_human(image: str, text: str, output: str, resolution: str,
     sz_mb = os.path.getsize(result) / 1024 / 1024
     print(f"\n✅ 数字人完成: {result} ({sz_mb:.1f}MB)")
     return result
+
+
+def run_hybrid(
+    voice: str, bgm: str, output: str,
+    search: str = "", group_size: int = 4,
+    clips: list[str] | None = None,
+    texts: list[str] | None = None,
+    enable_speed_ramp: bool = True,
+    base_speed: float = 1.0, high_speed: float = 1.5, low_speed: float = 0.7,
+    min_silence: float = 0.15,
+) -> str:
+    """口播+卡点融合策略"""
+    from composer.hybrid import compose_hybrid
+    cfg = load_config()
+    pexels_key = cfg.get("pexels", {}).get("api_key", "")
+
+    print(f"[视频工厂] 口播+卡点策略")
+    print(f"  人声: {voice}")
+    print(f"  BGM:  {bgm}")
+    print(f"  变速: {'关闭' if not enable_speed_ramp else f'{low_speed:.1f}~{high_speed:.1f}x'}")
+
+    # Dashboard 埋点
+    try:
+        from lib.dashboard import init_db, log_production, log_step, complete_production
+        init_db()
+        prod_id = log_production("hybrid", f"混合_{Path(voice).stem}")
+        log_step(prod_id, "compose", "开始")
+    except Exception:
+        pass
+
+    result = compose_hybrid(
+        voice_path=voice,
+        bgm_path=bgm,
+        output_path=output,
+        material_clips=clips or None,
+        texts=texts or None,
+        pexels_api_key=pexels_key,
+        pexels_search=search,
+        enable_speed_ramp=enable_speed_ramp,
+        base_speed=base_speed,
+        high_speed=high_speed,
+        low_speed=low_speed,
+        group_size=group_size,
+        min_silence_sec=min_silence,
+    )
+
+    try:
+        complete_production(prod_id)
+    except Exception:
+        pass
+
+    return result
+
+
+def run_story(
+    script: str,
+    output: str,
+    character: str = "",
+    block: str = "",
+    story_model: str = "turbo",
+    story_duration: int = 5,
+    story_lang: str = "en",
+    seed: int = 42,
+    dry_run: bool = False,
+    force: bool = False,
+) -> str:
+    """故事策略: 剧本→场景分解→Kling批量生成→拼接"""
+    from story_director.scene_planner import plan_scenes, export_scenes
+    from story_director.temporal_bridge import enrich_scenes_with_bridges
+    from story_director.batch_generator import run_story_pipeline
+
+    cfg = load_config()
+
+    print(f"[视频工厂] 故事策略: {script}")
+    print(f"  角色: {character or '(无)'}  Seed: {seed}")
+
+    # Dashboard 埋点
+    try:
+        from lib.dashboard import init_db, log_production, log_step, complete_production
+        init_db()
+        prod_id = log_production("故事", os.path.basename(script))
+        if prod_id > 0:
+            from lib.cost_tracker import set_current_production_id
+            set_current_production_id(prod_id)
+            log_step(prod_id, "plan_scenes", "开始")
+    except Exception:
+        prod_id = -1
+
+    # 加载角色描述块
+    character_block = block
+    if not character_block and character:
+        from character_sheet import load_character
+        char = load_character(character)
+        if char:
+            character_block = char.get("description", "")
+            print(f"  角色库: '{character}' → {character_block[:40]}...")
+
+    # Step 1: 场景分解
+    print("  [1/3] 场景分解...")
+    scenes = plan_scenes(
+        script_path=script,
+        character_name=character or None,
+        character_block=character_block,
+        lang=story_lang,
+    )
+    print(f"    → {len(scenes)} 个场景")
+    if prod_id > 0:
+        log_step(prod_id, "plan_scenes", "completed", detail=f"{len(scenes)} 场景")
+
+    # Step 2: 桥接
+    print("  [2/3] 过渡桥接...")
+    enriched = enrich_scenes_with_bridges(scenes, character_block=character_block)
+    import time
+    tmp_scenes_path = f"/tmp/ave_story_scenes_factory_{int(time.time())}.json"
+    export_scenes(scenes, tmp_scenes_path, character_block=character_block,
+                  lang=story_lang, seed=seed)
+    if prod_id > 0:
+        log_step(prod_id, "build_bridges", "completed")
+
+    if dry_run:
+        print("\n⏸️  Dry-run — 场景分解:")
+        for s in enriched:
+            bridge = s.get("bridge_to_next", {})
+            print(f"  Scene {s['scene_id']}: {s.get('duration_sec', '?')}s "
+                  f"char={s.get('character_ref', 'none')} "
+                  f"trans={bridge.get('type', '-') if bridge else '-'}")
+            print(f"    Prompt: {s.get('prompt', '')[:80]}...")
+        return ""
+
+    # Step 3: 批量生成
+    print("  [3/3] 批量 Kling 生成...")
+    pipeline_result = run_story_pipeline(
+        scenes_path=tmp_scenes_path,
+        output_dir="",
+        model=story_model,
+        duration=story_duration,
+        force=force,
+    )
+
+    # 尝试拼接最终视频
+    import subprocess
+    concat_script = pipeline_result.get("concat_script", "")
+    if concat_script and os.path.exists(concat_script):
+        print(f"  [后处理] 执行拼接脚本...")
+        try:
+            subprocess.run(["bash", concat_script, output], check=True, timeout=600)
+        except subprocess.TimeoutExpired:
+            print("  ⚠️ 拼接超时")
+        except subprocess.CalledProcessError as e:
+            print(f"  ⚠️ 拼接失败: {e}")
+
+    if prod_id > 0:
+        try:
+            complete_production(prod_id, output_path=output,
+                                total_cost=get_tracker()._total_cost())
+            set_current_production_id(0)
+        except Exception:
+            pass
+
+    # 汇总
+    for r in pipeline_result.get("results", []):
+        icon = "✅" if r["status"] == "success" else "💾" if r["status"] == "cached" else "❌"
+        print(f"  {icon} Scene {r['scene_id']:2d}: {r.get('path', 'N/A')}")
+
+    return output
 
 
 def show_status():
