@@ -1,4 +1,5 @@
 ---
+
 id: KB-20260516-040
 title: ""
 type: reference
@@ -16,6 +17,8 @@ version: 1
 previous_version: ""
 superseded_by: ""
 summary: ""
+collected: true
+collected_date: 2026-05-17
 ---
 
 # Peekaboo v3 桌面 GUI 自动化
