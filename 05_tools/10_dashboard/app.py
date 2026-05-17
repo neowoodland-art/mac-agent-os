@@ -46,6 +46,9 @@ from plugins.base import DashboardPlugin
 from plugins.ave import AVEDashboardPlugin
 from plugins.guardd import GuarddPlugin
 
+# ── 联邦路径 ───────────────────────────────────────────────
+_CROSS_MACHINE_DIR = Path(__file__).resolve().parent.parent.parent / "04_memory" / "cross_machine"
+
 _PLUGINS: dict[str, DashboardPlugin] = {}
 _AVAILABLE: dict[str, bool] = {}
 
@@ -250,12 +253,36 @@ def api_cost_breakdown(
 
 @app.get("/api/machines")
 def api_machines():
-    """联邦机器状态：读取跨机器心跳，去重后返回（数据来自 guardd 插件）"""
+    """联邦机器状态：优先读取 push 实时数据，降级到 Git 心跳文件"""
     p = _PLUGINS.get("guardd")
     if p is None or not _AVAILABLE.get("guardd", False):
         return {"machines": [], "total": 0, "error": "guardd plugin unavailable"}
     try:
         machines = p.get_productions()
+        # 用 push 实时数据覆盖 Git 数据
+        now = datetime.now(timezone.utc)
+        for m in machines:
+            hostname = m["hostname"]
+            live_file = _CROSS_MACHINE_DIR / "status" / hostname / "live.json"
+            if live_file.exists():
+                try:
+                    live = json.loads(live_file.read_text())
+                    received = live.get("_received_at", "")
+                    if received:
+                        try:
+                            rt = datetime.fromisoformat(received)
+                            delta = (now - rt).total_seconds()
+                            if delta < 120:  # 2分钟内视为实时
+                                m["_live"] = True
+                                m["_last_push_sec"] = round(delta)
+                                m["last_seen"] = received
+                                m["status"] = "online"
+                        except:
+                            pass
+                except:
+                    pass
+            if "_live" not in m:
+                m["_live"] = False
         if isinstance(machines, list):
             for m in machines:
                 if "_source_hostname" not in m:
@@ -276,6 +303,94 @@ def health():
         "hostname": HOSTNAME,
         "plugins": {n: "available" if _AVAILABLE.get(n) else "unavailable" for n in _PLUGINS},
     }
+
+# ═══════════════════════════════════════════════════════════
+# 联邦 PUSH API (反向连接, UID 认证)
+# ═══════════════════════════════════════════════════════════
+
+# 已注册的机器 UID → hostname 映射表
+# 首次收到新 UID 会自动注册（push_allow_auto_register=True 时）
+_REGISTERED_UIDS: dict[str, dict] = {}
+_PUSH_CONFIG = {
+    "allow_auto_register": True,   # 首次收到未知 UID 是否自动注册
+    "uid_whitelist": [],            # 非空时只接受列表中的 UID (优先级高于 auto_register)
+}
+
+def _load_uids():
+    """从跨机 registry 加载已知 UID"""
+    reg_dir = _CROSS_MACHINE_DIR / "registry"
+    if not reg_dir.exists():
+        return
+    for f in reg_dir.iterdir():
+        if f.suffix == ".json":
+            try:
+                data = json.loads(f.read_text())
+                uid = data.get("uid", "")
+                if uid:
+                    _REGISTERED_UIDS[uid] = data
+            except:
+                pass
+
+_load_uids()
+
+
+@app.post("/api/push/heartbeat")
+def api_push_heartbeat(data: dict):
+    """接收各机器的实时心跳推送（反向连接, UID 认证）"""
+    uid = data.get("uid", "")
+    hostname = data.get("hostname", "unknown")
+
+    if not uid:
+        raise HTTPException(400, detail="missing uid")
+
+    # UID 认证
+    whitelist = _PUSH_CONFIG["uid_whitelist"]
+    if whitelist and uid not in whitelist:
+        raise HTTPException(403, detail=f"uid {uid[:8]}... not authorized")
+
+    if uid not in _REGISTERED_UIDS and _PUSH_CONFIG["allow_auto_register"]:
+        _REGISTERED_UIDS[uid] = {
+            "uid": uid, "hostname": hostname,
+            "first_seen": datetime.now(timezone.utc).isoformat(),
+        }
+        logger.info(f"  新机器自动注册: {hostname} ({uid[:8]}...)")
+
+    # 写入机器推送状态（内存 + 文件缓存）
+    push_dir = _CROSS_MACHINE_DIR / "status" / hostname
+    push_dir.mkdir(parents=True, exist_ok=True)
+    push_file = push_dir / "live.json"
+
+    hb = data.get("heartbeat", {})
+    hb["_source"] = "push"
+    hb["_received_at"] = datetime.now(timezone.utc).isoformat()
+    hb["_uid"] = uid
+    push_file.write_text(json.dumps(hb, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    return {"status": "ok", "hostname": hostname, "uid": uid[:8] + "..."}
+
+
+@app.get("/api/push/status")
+def api_push_status():
+    """查看所有已注册机器的推送状态"""
+    machines = []
+    for uid, info in _REGISTERED_UIDS.items():
+        hostname = info.get("hostname", "unknown")
+        push_file = _CROSS_MACHINE_DIR / "status" / hostname / "live.json"
+        last_push = None
+        if push_file.exists():
+            try:
+                last_push = json.loads(push_file.read_text()).get("_received_at", None)
+            except:
+                pass
+        machines.append({
+            "uid": uid[:8] + "...",
+            "hostname": hostname,
+            "first_seen": info.get("first_seen", ""),
+            "last_push": last_push,
+            "status": "active" if last_push else "waiting",
+        })
+    return {"machines": machines, "total": len(machines)}
+
 
 if __name__ == "__main__":
     import uvicorn

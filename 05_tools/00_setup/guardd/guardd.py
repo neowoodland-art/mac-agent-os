@@ -41,6 +41,7 @@ DIR_KNOWLEDGE = CROSS_MACHINE / "knowledge"
 
 DIR_REGISTRY = CROSS_MACHINE / "registry"
 DIR_SECRETS = AGENT_LOCAL / "identity" / "secrets"
+DIR_IDENTITY = AGENT_LOCAL / "identity"
 DIR_GUARDD_LOG = AGENT_LOCAL / "runtime" / "guardd"
 DIR_LOCAL_MEMORY = AGENT_LOCAL / "memory"
 DIR_SUBMISSIONS = AGENT_LOCAL / "submissions"
@@ -52,6 +53,21 @@ LOG_FILE = DIR_GUARDD_LOG / "guardd.log"
 LAST_RUN_FILE = DIR_GUARDD_LOG / "last_run.json"
 ERROR_LOG_FILE = DIR_GUARDD_LOG / "errors.log"
 VERSIONS_FILE = DIR_KNOWLEDGE / "versions.json"
+
+# ── 机器 UID（用于 Push 认证）───────────────────────────
+MACHINE_UID_FILE = DIR_IDENTITY / "machine_uid"
+MACHINE_UID = ""
+try:
+    DIR_IDENTITY.mkdir(parents=True, exist_ok=True)
+    if MACHINE_UID_FILE.exists():
+        MACHINE_UID = MACHINE_UID_FILE.read_text(encoding="utf-8").strip()
+    else:
+        MACHINE_UID = str(uuid.uuid4())
+        MACHINE_UID_FILE.write_text(MACHINE_UID, encoding="utf-8")
+        logger.info(f"  新生成机器 UID: {MACHINE_UID[:8]}...")
+except Exception as e:
+    logger.warning(f"  UID 文件读写失败: {e}")
+    MACHINE_UID = HOSTNAME  # 降级到 hostname
 
 # ── 确保运行时目录存在 ───────────────────────────────
 for d in [DIR_GUARDD_LOG, DIR_SUBMISSIONS_TRIAGE, DIR_TASKS_PENDING,
@@ -99,6 +115,32 @@ def _write_event(event_type, payload):
     path = event_dir / f"{event['id']}.json"
     path.write_text(json.dumps(event, indent=2, ensure_ascii=False), encoding="utf-8")
     return event["id"]
+
+
+def _push_to_dashboard(heartbeat_data):
+    """反向连接: 将本机心跳推送到 Dashboard"""
+    dashboard_url = os.environ.get("GUARDD_DASHBOARD_URL", "")
+    if not dashboard_url:
+        return  # 未配置 Dashboard 地址, 跳过
+
+    try:
+        import urllib.request
+        payload = json.dumps({
+            "uid": MACHINE_UID,
+            "hostname": HOSTNAME,
+            "heartbeat": heartbeat_data,
+            "version": version,
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            f"{dashboard_url}/api/push/heartbeat",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=5)
+    except Exception as e:
+        logger.debug(f"  推送 Dashboard 失败: {e}")  # debug 级别, 不刷屏
 
 
 def _is_file_older_than(path, days=30):
@@ -219,6 +261,9 @@ def module_heartbeat():
     path = status_dir / "heartbeat.json"
     path.write_text(json.dumps(heartbeat, indent=2, ensure_ascii=False), encoding="utf-8")
     logger.info(f"  心跳已上报 — CPU load={cpu_load}, 磁盘可用={disk_info['available_gb']}G")
+
+    # ── 实时推送到 Dashboard (反向连接) ──
+    _push_to_dashboard(heartbeat)
 
 
 # ════════════════════════════════════════════════════════════
