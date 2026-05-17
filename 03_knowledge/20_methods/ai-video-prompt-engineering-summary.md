@@ -167,5 +167,165 @@ segments:
 | 知识库 ai-prompt-video-knowledge.md | 10条视频提取 | Seedance2.0技巧、动作拆解法 |
 | 知识库 ai-prompt-creator-2.md | 博主干货 | 反向提示词、空间锚定 |
 | 腾讯云 AI视频全攻略 | 技术文章 | 分镜模板、五要素结构 |
+
+---
+
+## 附：2026 AI视频提示词工程完全手册
+
+> 采集来源: freeaitool.com / 阿里云万相官方文档 / zeeklog.com
+
+### 一、六要素串联公式（通用）
+
+```
+提示词 = [主体] + [动作/运动] + [环境/场景] + [镜头语言] + [光影色调] + [风格画质]
+```
+
+**模板示例（英文优先）**：
+```
+A 30-year-old man in a dark suit, standing on a rooftop at midnight,
+rain falling around him. He slowly turns his head toward the camera.
+Medium shot, slow push-in, shallow depth of field.
+Cold blue moonlight, warm orange neon signs reflecting on wet surfaces,
+high contrast, cinematic color grading, 4K, anamorphic lens flares, 2.39:1.
+```
+
+### 二、镜头语言速查
+
+| 英文关键词 | 中文 | 效果 |
+|-----------|------|------|
+| close-up | 特写 | 强调面部表情或细节 |
+| medium shot | 中景 | 人物半身, 最常用 |
+| wide shot | 广角/全景 | 展示环境 |
+| bird's eye view | 鸟瞰 | 正上方俯视 |
+| low angle | 低角度 | 仰拍, 压迫感/英雄感 |
+| dolly zoom | 推拉变焦 | 背景压缩, 惊悚效果 |
+| tracking shot | 跟拍 | 镜头跟随主体 |
+| slow push-in | 缓慢推进 | 紧张感/专注感 |
+| dolly in/out | 推/拉 | 靠近或远离主体 |
+| pan | 摇摄 | 镜头水平转动 |
+
+### 三、动态控制词库
+
+| 类型 | 英文词 | 效果 |
+|------|--------|------|
+| 平移 | walking, running, flying | 主体移动 |
+| 缓慢 | slowly drifting, gently swaying | 轻柔氛围 |
+| 快速 | sprinting, rushing, zooming | 速度感 |
+| 旋转 | spinning, rotating, orbiting | 环绕镜头 |
+| 变形 | morphing, dissolving, transforming | 创意转场 |
+
+### 四、光影关键词
+
+| 关键词 | 效果 |
+|--------|------|
+| golden hour | 黄金时刻(日落暖光) |
+| blue hour | 蓝色时刻(黄昏蓝调) |
+| dramatic lighting | 戏剧性光影 |
+| soft diffused light | 柔和漫射光 |
+| neon glow | 霓虹辉光 |
+| backlit / silhouette | 逆光/剪影 |
+| high key / low key | 高调/低调 |
+| volumetric lighting | 体积光 |
+| rim light | 轮廓光 |
+
+### 五、阿里云万相专用公式
+
+**基础公式**（文生视频）：
+```
+主体 + 场景 + 运动 + 美学控制 + 风格化
+```
+
+**图生视频公式**：
+```
+运动 + 运镜
+```
+（主体和风格已由图固定, 只需描述怎么动）
+
+**声音公式**（wan2.7+）：
+```
+主体 + 场景 + 运动 + 人声(内容+情绪+语调) + 音效(材质+行为) + BGM(风格)
+```
+
+**多镜头公式**（wan2.6+）：
+```
+第1个镜头[0-3秒]: xxx
+第2个镜头[3-6秒]: xxx
+第3个镜头[6-10秒]: xxx
+```
+
+### 六、负面提示词模板
+
+```
+deformed, blurry, extra limbs, text, watermark, cartoon,
+low resolution, unnatural movement, flickering, bad hands,
+missing fingers, bad face, bad proportions
+```
+
+### 七、避坑指南
+
+| 常见错误 | 后果 | 修正 |
+|---------|------|------|
+| 只写主体不写运动 | 画面静止 | 明确运动方向和速度 |
+| 运动描述矛盾 | 画面撕裂 | 避免矛盾描述 |
+| 忽略镜头语言 | 画面平淡 | 至少加一个镜头术语 |
+| 提示词过长(>150词) | 模型丢失重点 | 控制在50-150词 |
+| 中文提示词 | 理解偏差 | 尽量使用英文 |
+| 一次出片不好放弃 | 效果不佳 | 迭代: 写→生成→调整→再写 |
+
+### 八、进阶工作流
+
+1. **从短到长迭代**：先写核心要素，逐步添加环境/镜头/光影
+2. **参考图高于文字**：I2V时一张好图+简短运动描述远超纯文字
+3. **分镜控制节奏**：10秒以上用时间轴分段描述
+4. **运动幅度不宜过大**：新手先从单一方向微动开始
+
+### 九、图生图/图生视频专用（Stable Diffusion + AnimateDiff）
+
+**基础图生成参数**：
+
+| 参数 | 推荐值 |
+|------|--------|
+| 采样器 | DPM++ 2M Karras |
+| 步数 | 30 |
+| CFG Scale | 7 |
+| 分辨率 | 512x768 (竖屏) |
+| 权重语法 | (keyword:1.2) 强化特定元素 |
+
+**AnimateDiff 运动参数**：
+
+| 参数 | 效果 | 推荐范围 |
+|------|------|---------|
+| Translation X | 水平移动 | -2 ~ 2 |
+| Translation Y | 垂直移动 | -2 ~ 2 (上移常用0.5) |
+| Rotation | 画面旋转 | -0.5 ~ 0.5 |
+| Scale | 镜头推拉 | 0.98 ~ 1.02 |
+
+**新手黄金法则**：运动幅度不宜过大，人物易变形，从单一微动开始。
+
+**ControlNet 解决闪烁**：启用Tile模型 + tile_resample预处理器，显著提升帧间连续性。
+
+### 十、模型选型建议
+
+| 模型 | 最佳用途 |
+|------|---------|
+| majicMIX realistic | 写实人像 |
+| ChilloutMix | 写实人像(亚洲脸优) |
+| Anything V5 | 二次元动漫 |
+| Realistic Vision | 风景/建筑 |
+| DreamShaper | 通用高质量 |
+| Counterfeit | 二次元(偏插画) |
+
+**通用正向提示词模板**：
+```
+(masterpiece, best quality:1.2), 1girl, solo, detailed face,
+highly detailed skin, soft lighting, depth of field, natural look
+```
+
+**通用负向提示词**：
+```
+nsfw, bad hands, bad fingers, missing fingers, extra fingers,
+bad face, bad eyes, bad proportions, ugly, duplicate, morbid,
+deformed, blurry, low quality, worst quality, signature, watermark
+```
 | PromptMart.cn | 提示词库 | 50000+ 提示词模板参考 |
 | video-to-prompt.com | 在线工具 | 视频→提示词逆向工程 |
