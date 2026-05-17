@@ -1,5 +1,5 @@
 ---
-id: KB-20260516-038
+id: KB-20260517-066
 title: ""
 type: reference
 status: published
@@ -10,15 +10,13 @@ tags: ["待补充"]
 confidence: 0.5
 source: ""
 source_type: unknown
-date_created: 2026-05-16
-date_modified: 2026-05-16
+date_created: 2026-05-17
+date_modified: 2026-05-17
 version: 1
 previous_version: ""
 superseded_by: ""
 summary: ""
-
-collected: true
-collected_date: 2026-05-17---
+---
 
 # Matrix 养号系统 SMS 验证码自动接收
 

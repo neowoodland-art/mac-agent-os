@@ -1,13 +1,12 @@
 ---
-
 title: "帅是一种感觉——爆款酷炫短视频拆解与标准化流程"
 source: "抖音@小万几 — 仙逆混剪 18万点赞"
 date: 2026-05-16
 type: case_study
 result_driven: "13秒视频 · 18万点赞 · 零复杂特效 · 纯剪辑手法"
+
 collected: true
-collected_date: 2026-05-17
----
+collected_date: 2026-05-17---
 
 # "帅是一种感觉"——爆款酷炫短视频拆解与标准化流程
 
