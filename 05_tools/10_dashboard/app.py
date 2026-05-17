@@ -255,98 +255,68 @@ def api_cost_breakdown(
 
 @app.get("/api/machines")
 def api_machines():
-    """联邦机器状态：按 UID 去重, 展示注册名"""
-    # 读取所有 live.json (实时 push 数据)
-    live_by_uid: dict[str, dict] = {}
-    status_dir = _CROSS_MACHINE_DIR / "status"
-    if status_dir.exists():
-        for host_dir in status_dir.iterdir():
-            if not host_dir.is_dir():
+    """联邦机器状态：以 UID 为主键, hostname 为辅"""
+    now = datetime.now(timezone.utc)
+    live_dir = _CROSS_MACHINE_DIR / "status" / "live"
+
+    # 读取所有 live/{uid}.json
+    live_data: dict[str, dict] = {}
+    if live_dir.exists():
+        for f in live_dir.iterdir():
+            if not f.name.endswith(".json") or f.name.startswith("_"):
                 continue
-            live_file = host_dir / "live.json"
-            if not live_file.exists():
-                continue
+            uid = f.name.replace(".json", "")
             try:
-                live = json.loads(live_file.read_text())
-                uid = live.get("_uid", "")
-                if uid:
-                    live_by_uid[uid] = live
+                live_data[uid] = json.loads(f.read_text())
             except:
                 pass
 
-    # 读取 guardd 插件数据（Git 持久层）
+    # 已注册 UID 列表
+    all_uids = set(live_data.keys()) | set(_REGISTERED_UIDS.keys())
+
+    # 读取 Git 持久层数据（按 hostname 索引）
     p = _PLUGINS.get("guardd")
-    git_machines = p.get_productions() if (p and _AVAILABLE.get("guardd", False)) else []
+    git_by_host = {}
+    if p and _AVAILABLE.get("guardd", False):
+        for m in p.get_productions():
+            git_by_host[m.get("hostname", "")] = m
 
-    # 按 hostname 去重, 优先用注册名
-    seen_hostnames = set()
     merged = []
-    now = datetime.now(timezone.utc)
+    for uid in sorted(all_uids):
+        uid_short = uid[:8] + "..."
+        reg = _REGISTERED_UIDS.get(uid, {})
+        hostname = reg.get("hostname", live_data.get(uid, {}).get("_hostname", "unknown"))
+        live = live_data.get(uid, {})
+        received = live.get("_received_at", "")
+        is_live = False
+        last_push_sec = 0
+        if received:
+            try:
+                rt = datetime.fromisoformat(received)
+                delta = (now - rt).total_seconds()
+                is_live = delta < 120
+                last_push_sec = round(delta)
+            except:
+                pass
 
-    for m in git_machines:
-        hn = m.get("hostname", "")
-        if hn in seen_hostnames:
-            continue
-        seen_hostnames.add(hn)
-        entry = dict(m)
-
-        # 尝试用 hostname 匹配 live 数据中的 UID
-        matched_uid = None
-        for uid, live in live_by_uid.items():
-            if live.get("hostname", "") == hn:
-                matched_uid = uid
-                break
-
-        if matched_uid:
-            live = live_by_uid[matched_uid]
-            received = live.get("_received_at", "")
-            if received:
-                try:
-                    rt = datetime.fromisoformat(received)
-                    delta = (now - rt).total_seconds()
-                    if delta < 120:
-                        entry["_live"] = True
-                        entry["_last_push_sec"] = round(delta)
-                        entry["_uid"] = matched_uid[:8] + "..."
-                        entry["last_seen"] = received
-                        entry["status"] = "online"
-                except:
-                    pass
-        if "_live" not in entry:
-            entry["_live"] = False
-        entry["_source_hostname"] = HOSTNAME
+        disk = live.get("disk", {})
+        entry = {
+            "hostname": hostname,
+            "_uid": uid_short,
+            "_live": is_live,
+            "_last_push_sec": last_push_sec,
+            "status": "online" if is_live else ("recent" if last_push_sec < 3600 else "offline"),
+            "last_seen": received or reg.get("last_seen", ""),
+            "os": live.get("os", "") or git_by_host.get(hostname, {}).get("os", ""),
+            "cpu_load": live.get("cpu", {}).get("load_1m", git_by_host.get(hostname, {}).get("cpu_load", 0)),
+            "disk_total_gb": disk.get("total_gb", 0) or git_by_host.get(hostname, {}).get("disk_total_gb", 0),
+            "disk_used_gb": disk.get("used_gb", 0) or git_by_host.get(hostname, {}).get("disk_used_gb", 0),
+            "disk_avail_gb": disk.get("available_gb", 0) or git_by_host.get(hostname, {}).get("disk_avail_gb", 0),
+            "guardd_version": live.get("guardd_version", "") or git_by_host.get(hostname, {}).get("guardd_version", ""),
+            "_source_hostname": HOSTNAME,
+        }
         merged.append(entry)
 
-    # 补充有 push 但无 Git 心跳的机器（新注册未走 Git）
-    for uid, live in live_by_uid.items():
-        hn = live.get("hostname", "")
-        if hn in seen_hostnames:
-            continue
-        received = live.get("_received_at", "")
-        if not received:
-            continue
-        try:
-            rt = datetime.fromisoformat(received)
-            delta = (now - rt).total_seconds()
-        except:
-            delta = 999
-        seen_hostnames.add(hn)
-        disk = live.get("disk", {})
-        merged.append({
-            "hostname": hn,
-            "status": "online" if delta < 300 else "offline",
-            "last_seen": received,
-            "os": live.get("os", ""),
-            "cpu_load": live.get("cpu", {}).get("load_1m", 0),
-            "disk_total_gb": disk.get("total_gb", 0),
-            "disk_used_gb": disk.get("used_gb", 0),
-            "disk_avail_gb": disk.get("available_gb", 0),
-            "guardd_version": live.get("guardd_version", ""),
-            "_live": delta < 120,
-            "_last_push_sec": round(delta),
-            "_uid": uid[:8] + "...",
-            "_source_hostname": HOSTNAME,
-        })
     return {"machines": merged, "total": len(merged)}
 
 # ═══════════════════════════════════════════════════════════
@@ -391,59 +361,76 @@ _load_uids()
 
 @app.post("/api/push/heartbeat")
 def api_push_heartbeat(data: dict):
-    """接收实时心跳推送（反向连接, UID 认证）"""
+    """接收实时心跳推送 — 以 UID 为主键存储, 无惧 hostname 变化"""
     uid = data.get("uid", "")
     hostname = data.get("hostname", "unknown")
     if not uid:
         raise HTTPException(400, detail="missing uid")
     if _UID_WHITELIST and uid not in _UID_WHITELIST:
         raise HTTPException(403, detail=f"uid not authorized")
-    if uid not in _REGISTERED_UIDS and _ALLOW_AUTO_REGISTER:
+
+    # 注册/更新 UID 信息
+    now = datetime.now(timezone.utc)
+    if uid in _REGISTERED_UIDS:
+        _REGISTERED_UIDS[uid]["hostname"] = hostname
+        _REGISTERED_UIDS[uid]["last_seen"] = now.isoformat()
+    elif _ALLOW_AUTO_REGISTER:
         _REGISTERED_UIDS[uid] = {
             "uid": uid, "hostname": hostname,
-            "first_seen": datetime.now(timezone.utc).isoformat(),
+            "first_seen": now.isoformat(),
+            "last_seen": now.isoformat(),
         }
+
+    # 以 UID 为文件名存储 live.json（非 hostname）
+    live_dir = _CROSS_MACHINE_DIR / "status" / "live"
+    live_dir.mkdir(parents=True, exist_ok=True)
     hb = data.get("heartbeat", {})
-    now = datetime.now(timezone.utc)
     hb["_source"] = "push"
     hb["_received_at"] = now.isoformat()
     hb["_uid"] = uid
+    hb["_hostname"] = hostname
     hb["_events"] = data.get("events", [])
     hb["_uptime"] = data.get("uptime", 0)
-    # 写入 live.json
-    push_dir = _CROSS_MACHINE_DIR / "status" / hostname
-    push_dir.mkdir(parents=True, exist_ok=True)
-    (push_dir / "live.json").write_text(json.dumps(hb, indent=2, ensure_ascii=False), encoding="utf-8")
-    # 追加到时间线历史（保留最近24h/1440条）
-    hist = _HEARTBEAT_HISTORY.setdefault(hostname, [])
+    (live_dir / f"{uid}.json").write_text(
+        json.dumps(hb, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    # 持久化 UID 注册表
+    reg_path = live_dir / "_registry.json"
+    reg_path.write_text(json.dumps(_REGISTERED_UIDS, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    # 按 UID 记录心跳历史
+    hist = _HEARTBEAT_HISTORY.setdefault(uid, [])
     hist.append({
         "t": now.isoformat(),
         "cpu": hb.get("cpu", {}).get("load_1m", 0),
         "disk_pct": hb.get("disk", {}).get("used_gb", 0),
         "ts": now.timestamp(),
+        "hostname": hostname,
     })
     if len(hist) > 1440:
-        _HEARTBEAT_HISTORY[hostname] = hist[-1440:]
-    return {"status": "ok", "hostname": hostname, "uid": uid[:8] + "..."}
+        _HEARTBEAT_HISTORY[uid] = hist[-1440:]
+    return {"status": "ok", "uid": uid[:8] + "...", "hostname": hostname}
 
 
 @app.get("/api/push/status")
 def api_push_status():
-    """查看已注册机器状态"""
+    """查看已注册机器的 UID 和 hostname"""
     items = []
     for uid, info in _REGISTERED_UIDS.items():
-        hn = info.get("hostname", "unknown")
-        pf = _CROSS_MACHINE_DIR / "status" / hn / "live.json"
+        live_file = _CROSS_MACHINE_DIR / "status" / "live" / f"{uid}.json"
         lp = None
-        if pf.exists():
+        if live_file.exists():
             try:
-                lp = json.loads(pf.read_text()).get("_received_at")
+                lp = json.loads(live_file.read_text()).get("_received_at")
             except:
                 pass
         items.append({
-            "uid": uid[:8] + "...", "hostname": hn,
+            "uid": uid[:8] + "...",
+            "hostname": info.get("hostname", "unknown"),
             "first_seen": info.get("first_seen", ""),
-            "last_push": lp, "status": "active" if lp else "waiting",
+            "last_seen": info.get("last_seen", ""),
+            "last_push": lp,
+            "status": "active" if lp else "waiting",
         })
     return {"machines": items, "total": len(items)}
 
@@ -452,30 +439,40 @@ def api_push_status():
 # 功能 API: 时间线 / 热力图 / 告警 / 升级 / 唤醒 / 日报
 # ═══════════════════════════════════════════════════════════
 
-@app.get("/api/timeline/{hostname}")
-def api_timeline(hostname: str, window: int = 300):
-    """CPU/磁盘变化折线图 (最近window条)"""
-    hist = _HEARTBEAT_HISTORY.get(hostname, [])
-    return {"hostname": hostname, "points": hist[-window:], "total": len(hist)}
+@app.get("/api/timeline/{uid}")
+def api_timeline(uid: str, window: int = 300):
+    """CPU/磁盘变化折线图 (按UID查询)"""
+    hist = _HEARTBEAT_HISTORY.get(uid, [])
+    reg = _REGISTERED_UIDS.get(uid, {})
+    return {
+        "uid": uid[:8] + "...",
+        "hostname": reg.get("hostname", "unknown"),
+        "points": hist[-window:],
+        "total": len(hist),
+    }
 
 
 @app.get("/api/heatmap")
 def api_heatmap():
-    """心跳热力图：各机器24小时活动分布"""
+    """心跳热力图：各机器24小时活动分布 (按UID)"""
     now = datetime.now(timezone.utc)
     day_ago = now.timestamp() - 86400
     result = {}
-    for hostname, hist in _HEARTBEAT_HISTORY.items():
+    for uid, hist in _HEARTBEAT_HISTORY.items():
         recent = [p for p in hist if p.get("ts", 0) > day_ago]
-        # 按小时分桶
+        if not recent:
+            continue
+        reg = _REGISTERED_UIDS.get(uid, {})
+        hostname = reg.get("hostname", uid[:8])
         hourly = [0] * 24
         for p in recent:
             try:
                 hr = datetime.fromisoformat(p["t"]).hour
-                hourly[hr] += 1
             except:
-                pass
+                hr = 0
+            hourly[hr] += 1
         result[hostname] = {
+            "uid": uid[:8] + "...",
             "total_pings": len(recent),
             "hourly": hourly,
             "last_seen": recent[-1]["t"] if recent else None,
@@ -488,47 +485,59 @@ def api_alerts():
     """离线告警：心跳超时5分钟以上的机器"""
     now = datetime.now(timezone.utc)
     alerts = []
-    for hostname in _HEARTBEAT_HISTORY:
-        hist = _HEARTBEAT_HISTORY[hostname]
+    for uid, hist in _HEARTBEAT_HISTORY.items():
         if not hist:
             continue
+        reg = _REGISTERED_UIDS.get(uid, {})
+        hostname = reg.get("hostname", uid[:8])
         last = hist[-1]
         try:
             delta = (now - datetime.fromisoformat(last["t"])).total_seconds()
             if delta > 300:
                 alerts.append({
                     "hostname": hostname,
+                    "uid": uid[:8] + "...",
                     "level": "warning" if delta < 900 else "critical",
                     "since_sec": round(delta),
                     "last_seen": last["t"],
                 })
         except:
             pass
-    # 也检查 Git 心跳文件中有但未 push 的机器
-    p = _PLUGINS.get("guardd")
-    if p:
-        try:
-            for m in p.get_productions():
-                hn = m.get("hostname", "")
-                if hn and hn not in _HEARTBEAT_HISTORY:
-                    alerts.append({
-                        "hostname": hn,
-                        "level": "info",
-                        "since_sec": 99999,
-                        "note": "未接入实时推送",
-                    })
-        except:
-            pass
+    # 也检查有注册但无推送的机器
+    for uid, reg in _REGISTERED_UIDS.items():
+        hn = reg.get("hostname", "")
+        if hn and uid not in _HEARTBEAT_HISTORY:
+            alerts.append({
+                "hostname": hn,
+                "uid": uid[:8] + "...",
+                "level": "info",
+                "since_sec": 99999,
+                "note": "已注册但未推送",
+            })
     return {"alerts": alerts, "total": len(alerts)}
 
 
-@app.post("/api/wakeup/{hostname}")
-def api_wakeup(hostname: str):
-    """一键唤醒：通过任务系统让目标机器跑一次 guardd"""
+@app.post("/api/wakeup/{uid}")
+def api_wakeup(uid: str):
+    """一键唤醒：通过 UID 找到目标机器"""
+    reg = _REGISTERED_UIDS.get(uid)
+    if not reg:
+        # 尝试从 live 目录反向查找
+        live_file = _CROSS_MACHINE_DIR / "status" / "live" / f"{uid}.json"
+        if live_file.exists():
+            try:
+                live = json.loads(live_file.read_text())
+                target = live.get("_hostname", uid)
+            except:
+                target = uid
+        else:
+            target = uid
+    else:
+        target = reg.get("hostname", uid)
     task = {
-        "id": f"wakeup_{hostname}_{int(time.time())}",
+        "id": f"wakeup_{target}_{int(time.time())}",
         "type": "run_guardd",
-        "target_host": hostname,
+        "target_host": target,
         "source_host": HOSTNAME,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "pending",
@@ -537,17 +546,19 @@ def api_wakeup(hostname: str):
     task_dir.mkdir(parents=True, exist_ok=True)
     (task_dir / f"{task['id']}.json").write_text(
         json.dumps(task, indent=2, ensure_ascii=False), encoding="utf-8")
-    return {"status": "ok", "task_id": task["id"]}
+    return {"status": "ok", "task_id": task["id"], "target": target}
 
 
-@app.post("/api/upgrade/{hostname}")
-def api_upgrade(hostname: str):
-    """一键升级：让目标机执行 git pull + 重启 guardd"""
+@app.post("/api/upgrade/{uid}")
+def api_upgrade(uid: str):
+    """一键升级：通过 UID 找到目标机器"""
+    reg = _REGISTERED_UIDS.get(uid)
+    target = reg.get("hostname", uid) if reg else uid
     task = {
-        "id": f"upgrade_{hostname}_{int(time.time())}",
+        "id": f"upgrade_{target}_{int(time.time())}",
         "type": "run_script",
         "script": "cd ~/workbuddy-agent-os/agent-sync && git pull && launchctl kickstart gui/$(id -u)/com.agentos.guardd",
-        "target_host": hostname,
+        "target_host": target,
         "source_host": HOSTNAME,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "pending",
@@ -556,22 +567,22 @@ def api_upgrade(hostname: str):
     task_dir.mkdir(parents=True, exist_ok=True)
     (task_dir / f"{task['id']}.json").write_text(
         json.dumps(task, indent=2, ensure_ascii=False), encoding="utf-8")
-    return {"status": "ok", "task_id": task["id"]}
+    return {"status": "ok", "task_id": task["id"], "target": target}
 
 
 @app.get("/api/daily-summary")
 def api_daily_summary():
-    """今日联邦日报：汇总各机器的当天事件 + 状态"""
+    """今日联邦日报：汇总各机器的当天事件"""
     today = datetime.now().strftime("%Y-%m-%d")
     machines_report = {}
-    # 收集各机器推送的 events
-    for hostname in _HEARTBEAT_HISTORY:
-        hist = _HEARTBEAT_HISTORY[hostname]
+    for uid, hist in _HEARTBEAT_HISTORY.items():
         if not hist:
             continue
+        reg = _REGISTERED_UIDS.get(uid, {})
+        hostname = reg.get("hostname", uid[:8])
         last = hist[-1]
-        summary = {"ping_count": len(hist), "events": []}
-        events = last.get("_events", [])
+        summary = {"ping_count": len(hist), "events": [], "uid": uid[:8] + "..."}
+        events = last.get("_events", []) if isinstance(last, dict) else []
         for ev in events[-5:]:
             summary["events"].append({
                 "type": ev.get("type", "unknown"),
@@ -583,7 +594,6 @@ def api_daily_summary():
         "date": today,
         "machines": machines_report,
         "total_machines": len(machines_report),
-        "total_alerts": len(_HEARTBEAT_HISTORY),
     }
 
 

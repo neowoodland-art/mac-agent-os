@@ -30,6 +30,16 @@ AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
 AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
 HOSTNAME = os.uname().nodename
 
+# ── 缓存 hostname 到文件, 防止 IP 变化导致身份漂移 ──
+_CACHED_HOSTNAME_FILE = AGENT_LOCAL / "identity" / "cached_hostname"
+_CACHED_HOSTNAME_FILE.parent.mkdir(parents=True, exist_ok=True)
+if _CACHED_HOSTNAME_FILE.exists():
+    cached = _CACHED_HOSTNAME_FILE.read_text().strip()
+    if cached:
+        HOSTNAME = cached
+else:
+    _CACHED_HOSTNAME_FILE.write_text(HOSTNAME, encoding="utf-8")
+
 # ── 从 registry 解析注册名 ──
 _REGISTRY_DIR = AGENT_SYNC / "04_memory" / "cross_machine" / "registry"
 def _resolve_hostname(fallback=HOSTNAME):
