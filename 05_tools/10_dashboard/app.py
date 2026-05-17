@@ -24,10 +24,12 @@ API:
   GET  /api/machines             — 联邦机器状态 (来自 guardd 插件)
   GET  /api/health               — 健康检查
 """
-import sys, os, json
+import sys, os, json, time, logging
 from pathlib import Path
 from typing import Optional
 from datetime import datetime, timezone
+
+logger = logging.getLogger("dashboard")
 
 # ── 联邦身份 ───────────────────────────────────────────────
 HOSTNAME = os.uname().nodename
@@ -308,16 +310,13 @@ def health():
 # 联邦 PUSH API (反向连接, UID 认证)
 # ═══════════════════════════════════════════════════════════
 
-# 已注册的机器 UID → hostname 映射表
-# 首次收到新 UID 会自动注册（push_allow_auto_register=True 时）
 _REGISTERED_UIDS: dict[str, dict] = {}
-_PUSH_CONFIG = {
-    "allow_auto_register": True,   # 首次收到未知 UID 是否自动注册
-    "uid_whitelist": [],            # 非空时只接受列表中的 UID (优先级高于 auto_register)
-}
+_ALLOW_AUTO_REGISTER = True
+_UID_WHITELIST: list[str] = []
+# 心跳历史 (用于时间线/热力图)
+_HEARTBEAT_HISTORY: dict[str, list[dict]] = {}
 
 def _load_uids():
-    """从跨机 registry 加载已知 UID"""
     reg_dir = _CROSS_MACHINE_DIR / "registry"
     if not reg_dir.exists():
         return
@@ -336,60 +335,200 @@ _load_uids()
 
 @app.post("/api/push/heartbeat")
 def api_push_heartbeat(data: dict):
-    """接收各机器的实时心跳推送（反向连接, UID 认证）"""
+    """接收实时心跳推送（反向连接, UID 认证）"""
     uid = data.get("uid", "")
     hostname = data.get("hostname", "unknown")
-
     if not uid:
         raise HTTPException(400, detail="missing uid")
-
-    # UID 认证
-    whitelist = _PUSH_CONFIG["uid_whitelist"]
-    if whitelist and uid not in whitelist:
-        raise HTTPException(403, detail=f"uid {uid[:8]}... not authorized")
-
-    if uid not in _REGISTERED_UIDS and _PUSH_CONFIG["allow_auto_register"]:
+    if _UID_WHITELIST and uid not in _UID_WHITELIST:
+        raise HTTPException(403, detail=f"uid not authorized")
+    if uid not in _REGISTERED_UIDS and _ALLOW_AUTO_REGISTER:
         _REGISTERED_UIDS[uid] = {
             "uid": uid, "hostname": hostname,
             "first_seen": datetime.now(timezone.utc).isoformat(),
         }
-        logger.info(f"  新机器自动注册: {hostname} ({uid[:8]}...)")
-
-    # 写入机器推送状态（内存 + 文件缓存）
+    hb = data.get("heartbeat", {})
+    now = datetime.now(timezone.utc)
+    hb["_source"] = "push"
+    hb["_received_at"] = now.isoformat()
+    hb["_uid"] = uid
+    hb["_events"] = data.get("events", [])
+    hb["_uptime"] = data.get("uptime", 0)
+    # 写入 live.json
     push_dir = _CROSS_MACHINE_DIR / "status" / hostname
     push_dir.mkdir(parents=True, exist_ok=True)
-    push_file = push_dir / "live.json"
-
-    hb = data.get("heartbeat", {})
-    hb["_source"] = "push"
-    hb["_received_at"] = datetime.now(timezone.utc).isoformat()
-    hb["_uid"] = uid
-    push_file.write_text(json.dumps(hb, indent=2, ensure_ascii=False), encoding="utf-8")
-
+    (push_dir / "live.json").write_text(json.dumps(hb, indent=2, ensure_ascii=False), encoding="utf-8")
+    # 追加到时间线历史（保留最近24h/1440条）
+    hist = _HEARTBEAT_HISTORY.setdefault(hostname, [])
+    hist.append({
+        "t": now.isoformat(),
+        "cpu": hb.get("cpu", {}).get("load_1m", 0),
+        "disk_pct": hb.get("disk", {}).get("used_gb", 0),
+        "ts": now.timestamp(),
+    })
+    if len(hist) > 1440:
+        _HEARTBEAT_HISTORY[hostname] = hist[-1440:]
     return {"status": "ok", "hostname": hostname, "uid": uid[:8] + "..."}
 
 
 @app.get("/api/push/status")
 def api_push_status():
-    """查看所有已注册机器的推送状态"""
-    machines = []
+    """查看已注册机器状态"""
+    items = []
     for uid, info in _REGISTERED_UIDS.items():
-        hostname = info.get("hostname", "unknown")
-        push_file = _CROSS_MACHINE_DIR / "status" / hostname / "live.json"
-        last_push = None
-        if push_file.exists():
+        hn = info.get("hostname", "unknown")
+        pf = _CROSS_MACHINE_DIR / "status" / hn / "live.json"
+        lp = None
+        if pf.exists():
             try:
-                last_push = json.loads(push_file.read_text()).get("_received_at", None)
+                lp = json.loads(pf.read_text()).get("_received_at")
             except:
                 pass
-        machines.append({
-            "uid": uid[:8] + "...",
-            "hostname": hostname,
+        items.append({
+            "uid": uid[:8] + "...", "hostname": hn,
             "first_seen": info.get("first_seen", ""),
-            "last_push": last_push,
-            "status": "active" if last_push else "waiting",
+            "last_push": lp, "status": "active" if lp else "waiting",
         })
-    return {"machines": machines, "total": len(machines)}
+    return {"machines": items, "total": len(items)}
+
+
+# ═══════════════════════════════════════════════════════════
+# 功能 API: 时间线 / 热力图 / 告警 / 升级 / 唤醒 / 日报
+# ═══════════════════════════════════════════════════════════
+
+@app.get("/api/timeline/{hostname}")
+def api_timeline(hostname: str, window: int = 300):
+    """CPU/磁盘变化折线图 (最近window条)"""
+    hist = _HEARTBEAT_HISTORY.get(hostname, [])
+    return {"hostname": hostname, "points": hist[-window:], "total": len(hist)}
+
+
+@app.get("/api/heatmap")
+def api_heatmap():
+    """心跳热力图：各机器24小时活动分布"""
+    now = datetime.now(timezone.utc)
+    day_ago = now.timestamp() - 86400
+    result = {}
+    for hostname, hist in _HEARTBEAT_HISTORY.items():
+        recent = [p for p in hist if p.get("ts", 0) > day_ago]
+        # 按小时分桶
+        hourly = [0] * 24
+        for p in recent:
+            try:
+                hr = datetime.fromisoformat(p["t"]).hour
+                hourly[hr] += 1
+            except:
+                pass
+        result[hostname] = {
+            "total_pings": len(recent),
+            "hourly": hourly,
+            "last_seen": recent[-1]["t"] if recent else None,
+        }
+    return {"machines": result}
+
+
+@app.get("/api/alerts")
+def api_alerts():
+    """离线告警：心跳超时5分钟以上的机器"""
+    now = datetime.now(timezone.utc)
+    alerts = []
+    for hostname in _HEARTBEAT_HISTORY:
+        hist = _HEARTBEAT_HISTORY[hostname]
+        if not hist:
+            continue
+        last = hist[-1]
+        try:
+            delta = (now - datetime.fromisoformat(last["t"])).total_seconds()
+            if delta > 300:
+                alerts.append({
+                    "hostname": hostname,
+                    "level": "warning" if delta < 900 else "critical",
+                    "since_sec": round(delta),
+                    "last_seen": last["t"],
+                })
+        except:
+            pass
+    # 也检查 Git 心跳文件中有但未 push 的机器
+    p = _PLUGINS.get("guardd")
+    if p:
+        try:
+            for m in p.get_productions():
+                hn = m.get("hostname", "")
+                if hn and hn not in _HEARTBEAT_HISTORY:
+                    alerts.append({
+                        "hostname": hn,
+                        "level": "info",
+                        "since_sec": 99999,
+                        "note": "未接入实时推送",
+                    })
+        except:
+            pass
+    return {"alerts": alerts, "total": len(alerts)}
+
+
+@app.post("/api/wakeup/{hostname}")
+def api_wakeup(hostname: str):
+    """一键唤醒：通过任务系统让目标机器跑一次 guardd"""
+    task = {
+        "id": f"wakeup_{hostname}_{int(time.time())}",
+        "type": "run_guardd",
+        "target_host": hostname,
+        "source_host": HOSTNAME,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": "pending",
+    }
+    task_dir = _CROSS_MACHINE_DIR / "tasks" / "pending"
+    task_dir.mkdir(parents=True, exist_ok=True)
+    (task_dir / f"{task['id']}.json").write_text(
+        json.dumps(task, indent=2, ensure_ascii=False), encoding="utf-8")
+    return {"status": "ok", "task_id": task["id"]}
+
+
+@app.post("/api/upgrade/{hostname}")
+def api_upgrade(hostname: str):
+    """一键升级：让目标机执行 git pull + 重启 guardd"""
+    task = {
+        "id": f"upgrade_{hostname}_{int(time.time())}",
+        "type": "run_script",
+        "script": "cd ~/workbuddy-agent-os/agent-sync && git pull && launchctl kickstart gui/$(id -u)/com.agentos.guardd",
+        "target_host": hostname,
+        "source_host": HOSTNAME,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": "pending",
+    }
+    task_dir = _CROSS_MACHINE_DIR / "tasks" / "pending"
+    task_dir.mkdir(parents=True, exist_ok=True)
+    (task_dir / f"{task['id']}.json").write_text(
+        json.dumps(task, indent=2, ensure_ascii=False), encoding="utf-8")
+    return {"status": "ok", "task_id": task["id"]}
+
+
+@app.get("/api/daily-summary")
+def api_daily_summary():
+    """今日联邦日报：汇总各机器的当天事件 + 状态"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    machines_report = {}
+    # 收集各机器推送的 events
+    for hostname in _HEARTBEAT_HISTORY:
+        hist = _HEARTBEAT_HISTORY[hostname]
+        if not hist:
+            continue
+        last = hist[-1]
+        summary = {"ping_count": len(hist), "events": []}
+        events = last.get("_events", [])
+        for ev in events[-5:]:
+            summary["events"].append({
+                "type": ev.get("type", "unknown"),
+                "time": ev.get("timestamp", ""),
+                "payload": ev.get("payload", {}),
+            })
+        machines_report[hostname] = summary
+    return {
+        "date": today,
+        "machines": machines_report,
+        "total_machines": len(machines_report),
+        "total_alerts": len(_HEARTBEAT_HISTORY),
+    }
 
 
 if __name__ == "__main__":

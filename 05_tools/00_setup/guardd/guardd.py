@@ -8,7 +8,7 @@ guardd — AgentOS 联邦式协同守护进程
 
 所有模块使用规则引擎，不调用 LLM，0 token 消耗。
 """
-version = "1.0.0"
+version = "1.1.0"
 
 import json
 import logging
@@ -22,6 +22,8 @@ import time
 import uuid
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+
+_guardd_start_time = time.time()
 
 # ── 路径常量 ──────────────────────────────────────────────
 AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
@@ -118,10 +120,22 @@ def _write_event(event_type, payload):
 
 
 def _push_to_dashboard(heartbeat_data):
-    """反向连接: 将本机心跳推送到 Dashboard"""
+    """反向连接: 将本机心跳+事件推送到 Dashboard"""
     dashboard_url = os.environ.get("GUARDD_DASHBOARD_URL", "")
     if not dashboard_url:
-        return  # 未配置 Dashboard 地址, 跳过
+        return
+
+    # 读取最近事件用于时间线
+    today = datetime.now().strftime("%Y-%m-%d")
+    recent_events = []
+    event_dir_today = DIR_EVENTS / today
+    if event_dir_today.exists():
+        for f in sorted(event_dir_today.iterdir())[-10:]:
+            if f.suffix == ".json":
+                try:
+                    recent_events.append(json.loads(f.read_text()))
+                except:
+                    pass
 
     try:
         import urllib.request
@@ -130,6 +144,8 @@ def _push_to_dashboard(heartbeat_data):
             "hostname": HOSTNAME,
             "heartbeat": heartbeat_data,
             "version": version,
+            "events": recent_events,
+            "uptime": round(time.time() - _guardd_start_time) if _guardd_start_time else 0,
         }).encode("utf-8")
 
         req = urllib.request.Request(

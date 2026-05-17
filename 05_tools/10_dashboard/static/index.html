@@ -112,6 +112,9 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div class="nav-item" data-view="assets" onclick="switchView('assets')">💾 资产</div>
   <div class="nav-item" data-view="costs" onclick="switchView('costs')">💰 费用</div>
   <div class="nav-item" data-view="machines" onclick="switchView('machines')">🖥 机器状态</div>
+  <div class="nav-item" data-view="timeline" onclick="switchView('timeline')">📈 时间线</div>
+  <div class="nav-item" data-view="alerts" onclick="switchView('alerts')">🔔 告警</div>
+  <div class="nav-item" data-view="summary" onclick="switchView('summary')">📊 概览</div>
   <div style="flex:1"></div>
   <div class="nav-item" onclick="location.reload()">🔄 刷新</div>
 </nav>
@@ -161,6 +164,26 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     <span id="machineCount" style="font-size:13px;color:var(--text2)"></span>
   </div>
   <div id="machineGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px"></div>
+</div>
+
+<!-- Timeline view -->
+<div id="view-timeline" class="hidden">
+  <h2 style="font-size:18px">📈 实时时间线</h2>
+  <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap" id="timelineSelector"></div>
+  <div style="margin:12px 0;font-size:12px;color:var(--text2)" id="timelineStatus">选择机器查看 CPU/磁盘变化曲线</div>
+  <canvas id="timelineChart" style="width:100%;height:300px"></canvas>
+</div>
+
+<!-- Alerts view -->
+<div id="view-alerts" class="hidden">
+  <h2 style="font-size:18px">🔔 告警中心</h2>
+  <div id="alertsList"></div>
+</div>
+
+<!-- Summary view -->
+<div id="view-summary" class="hidden">
+  <h2 style="font-size:18px">📊 概览</h2>
+  <div id="summaryContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px"></div>
 </div>
 
 <!-- Production detail modal -->
@@ -455,6 +478,148 @@ async function loadMachines() {
 }
 
 // ── Keyboard ──
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });</script>
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+
+// ── Timeline ──
+let timelineChart = null;
+async function loadTimeline(hostname) {
+  if (!hostname) {
+    // 展示 selector
+    const sel = document.getElementById('timelineSelector');
+    const r = await fetch('/api/machines'); const res = await r.json();
+    sel.innerHTML = (res.machines||[]).map(m =>
+      `<button class="btn" onclick="loadTimeline('${m.hostname}')">${m.hostname}</button>`
+    ).join('');
+    document.getElementById('timelineStatus').textContent = '点击机器查看';
+    return;
+  }
+  document.getElementById('timelineStatus').textContent = `加载 ${hostname}...`;
+  const r = await fetch(`/api/timeline/${hostname}?window=120`);
+  const res = await r.json();
+  const pts = res.points || [];
+  if (!pts.length) { document.getElementById('timelineStatus').textContent = `${hostname}: 暂无数据`; return; }
+  
+  const labels = pts.map(p => { try { return new Date(p.t).toLocaleTimeString(); } catch(e) { return ''; }});
+  const cpu = pts.map(p => p.cpu || 0);
+  const disk = pts.map(p => p.disk_pct || 0);
+  
+  document.getElementById('timelineStatus').textContent = `${hostname}: ${pts.length} 个采样点 (最近${res.total}条)`;
+  
+  // 简单 Canvas 绘图
+  const canvas = document.getElementById('timelineChart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * 2; canvas.height = canvas.offsetHeight * 2;
+  ctx.scale(2,2); const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  
+  const maxVal = Math.max(...cpu, ...disk, 1);
+  const pad = {top:20, bottom:20, left:40, right:20};
+  const cw = w - pad.left - pad.right, ch = h - pad.top - pad.bottom;
+  
+  ctx.clearRect(0,0,w,h);
+  // grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 0.5;
+  for(let i=0;i<5;i++) { ctx.beginPath(); ctx.moveTo(pad.left, pad.top+ch*i/4); ctx.lineTo(w-pad.right, pad.top+ch*i/4); ctx.stroke(); }
+  
+  function drawLine(data, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    data.forEach((v,i) => {
+      const x = pad.left + (i/(data.length-1||1))*cw;
+      const y = pad.top + ch - (v/maxVal)*ch;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }); ctx.stroke();
+  }
+  drawLine(cpu, '#378ADD');
+  drawLine(disk, '#D85A30');
+  
+  // legend
+  ctx.fillStyle = '#378ADD'; ctx.fillRect(w-130, 10, 12, 12);
+  ctx.fillStyle = 'var(--text)'; ctx.font = '11px sans-serif'; ctx.fillText('CPU', w-112, 20);
+  ctx.fillStyle = '#D85A30'; ctx.fillRect(w-80, 10, 12, 12);
+  ctx.fillStyle = 'var(--text)'; ctx.fillText('磁盘(G)', w-62, 20);
+}
+
+// ── Alerts ──
+async function loadAlerts() {
+  const el = document.getElementById('alertsList');
+  try {
+    const r = await fetch('/api/alerts'); const res = await r.json();
+    const alerts = res.alerts || [];
+    if (!alerts.length) { el.innerHTML = '<div class="card"><div style="color:var(--green)">✅ 所有机器运行正常</div></div>'; return; }
+    el.innerHTML = alerts.map(a => {
+      const color = a.level === 'critical' ? 'var(--red)' : a.level === 'warning' ? 'var(--amber)' : 'var(--text2)';
+      const since = a.since_sec < 3600 ? `${(a.since_sec/60).toFixed(0)}分钟` : `${(a.since_sec/3600).toFixed(1)}小时`;
+      return `<div class="card" style="border-left:3px solid ${color}">
+        <div style="font-weight:600">${a.hostname}</div>
+        <div style="font-size:12px;color:${color}">${a.level==='critical'?'🔴 严重':a.level==='warning'?'🟡 警告':'ℹ️ 提示'}: 离线 ${since}</div>
+        ${a.note ? `<div style="font-size:11px;color:var(--text2)">${a.note}</div>` : ''}
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn" onclick="wakeupMachine('${a.hostname}')">🔄 唤醒</button>
+          <button class="btn" onclick="upgradeMachine('${a.hostname}')">⬆️ 升级</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = `<div class="error">❌ ${e.message}</div>`; }
+}
+
+async function wakeupMachine(hostname) {
+  await fetch(`/api/wakeup/${hostname}`, {method:'POST'});
+  alert(`已发送唤醒命令到 ${hostname}`);
+}
+async function upgradeMachine(hostname) {
+  if (!confirm(`确认对 ${hostname} 执行 git pull + 重启服务?`)) return;
+  await fetch(`/api/upgrade/${hostname}`, {method:'POST'});
+  alert(`已发送升级命令到 ${hostname}`);
+}
+
+// ── Summary ──
+async function loadSummary() {
+  const el = document.getElementById('summaryContent');
+  try {
+    const [sumR, heatR, dailyR] = await Promise.all([
+      fetch('/api/summary').then(r=>r.json()),
+      fetch('/api/heatmap').then(r=>r.json()),
+      fetch('/api/daily-summary').then(r=>r.json()),
+    ]);
+    const heat = heatR.machines || {};
+    const daily = dailyR.machines || {};
+    let html = '';
+    // 热力图卡片
+    for (const [hostname, info] of Object.entries(heat)) {
+      const acts = info.hourly || [];
+      const total = acts.reduce((a,b)=>a+b,0);
+      const barMax = Math.max(...acts, 1);
+      html += `<div class="card"><h3>${hostname}</h3>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">今日心跳: ${total} 次</div>
+        <div style="display:flex;gap:2px;height:40px;align-items:flex-end">`;
+      for (let h=0;h<24;h++) {
+        const pct = acts[h] / barMax * 100;
+        html += `<div title="${h}时: ${acts[h]}次" style="flex:1;background:${acts[h] > barMax*0.7 ? 'var(--coral)' : acts[h] > barMax*0.3 ? 'var(--amber)' : 'var(--bg3)'};height:${Math.max(pct,3)}%;border-radius:2px 2px 0 0"></div>`;
+      }
+      html += `</div><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text2);margin-top:2px">
+        <span>0时</span><span>6时</span><span>12时</span><span>18时</span><span>24时</span>
+      </div>`;
+      // 最近事件
+      const ms = daily[hostname];
+      if (ms && ms.events && ms.events.length) {
+        html += `<div style="margin-top:8px;font-size:11px;color:var(--text2)">最近事件:</div>`;
+        ms.events.slice(-3).forEach(ev => {
+          html += `<div style="font-size:10px;color:var(--text2);padding:2px 0">• ${ev.type}: ${JSON.stringify(ev.payload||{}).slice(0,40)}</div>`;
+        });
+      }
+      html += `</div>`;
+    }
+    if (!html) html = '<div class="card"><div style="color:var(--text2)">暂无推送数据</div></div>';
+    el.innerHTML = html;
+  } catch(e) { el.innerHTML = `<div class="error">❌ ${e.message}</div>`; }
+}
+
+// ── View switcher ──
+const origSwitch = switchView;
+switchView = function(v) {
+  origSwitch(v);
+  if (v === 'timeline') loadTimeline();
+  if (v === 'alerts') loadAlerts();
+  if (v === 'summary') loadSummary();
+};</script>
 </body>
 </html>
