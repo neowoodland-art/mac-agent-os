@@ -255,43 +255,99 @@ def api_cost_breakdown(
 
 @app.get("/api/machines")
 def api_machines():
-    """联邦机器状态：优先读取 push 实时数据，降级到 Git 心跳文件"""
+    """联邦机器状态：按 UID 去重, 展示注册名"""
+    # 读取所有 live.json (实时 push 数据)
+    live_by_uid: dict[str, dict] = {}
+    status_dir = _CROSS_MACHINE_DIR / "status"
+    if status_dir.exists():
+        for host_dir in status_dir.iterdir():
+            if not host_dir.is_dir():
+                continue
+            live_file = host_dir / "live.json"
+            if not live_file.exists():
+                continue
+            try:
+                live = json.loads(live_file.read_text())
+                uid = live.get("_uid", "")
+                if uid:
+                    live_by_uid[uid] = live
+            except:
+                pass
+
+    # 读取 guardd 插件数据（Git 持久层）
     p = _PLUGINS.get("guardd")
-    if p is None or not _AVAILABLE.get("guardd", False):
-        return {"machines": [], "total": 0, "error": "guardd plugin unavailable"}
-    try:
-        machines = p.get_productions()
-        # 用 push 实时数据覆盖 Git 数据
-        now = datetime.now(timezone.utc)
-        for m in machines:
-            hostname = m["hostname"]
-            live_file = _CROSS_MACHINE_DIR / "status" / hostname / "live.json"
-            if live_file.exists():
+    git_machines = p.get_productions() if (p and _AVAILABLE.get("guardd", False)) else []
+
+    # 按 hostname 去重, 优先用注册名
+    seen_hostnames = set()
+    merged = []
+    now = datetime.now(timezone.utc)
+
+    for m in git_machines:
+        hn = m.get("hostname", "")
+        if hn in seen_hostnames:
+            continue
+        seen_hostnames.add(hn)
+        entry = dict(m)
+
+        # 尝试用 hostname 匹配 live 数据中的 UID
+        matched_uid = None
+        for uid, live in live_by_uid.items():
+            if live.get("hostname", "") == hn:
+                matched_uid = uid
+                break
+
+        if matched_uid:
+            live = live_by_uid[matched_uid]
+            received = live.get("_received_at", "")
+            if received:
                 try:
-                    live = json.loads(live_file.read_text())
-                    received = live.get("_received_at", "")
-                    if received:
-                        try:
-                            rt = datetime.fromisoformat(received)
-                            delta = (now - rt).total_seconds()
-                            if delta < 120:  # 2分钟内视为实时
-                                m["_live"] = True
-                                m["_last_push_sec"] = round(delta)
-                                m["last_seen"] = received
-                                m["status"] = "online"
-                        except:
-                            pass
+                    rt = datetime.fromisoformat(received)
+                    delta = (now - rt).total_seconds()
+                    if delta < 120:
+                        entry["_live"] = True
+                        entry["_last_push_sec"] = round(delta)
+                        entry["_uid"] = matched_uid[:8] + "..."
+                        entry["last_seen"] = received
+                        entry["status"] = "online"
                 except:
                     pass
-            if "_live" not in m:
-                m["_live"] = False
-        if isinstance(machines, list):
-            for m in machines:
-                if "_source_hostname" not in m:
-                    m["_source_hostname"] = HOSTNAME
-        return {"machines": machines, "total": len(machines) if isinstance(machines, list) else 0}
-    except Exception as e:
-        return {"machines": [], "total": 0, "error": str(e)}
+        if "_live" not in entry:
+            entry["_live"] = False
+        entry["_source_hostname"] = HOSTNAME
+        merged.append(entry)
+
+    # 补充有 push 但无 Git 心跳的机器（新注册未走 Git）
+    for uid, live in live_by_uid.items():
+        hn = live.get("hostname", "")
+        if hn in seen_hostnames:
+            continue
+        received = live.get("_received_at", "")
+        if not received:
+            continue
+        try:
+            rt = datetime.fromisoformat(received)
+            delta = (now - rt).total_seconds()
+        except:
+            delta = 999
+        seen_hostnames.add(hn)
+        disk = live.get("disk", {})
+        merged.append({
+            "hostname": hn,
+            "status": "online" if delta < 300 else "offline",
+            "last_seen": received,
+            "os": live.get("os", ""),
+            "cpu_load": live.get("cpu", {}).get("load_1m", 0),
+            "disk_total_gb": disk.get("total_gb", 0),
+            "disk_used_gb": disk.get("used_gb", 0),
+            "disk_avail_gb": disk.get("available_gb", 0),
+            "guardd_version": live.get("guardd_version", ""),
+            "_live": delta < 120,
+            "_last_push_sec": round(delta),
+            "_uid": uid[:8] + "...",
+            "_source_hostname": HOSTNAME,
+        })
+    return {"machines": merged, "total": len(merged)}
 
 # ═══════════════════════════════════════════════════════════
 # 健康检查

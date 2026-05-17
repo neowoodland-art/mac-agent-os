@@ -1,7 +1,8 @@
 {
-  "hostname": "chengzige",
-  "system_hostname": "192.168.31.101",
-  "role": "master",
-  "status": "online",
-  "last_seen": "2026-05-13T01:03:56.465489+00:00"
+    "hostname": "chengzigedeAir",
+    "system_hostname": "192.168.31.225",
+    "uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
+    "role": "workstation",
+    "status": "online",
+    "last_seen": "2026-05-17T04:36:19+00:00"
 }

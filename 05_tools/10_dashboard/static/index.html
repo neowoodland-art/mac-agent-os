@@ -449,6 +449,7 @@ async function loadMachines() {
             <span style="width:10px;height:10px;border-radius:50%;background:${dotColor};display:inline-block;"></span>
             <div>
               <div style="font-weight:600;font-size:15px">${m.hostname}</div>
+              ${m._uid ? `<span style="font-size:10px;color:var(--text2);margin-left:6px">UID: ${m._uid}</span>` : ''}
               <div style="font-size:11px;color:var(--text2)">${m.os} · ${m.arch||''}</div>
             </div>
           </div>

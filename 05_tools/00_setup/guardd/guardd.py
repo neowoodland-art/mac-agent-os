@@ -30,6 +30,36 @@ AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
 AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
 HOSTNAME = os.uname().nodename
 
+# ── 从 registry 解析注册名 ──
+_REGISTRY_DIR = AGENT_SYNC / "04_memory" / "cross_machine" / "registry"
+def _resolve_hostname(fallback=HOSTNAME):
+    """通过 MACHINE_UID 查 registry 中注册的 hostname，找不到降级"""
+    uid = ""
+    uid_file = AGENT_LOCAL / "identity" / "machine_uid"
+    if uid_file.exists():
+        uid = uid_file.read_text().strip()
+    raw = os.uname().nodename
+    # 优先尝试 IP→hostname 映射
+    ip_to_name = {
+        "192.168.31.225": "chengzigedeAir",
+        "192.168.31.226": "Redmi-12C",
+    }
+    if raw in ip_to_name:
+        return ip_to_name[raw]
+    if uid and _REGISTRY_DIR.exists():
+        for f in _REGISTRY_DIR.iterdir():
+            if f.suffix != ".json":
+                continue
+            try:
+                data = json.loads(f.read_text())
+                if data.get("uid") == uid:
+                    return data.get("hostname", fallback)
+            except:
+                pass
+    return fallback
+
+HOSTNAME = _resolve_hostname()
+
 CROSS_MACHINE = AGENT_SYNC / "04_memory" / "cross_machine"
 DIR_EVENTS = CROSS_MACHINE / "events"
 DIR_STATUS = CROSS_MACHINE / "status"
