@@ -8,6 +8,7 @@
 
     <key>ProgramArguments</key>
     <array>
+        <string>/Users/7kecheng/.workbuddy/binaries/python/envs/agent-os/bin/python</string>
         <string>/Users/7kecheng/workbuddy-agent-os/agent-sync/05_tools/00_setup/guardd/guardd.py</string>
     </array>
 

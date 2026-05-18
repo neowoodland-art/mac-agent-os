@@ -203,6 +203,54 @@ def duck_bgm(
     return output_path
 
 
+def image_to_clip(
+    input_path: str,
+    output_path: str,
+    duration: float = 5.0,
+    resolution: str = DEFAULT_RESOLUTION,
+    ken_burns: bool = True,
+) -> str:
+    """
+    将静态图片转换为视频分镜（带 Ken Burns 动效）
+
+    处理横图→竖屏转换（如 1248×832→1080×1920），用于 AVE 流水线中
+    图片生成阶段→合成阶段之间的转换步骤。
+
+    策略：先按目标高度等比缩放填满画面，然后 crop 到目标宽度，
+    再添加 Ken Burns 式平滑平移动效。
+    """
+    target_w, target_h = [int(x) for x in resolution.split("x")]
+
+    if ken_burns:
+        # 使用 cos 实现平滑左右平移: 从右到左的平滑摆动
+        filter_str = (
+            f"scale='max({target_w},iw*{target_h}/ih)':{target_h}:flags=lanczos,"
+            f"crop={target_w}:{target_h}:"
+            f"'(iw-{target_w})*(0.5-0.45*cos(PI*t/{duration}))':'0',"
+            f"setsar=1,fps={DEFAULT_FPS}"
+        )
+    else:
+        # 无动效：居中裁剪
+        filter_str = (
+            f"scale='max({target_w},iw*{target_h}/ih)':{target_h}:flags=lanczos,"
+            f"crop={target_w}:{target_h}:'(iw-{target_w})/2':'(ih-{target_h})/2',"
+            f"setsar=1,fps={DEFAULT_FPS}"
+        )
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-loop", "1", "-t", str(duration),
+        "-i", input_path,
+        "-vf", filter_str,
+        "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+        "-pix_fmt", "yuv420p", "-an",
+        output_path,
+    ]
+    subprocess.run(cmd, capture_output=True, timeout=300, check=True)
+    logger.info(f"图片→视频分镜: {os.path.basename(input_path)} → {os.path.basename(output_path)} ({duration}s)")
+    return output_path
+
+
 def _apply_ken_burns(input_path: str, output_path: str, resolution: str = DEFAULT_RESOLUTION) -> str:
     """
     对视频素材施加随机 Ken Burns 效果（缩放+平移），让画面动起来。

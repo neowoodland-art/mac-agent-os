@@ -53,7 +53,8 @@ STRATEGIES = {
 
 
 def run_oral(script: str, output: str, clips_per_segment: int,
-             bgm: str | None, duck: bool, anchor: bool, subtitles: bool) -> str:
+             bgm: str | None, duck: bool, anchor: bool, subtitles: bool,
+             mix_engine: str = "ffmpeg") -> str:
     """口播策略: 调用 main.py generate"""
     from main import main as cli_main
     # 直接调用 generate 的逻辑
@@ -124,6 +125,54 @@ def run_oral(script: str, output: str, clips_per_segment: int,
     if dash_pid > 0:
         log_step(dash_pid, "search_material", "completed", detail=f"搜索到 {len(clip_paths)} 个素材")
 
+    # 3.5 自动 BGM 选择 (基于情绪分析)
+    if not bgm:
+        print("  [▸] 自动选择 BGM (情绪分析)...")
+        try:
+            from audio_line.layer2_analysis.emotion_analyzer import EmotionAnalyzer
+            from music_selector import BGMSelector
+
+            emotions_analyzer = EmotionAnalyzer()
+            emotion_result = emotions_analyzer.analyze(voice_path)
+
+            # 情绪 → BGM 风格映射
+            EMOTION_STYLE_MAP = {
+                "energetic": "燃系",
+                "happy": "轻快",
+                "calm": "舒缓",
+                "sad": "治愈",
+                "aggressive": "燃系",
+                "neutral": "治愈",
+            }
+            target_style = EMOTION_STYLE_MAP.get(emotion_result.mood, "治愈")
+            print(f"    检测到情绪: {emotion_result.mood} ({emotion_result.description})")
+            print(f"    匹配 BGM 风格: {target_style}")
+
+            selector = BGMSelector()
+            candidates = selector.get_by_style(target_style) + selector.get_trending(limit=3)
+            # 去重
+            seen = set()
+            unique_candidates = []
+            for c in candidates:
+                if c["id"] not in seen:
+                    seen.add(c["id"])
+                    unique_candidates.append(c)
+
+            if unique_candidates:
+                chosen = unique_candidates[0]
+                bgm_path_auto = chosen.get("file", "")
+                if os.path.exists(bgm_path_auto):
+                    bgm = bgm_path_auto
+                    print(f"    ✅ 自动选中 BGM: {chosen['name']} - {chosen['artist']} ({chosen['style']})")
+                else:
+                    print(f"    ⚠ BGM 文件不存在，跳过: {chosen['name']} ({bgm_path_auto})")
+            else:
+                print("    ⚠ 未找到匹配的 BGM")
+        except ImportError as e:
+            print(f"    ⚠ 情绪分析模块不可用: {e} (跳过自动选BGM)")
+        except Exception as e:
+            print(f"    ⚠ 自动选 BGM 失败: {e}")
+
     # 4. BGM + 避让 + 混音
     print("  [3/6] 混音...")
     from composer.ffmpeg import mix_audio, duck_bgm
@@ -132,11 +181,30 @@ def run_oral(script: str, output: str, clips_per_segment: int,
         if duck:
             bgm_path = duck_bgm(voice_path, bgm, "/tmp/ave_factory_ducked.wav",
                                 word_timestamps=word_ts)
-            final_audio = mix_audio(voice_path, bgm_path, bgm_volume=1.0)
+            bgm_for_mix = bgm_path
             print(f"    BGM避让: ON")
         else:
-            final_audio = mix_audio(voice_path, bgm, bgm_volume=0.35)
+            bgm_for_mix = bgm
             print(f"    BGM: ON (固定音量)")
+
+        # 混音引擎选择: ffmpeg (默认) | audio_line (MixModule)
+        if mix_engine == "audio_line":
+            try:
+                from audio_line.layer3_creation.module_d_mix import MixModule
+                mix_mod = MixModule()
+                mix_result = mix_mod.mix(
+                    stems={"voice": voice_path, "bgm": bgm_for_mix},
+                    output_path="/tmp/ave_factory_master.wav",
+                    stem_levels={"voice": 0.0, "bgm": -6.0},
+                )
+                final_audio = mix_result.master_path
+                print(f"    AudioLine 混音: {mix_result.loudness} LUFS, "
+                      f"峰值={mix_result.peak_dB} dBFS")
+            except Exception as e:
+                print(f"    ⚠ AudioLine 混音失败: {e} (回退 ffmpeg)")
+                final_audio = mix_audio(voice_path, bgm_for_mix, bgm_volume=1.0)
+        else:
+            final_audio = mix_audio(voice_path, bgm_for_mix, bgm_volume=1.0)
 
     # 5. 字幕
     print("  [4/6] 生成字幕...")
@@ -266,7 +334,8 @@ def run_oral(script: str, output: str, clips_per_segment: int,
 
 
 def run_beat(bgm: str, output: str, search: str, group_size: int,
-             clips: list[str], texts: list[str]) -> str:
+             clips: list[str], texts: list[str],
+             target_bpm: float = 0.0) -> str:
     """卡点策略"""
     print(f"[视频工厂] 卡点策略: {bgm}")
     from composer.beat_sync import compose_beat_sync
@@ -281,19 +350,47 @@ def run_beat(bgm: str, output: str, search: str, group_size: int,
         texts=texts or None,
         pexels_api_key=pexels_key,
         pexels_search=search,
+        target_bpm=target_bpm,
     )
     return result
 
 
 def run_digital_human(image: str, text: str, output: str, resolution: str,
-                      mode: str, video: str | None) -> str:
+                      mode: str, video: str | None,
+                      character: str = "") -> str:
     """数字人策略"""
     from voice_synthesizer.aliyun import synthesize
     cfg = load_config()
     ak = cfg.get("aliyun", {}).get("api_key", "")
     vid = cfg.get("aliyun", {}).get("voice_id", "")
 
+    # 角色注册 → 音色选择
+    char_voice_style = ""
+    if character:
+        try:
+            from character_registry import CharacterRegistry
+            registry = CharacterRegistry()
+            try:
+                char_obj = registry.get_character(character)
+                char_voice_style = char_obj.voice_style
+                print(f"  角色 '{character}' 音色: {char_voice_style}")
+            except KeyError:
+                print(f"  ⚠ 未找到角色 '{character}', 使用默认音色")
+        except Exception as e:
+            print(f"  ⚠ 角色注册读取失败: {e}")
+
     print(f"[视频工厂] 数字人策略: mode={mode}")
+
+    # 角色 voice_style → voice_id 映射 (占位, 可根据实际音色库扩展)
+    VOICE_STYLE_MAP = {
+        "甜美": "wan2.2-s2v",  # 示例映射
+        "成熟": "cosyvoice-v3.5-plus",
+        "知性": "cosyvoice-v3.5-plus",
+        "默认": vid,
+    }
+    if char_voice_style and char_voice_style in VOICE_STYLE_MAP:
+        vid = VOICE_STYLE_MAP[char_voice_style]
+        print(f"  → 映射音色: {char_voice_style} → {vid}")
 
     if mode == "对口型":
         from material_producer.wan2_2.wan2_2 import generate_digital_human

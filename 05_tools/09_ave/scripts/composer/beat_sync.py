@@ -291,6 +291,7 @@ def compose_beat_sync(
     base_speed: float = 1.0,
     high_speed: float = 1.5,
     low_speed: float = 0.7,
+    target_bpm: float = 0.0,
 ) -> str:
     """
     BGM 节拍驱动的卡点视频合成 (V2: 能量感知 + 帧锁定)
@@ -309,11 +310,40 @@ def compose_beat_sync(
       base_speed: 基础速度 (默认 1.0)
       high_speed: 高能段速度 (默认 1.5)
       low_speed: 低能段速度 (默认 0.7)
+      target_bpm: 目标 BPM (>0 时用 AudioLine StemAligner 预处理 BGM)
 
     返回: output_path
     """
     if not os.path.exists(bgm_path):
         raise FileNotFoundError(f"BGM 文件不存在: {bgm_path}")
+
+    # 0. BPM 标准化预处理 (使用 AudioLine StemAligner)
+    if target_bpm > 0:
+        try:
+            from audio_line.layer4_alignment.stem_aligner import StemAligner
+            import librosa
+            y_detect, sr_detect = librosa.load(bgm_path, sr=None, mono=True)
+            tempo_arr, _ = librosa.beat.beat_track(y=y_detect, sr=sr_detect)
+            source_bpm = float(tempo_arr.item() if hasattr(tempo_arr, 'item') else tempo_arr)
+            logger.info(f"  BPM 标准化: {source_bpm:.0f} → {target_bpm:.0f}")
+
+            if source_bpm > 0 and abs(source_bpm - target_bpm) > 1.0:
+                aligner = StemAligner(method="phase_vocoder")
+                result = aligner.align_to_bpm(
+                    stems={"bgm": bgm_path},
+                    source_bpm=source_bpm,
+                    target_bpm=target_bpm,
+                    output_dir=str(BEAT_CACHE / "aligned"),
+                )
+                if result.aligned_paths:
+                    bgm_path = result.aligned_paths["bgm"]
+                    logger.info(f"  ✅ 标准化完成: {bgm_path}")
+            else:
+                logger.info(f"  ⏭️ 无需标准化 (相近 BPM)")
+        except ImportError:
+            logger.info(f"  ⏭️ AudioLine 不可用, 跳过 BPM 标准化")
+        except Exception as e:
+            logger.warning(f"  ⚠ BPM 标准化失败: {e} (继续使用原 BGM)")
 
     # 1. 节拍检测 (启用能量)
     logger.info("=== Beat-Sync 卡点模式 ===")
