@@ -55,16 +55,22 @@ _PLUGINS: dict[str, DashboardPlugin] = {}
 _AVAILABLE: dict[str, bool] = {}
 
 def _register_plugins():
-    """注册所有数据源插件"""
-    for plugin_cls in [AVEDashboardPlugin, GuarddPlugin]:
+    """自动发现并注册所有插件"""
+    from plugins import discover_plugins
+    discovered = discover_plugins()
+    for name, inst in discovered.items():
         try:
-            inst = plugin_cls()
-            _PLUGINS[inst.name] = inst
-            _AVAILABLE[inst.name] = inst.is_available()
+            _PLUGINS[name] = inst
+            _AVAILABLE[name] = inst.is_available()
+            # 写入共享数据
+            try:
+                inst.write_shared()
+            except:
+                pass
         except Exception as e:
-            _PLUGINS[plugin_cls.name] = None
-            _AVAILABLE[plugin_cls.name] = False
-            print(f"  [dashboard] 插件 {plugin_cls.name} 加载失败: {e}")
+            _PLUGINS[name] = None
+            _AVAILABLE[name] = False
+            logger.warning(f"  插件 {name} 加载失败: {e}")
 
 def _get_plugin(name: str) -> DashboardPlugin:
     """获取插件实例，失败抛 503"""
@@ -98,33 +104,95 @@ async def startup():
 
 @app.get("/api/plugins")
 def api_plugins():
-    """本机已注册且可用的数据源插件列表"""
+    """返回所有注册插件的元信息 (v2)"""
     result = []
     for p in sorted([p for p in _PLUGINS.values() if p], key=lambda p: p.order):
         result.append({
-            "name": p.name, "label": p.label,
-            "description": p.description,
-            "available": _AVAILABLE.get(p.name, False),
-            "links": p.get_sidebar_links(),
+            "name": p.name, "label": p.label, "icon": p.icon,
+            "version": p.version, "description": p.description,
+            "order": p.order, "available": _AVAILABLE.get(p.name, False),
             "source_hostname": HOSTNAME,
         })
-    return {"plugins": result, "source_hostname": HOSTNAME}
+    return {"plugins": result, "total": len(result), "source_hostname": HOSTNAME}
+
+
+@app.get("/api/plugins/{name}/summary")
+def api_plugin_summary(name: str):
+    """返回指定插件的概览数据"""
+    inst = _get_plugin(name)
+    from plugins._registry import get_machine_list
+    try:
+        data = inst.summary(get_machine_list())
+        return {"plugin": name, "data": data, "source_hostname": HOSTNAME}
+    except Exception as e:
+        return {"plugin": name, "error": str(e)}
+
+
+@app.get("/api/plugins/{name}/detail")
+def api_plugin_detail(name: str, machine: str = ""):
+    """返回指定插件的详细面板"""
+    inst = _get_plugin(name)
+    try:
+        data = inst.detail(machine)
+        return {"plugin": name, "machine": machine or "all", "data": data}
+    except Exception as e:
+        return {"plugin": name, "error": str(e)}
+
+
+@app.get("/api/plugins/{name}/actions")
+def api_plugin_actions(name: str):
+    """返回指定插件的可执行操作"""
+    inst = _get_plugin(name)
+    try:
+        return {"plugin": name, "actions": inst.actions()}
+    except Exception as e:
+        return {"plugin": name, "actions": [], "error": str(e)}
+
 
 @app.get("/api/summary")
 def api_summary():
-    """聚合总览：每个可用的插件返回摘要，标注数据来源机器"""
-    result = {"_meta": {"source_hostname": HOSTNAME, "generated_at": datetime.now(timezone.utc).isoformat()}}
-    for name, plugin in _PLUGINS.items():
-        if plugin is None or not _AVAILABLE.get(name, False):
+    """聚合总览 (所有插件 summary + 各机器心跳)"""
+    result = {}
+    for name, inst in sorted(_PLUGINS.items(), key=lambda x: x[1].order if x[1] else 99):
+        if inst is None:
             continue
         try:
-            data = plugin.get_summary()
-            if isinstance(data, dict):
-                data["_source_hostname"] = HOSTNAME
-            result[name] = data
-        except Exception:
-            result[name] = {"error": "unavailable", "_source_hostname": HOSTNAME}
-    return result
+            from plugins._registry import get_machine_list
+            result[name] = {
+                "meta": {"label": inst.label, "icon": inst.icon, "version": inst.version},
+                "data": inst.summary(get_machine_list()),
+            }
+        except Exception as e:
+            result[name] = {"meta": {"label": inst.label}, "error": str(e)}
+    return {"plugins": result, "source_hostname": HOSTNAME}
+
+
+@app.get("/api/identity")
+def api_identity():
+    """返回本机身份信息 (顶栏用)"""
+    from plugins.base import MACHINE_UID, HOSTNAME, AGENT_SYNC
+    import subprocess
+    git_ver = ""; git_repo = ""
+    try:
+        r = subprocess.run(["git","log","-1","--format=%h %ci"], capture_output=True, text=True,
+                          timeout=5, cwd=str(AGENT_SYNC))
+        git_ver = r.stdout.strip()
+        r2 = subprocess.run(["git","remote","get-url","origin"], capture_output=True, text=True,
+                           timeout=5, cwd=str(AGENT_SYNC))
+        git_repo = r2.stdout.strip().split("/")[-1].replace(".git","")
+    except: pass
+    role = "工作站"
+    reg_dir = _CROSS_MACHINE_DIR / "registry"
+    if reg_dir.exists():
+        for f in reg_dir.iterdir():
+            if f.suffix == ".json":
+                try:
+                    d = json.loads(f.read_text())
+                    if d.get("hostname","") == HOSTNAME or MACHINE_UID[:8] in f.name:
+                        role = d.get("role", "工作站")
+                except: pass
+    return {"hostname": HOSTNAME, "uid": MACHINE_UID[:12]+"...", "role": role,
+            "git_version": git_ver, "git_repo": git_repo}
 
 # ═══════════════════════════════════════════════════════════
 # 生产列表 (可切换插件)
@@ -254,70 +322,25 @@ def api_cost_breakdown(
 # ═══════════════════════════════════════════════════════════
 
 @app.get("/api/machines")
+@app.get("/api/machines")
 def api_machines():
-    """联邦机器状态：以 UID 为主键, hostname 为辅"""
-    now = datetime.now(timezone.utc)
-    live_dir = _CROSS_MACHINE_DIR / "status" / "live"
-
-    # 读取所有 live/{uid}.json
-    live_data: dict[str, dict] = {}
-    if live_dir.exists():
-        for f in live_dir.iterdir():
-            if not f.name.endswith(".json") or f.name.startswith("_"):
-                continue
-            uid = f.name.replace(".json", "")
-            try:
-                live_data[uid] = json.loads(f.read_text())
-            except:
-                pass
-
-    # 已注册 UID 列表
-    all_uids = set(live_data.keys()) | set(_REGISTERED_UIDS.keys())
-
-    # 读取 Git 持久层数据（按 hostname 索引）
+    """联邦机器状态 (v2) — 委托给 guardd 插件"""
     p = _PLUGINS.get("guardd")
-    git_by_host = {}
-    if p and _AVAILABLE.get("guardd", False):
-        for m in p.get_productions():
-            git_by_host[m.get("hostname", "")] = m
-
-    merged = []
-    for uid in sorted(all_uids):
-        uid_short = uid[:8] + "..."
-        reg = _REGISTERED_UIDS.get(uid, {})
-        hostname = reg.get("hostname", live_data.get(uid, {}).get("_hostname", "unknown"))
-        live = live_data.get(uid, {})
-        received = live.get("_received_at", "")
-        is_live = False
-        last_push_sec = 0
-        if received:
-            try:
-                rt = datetime.fromisoformat(received)
-                delta = (now - rt).total_seconds()
-                is_live = delta < 120
-                last_push_sec = round(delta)
-            except:
-                pass
-
-        disk = live.get("disk", {})
-        entry = {
-            "hostname": hostname,
-            "_uid": uid_short,
-            "_live": is_live,
-            "_last_push_sec": last_push_sec,
-            "status": "online" if is_live else ("recent" if last_push_sec < 3600 else "offline"),
-            "last_seen": received or reg.get("last_seen", ""),
-            "os": live.get("os", "") or git_by_host.get(hostname, {}).get("os", ""),
-            "cpu_load": live.get("cpu", {}).get("load_1m", git_by_host.get(hostname, {}).get("cpu_load", 0)),
-            "disk_total_gb": disk.get("total_gb", 0) or git_by_host.get(hostname, {}).get("disk_total_gb", 0),
-            "disk_used_gb": disk.get("used_gb", 0) or git_by_host.get(hostname, {}).get("disk_used_gb", 0),
-            "disk_avail_gb": disk.get("available_gb", 0) or git_by_host.get(hostname, {}).get("disk_avail_gb", 0),
-            "guardd_version": live.get("guardd_version", "") or git_by_host.get(hostname, {}).get("guardd_version", ""),
-            "_source_hostname": HOSTNAME,
-        }
-        merged.append(entry)
-
-    return {"machines": merged, "total": len(merged)}
+    if p is None or not _AVAILABLE.get("guardd", False):
+        return {"machines": [], "total": 0, "error": "guardd plugin unavailable"}
+    try:
+        from plugins._registry import get_machine_list
+        data = p.summary(get_machine_list())
+        detail = p.detail()
+        machines = []
+        for hn, info in detail.items():
+            m = {"hostname": hn}
+            m.update(info)
+            m["_source_hostname"] = HOSTNAME
+            machines.append(m)
+        return {"machines": machines, "total": len(machines)}
+    except Exception as e:
+        return {"machines": [], "total": 0, "error": str(e)}
 
 # ═══════════════════════════════════════════════════════════
 # 健康检查

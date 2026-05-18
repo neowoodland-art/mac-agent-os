@@ -100,21 +100,12 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 </head>
 <body>
 <nav class="sidebar">
-  <h1>🖥 系统监控 <span>v1</span></h1>
-  <div style="margin-bottom:16px;padding:8px 12px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2);">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-      <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>
-      <span id="pluginBadge">AVE 视频工厂</span>
-    </div>
-    <div style="font-size:11px;color:var(--text2);opacity:.7;">模块: <span id="pluginCount">1</span> 个</div>
+  <h1>🖥 AgentOS <span style="font-size:10px;margin-left:4px">v4</span></h1>
+  <div id="identityBar" style="margin-bottom:12px;padding:6px 10px;background:var(--bg3);border-radius:8px;font-size:10px;color:var(--text2);line-height:1.6">
+    <div id="identityHostname"></div>
+    <div id="identityMeta" style="opacity:.7"></div>
   </div>
-  <div class="nav-item active" data-view="productions" onclick="switchView('productions')">📋 生产列表</div>
-  <div class="nav-item" data-view="assets" onclick="switchView('assets')">💾 资产</div>
-  <div class="nav-item" data-view="costs" onclick="switchView('costs')">💰 费用</div>
-  <div class="nav-item" data-view="machines" onclick="switchView('machines')">🖥 机器状态</div>
-  <div class="nav-item" data-view="timeline" onclick="switchView('timeline')">📈 时间线</div>
-  <div class="nav-item" data-view="alerts" onclick="switchView('alerts')">🔔 告警</div>
-  <div class="nav-item" data-view="summary" onclick="switchView('summary')">📊 概览</div>
+  <div id="navBar" class="nav"></div>
   <div style="flex:1"></div>
   <div class="nav-item" onclick="location.reload()">🔄 刷新</div>
 </nav>
@@ -199,6 +190,8 @@ const PAGE_SIZE = 30;
 let searchTimer;
 
 // ── Init ──
+loadIdentity();
+loadPlugins();
 loadStats();
 // 自动刷新: 10秒轮询机器状态, 30秒轮询摘要
 setInterval(() => { if (currentView === 'machines') loadMachines(); }, 10000);
@@ -476,6 +469,45 @@ async function loadMachines() {
   } catch(e) {
     el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
   }
+}
+
+// ── Identity & Plugin Init ──
+async function loadIdentity() {
+  try {
+    const r = await fetch('/api/identity');
+    const d = await r.json();
+    document.getElementById('identityHostname').innerHTML = `📡 ${d.hostname}`;
+    document.getElementById('identityMeta').innerHTML = `UID: ${d.uid} · ${d.role} · ${d.git_repo} @ ${(d.git_version||'').slice(0,7)}`;
+  } catch(e) {}
+}
+
+async function loadPlugins() {
+  try {
+    const r = await fetch('/api/plugins');
+    const res = await r.json();
+    const nav = document.getElementById('navBar');
+    const plugins = res.plugins || [];
+    document.getElementById('pluginBadge').textContent = `${plugins.length} 个模块`;
+    document.getElementById('pluginCount').textContent = plugins.length;
+
+    // 固定视图
+    let html = `<div class="nav-item active" data-view="productions" onclick="switchView('productions')">📋 生产列表</div>`;
+    html += `<div class="nav-item" data-view="machines" onclick="switchView('machines')">🖥 机器状态</div>`;
+
+    // 插件动态生成
+    plugins.forEach(p => {
+      if (p.name === 'guardd') return; // 机器已存在
+      const icon = p.icon || '📦';
+      html += `<div class="nav-item" data-view="plugin-${p.name}" onclick="switchView('plugin-${p.name}')">${icon} ${p.label}</div>`;
+    });
+
+    // 旧视图
+    html += `<div class="nav-item" data-view="timeline" onclick="switchView('timeline')">📈 时间线</div>`;
+    html += `<div class="nav-item" data-view="alerts" onclick="switchView('alerts')">🔔 告警</div>`;
+    html += `<div class="nav-item" data-view="summary" onclick="switchView('summary')">📊 概览</div>`;
+
+    nav.innerHTML = html;
+  } catch(e) {}
 }
 
 // ── Keyboard ──
