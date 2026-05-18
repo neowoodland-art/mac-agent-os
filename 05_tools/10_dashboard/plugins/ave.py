@@ -55,11 +55,27 @@ class AVEDashboardPlugin(DashboardPlugin):
             s = p.get("strategy", "未知")
             strategies[s] = strategies.get(s, 0) + 1
 
+        # 检测 API 配置状态
+        config = AGENT_LOCAL / "tools" / "ave" / "config" / "local.yaml"
+        api_configured = config.exists()
+        api_services = []
+        if api_configured:
+            try:
+                import yaml
+                cfg = yaml.safe_load(config.read_text()) or {}
+                for svc in ["volcano","aliyun","pexels","llm"]:
+                    if svc in cfg and cfg[svc].get("api_key","") not in ("", "sk-xxx"):
+                        api_services.append(svc)
+            except:
+                pass
+
         by_machine = {HOSTNAME: {
             "管线数": 6,
             "总生产": len(prods),
             "今日": sum(1 for p in prods if p.get("created_at","").startswith(datetime.now().strftime("%Y-%m-%d"))),
-            "策略分布": strategies,
+            "API已配置": api_configured,
+            "API服务": api_services,
+            "策略分布": strategies if strategies else {"未生产": 0},
             "费用": local.get("total_cost", 0),
         }}
 
