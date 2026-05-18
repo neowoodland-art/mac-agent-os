@@ -242,7 +242,8 @@ async function loadProductions(page) {
     if (strategy) params.set('strategy', strategy);
     if (status) params.set('status', status);
     const r = await fetch(`${API}/api/productions?${params}`);
-    const data = await r.json();
+    const res = await r.json();
+    const data = res.data || [];
 
     if (!data.length) { el.innerHTML = '<div class="error" style="padding:40px">暂无生产记录</div>'; return; }
 

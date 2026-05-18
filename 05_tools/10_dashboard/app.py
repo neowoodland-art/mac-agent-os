@@ -45,8 +45,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from plugins.base import DashboardPlugin
-from plugins.ave import AVEDashboardPlugin
-from plugins.guardd import GuarddPlugin
 
 # ── 联邦路径 ───────────────────────────────────────────────
 _CROSS_MACHINE_DIR = Path(__file__).resolve().parent.parent.parent / "04_memory" / "cross_machine"
@@ -195,7 +193,7 @@ def api_identity():
             "git_version": git_ver, "git_repo": git_repo}
 
 # ═══════════════════════════════════════════════════════════
-# 生产列表 (可切换插件)
+# 生产列表 (兼容旧版 → 委托给插件 detail)
 # ═══════════════════════════════════════════════════════════
 
 @app.get("/api/productions")
@@ -206,24 +204,40 @@ def api_productions(
     strategy: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
 ):
-    """生产列表，支持 ?plugin= 切换数据源"""
+    """生产列表 (v4 兼容: 委托给插件 detail)"""
+    from plugins._registry import get_machine_list
     p = _get_plugin(plugin)
-    data = p.get_productions(limit=limit, offset=offset, strategy=strategy, status=status)
-    if isinstance(data, list):
-        for item in data:
-            if isinstance(item, dict) and "_source_hostname" not in item:
-                item["_source_hostname"] = HOSTNAME
-    return {"data": data, "source_hostname": HOSTNAME, "plugin": plugin}
+    try:
+        data = p.detail()
+        # 兼容旧版: 转成列表
+        if isinstance(data, dict):
+            items = []
+            for hn, info in data.items():
+                if isinstance(info, dict):
+                    info["_source_hostname"] = hn
+                    items.append(info)
+            data = items
+        return {"data": data, "source_hostname": HOSTNAME, "plugin": plugin}
+    except Exception as e:
+        return {"data": [], "source_hostname": HOSTNAME, "plugin": plugin, "error": str(e)}
+
 
 @app.get("/api/productions/{production_id}")
 def api_production_detail(
-    production_id: int,
+    production_id: str,
     plugin: str = Query("ave", description="数据源插件名"),
 ):
-    """生产详情，支持 ?plugin= 切换"""
+    """生产详情 (v4 兼容)"""
     p = _get_plugin(plugin)
-    result = p.get_production_detail(production_id)
-    if result is None:
+    try:
+        data = p.detail()
+        if isinstance(data, dict):
+            for hn, info in data.items():
+                if production_id in str(hn) or production_id in str(info):
+                    return {"data": info, "source_hostname": hn, "plugin": plugin}
+        return {"data": None, "plugin": plugin}
+    except Exception as e:
+        return {"data": None, "plugin": plugin, "error": str(e)}
         raise HTTPException(404, detail="Not found")
     if isinstance(result, dict) and "_source_hostname" not in result:
         result["_source_hostname"] = HOSTNAME
@@ -308,14 +322,13 @@ def api_assets_disk():
 def api_cost_breakdown(
     plugin: str = Query("ave", description="数据源插件名"),
 ):
-    """费用统计，支持 ?plugin= 切换"""
+    """费用统计 (v4 兼容)"""
     p = _get_plugin(plugin)
-    data = p.get_cost_breakdown()
-    if isinstance(data, list):
-        for item in data:
-            if isinstance(item, dict) and "_source_hostname" not in item:
-                item["_source_hostname"] = HOSTNAME
-    return {"data": data, "source_hostname": HOSTNAME, "plugin": plugin}
+    try:
+        data = p.detail()
+        return {"data": data, "source_hostname": HOSTNAME, "plugin": plugin}
+    except Exception as e:
+        return {"data": [], "source_hostname": HOSTNAME, "plugin": plugin, "error": str(e)}
 
 # ═══════════════════════════════════════════════════════════
 # 联邦机器状态 (统一走 guardd 插件)
