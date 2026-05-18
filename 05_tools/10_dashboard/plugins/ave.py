@@ -123,3 +123,120 @@ class AVEDashboardPlugin(DashboardPlugin):
         return [
             {"name": "刷新缓存", "method": "POST", "endpoint": "/api/plugins/ave/refresh"},
         ]
+
+    def get_sub_views(self) -> list[dict]:
+        return [
+            {"key": "characters", "label": "角色管理", "icon": "🧑", "group": "ave"},
+            {"key": "capabilities", "label": "原子能力", "icon": "⚡", "group": "ave"},
+        ]
+
+    def get_characters(self) -> dict:
+        """列出所有已注册角色"""
+        try:
+            from character_registry import CharacterRegistry
+            registry = CharacterRegistry()
+            chars = {}
+            for name in registry.list_characters():
+                char = registry.get_character(name)
+                chars[name] = char.to_dict()
+            return {
+                "characters": chars,
+                "active": registry.get_active_name(),
+                "total": len(chars),
+            }
+        except Exception as e:
+            return {"characters": {}, "active": "", "total": 0, "error": str(e)}
+
+    def get_capabilities(self) -> dict:
+        """解析 AVE_ARCHITECTURE_PLAN.md 中的原子能力"""
+        plan_path = _AVE_SCRIPTS / "AVE_ARCHITECTURE_PLAN.md"
+        if not plan_path.exists():
+            return {"groups": [], "error": "架构文档不存在"}
+
+        try:
+            content = plan_path.read_text(encoding="utf-8")
+            return self._parse_capabilities(content)
+        except Exception as e:
+            return {"groups": [], "error": str(e)}
+
+    def _parse_capabilities(self, content: str) -> dict:
+        """从 markdown 中提取原子能力表格"""
+        groups = []
+        current_group = None
+        current_items = []
+        headers = []
+
+        # 定义要提取的 section 范围
+        sections = {
+            "音频原子能力": "音频原子能力|3.1 音频",
+            "视觉原子能力": "视觉原子能力|3.2 视觉",
+            "动作迁移原子能力": "动作迁移原子能力|3.3 动作",
+            "角色原子能力": "角色原子能力|3.4 角色",
+            "通用基础能力": "通用基础能力|3.5 通用",
+        }
+        current_section_tag = None
+
+        for line in content.split("\n"):
+            # 检测 section 标题
+            for tag, patterns in sections.items():
+                for p in patterns.split("|"):
+                    if p in line:
+                        if current_group and current_items:
+                            groups.append({"name": current_group, "items": current_items})
+                        current_group = tag
+                        current_items = []
+                        headers = []
+                        current_section_tag = tag
+                        break
+            if current_section_tag is None:
+                continue
+
+            # 检测表格行
+            if line.startswith("|") and line.endswith("|"):
+                cells = [c.strip() for c in line.split("|")[1:-1]]
+                if not cells or len(cells) < 2:
+                    continue
+                # 跳过表头分隔行
+                if all(c.strip().replace("-", "").replace(":", "") == "" for c in cells):
+                    continue
+                # 第一行是表头
+                if not headers:
+                    headers = cells
+                    continue
+                current_items.append(dict(zip(headers, cells + [""] * (len(headers) - len(cells)))))
+
+        if current_group and current_items:
+            groups.append({"name": current_group, "items": current_items})
+
+        # 提取交叉能力矩阵
+        matrix = self._parse_matrix(content)
+
+        return {"groups": groups, "matrix": matrix, "total_items": sum(len(g["items"]) for g in groups)}
+
+    def _parse_matrix(self, content: str) -> list:
+        """提取交叉能力矩阵表格"""
+        in_matrix = False
+        headers = []
+        rows = []
+        for line in content.split("\n"):
+            if "交叉能力矩阵" in line or "## 6." in line:
+                in_matrix = True
+                continue
+            if in_matrix and line.startswith("|") and line.endswith("|"):
+                cells = [c.strip() for c in line.split("|")[1:-1]]
+                if not cells or len(cells) < 2:
+                    continue
+                if all(c.strip().replace("-", "").replace(":", "") == "" for c in cells):
+                    continue
+                if not headers:
+                    headers = cells
+                    continue
+                name = cells[0].strip()
+                usages = {}
+                for i, cell in enumerate(cells[1:], 1):
+                    if i < len(headers):
+                        usages[headers[i]] = cell.strip()
+                rows.append({"name": name, "usages": usages})
+            if in_matrix and not line.startswith("|") and rows:
+                break
+        return rows

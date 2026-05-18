@@ -1,11 +1,11 @@
 {
   "hostname": "Redmi-12C",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "role": "workstation",
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.48
+    "load_1m": 2.36
   },
   "memory": {
     "total_gb": 0,
@@ -14,11 +14,11 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 78.4,
-    "available_gb": 166.7
+    "used_gb": 83.3,
+    "available_gb": 161.8
   },
-  "last_seen": "2026-05-16T07:03:50.802803+00:00",
+  "last_seen": "2026-05-18T15:52:06.720968+00:00",
   "status": "online",
-  "guardd_version": "1.0.0",
+  "guardd_version": "1.1.0",
   "current_task": null
 }

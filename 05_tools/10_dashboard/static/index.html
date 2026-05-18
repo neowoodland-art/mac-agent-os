@@ -100,7 +100,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 </head>
 <body>
 <nav class="sidebar">
-  <h1>🖥 系统监控 <span>v1</span></h1>
+  <h1>🖥 系统监控 <span>v2</span></h1>
   <div style="margin-bottom:16px;padding:8px 12px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2);">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
       <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>
@@ -108,9 +108,19 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     </div>
     <div style="font-size:11px;color:var(--text2);opacity:.7;">模块: <span id="pluginCount">1</span> 个</div>
   </div>
+
+  <!-- AVE 视频工厂分组 -->
+  <div style="font-size:10px;color:var(--text2);padding:4px 12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">AVE 视频工厂</div>
   <div class="nav-item active" data-view="productions" onclick="switchView('productions')">📋 生产列表</div>
   <div class="nav-item" data-view="assets" onclick="switchView('assets')">💾 资产</div>
   <div class="nav-item" data-view="costs" onclick="switchView('costs')">💰 费用</div>
+  <div class="nav-item" data-view="characters" onclick="switchView('characters')" id="nav-characters">🧑 角色管理</div>
+  <div class="nav-item" data-view="capabilities" onclick="switchView('capabilities')" id="nav-capabilities">⚡ 原子能力</div>
+
+  <div style="height:12px"></div>
+
+  <!-- 系统分组 -->
+  <div style="font-size:10px;color:var(--text2);padding:4px 12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">系统</div>
   <div class="nav-item" data-view="machines" onclick="switchView('machines')">🖥 机器状态</div>
   <div class="nav-item" data-view="timeline" onclick="switchView('timeline')">📈 时间线</div>
   <div class="nav-item" data-view="alerts" onclick="switchView('alerts')">🔔 告警</div>
@@ -186,6 +196,25 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div id="summaryContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px"></div>
 </div>
 
+<!-- Characters view -->
+<div id="view-characters" class="hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:18px">🧑 角色管理</h2>
+    <span id="charCount" style="font-size:13px;color:var(--text2)"></span>
+  </div>
+  <div id="characterGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px"></div>
+</div>
+
+<!-- Capabilities view -->
+<div id="view-capabilities" class="hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:18px">⚡ 原子能力</h2>
+    <span id="capCount" style="font-size:13px;color:var(--text2)"></span>
+  </div>
+  <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap" id="capGroupTabs"></div>
+  <div id="capabilityContent"></div>
+</div>
+
 <!-- Production detail modal -->
 <div id="detailModal" class="hidden"></div>
 
@@ -210,13 +239,15 @@ loadPlugins();
 function switchView(view) {
   currentView = view;
   document.querySelectorAll('.nav-item').forEach(e => e.classList.toggle('active', e.dataset.view === view));
-  ['productions','assets','costs','machines'].forEach(v => {
+  ['productions','assets','costs','machines','characters','capabilities'].forEach(v => {
     document.getElementById('view-' + v).classList.toggle('hidden', v !== view);
   });
   if (view === 'productions') loadProductions();
   if (view === 'assets') loadAssets();
   if (view === 'costs') loadCosts();
   if (view === 'machines') loadMachines();
+  if (view === 'characters') loadCharacters();
+  if (view === 'capabilities') loadCapabilities();
 }
 
 // ── Stats ──
@@ -620,6 +651,151 @@ switchView = function(v) {
   if (v === 'timeline') loadTimeline();
   if (v === 'alerts') loadAlerts();
   if (v === 'summary') loadSummary();
-};</script>
+};
+
+// ── Characters ──
+async function loadCharacters() {
+  const el = document.getElementById('characterGrid');
+  const countEl = document.getElementById('charCount');
+  el.innerHTML = '<div class="loading">加载角色数据...</div>';
+  try {
+    const r = await fetch(`${API}/api/characters`);
+    const d = await r.json();
+    const chars = d.characters || {};
+    const active = d.active || '';
+    const entries = Object.entries(chars);
+    countEl.textContent = `共 ${entries.length} 个角色`;
+
+    if (!entries.length) {
+      el.innerHTML = '<div class="error" style="padding:40px">暂无角色数据</div>';
+      return;
+    }
+
+    el.innerHTML = entries.map(([name, char]) => {
+      const isActive = name === active;
+      const refImgs = char.reference_images || {};
+      const exprs = refImgs.expressions || {};
+      const exprCount = Object.keys(exprs).length;
+      const hasGrid = !!refImgs.grid;
+      const hasPortrait = !!refImgs.portrait;
+
+      return `<div style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid ${isActive ? 'var(--primary)' : 'var(--border)'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div>
+              <div style="font-weight:600;font-size:16px">${name}</div>
+              <div style="font-size:11px;color:var(--text2)">${char.description||''}</div>
+            </div>
+          </div>
+          ${isActive ? `<span style="padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(99,102,241,.15);color:var(--primary);border:1px solid rgba(99,102,241,.3)">当前角色</span>` : ''}
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;margin-bottom:10px;color:var(--text2)">
+          <div>画风: ${char.art_style||'-'}</div>
+          <div>音色: ${char.voice_style||'-'}</div>
+          <div>性格: ${char.personality||'-'}</div>
+          <div>BGM: ${char.default_bgm_style||'-'}</div>
+        </div>
+
+        ${char.prompt_template ? `<div style="margin-bottom:10px;font-size:11px;color:var(--text2)">
+          <span style="font-weight:600">提示词模板:</span>
+          <div style="background:var(--bg3);padding:8px;border-radius:6px;margin-top:4px;font-family:mono;font-size:10px;word-break:break-all">${Object.values(char.prompt_template).join(' | ')}</div>
+        </div>` : ''}
+
+        ${char.outfit_presets ? `<div style="margin-bottom:10px">
+          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">穿搭预设</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">${Object.keys(char.outfit_presets).map(k => `<span style="background:var(--bg3);padding:2px 8px;border-radius:4px;font-size:10px">${k}</span>`).join('')}</div>
+        </div>` : ''}
+
+        <div style="font-size:11px;color:var(--text2)">
+          <div>参考图: ${hasGrid ? '✅ 定妆照' : '❌ 无定妆照'} · ${hasPortrait ? '✅ 头像' : '❌ 无头像'} · ${exprCount ? `✅ ${exprCount}种表情` : '❌ 无表情'}</div>
+          ${char.seed ? `<div>固定 Seed: ${char.seed}</div>` : ''}
+        </div>
+
+        ${char.appearance && char.appearance.length ? `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">外观特征</div>
+          <ul style="margin:0;padding-left:16px;font-size:11px;color:var(--text2)">${char.appearance.map(a => `<li>${a}</li>`).join('')}</ul>
+        </div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
+  }
+}
+
+// ── Capabilities ──
+let currentCapGroup = null;
+async function loadCapabilities() {
+  const el = document.getElementById('capabilityContent');
+  const tabsEl = document.getElementById('capGroupTabs');
+  const countEl = document.getElementById('capCount');
+  el.innerHTML = '<div class="loading">加载原子能力...</div>';
+  try {
+    const r = await fetch(`${API}/api/capabilities`);
+    const d = await r.json();
+    const groups = d.groups || [];
+    const matrix = d.matrix || [];
+    countEl.textContent = `共 ${d.total_items||0} 个能力`;
+
+    if (!groups.length) {
+      el.innerHTML = '<div class="error" style="padding:40px">暂无能力数据</div>';
+      return;
+    }
+
+    // 分组标签
+    tabsEl.innerHTML = groups.map((g, i) =>
+      `<button class="btn ${i === 0 ? 'active' : ''}" onclick="switchCapGroup(${i})" style="${i === 0 ? 'background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px' : 'background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px'}">${g.name} (${g.items.length})</button>`
+    ).join('');
+
+    currentCapGroup = 0;
+    renderCapGroup(groups[0], matrix);
+  } catch(e) {
+    el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
+  }
+}
+
+function switchCapGroup(idx) {
+  currentCapGroup = idx;
+  const tabs = document.getElementById('capGroupTabs').children;
+  for (let i = 0; i < tabs.length; i++) {
+    tabs[i].style.background = i === idx ? 'var(--primary)' : 'var(--bg2)';
+    tabs[i].style.color = i === idx ? '#fff' : 'var(--text)';
+    tabs[i].style.border = i === idx ? 'none' : '1px solid var(--border)';
+  }
+  fetch(`${API}/api/capabilities`).then(r => r.json()).then(d => {
+    renderCapGroup(d.groups[idx], d.matrix);
+  });
+}
+
+function renderCapGroup(group, matrix) {
+  const el = document.getElementById('capabilityContent');
+  if (!group || !group.items) {
+    el.innerHTML = '<div class="error">无数据</div>';
+    return;
+  }
+
+  el.innerHTML = `<div class="chart-box">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px">${group.name}</div>
+    <table><thead><tr>${Object.keys(group.items[0]||{}).map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>
+      ${group.items.map(item => `<tr>${Object.values(item).map(v => `<td>${v||'-'}</td>`).join('')}</tr>`).join('')}
+    </tbody></table>
+  </div>`;
+
+  // 如果当前是第一个分组（音频），且有关联的 matrix，显示交叉矩阵
+  if (matrix && matrix.length && currentCapGroup === 0) {
+    const matrixHeaders = Object.keys(matrix[0]?.usages || {});
+    el.innerHTML += `<div class="chart-box" style="margin-top:16px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px">交叉能力矩阵 (全量)</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">⬛ = 核心依赖 · ⬜ = 可用 · ↔ = 可选接入</div>
+      <table><thead><tr><th style="position:sticky;left:0;background:var(--bg2)">能力</th>${matrixHeaders.map(h => `<th style="font-size:10px">${h}</th>`).join('')}</tr></thead><tbody>
+        ${matrix.map(row => `<tr><td style="position:sticky;left:0;background:var(--bg2);font-weight:600;white-space:nowrap">${row.name}</td>${matrixHeaders.map(h => {
+          const v = row.usages[h] || '';
+          const bg = v.includes('⬛') ? 'rgba(99,102,241,.15)' : v.includes('↔') ? 'rgba(245,158,11,.1)' : v ? 'rgba(34,197,94,.08)' : '';
+          return `<td style="text-align:center;background:${bg};font-size:11px">${v||'-'}</td>`;
+        }).join('')}</tr>`).join('')}
+      </tbody></table>
+    </div>`;
+  }
+}</script>
 </body>
 </html>
