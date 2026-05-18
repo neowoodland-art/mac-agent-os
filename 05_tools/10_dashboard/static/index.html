@@ -653,6 +653,60 @@ switchView = function(v) {
   if (v === 'timeline') loadTimeline();
   if (v === 'alerts') loadAlerts();
   if (v === 'summary') loadSummary();
-};</script>
+  // 插件视图
+  if (v.startsWith('plugin-')) {
+    const name = v.replace('plugin-', '');
+    loadPluginView(name);
+  }
+};
+
+// ── Plugin Detail View ──
+async function loadPluginView(name) {
+  let viewId = 'view-plugin-' + name;
+  let el = document.getElementById(viewId);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = viewId;
+    document.getElementById('app').appendChild(el);
+  }
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2)">加载中...</div>';
+
+  try {
+    const [sumR, detR] = await Promise.all([
+      fetch(`/api/plugins/${name}/summary`).then(r=>r.json()),
+      fetch(`/api/plugins/${name}/detail`).then(r=>r.json()),
+    ]);
+
+    const summary = sumR.data || {};
+    const detail = detR.data || {};
+    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">';
+
+    // 各机器卡片
+    const machines = summary['各机器'] || (detail ? Object.keys(detail) : []);
+    if (typeof machines === 'object' && !Array.isArray(machines)) {
+      for (const [hn, info] of Object.entries(machines)) {
+        if (typeof info === 'object' && info._note) {
+          html += `<div class="card"><h3>${hn}</h3><div style="color:var(--text2);font-size:12px">${info._note}</div></div>`;
+          continue;
+        }
+        html += `<div class="card"><h3>${hn}</h3><div style="font-size:12px;color:var(--text2)">`;
+        for (const [k, v] of Object.entries(info)) {
+          html += `<div>${k}: <strong>${v}</strong></div>`;
+        }
+        html += `</div></div>`;
+      }
+    } else {
+      // 兜底: 直接显示 detail
+      for (const [hn, info] of Object.entries(detail)) {
+        html += `<div class="card"><h3>${hn}</h3><pre style="font-size:11px;overflow:auto">${JSON.stringify(info, null, 2)}</pre></div>`;
+      }
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
+}</script>
 </body>
 </html>

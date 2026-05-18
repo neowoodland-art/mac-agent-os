@@ -1,58 +1,102 @@
-# plugins/ave.py
-# AVE 视频工厂数据源插件
-# 版本: 1.0.0 | 更新: 2026-05-16
-
-import sys
+"""
+plugins/ave.py — AVE 视频工厂插件 (v2)
+显示生产管线状态、生产记录、费用统计
+版本: 2.0.0 | 更新: 2026-05-18
+"""
+import json, os
 from pathlib import Path
-from typing import Optional
+from datetime import datetime, timezone
 
-# ── 添加 AVE scripts 目录到 sys.path ──────────────────────
-# 10_dashboard/plugins/ave.py 需要 import AVE 的 lib.dashboard
-# 路径: 10_dashboard/ → ../09_ave/scripts/
-_AVE_SCRIPTS = Path(__file__).resolve().parents[2] / "09_ave" / "scripts"
-if str(_AVE_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_AVE_SCRIPTS))
-
-from plugins.base import DashboardPlugin
-from lib.dashboard import (
-    init_db, get_summary, get_productions,
-    get_production_detail, get_cost_breakdown,
-)
+from plugins.base import DashboardPlugin, AGENT_SYNC, AGENT_LOCAL, CROSS_MACHINE, HOSTNAME, MACHINE_UID
+from plugins._registry import get_machine_list, get_plugin_data
 
 
 class AVEDashboardPlugin(DashboardPlugin):
     name = "ave"
     label = "视频工厂"
-    order = 1
-    description = "AVE 视频生产流水线：口播 / 卡点 / 数字人 / 角色叙事"
+    icon = "🎬"
+    version = "2.0.0"
+    description = "AVE 视频工厂：管线状态 / 生产记录 / 费用"
+    order = 20
 
-    def __init__(self):
-        init_db()  # 确保 DB schema 存在
+    def _read_local_productions(self):
+        """读取本机 AVE 生产记录"""
+        log_dirs = [
+            AGENT_LOCAL / "runtime" / "ave" / "productions",
+            AGENT_LOCAL / "logs" / "ave",
+        ]
+        records = []
+        for d in log_dirs:
+            if d.exists():
+                for f in sorted(d.iterdir())[-50:]:
+                    if f.suffix in (".json", ".log"):
+                        try:
+                            records.append({"file": f.name, "size": f.stat().st_size, "mtime": f.stat().st_mtime})
+                        except:
+                            pass
+        return records
 
-    def is_available(self) -> bool:
-        from lib.dashboard import DB_PATH
-        return DB_PATH.exists()
+    def _read_production_logs(self):
+        """读取 AVE 生产日志获取管线统计"""
+        log_path = AGENT_LOCAL / "runtime" / "ave" / "production.json"
+        if log_path.exists():
+            try:
+                return json.loads(log_path.read_text())
+            except:
+                pass
+        return {"productions": [], "total_cost": 0}
 
-    def get_summary(self) -> dict:
-        return get_summary()
+    def summary(self, machines: list[str]) -> dict:
+        # 本机数据
+        local = self._read_production_logs() or {}
+        prods = local.get("productions", [])
+        strategies = {}
+        for p in prods:
+            s = p.get("strategy", "未知")
+            strategies[s] = strategies.get(s, 0) + 1
 
-    def get_productions(self, limit: int = 50, offset: int = 0,
-                         strategy: Optional[str] = None,
-                         status: Optional[str] = None) -> list:
-        return get_productions(limit=limit, offset=offset,
-                                strategy=strategy, status=status)
+        by_machine = {HOSTNAME: {
+            "管线数": 6,
+            "总生产": len(prods),
+            "今日": sum(1 for p in prods if p.get("created_at","").startswith(datetime.now().strftime("%Y-%m-%d"))),
+            "策略分布": strategies,
+            "费用": local.get("total_cost", 0),
+        }}
 
-    def get_production_detail(self, production_id: int) -> Optional[dict]:
-        return get_production_detail(production_id)
+        # 读取其他机器的共享数据
+        for d in get_plugin_data(self.name):
+            hn = d.get("hostname", "")
+            if hn and hn != HOSTNAME:
+                data = d.get("data", {})
+                m = data.get("各机器", {}).get(hn, {})
+                if m:
+                    by_machine[hn] = m
 
-    def get_cost_breakdown(self) -> list:
-        return get_cost_breakdown()
+        return {
+            "总管线": 6,
+            "各机器": by_machine,
+        }
 
-    def get_sidebar_links(self) -> list[dict]:
+    def detail(self, machine: str = "") -> dict:
+        result = {}
+        # 本机详情
+        logs = self._read_production_logs()
+        prods = logs.get("productions", [])[-20:]  # 最近20条
+        result[HOSTNAME] = {
+            "管线": [
+                {"name": "口播", "status": "ready", "desc": "文案→TTS→素材→字幕"},
+                {"name": "卡点", "status": "ready", "desc": "BGM→节拍→素材→xfade"},
+                {"name": "数字人", "status": "ready", "desc": "OmniHuman/DreamActor"},
+                {"name": "口播+卡点", "status": "ready", "desc": "人声锚点+变速拼接"},
+                {"name": "故事", "status": "ready", "desc": "剧本→Kling批量→角色一致"},
+                {"name": "变速卡点", "status": "ready", "desc": "速度曲线+拍点对齐"},
+            ],
+            "最近生产": prods[-10:] if prods else [],
+            "总费用": logs.get("total_cost", 0),
+        }
+        return result
+
+    def actions(self) -> list[dict]:
         return [
-            {"label": "口播策略", "url": "/#/productions?strategy=口播"},
-            {"label": "卡点策略", "url": "/#/productions?strategy=卡点"},
-            {"label": "数字人策略", "url": "/#/productions?strategy=数字人"},
-            {"label": "角色叙事", "url": "/#/productions?strategy=故事"},
-            {"label": "资产浏览器", "url": "/#/assets"},
+            {"name": "刷新缓存", "method": "POST", "endpoint": "/api/plugins/ave/refresh"},
         ]
