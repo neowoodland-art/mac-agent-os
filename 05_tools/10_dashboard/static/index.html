@@ -672,8 +672,6 @@ switchView = function(v) {
 // ── Plugin Detail View ──
 async function loadPluginView(name) {
   let viewId = 'plugin-view-' + name;
-  
-  // 先隐藏所有 view
   document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.style.display = 'none');
   
   let el = document.getElementById(viewId);
@@ -686,43 +684,102 @@ async function loadPluginView(name) {
   el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2)">加载中...</div>';
 
   try {
-    const [sumR, detR] = await Promise.all([
-      fetch(`/api/plugins/${name}/summary`).then(r=>r.json()),
-      fetch(`/api/plugins/${name}/detail`).then(r=>r.json()),
+    const [metaR, sumR, detR] = await Promise.all([
+      fetch('/api/plugins').then(r=>r.json()),
+      fetch('/api/plugins/'+name+'/summary').then(r=>r.json()),
+      fetch('/api/plugins/'+name+'/detail').then(r=>r.json()),
     ]);
 
+    const meta = (metaR.plugins || []).find(p => p.name === name) || {};
     const summary = sumR.data || {};
     const detail = detR.data || {};
-    let html = '<h2 style="font-size:18px;margin-bottom:16px">';
-    html += `${summary.icon || '📦'} ${summary.label || name}</h2>`;
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">';
+    
+    let html = '<h2 style="font-size:18px;font-weight:500;margin-bottom:16px">' + (meta.icon || '') + ' ' + (meta.label || name) + '</h2>';
 
-    // 各机器卡片
-    const machines = summary['各机器'] || (detail ? Object.keys(detail) : []);
-    if (typeof machines === 'object' && !Array.isArray(machines)) {
-      for (const [hn, info] of Object.entries(machines)) {
+    // Summary cards
+    var machData = summary['各机器'] || {};
+    if (Object.keys(machData).length > 0) {
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:20px">';
+      for (var hn in machData) {
+        var info = machData[hn];
         if (typeof info === 'object' && info._note) {
-          html += `<div class="card"><h3>${hn}</h3><div style="color:var(--text2);font-size:12px">${info._note}</div></div>`;
+          html += '<div class="card"><h4 style="margin:0 0 6px">' + hn + '</h4><div style="color:var(--text2);font-size:12px">' + info._note + '</div></div>';
           continue;
         }
         if (typeof info === 'object') {
-          html += `<div class="card"><h3>${hn}</h3><div style="font-size:12px;color:var(--text2)">`;
-          for (const [k, v] of Object.entries(info)) {
-            html += `<div style="padding:2px 0"><span style="color:var(--text2)">${k}:</span> <strong>${v}</strong></div>`;
+          html += '<div class="card"><h4 style="margin:0 0 6px">' + hn + '</h4>';
+          for (var k in info) {
+            html += '<div style="font-size:12px;padding:2px 0"><span style="color:var(--text2)">' + k + ':</span> <strong>' + info[k] + '</strong></div>';
           }
-          html += `</div></div>`;
+          html += '</div>';
         }
       }
-    } else {
-      for (const [hn, info] of Object.entries(detail)) {
-        html += `<div class="card"><h3>${hn}</h3><pre style="font-size:11px;overflow:auto;max-height:400px">${JSON.stringify(info, null, 2)}</pre></div>`;
+      html += '</div>';
+    }
+
+    // Detail lists
+    if (Object.keys(detail).length > 0) {
+      for (var hn in detail) {
+        var info = detail[hn];
+        if (typeof info === 'object') {
+          // Table fields (arrays)
+          for (var key in info) {
+            var items = info[key];
+            if (Array.isArray(items) && items.length > 0) {
+              html += '<div class="card" style="margin-bottom:12px"><h4 style="margin:0 0 8px">' + hn + ' - ' + key + '</h4>';
+              html += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
+              html += '<thead><tr style="background:var(--bg3)">';
+              var sample = items[0];
+              if (typeof sample === 'object') {
+                var keys = Object.keys(sample).slice(0, 6);
+                for (var ki = 0; ki < keys.length; ki++) {
+                  html += '<th style="padding:6px 8px;text-align:left;font-weight:500">' + keys[ki] + '</th>';
+                }
+              }
+              html += '</tr></thead><tbody>';
+              var maxItems = Math.min(items.length, 50);
+              for (var ii = 0; ii < maxItems; ii++) {
+                var item = items[ii];
+                html += '<tr style="border-top:1px solid var(--border)">';
+                if (typeof item === 'object') {
+                  var vals = Object.values(item).slice(0, 6);
+                  for (var vi = 0; vi < vals.length; vi++) {
+                    html += '<td style="padding:4px 8px">' + String(vals[vi] || '-').slice(0,40) + '</td>';
+                  }
+                }
+                html += '</tr>';
+              }
+              if (items.length > 50) {
+                html += '<tr><td colspan="6" style="padding:8px;text-align:center;color:var(--text2)">... 还有 ' + (items.length - 50) + ' 条</td></tr>';
+              }
+              html += '</tbody></table></div>';
+            }
+          }
+          // Key-value fields
+          var plainItems = [];
+          for (var key in info) {
+            var v = info[key];
+            if (!Array.isArray(v) && typeof v !== 'object') {
+              plainItems.push({k:key, v:v});
+            }
+          }
+          if (plainItems.length > 0) {
+            html += '<div class="card" style="margin-bottom:12px"><h4 style="margin:0 0 6px">' + hn + '</h4>';
+            for (var pi = 0; pi < plainItems.length; pi++) {
+              html += '<div style="font-size:12px;padding:2px 0"><span style="color:var(--text2)">' + plainItems[pi].k + ':</span> <strong>' + plainItems[pi].v + '</strong></div>';
+            }
+            html += '</div>';
+          }
+        }
       }
     }
 
-    html += '</div>';
+    if (html.indexOf('card') === -1) {
+      html += '<div style="padding:40px;text-align:center;color:var(--text2)">暂无数据</div>';
+    }
     el.innerHTML = html;
   } catch(e) {
-    el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
+    el.innerHTML = '<div class="error">加载失败: ' + e.message + '</div>';
   }
 }</script>
 </body>
