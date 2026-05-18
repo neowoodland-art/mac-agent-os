@@ -327,5 +327,97 @@ nsfw, bad hands, bad fingers, missing fingers, extra fingers,
 bad face, bad eyes, bad proportions, ugly, duplicate, morbid,
 deformed, blurry, low quality, worst quality, signature, watermark
 ```
+
+---
+
+## 十一、专项模型提示词技巧
+
+### 即梦 Seedance 2.0
+
+**核心特色**：多模态参考（@引用系统）、视频延长、角色替换、局部修改
+
+**动作连贯性公式**：
+```
+[环境/角色] + [动作A]，[完成A后的结果] + [动作B] + [动作B的细节]
+```
+示例：`女孩在优雅地晒衣服，晒完从桶里拿出另一件，用力抖一抖衣服`
+
+**@引用模板**：
+
+| 用途 | 写法 |
+|------|------|
+| 首帧+动作参考 | `@图1 为首帧，参考 @视频1 的打斗动作` |
+| 视频延长 | `将 @视频1 延长 5 秒` |
+| 场景插入 | `在 @视频1 和 @视频2 之间加一个场景` |
+| 连续动作 | `角色从跳跃直接过渡到翻滚，@图1 @图2 @图3` |
+| 风格复刻 | `参考 @视频1 的节奏和运镜，@图1 的角色` |
+
+### Runway Gen-4
+
+**核心特色**：创作工作流、局部重绘、运动画笔、风格迁移
+
+**简洁公式**：
+```
+Cinematic footage, [主体] + [动作] + [环境] + [时间]
+```
+
+**最佳实践**：
+- 先用关键词+动作简洁描述
+- 重绘功能局部修改，而非重新生成
+- 运动画笔精确控制运动区域
+- 补帧功能平滑过渡
+- 先720P测试多版，锁定后提升分辨率
+
+### Pika 3.0
+
+**核心特色**：风格化控制、快速迭代、Modify功能
+
+**风格优先公式**：
+```
+[风格关键词], [内容描述]
+```
+示例：`Ghibli style, oil painting texture, a cozy cottage in a magical forest`
+
+**参数控制**：负面提示词是关键，CFG调节相关性，帧率控制风格感
+
+### Sora-Next
+
+**核心特色**：物理模拟最真实、长时一致性30秒+、世界模型
+
+**物理规则公式**：
+```
+[物体] + [材质/重量] + [高度] + [相互作用] + [结果]
+```
+
+### Luma Dream Machine Pro
+
+**核心特色**：动态镜头语言、3D空间感、关键帧输入
+
+**镜头优先公式**：
+```
+[镜头运动] + [场景] + [视角]
+```
+示例：`Push into the room slowly, reveal a massive portrait on the wall`
+
+### 快速选型
+
+| 需求 | 推荐 |
+|------|------|
+| 中文+角色一致 | **可灵 Kling 3.0** (主力) + Seedance 2.0 |
+| 极致真实物理 | Sora-Next |
+| 风格化社交内容 | Pika 3.0 |
+| 高度可控工作流 | Runway Gen-4 |
+| 影视预可视化 | Luma |
+| 开源定制 | Stable Video Diffusion |
+
+## 十二、专项模型来源
+
+| 来源 | 内容 |
+|------|------|
+| seedance22.com | Seedance 2.0 官方手册 |
+| toolifies.com | 五大模型深度评测 |
+| soravideo.art | Kling 3.0 教程 |
+| seavidgen.com | Kling 3.0 Prompt指南 |
+| freeaitool.com | 提示词工程指南 |
 | PromptMart.cn | 提示词库 | 50000+ 提示词模板参考 |
 | video-to-prompt.com | 在线工具 | 视频→提示词逆向工程 |
