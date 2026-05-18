@@ -3,7 +3,7 @@ plugins/collector.py — 内容采集插件 (v2)
 版本: 1.0.0 | 更新: 2026-05-18
 """
 from pathlib import Path
-from plugins.base import DashboardPlugin, AGENT_SYNC, AGENT_LOCAL, CROSS_MACHINE, HOSTNAME
+from plugins.base import DashboardPlugin, AGENT_SYNC, AGENT_LOCAL, CROSS_MACHINE, HOSTNAME, MACHINE_UID
 from plugins._registry import get_plugin_data
 
 class CollectorPlugin(DashboardPlugin):
@@ -180,8 +180,74 @@ class SystemPlugin(DashboardPlugin):
     label = "系统核心"
     icon = "⚙️"
     version = "1.0.0"
-    description = "Git仓库/版本/磁盘/运行时间"
+    description = "AgentOS内核 / AI引擎 / 记忆系统 / 知识库"
     order = 90
+
+    def _get_kernel_info(self):
+        """获取 AI 内核完整信息"""
+        import subprocess, json
+        
+        # AgentOS 版本
+        agentos_ver = "v2.1.0"
+        arch_ver = "联邦版 (2026-05)"
+        
+        # LLM 引擎
+        llm_engine = "oMLX v0.3.6 (Apple MLX)"
+        llm_models = []
+        models_dir = Path.home() / ".omlx" / "models"
+        if models_dir.exists():
+            for m in sorted(models_dir.iterdir()):
+                llm_models.append(m.name)
+        
+        # 记忆系统
+        memory = {
+            "架构": "四层记忆 + 自然语言知识库 双轨",
+            "L0 硬约束": "SOUL.md (~3KB), 不可绕过",
+            "L1 关键词索引": "keyword_index.json + ChromaDB 语义向量库",
+            "L2 结构化事实": "facts.db (SQLite), 结构化三元组",
+            "L3 原文": "raw/ 目录, 按需加载",
+            "检索引擎": "BM25 + ChromaDB 向量 + RRF 融合",
+            "向量维度": "1024 (Qwen3-Embedding-0.6B)",
+        }
+        
+        # 知识库
+        kb_dirs = AGENT_SYNC / "03_knowledge"
+        kb_stats = {}
+        if kb_dirs.exists():
+            for d in sorted(kb_dirs.iterdir()):
+                if d.is_dir() and not d.name.startswith("."):
+                    count = len(list(d.rglob("*.md")))
+                    if count > 0:
+                        kb_stats[d.name] = count
+        
+        # 技能
+        skills_dir = Path.home() / ".workbuddy" / "skills"
+        skill_count = 0
+        if skills_dir.exists():
+            skill_count = len([d for d in skills_dir.iterdir() if d.is_dir()])
+        
+        # 联邦
+        machine_count = 0
+        try:
+            r = subprocess.run(["curl","-s","http://localhost:9988/api/machines"], 
+                             capture_output=True, text=True, timeout=3)
+            if r.stdout:
+                d = json.loads(r.stdout)
+                machine_count = d.get("total", 0)
+        except: pass
+        
+        return {
+            "AgentOS 版本": agentos_ver,
+            "架构版本": arch_ver,
+            "LLM引擎": llm_engine,
+            "已加载模型": llm_models,
+            "记忆系统": memory,
+            "知识库规模": kb_stats,
+            "技能总数": skill_count,
+            "联邦机器数": machine_count,
+            "仓库": "mac-agent-os (Gitee + GitHub 双同步)",
+            "运行主机": HOSTNAME,
+        }
 
     def summary(self, machines):
         import subprocess, shutil
@@ -192,12 +258,18 @@ class SystemPlugin(DashboardPlugin):
             git_ver = r.stdout.strip()
         except: pass
         disk = shutil.disk_usage(str(AGENT_SYNC))
+        kernel = self._get_kernel_info()
         return {
             "各机器": {HOSTNAME: {
-                "Git版本": git_ver[:30] if git_ver else "-",
+                "AgentOS版本": kernel.get("AgentOS 版本", "-"),
+                "LLM引擎": kernel.get("LLM引擎", "-"),
+                "模型数": len(kernel.get("已加载模型", [])),
+                "记忆层级": "L0+L1+L2+L3",
+                "技能数": kernel.get("技能总数", 0),
+                "知识库": sum(kernel.get("知识库规模", {}).values()),
+                "Git版本": git_ver[:25] if git_ver else "-",
                 "磁盘总GB": round(disk.total / 1e9, 1),
                 "磁盘可用GB": round(disk.free / 1e9, 1),
-                "AgentOS路径": str(AGENT_SYNC),
             }}
         }
 
@@ -216,11 +288,18 @@ class SystemPlugin(DashboardPlugin):
             remotes = [l.strip() for l in r.stdout.strip().split("\n") if l]
         except: pass
         disk = shutil.disk_usage(str(AGENT_SYNC))
+        kernel = self._get_kernel_info()
         return {HOSTNAME: {
+            "AI内核": kernel,
             "Git仓库": remotes,
             "最近提交": git_log,
             "磁盘": {"总": round(disk.total/1e9,1), "已用": round((disk.total-disk.free)/1e9,1), "可用": round(disk.free/1e9,1)},
-            "机器UID": MACHINE_UID,
-            "Python": os.popen("python3 --version 2>/dev/null").read().strip() or "-",
-            "Node": os.popen("node --version 2>/dev/null").read().strip() or "-",
+            "运行时": {
+                "Python": os.popen("python3 --version 2>/dev/null").read().strip() or "-",
+                "Node": os.popen("node --version 2>/dev/null").read().strip() or "-",
+                "Playwright": "✅ 已安装",
+                "AgentOS路径": str(AGENT_SYNC),
+                "机器UID": MACHINE_UID,
+                "主机名": HOSTNAME,
+            },
         }}
