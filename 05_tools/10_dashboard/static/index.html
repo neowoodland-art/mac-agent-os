@@ -415,17 +415,19 @@ async function loadMachines() {
     }
 
     el.innerHTML = machines.map(m => {
-      const isOnline = m.status === 'online';
+      // 安全取值
+      const isOnline = m.status === 'online' || m._live === true;
       const isRecent = m.status === 'recent';
       const isLive = m._live === true;
-      const dotColor = isLive ? 'var(--teal)' : isOnline ? 'var(--green)' : isRecent ? 'var(--amber)' : 'var(--red)';
+      const dotColor = isLive ? '#1D9E75' : isOnline ? '#22C55E' : isRecent ? '#F59E0B' : '#EF4444';
       const statusText = isLive ? '实时' : isOnline ? '在线' : isRecent ? '近期' : '离线';
-      const minutesAgo = m._last_push_sec !== undefined ? m._last_push_sec : (m.minutes_ago || 999);
+      const lastPushSec = m._last_push_sec || 0;
+      const minAgo = m.minutes_ago || Math.round(lastPushSec / 60) || 999;
       const timeStr = isLive
-        ? `${minutesAgo}秒前 (实时)`
-        : minutesAgo < 60
-          ? `${minutesAgo.toFixed(0)} 分钟前`
-          : `${(minutesAgo/60).toFixed(1)} 小时前`;
+        ? `${lastPushSec}秒前`
+        : minAgo < 60
+          ? `${minAgo} 分钟前`
+          : `${(minAgo/60).toFixed(1)} 小时前`;
 
       // 磁盘条
       const diskPct = m.disk_used_pct || 0;

@@ -204,20 +204,26 @@ def api_productions(
     strategy: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
 ):
-    """生产列表 (v4 兼容: 委托给插件 detail)"""
+    """生产列表 (v4 兼容)"""
     from plugins._registry import get_machine_list
     p = _get_plugin(plugin)
     try:
         data = p.detail()
-        # 兼容旧版: 转成列表
+        # 统一转成生产记录列表
+        items = []
         if isinstance(data, dict):
-            items = []
             for hn, info in data.items():
+                prods = []
                 if isinstance(info, dict):
-                    info["_source_hostname"] = hn
-                    items.append(info)
-            data = items
-        return {"data": data, "source_hostname": HOSTNAME, "plugin": plugin}
+                    prods = info.get("productions", info.get("productions", []))
+                    # 如果 info 本身不是 production 格式, 尝试直接放行
+                    if not prods and "管线" in info:
+                        prods = []
+                for prod in prods:
+                    if isinstance(prod, dict):
+                        prod["_source_hostname"] = hn
+                        items.append(prod)
+        return {"data": items, "source_hostname": HOSTNAME, "plugin": plugin}
     except Exception as e:
         return {"data": [], "source_hostname": HOSTNAME, "plugin": plugin, "error": str(e)}
 

@@ -78,21 +78,28 @@ class AVEDashboardPlugin(DashboardPlugin):
         }
 
     def detail(self, machine: str = "") -> dict:
+        """返回生产记录格式 (兼容前端)"""
         result = {}
-        # 本机详情
         logs = self._read_production_logs()
-        prods = logs.get("productions", [])[-20:]  # 最近20条
+        prods = logs.get("productions", [])[-20:]
+
+        # 如果没有真实生产记录, 返回空列表而不是管线结构
+        records = []
+        for p in prods:
+            records.append({
+                "id": p.get("id", 0),
+                "strategy": p.get("strategy", ""),
+                "script_name": p.get("script_name", ""),
+                "status": p.get("status", "unknown"),
+                "total_cost": p.get("total_cost", 0),
+                "duration_sec": p.get("duration_sec", 0),
+                "created_at": p.get("created_at", ""),
+            })
+
         result[HOSTNAME] = {
-            "管线": [
-                {"name": "口播", "status": "ready", "desc": "文案→TTS→素材→字幕"},
-                {"name": "卡点", "status": "ready", "desc": "BGM→节拍→素材→xfade"},
-                {"name": "数字人", "status": "ready", "desc": "OmniHuman/DreamActor"},
-                {"name": "口播+卡点", "status": "ready", "desc": "人声锚点+变速拼接"},
-                {"name": "故事", "status": "ready", "desc": "剧本→Kling批量→角色一致"},
-                {"name": "变速卡点", "status": "ready", "desc": "速度曲线+拍点对齐"},
-            ],
-            "最近生产": prods[-10:] if prods else [],
-            "总费用": logs.get("total_cost", 0),
+            "productions": records,
+            "total_cost": logs.get("total_cost", 0),
+            "today": sum(1 for p in prods if p.get("created_at","").startswith(datetime.now().strftime("%Y-%m-%d"))),
         }
         return result
 

@@ -132,26 +132,57 @@ class GuarddPlugin(DashboardPlugin):
         return result
 
     def _build_machine_detail(self, hostname, uid, live, git_hb, now):
-        entry = {"hostname": hostname, "uid": uid[:8]+"..." if uid else ""}
+        entry = {
+            "hostname": hostname,
+            "_uid": uid[:8]+"..." if uid else "",
+            "status": "offline",
+            "last_seen": "",
+            "os": "",
+            "cpu_load": 0,
+            "disk_used_gb": 0,
+            "disk_total_gb": 0,
+            "disk_avail_gb": 0,
+            "guardd_version": git_hb.get("guardd_version", ""),
+            "current_task": git_hb.get("current_task"),
+            "minutes_ago": 999,
+            "_live": False,
+            "_last_push_sec": 0,
+            "minutes_ago": 999,
+        }
         if live:
             received = live.get("_received_at", "")
             if received:
                 try:
                     delta = (now - datetime.fromisoformat(received)).total_seconds()
-                    entry["实时"] = delta < 120
-                    entry["延迟秒"] = round(delta)
-                    entry["最后推送"] = received
+                    entry["_live"] = delta < 120
+                    entry["_last_push_sec"] = round(delta)
+                    entry["minutes_ago"] = round(delta / 60)
+                    entry["status"] = "online" if delta < 300 else ("recent" if delta < 3600 else "offline")
+                    entry["last_seen"] = received
                 except:
                     pass
-            entry["CPU负载"] = live.get("cpu", {}).get("load_1m", 0)
+            cpu = live.get("cpu", {})
+            entry["cpu_load"] = cpu.get("load_1m", 0)
             disk = live.get("disk", {})
-            entry["磁盘已用"] = disk.get("used_gb", 0)
-            entry["磁盘总量"] = disk.get("total_gb", 0)
+            entry["disk_used_gb"] = disk.get("used_gb", 0)
+            entry["disk_total_gb"] = disk.get("total_gb", 0)
+            entry["disk_avail_gb"] = disk.get("available_gb", 0)
+            entry["os"] = live.get("os", "")
+            entry["guardd_version"] = live.get("guardd_version", "")
         elif git_hb:
-            entry["最后心跳"] = git_hb.get("last_seen", "")
-            entry["CPU负载"] = git_hb.get("cpu_load", 0)
-        else:
-            entry["_note"] = "无数据"
+            entry["last_seen"] = git_hb.get("last_seen", "")
+            entry["cpu_load"] = git_hb.get("cpu_load", 0)
+            entry["disk_used_gb"] = git_hb.get("disk_used_gb", 0)
+            entry["disk_total_gb"] = git_hb.get("disk_total_gb", 0)
+            entry["disk_avail_gb"] = git_hb.get("disk_avail_gb", 0)
+            entry["os"] = git_hb.get("os", "")
+            if git_hb.get("last_seen"):
+                try:
+                    delta = (now - datetime.fromisoformat(git_hb["last_seen"])).total_seconds()
+                    entry["minutes_ago"] = round(delta / 60)
+                    entry["status"] = "online" if delta < 900 else "offline"
+                except:
+                    pass
         return entry
 
     def actions(self) -> list[dict]:
