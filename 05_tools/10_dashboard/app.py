@@ -90,7 +90,15 @@ app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 @app.get("/")
 def index():
     index_path = _static_dir / "index.html"
-    return FileResponse(str(index_path)) if index_path.exists() else {"error": "index.html not found"}
+    from fastapi.responses import HTMLResponse
+    if index_path.exists():
+        content = index_path.read_text(encoding="utf-8")
+        return HTMLResponse(content=content, headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+    return {"error": "index.html not found"}
 
 @app.on_event("startup")
 async def startup():
