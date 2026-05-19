@@ -94,8 +94,9 @@ agent-os.code-workspace
 06_runtime/
 .obsidian/
 
-# ======== 联邦心跳（各机器 guardd 自动生成）========
+# ======== 联邦运行时（各机器 guardd 自动生成）========
 04_memory/cross_machine/status/*/
 04_memory/cross_machine/events/
 04_memory/cross_machine/knowledge/*.json
+04_memory/cross_machine/tasks/
 03_knowledge/01_submissions/*/
