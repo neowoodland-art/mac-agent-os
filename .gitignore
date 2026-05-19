@@ -95,7 +95,10 @@ agent-os.code-workspace
 .obsidian/
 
 # ======== 联邦运行时（各机器 guardd 自动生成）========
-04_memory/cross_machine/status/*/
+# 旧格式：按 hostname 命名的目录，各机器自生成，不同步
+04_memory/cross_machine/status/*/heartbeat.json
+# 新格式 v3：status/live/{uid}.json —— 需要同步到远程
+# 注意不要用 "status/*/" 会连 live/ 一起排除
 04_memory/cross_machine/events/
 04_memory/cross_machine/knowledge/*.json
 04_memory/cross_machine/tasks/

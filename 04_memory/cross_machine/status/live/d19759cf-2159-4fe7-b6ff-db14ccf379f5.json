@@ -1,0 +1,27 @@
+{
+  "hostname": "7kecheng",
+  "version": "2.0.0",
+  "role": "workstation",
+  "os": "macOS 25.4.0 (arm64)",
+  "cpu": {
+    "arch": "arm64",
+    "load_1m": 2.24
+  },
+  "memory": {
+    "total_gb": 0,
+    "used_gb": 0,
+    "percent": 0
+  },
+  "disk": {
+    "total_gb": 245.1,
+    "used_gb": 86.8,
+    "available_gb": 158.3
+  },
+  "last_seen": "2026-05-19T06:16:20.529136+00:00",
+  "status": "online",
+  "guardd_version": "2.0.0",
+  "current_task": null,
+  "_uid": "d19759cf-2159-4fe7-b6ff-db14ccf379f5",
+  "_hostname": "7kecheng",
+  "_received_at": "2026-05-19T06:16:20.529699+00:00"
+}
