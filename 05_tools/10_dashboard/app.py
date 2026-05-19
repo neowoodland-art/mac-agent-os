@@ -408,6 +408,19 @@ def api_machines():
 # 健康检查
 # ═══════════════════════════════════════════════════════════
 
+@app.post("/api/git-sync")
+def api_git_sync():
+    """执行 git pull 拉取所有机器最新数据"""
+    import subprocess
+    from plugins.base import AGENT_SYNC
+    try:
+        r = subprocess.run(["git", "pull"], capture_output=True, text=True,
+                          timeout=30, cwd=str(AGENT_SYNC))
+        return {"success": r.returncode == 0, "output": r.stdout[-200:]}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 @app.get("/api/health")
 def health():
     return {

@@ -8,7 +8,7 @@ guardd — AgentOS 联邦式协同守护进程
 
 所有模块使用规则引擎，不调用 LLM，0 token 消耗。
 """
-version = "1.1.0"
+version = "2.0.0"
 
 import json
 import logging
@@ -28,6 +28,7 @@ _guardd_start_time = time.time()
 # ── 路径常量 ──────────────────────────────────────────────
 AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
 AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
+DIR_CROSS = AGENT_SYNC / "04_memory" / "cross_machine"
 HOSTNAME = os.uname().nodename
 
 # ── 缓存 hostname 到文件, 防止 IP 变化导致身份漂移 ──
@@ -71,8 +72,9 @@ def _resolve_hostname(fallback=HOSTNAME):
 HOSTNAME = _resolve_hostname()
 
 CROSS_MACHINE = AGENT_SYNC / "04_memory" / "cross_machine"
-DIR_EVENTS = CROSS_MACHINE / "events"
-DIR_STATUS = CROSS_MACHINE / "status"
+DIR_EVENTS = DIR_CROSS / "events"
+DIR_STATUS = DIR_CROSS / "status"
+DIR_REGISTRY = DIR_CROSS / "registry"
 DIR_TASKS = CROSS_MACHINE / "tasks"
 DIR_TASKS_PENDING = DIR_TASKS / "pending"
 DIR_TASKS_COMPLETED = DIR_TASKS / "completed"
@@ -340,6 +342,53 @@ def module_heartbeat():
 
     # ── 实时推送到 Dashboard (反向连接) ──
     _push_to_dashboard(heartbeat)
+
+    # ── Git 同步: 将本机数据推送到远程, 拉取其他机器的数据 ──
+    _git_sync()
+
+    # ── 版本检查: 对比 required-version, 落后则自动升级 ──
+    _check_version()
+
+
+def _git_sync():
+    """Git 同步: push 本机修改 + pull 远程更新"""
+    try:
+        repo = AGENT_SYNC
+        # 先 pull, 避免 push 冲突
+        subprocess.run(["git", "pull", "--rebase"], capture_output=True, text=True,
+                      timeout=30, cwd=str(repo))
+        # add + commit + push
+        subprocess.run(["git", "add", "-A"], capture_output=True, text=True,
+                      timeout=15, cwd=str(repo))
+        # 只在有变动时才 commit
+        r = subprocess.run(["git", "status", "--porcelain"], capture_output=True,
+                          text=True, timeout=10, cwd=str(repo))
+        if r.stdout.strip():
+            subprocess.run(["git", "commit", "-m", f"sync: guardd heartbeat {datetime.now().strftime('%Y-%m-%d %H:%M')}"],
+                         capture_output=True, text=True, timeout=15, cwd=str(repo))
+        # push 到所有远程
+        for remote in ["origin", "github"]:
+            subprocess.run(["git", "push", remote, "+main:main"], capture_output=True,
+                          text=True, timeout=30, cwd=str(repo))
+    except Exception as e:
+        logger.debug(f"  Git sync failed: {e}")
+
+
+def _check_version():
+    """版本检查: 落后则自动拉取最新代码"""
+    req_file = DIR_CROSS / "guardd-required-version.txt"
+    if not req_file.exists():
+        return
+    try:
+        required = req_file.read_text().strip()
+        if version != required:
+            logger.info(f"  版本落后: 当前={version}, 要求={required}, 正在升级...")
+            # 拉取最新代码
+            subprocess.run(["git", "pull"], capture_output=True, text=True,
+                          timeout=30, cwd=str(AGENT_SYNC))
+            logger.info(f"  升级完成, 请重启 guardd")
+    except Exception as e:
+        logger.debug(f"  Version check failed: {e}")
 
 
 # ════════════════════════════════════════════════════════════

@@ -107,7 +107,10 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   </div>
   <div id="navBar" class="nav"></div>
   <div style="flex:1"></div>
-  <div class="nav-item" onclick="location.reload()">🔄 刷新</div>
+  <div style="padding:8px 0;display:flex;gap:6px">
+    <div class="nav-item" onclick="gitSync()" style="flex:1;text-align:center;font-size:11px">🔄 同步</div>
+    <div class="nav-item" onclick="location.reload()" style="flex:1;text-align:center;font-size:11px">⟳ 刷新</div>
+  </div>
 </nav>
 <main class="main" id="app">
 
@@ -531,6 +534,25 @@ async function loadPlugins() {
 
     nav.innerHTML = html;
   } catch(e) {}
+}
+
+// ── Git Sync ──
+async function gitSync() {
+  var btn = document.querySelector('[onclick="gitSync()"]');
+  if (!btn) return;
+  btn.textContent = 'sync...';
+  btn.style.opacity = '0.5';
+  try {
+    var r = await fetch('/api/git-sync', {method: 'POST'});
+    var res = await r.json();
+    btn.textContent = 'done';
+    setTimeout(function(){ btn.textContent = 'sync'; btn.style.opacity = '1'; }, 2000);
+    if (typeof loadMachines === 'function') loadMachines();
+    if (typeof loadStats === 'function') loadStats();
+  } catch(e) {
+    btn.textContent = 'err';
+    setTimeout(function(){ btn.textContent = 'sync'; btn.style.opacity = '1'; }, 2000);
+  }
 }
 
 // ── Keyboard ──
