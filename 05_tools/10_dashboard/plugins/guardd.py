@@ -10,6 +10,17 @@ from pathlib import Path
 from plugins.base import DashboardPlugin, CROSS_MACHINE, MACHINE_UID, HOSTNAME
 from plugins._registry import get_machine_list
 
+# ── 人工维护的 IP→hostname 映射 ───────────────────────────
+# 旧版 guardd(v1.0/v1.1) 未写 UID，心跳被存为 IP/hostname/hostname.local 多种命名。
+# 这些映射将 IP 或 .local 变体归并到规范 hostname。
+# 如果新增机器发现重复，在此追加。
+_MACHINE_ALIASES: dict[str, str] = {
+    "192.168.31.95":               "7kecheng",
+    "7kechengdeAir":               "7kecheng",
+    "7kechengdeMacBook-Air.local": "7kecheng",
+    "Redmi-12C":                   "7kecheng",
+    "192.168.31.96":               "chengzigedeAir",
+}
 
 class GuarddPlugin(DashboardPlugin):
     name = "guardd"
