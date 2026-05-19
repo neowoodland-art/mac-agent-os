@@ -113,11 +113,6 @@ except Exception as e:
     logger.warning(f"  UID 文件读写失败: {e}")
     MACHINE_UID = HOSTNAME  # 降级到 hostname
 
-# ── 确保运行时目录存在 ───────────────────────────────
-for d in [DIR_GUARDD_LOG, DIR_SUBMISSIONS_TRIAGE, DIR_TASKS_PENDING,
-          DIR_TASKS_COMPLETED, DIR_ENCRYPTED_PENDING, DIR_ENCRYPTED_PROCESSED]:
-    d.mkdir(parents=True, exist_ok=True)
-
 # ── 日志配置 ──────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -128,6 +123,11 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("guardd")
+
+# ── 确保运行时目录存在 ───────────────────────────────
+for d in [DIR_GUARDD_LOG, DIR_SUBMISSIONS_TRIAGE, DIR_TASKS_PENDING,
+          DIR_TASKS_COMPLETED, DIR_ENCRYPTED_PENDING, DIR_ENCRYPTED_PROCESSED]:
+    d.mkdir(parents=True, exist_ok=True)
 
 
 # ════════════════════════════════════════════════════════════

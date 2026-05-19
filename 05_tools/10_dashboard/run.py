@@ -24,7 +24,15 @@ from app import app
 def main():
     import uvicorn
 
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 9988
+    # 解析端口: 第一个不以 -- 开头的参数作为端口号
+    port = 9988
+    for arg in sys.argv[1:]:
+        if not arg.startswith("--"):
+            try:
+                port = int(arg)
+                break
+            except ValueError:
+                pass
     reload = True
     if "--no-reload" in sys.argv:
         reload = False
