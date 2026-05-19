@@ -100,31 +100,12 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 </head>
 <body>
 <nav class="sidebar">
-  <h1>🖥 系统监控 <span>v2</span></h1>
-  <div style="margin-bottom:16px;padding:8px 12px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2);">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-      <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>
-      <span id="pluginBadge">AVE 视频工厂</span>
-    </div>
-    <div style="font-size:11px;color:var(--text2);opacity:.7;">模块: <span id="pluginCount">1</span> 个</div>
+  <h1>🖥 AgentOS <span style="font-size:10px;margin-left:4px">v4</span></h1>
+  <div id="identityBar" style="margin-bottom:12px;padding:6px 10px;background:var(--bg3);border-radius:8px;font-size:10px;color:var(--text2);line-height:1.6">
+    <div id="identityHostname"></div>
+    <div id="identityMeta" style="opacity:.7"></div>
   </div>
-
-  <!-- AVE 视频工厂分组 -->
-  <div style="font-size:10px;color:var(--text2);padding:4px 12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">AVE 视频工厂</div>
-  <div class="nav-item active" data-view="productions" onclick="switchView('productions')">📋 生产列表</div>
-  <div class="nav-item" data-view="assets" onclick="switchView('assets')">💾 资产</div>
-  <div class="nav-item" data-view="costs" onclick="switchView('costs')">💰 费用</div>
-  <div class="nav-item" data-view="characters" onclick="switchView('characters')" id="nav-characters">🧑 角色管理</div>
-  <div class="nav-item" data-view="capabilities" onclick="switchView('capabilities')" id="nav-capabilities">⚡ 原子能力</div>
-
-  <div style="height:12px"></div>
-
-  <!-- 系统分组 -->
-  <div style="font-size:10px;color:var(--text2);padding:4px 12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">系统</div>
-  <div class="nav-item" data-view="machines" onclick="switchView('machines')">🖥 机器状态</div>
-  <div class="nav-item" data-view="timeline" onclick="switchView('timeline')">📈 时间线</div>
-  <div class="nav-item" data-view="alerts" onclick="switchView('alerts')">🔔 告警</div>
-  <div class="nav-item" data-view="summary" onclick="switchView('summary')">📊 概览</div>
+  <div id="navBar" class="nav"></div>
   <div style="flex:1"></div>
   <div class="nav-item" onclick="location.reload()">🔄 刷新</div>
 </nav>
@@ -228,12 +209,13 @@ const PAGE_SIZE = 30;
 let searchTimer;
 
 // ── Init ──
+loadIdentity();
+loadPlugins();
 loadStats();
 // 自动刷新: 10秒轮询机器状态, 30秒轮询摘要
 setInterval(() => { if (currentView === 'machines') loadMachines(); }, 10000);
 setInterval(() => { if (currentView === 'summary') loadSummary(); }, 30000);
 loadProductions();
-loadPlugins();
 
 // ── Navigation ──
 function switchView(view) {
@@ -256,13 +238,24 @@ async function loadStats() {
     const r = await fetch(`${API}/api/summary`);
     const d = await r.json();
     // 从插件式响应中提取 AVE 数据
-    const ave = d.ave || d;
+    const avePlugin = d.plugins && d.plugins.ave;
+    const aveData = (avePlugin && avePlugin.data) || {};
+    const machines = aveData['各机器'] || {};
+    
+    // 聚合所有机器数据
+    let totalProd = 0, totalCost = 0, todayProd = 0;
+    Object.values(machines).forEach(m => {
+      totalProd += m['总生产'] || 0;
+      totalCost += m['费用'] || 0;
+      todayProd += m['今日'] || 0;
+    });
+    
     document.getElementById('statsBar').innerHTML = `
-      <div class="stat-card"><div class="label">总产量</div><div class="value">${ave.total_productions||0}</div><div class="sub">本月 ${ave.month_productions||0}</div></div>
-      <div class="stat-card"><div class="label">累计费用</div><div class="value">¥${(ave.total_cost||0).toFixed(2)}</div><div class="sub">本月 ¥${(ave.month_cost||0).toFixed(2)}</div></div>
-      <div class="stat-card"><div class="label">成功</div><div class="value" style="color:var(--green)">${ave.completed||0}</div></div>
-      <div class="stat-card"><div class="label">失败</div><div class="value" style="color:var(--red)">${ave.failed||0}</div></div>
-      <div class="stat-card"><div class="label">资产总数</div><div class="value">${ave.total_assets||0}</div></div>
+      <div class="stat-card"><div class="label">总产量</div><div class="value">${totalProd}</div><div class="sub">管线 ${aveData['总管线']||0}</div></div>
+      <div class="stat-card"><div class="label">累计费用</div><div class="value">¥${totalCost.toFixed(2)}</div><div class="sub">今日 ${todayProd} 条</div></div>
+      <div class="stat-card"><div class="label">机器数</div><div class="value" style="color:var(--green)">${Object.keys(machines).length}</div></div>
+      <div class="stat-card"><div class="label">模块</div><div class="value" style="color:var(--blue)">${Object.keys(d.plugins||{}).length}</div></div>
+      <div class="stat-card"><div class="label">主机</div><div class="value" style="color:var(--amber)">${d.source_hostname||'-'}</div></div>
     `;
   } catch(e) { document.getElementById('statsBar').innerHTML = `<div class="error">❌ 连接失败</div>`; }
 }
@@ -280,7 +273,8 @@ async function loadProductions(page) {
     if (strategy) params.set('strategy', strategy);
     if (status) params.set('status', status);
     const r = await fetch(`${API}/api/productions?${params}`);
-    const data = await r.json();
+    const res = await r.json();
+    const data = res.data || [];
 
     if (!data.length) { el.innerHTML = '<div class="error" style="padding:40px">暂无生产记录</div>'; return; }
 
@@ -419,22 +413,6 @@ async function loadCosts() {
   } catch(e) { el1.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`; }
 }
 
-// ── Plugins ──
-async function loadPlugins() {
-  try {
-    const r = await fetch(`${API}/api/plugins`);
-    const d = await r.json();
-    const plugins = d.plugins || [];
-    const avail = plugins.filter(p => p.available);
-    const badge = document.getElementById('pluginBadge');
-    const count = document.getElementById('pluginCount');
-    if (badge && avail.length) {
-      badge.textContent = avail.map(p => p.label).join(' · ');
-    }
-    if (count) count.textContent = avail.length;
-  } catch(e) { /* 插件信息非关键 */ }
-}
-
 // ── Machine Status ──
 async function loadMachines() {
   const el = document.getElementById('machineGrid');
@@ -452,27 +430,32 @@ async function loadMachines() {
     }
 
     el.innerHTML = machines.map(m => {
-      const isOnline = m.status === 'online';
+      // 安全取值
+      const isOnline = m.status === 'online' || m._live === true;
       const isRecent = m.status === 'recent';
       const isLive = m._live === true;
-      const dotColor = isLive ? 'var(--teal)' : isOnline ? 'var(--green)' : isRecent ? 'var(--amber)' : 'var(--red)';
+      const dotColor = isLive ? '#1D9E75' : isOnline ? '#22C55E' : isRecent ? '#F59E0B' : '#EF4444';
       const statusText = isLive ? '实时' : isOnline ? '在线' : isRecent ? '近期' : '离线';
-      const minutesAgo = m._last_push_sec !== undefined ? m._last_push_sec : (m.minutes_ago || 999);
+      const lastPushSec = m._last_push_sec || 0;
+      const minAgo = m.minutes_ago || Math.round(lastPushSec / 60) || 999;
       const timeStr = isLive
-        ? `${minutesAgo}秒前 (实时)`
-        : minutesAgo < 60
-          ? `${minutesAgo.toFixed(0)} 分钟前`
-          : `${(minutesAgo/60).toFixed(1)} 小时前`;
+        ? `${lastPushSec}秒前`
+        : minAgo < 60
+          ? `${minAgo} 分钟前`
+          : `${(minAgo/60).toFixed(1)} 小时前`;
 
       // 磁盘条
-      const diskPct = m.disk_total_gb > 0 ? ((m.disk_used_gb||0) / m.disk_total_gb * 100).toFixed(1) : 0;
+      const diskUsed = m.disk_used_gb || 0;
+      const diskTotal = m.disk_total_gb || 1;
+      const diskPct = Math.round((diskUsed / diskTotal) * 100);
+      const diskAvail = m.disk_avail_gb || 0;
       const diskColor = diskPct > 85 ? 'var(--red)' : diskPct > 60 ? 'var(--amber)' : 'var(--green)';
       const diskBar = `<div style="height:6px;background:var(--bg3);border-radius:3px;margin:6px 0;overflow:hidden">
         <div style="height:100%;width:${diskPct}%;background:${diskColor};border-radius:3px;transition:width .3s"></div>
       </div>`;
 
       // 角色标签
-      const roleColor = m.role === 'master' ? 'var(--primary)' : m.role === 'node' ? 'var(--blue)' : 'var(--text2)';
+      const roleColor = '#378ADD';
 
       return `<div style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid ${isOnline ? 'rgba(34,197,94,.2)' : 'var(--border)'}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -480,10 +463,10 @@ async function loadMachines() {
             <span style="width:10px;height:10px;border-radius:50%;background:${dotColor};display:inline-block;"></span>
             <div>
               <div style="font-weight:600;font-size:15px">${m.hostname}</div>
-              <div style="font-size:11px;color:var(--text2)">${m.os} · ${m.arch||''}</div>
+              ${m._uid ? `<span style="font-size:10px;color:var(--text2);margin-left:6px">UID: ${m._uid}</span>` : ''}
+              <div style="font-size:11px;color:var(--text2)">${m.os || ''}</div>
             </div>
           </div>
-          <span style="padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:${roleColor}22;color:${roleColor};border:1px solid ${roleColor}44">${m.role}</span>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-bottom:12px">
@@ -506,6 +489,48 @@ async function loadMachines() {
   } catch(e) {
     el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
   }
+}
+
+// ── Identity & Plugin Init ──
+async function loadIdentity() {
+  try {
+    const r = await fetch('/api/identity');
+    const d = await r.json();
+    document.getElementById('identityHostname').innerHTML = `📡 ${d.hostname}`;
+    document.getElementById('identityMeta').innerHTML = `UID: ${d.uid} · ${d.role} · ${d.git_repo} @ ${(d.git_version||'').slice(0,7)}`;
+  } catch(e) {}
+}
+
+async function loadPlugins() {
+  try {
+    const r = await fetch('/api/plugins');
+    const res = await r.json();
+    const nav = document.getElementById('navBar');
+    const plugins = res.plugins || [];
+    // 旧兼容: 忽略不存在的 pluginBadge/pluginCount
+
+    // 固定视图
+    let html = `<div class="nav-item active" data-view="productions" onclick="switchView('productions')">📋 生产列表</div>`;
+    html += `<div class="nav-item" data-view="machines" onclick="switchView('machines')">🖥 机器状态</div>`;
+
+    // 插件动态生成
+    plugins.forEach(p => {
+      if (p.name === 'guardd') return; // 机器已存在
+      const icon = p.icon || '📦';
+      html += `<div class="nav-item" data-view="plugin-${p.name}" onclick="switchView('plugin-${p.name}')">${icon} ${p.label}</div>`;
+    });
+
+    // 旧视图
+    html += `<div class="nav-item" data-view="timeline" onclick="switchView('timeline')">📈 时间线</div>`;
+    html += `<div class="nav-item" data-view="alerts" onclick="switchView('alerts')">🔔 告警</div>`;
+    html += `<div class="nav-item" data-view="summary" onclick="switchView('summary')">📊 概览</div>`;
+
+    // AVE 扩展视图
+    html += `<div class="nav-item" data-view="characters" onclick="switchView('characters')">🎭 角色管理</div>`;
+    html += `<div class="nav-item" data-view="capabilities" onclick="switchView('capabilities')">⚛ 原子能力</div>`;
+
+    nav.innerHTML = html;
+  } catch(e) {}
 }
 
 // ── Keyboard ──
@@ -647,10 +672,20 @@ async function loadSummary() {
 // ── View switcher ──
 const origSwitch = switchView;
 switchView = function(v) {
+  // 隐藏所有固定视图
+  document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
+  // 隐藏所有插件视图
+  document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.style.display = 'none');
+  
   origSwitch(v);
   if (v === 'timeline') loadTimeline();
   if (v === 'alerts') loadAlerts();
   if (v === 'summary') loadSummary();
+  // 插件视图
+  if (v.startsWith('plugin-')) {
+    const name = v.replace('plugin-', '');
+    loadPluginView(name);
+  }
 };
 
 // ── Characters ──
@@ -796,6 +831,121 @@ function renderCapGroup(group, matrix) {
       </tbody></table>
     </div>`;
   }
-}</script>
+}
+
+// ── Plugin Detail View ──
+async function loadPluginView(name) {
+  let viewId = 'plugin-view-' + name;
+  document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.style.display = 'none');
+  
+  let el = document.getElementById(viewId);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = viewId;
+    document.getElementById('app').appendChild(el);
+  }
+  el.style.display = 'block';
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2)">加载中...</div>';
+
+  try {
+    const [metaR, sumR, detR] = await Promise.all([
+      fetch('/api/plugins').then(r=>r.json()),
+      fetch('/api/plugins/'+name+'/summary').then(r=>r.json()),
+      fetch('/api/plugins/'+name+'/detail').then(r=>r.json()),
+    ]);
+
+    const meta = (metaR.plugins || []).find(p => p.name === name) || {};
+    const summary = sumR.data || {};
+    const detail = detR.data || {};
+    
+    let html = '<h2 style="font-size:18px;font-weight:500;margin-bottom:16px">' + (meta.icon || '') + ' ' + (meta.label || name) + '</h2>';
+
+    // Summary cards
+    var machData = summary['各机器'] || {};
+    if (Object.keys(machData).length > 0) {
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:20px">';
+      for (var hn in machData) {
+        var info = machData[hn];
+        if (typeof info === 'object' && info._note) {
+          html += '<div class="card"><h4 style="margin:0 0 6px">' + hn + '</h4><div style="color:var(--text2);font-size:12px">' + info._note + '</div></div>';
+          continue;
+        }
+        if (typeof info === 'object') {
+          html += '<div class="card"><h4 style="margin:0 0 6px">' + hn + '</h4>';
+          for (var k in info) {
+            html += '<div style="font-size:12px;padding:2px 0"><span style="color:var(--text2)">' + k + ':</span> <strong>' + info[k] + '</strong></div>';
+          }
+          html += '</div>';
+        }
+      }
+      html += '</div>';
+    }
+
+    // Detail lists
+    if (Object.keys(detail).length > 0) {
+      for (var hn in detail) {
+        var info = detail[hn];
+        if (typeof info === 'object') {
+          // Table fields (arrays)
+          for (var key in info) {
+            var items = info[key];
+            if (Array.isArray(items) && items.length > 0) {
+              html += '<div class="card" style="margin-bottom:12px"><h4 style="margin:0 0 8px">' + hn + ' - ' + key + '</h4>';
+              html += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
+              html += '<thead><tr style="background:var(--bg3)">';
+              var sample = items[0];
+              if (typeof sample === 'object') {
+                var keys = Object.keys(sample).slice(0, 6);
+                for (var ki = 0; ki < keys.length; ki++) {
+                  html += '<th style="padding:6px 8px;text-align:left;font-weight:500">' + keys[ki] + '</th>';
+                }
+              }
+              html += '</tr></thead><tbody>';
+              var maxItems = Math.min(items.length, 50);
+              for (var ii = 0; ii < maxItems; ii++) {
+                var item = items[ii];
+                html += '<tr style="border-top:1px solid var(--border)">';
+                if (typeof item === 'object') {
+                  var vals = Object.values(item).slice(0, 6);
+                  for (var vi = 0; vi < vals.length; vi++) {
+                    html += '<td style="padding:4px 8px">' + String(vals[vi] || '-').slice(0,40) + '</td>';
+                  }
+                }
+                html += '</tr>';
+              }
+              if (items.length > 50) {
+                html += '<tr><td colspan="6" style="padding:8px;text-align:center;color:var(--text2)">... 还有 ' + (items.length - 50) + ' 条</td></tr>';
+              }
+              html += '</tbody></table></div>';
+            }
+          }
+          // Key-value fields
+          var plainItems = [];
+          for (var key in info) {
+            var v = info[key];
+            if (!Array.isArray(v) && typeof v !== 'object') {
+              plainItems.push({k:key, v:v});
+            }
+          }
+          if (plainItems.length > 0) {
+            html += '<div class="card" style="margin-bottom:12px"><h4 style="margin:0 0 6px">' + hn + '</h4>';
+            for (var pi = 0; pi < plainItems.length; pi++) {
+              html += '<div style="font-size:12px;padding:2px 0"><span style="color:var(--text2)">' + plainItems[pi].k + ':</span> <strong>' + plainItems[pi].v + '</strong></div>';
+            }
+            html += '</div>';
+          }
+        }
+      }
+    }
+
+    if (html.indexOf('card') === -1) {
+      html += '<div style="padding:40px;text-align:center;color:var(--text2)">暂无数据</div>';
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div class="error">加载失败: ' + e.message + '</div>';
+  }
+}
+</script>
 </body>
 </html>

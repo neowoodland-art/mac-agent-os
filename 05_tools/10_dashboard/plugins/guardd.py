@@ -1,115 +1,260 @@
 """
-plugins/guardd.py — 联邦状态监控插件 (guardd / 跨机器状态)
-
-读取 cross_machine/status/ 下的所有心跳数据，展示多机联邦状态。
-版本: 1.0.0 | 更新: 2026-05-16
+plugins/guardd.py — 联邦状态监控插件 (v2.1)
+读取 cross_machine/status/ 下的心跳数据 + 推送数据
+版本: 2.1.0 | 更新: 2026-05-19
 """
-import json
-import os
+import json, os, re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
-from plugins.base import DashboardPlugin
+from plugins.base import DashboardPlugin, CROSS_MACHINE, MACHINE_UID, HOSTNAME
+from plugins._registry import get_machine_list
 
-SYNC_ROOT = Path(__file__).resolve().parents[3]  # → agent-sync/
-CROSS_MACHINE = SYNC_ROOT / "04_memory" / "cross_machine"
-DIR_STATUS = CROSS_MACHINE / "status"
-DIR_EVENTS = CROSS_MACHINE / "events"
+# ── 人工维护的 IP→hostname 映射 ───────────────────────────
+# 旧版 guardd(v1.0/v1.1) 未写 UID，心跳被存为 IP/hostname/hostname.local 多种命名。
+# 这些映射将 IP 或 .local 变体归并到规范 hostname。
+# 如果新增机器发现重复，在此追加。
+_MACHINE_ALIASES: dict[str, str] = {
+    "192.168.31.95":               "7kechengdeAir",
+    "7kechengdeMacBook-Air.local": "7kechengdeAir",
+    "192.168.31.96":               "chengzigedeAir",
+}
 
 
 class GuarddPlugin(DashboardPlugin):
     name = "guardd"
-    label = "联邦状态"
+    label = "联邦机器"
+    icon = "🖥"
+    version = "2.1.0"
+    description = "跨机器联邦状态监控：心跳 / 事件 / 任务"
     order = 10
-    description = "跨机器联邦状态监控：心跳 / 事件 / 任务 / 加密通道"
 
-    _machines_cache = None
+    def _build_hostname_aliases(self) -> dict[str, str]:
+        """构建 hostname 别名映射表
 
-    def _read_machines(self):
-        """扫描所有机器的状态文件"""
-        machines = []
-        if not DIR_STATUS.exists():
-            return machines
-        for host_dir in sorted(DIR_STATUS.iterdir()):
-            if not host_dir.is_dir():
-                continue
-            hb_path = host_dir / "heartbeat.json"
-            if not hb_path.exists():
+        将同一台机器的不同标识形式（IP、hostname、hostname.local）
+        统一归并到规范 hostname。
+
+        来源（按优先级）:
+        1. _MACHINE_ALIASES — 人工维护的 IP→hostname 映射
+        2. registry — hostname ↔ system_hostname 映射
+        3. .local 后缀自动剥离
+        """
+        alias_map: dict[str, str] = {}
+
+        # 1. 人工映射（最高优先级）
+        alias_map.update(_MACHINE_ALIASES)
+
+        # 2. 自动检测 .local 后缀并映射到基础名
+        #    （registry 中的 hostname/system_hostname 映射不可靠，
+        #     因为 hostname 可能被填成用户名而非真实机器名）
+        status_dir = CROSS_MACHINE / "status"
+        if status_dir.exists():
+            dir_names = [
+                d.name for d in status_dir.iterdir()
+                if d.is_dir() and d.name != "live"
+            ]
+            for name in dir_names:
+                if name.endswith(".local"):
+                    base = name[:-6]  # strip .local
+                    if base in dir_names:
+                        alias_map.setdefault(name, base)
+
+        return alias_map
+
+    def _read_live_data(self):
+        """读取所有机器的实时推送数据"""
+        live_dir = CROSS_MACHINE / "status" / "live"
+        data = {}
+        if not live_dir.exists():
+            return data
+        for f in live_dir.iterdir():
+            if f.suffix != ".json" or f.name.startswith("_"):
                 continue
             try:
-                data = json.loads(hb_path.read_text())
-                last_seen = data.get("last_seen", "")
-                # 判断是否在线（15分钟无心跳判离线）
+                uid = f.name.replace(".json", "")
+                data[uid] = json.loads(f.read_text())
+            except:
+                pass
+        return data
+
+    def _read_git_heartbeats(self):
+        """读取 Git 持久层心跳 (v2.1 — 别名合并去重)"""
+        import json
+        alias_map = self._build_hostname_aliases()
+        status_dir = CROSS_MACHINE / "status"
+        machines: dict[str, dict] = {}
+        for d in status_dir.iterdir():
+            if not d.is_dir() or d.name == "live":
+                continue
+            hb = d / "heartbeat.json"
+            if not hb.exists():
+                continue
+            try:
+                data = json.loads(hb.read_text())
+                dir_name = d.name
+                # 通过别名映射解析规范 hostname
+                canonical = alias_map.get(dir_name, dir_name)
+                # 规范名已存在时略过（取第一个写入的）
+                if canonical not in machines:
+                    data["_canonical_hostname"] = canonical
+                    data["_resolved_from"] = dir_name
+                    machines[canonical] = data
+                else:
+                    # 标记为被合并，可用于日志/调试
+                    existing = machines[canonical]
+                    existing.setdefault("_merged_aliases", []).append(dir_name)
+            except Exception:
+                pass
+        return machines
+
+    def summary(self, machines: list[str]) -> dict:
+        live = self._read_live_data()
+        git = self._read_git_heartbeats()
+        now = datetime.now(timezone.utc)
+
+        all_hostnames = list(git.keys())
+        for uid, l in live.items():
+            hn = l.get("_hostname", "")
+            if hn and hn not in all_hostnames:
+                all_hostnames.append(hn)
+
+        machine_names = all_hostnames if all_hostnames else [HOSTNAME]
+        by_machine = {}
+        for hn in machine_names:
+            online = False
+            realtime = False
+            matched = False
+            for uid, l in live.items():
+                if l.get("_hostname") == hn:
+                    received = l.get("_received_at", "")
+                    if received:
+                        try:
+                            delta = (now - datetime.fromisoformat(received)).total_seconds()
+                            online = delta < 300
+                            realtime = delta < 120
+                        except:
+                            pass
+                    matched = True
+                    break
+            if not matched and hn in git:
+                last_seen = git[hn].get("last_seen", "")
                 if last_seen:
                     try:
-                        last_dt = datetime.fromisoformat(last_seen)
-                        offline_threshold = datetime.now(timezone.utc).timestamp() - 900
-                        is_online = last_dt.timestamp() > offline_threshold
+                        delta = (now - datetime.fromisoformat(last_seen)).total_seconds()
+                        online = delta < 900
                     except:
-                        is_online = False
-                else:
-                    is_online = False
+                        pass
+            by_machine[hn] = {
+                "在线": online,
+                "实时推送": realtime,
+                "guardd版本": git.get(hn, {}).get("guardd_version", ""),
+            }
 
-                disk = data.get("disk", {})
-                machines.append({
-                    "hostname": data.get("hostname", host_dir.name),
-                    "status": "online" if is_online else "offline",
-                    "last_seen": last_seen,
-                    "os": data.get("os", ""),
-                    "cpu_load": data.get("cpu", {}).get("load_1m", 0),
-                    "disk_total_gb": data.get("disk", {}).get("total_gb", 0),
-                    "disk_used_gb": data.get("disk", {}).get("used_gb", 0),
-                    "disk_avail_gb": data.get("disk", {}).get("available_gb", 0),
-                    "guardd_version": data.get("guardd_version", ""),
-                    "current_task": data.get("current_task"),
-                })
-            except:
-                continue
-        return machines
-
-    def _count_events(self, days=7):
-        """统计近期事件数"""
-        total = 0
-        if not DIR_EVENTS.exists():
-            return total
-        for d in DIR_EVENTS.iterdir():
-            if d.is_dir():
-                total += len(list(d.iterdir()))
-        return total
-
-    def is_available(self) -> bool:
-        return DIR_STATUS.exists() and any(DIR_STATUS.iterdir())
-
-    def get_summary(self) -> dict:
-        machines = self._read_machines()
-        online = sum(1 for m in machines if m["status"] == "online")
         return {
-            "total_machines": len(machines),
-            "online_machines": online,
-            "offline_machines": len(machines) - online,
-            "machines": machines,
-            "events_7d": self._count_events(),
+            "总机器": len(machine_names),
+            "在线": sum(1 for m in by_machine.values() if m["在线"]),
+            "实时": sum(1 for m in by_machine.values() if m["实时推送"]),
+            "各机器": by_machine,
         }
 
-    def get_productions(self, limit=50, offset=0, strategy=None, status=None):
-        """返回各机器的详细状态"""
-        machines = self._read_machines()
-        for m in machines:
-            m["guardd_version"] = m.get("guardd_version") or "unknown"
-            m["task"] = m.get("current_task") or "none"
-        return machines
+    def detail(self, machine: str = "") -> dict:
+        live = self._read_live_data()
+        git = self._read_git_heartbeats()
+        now = datetime.now(timezone.utc)
 
-    def get_production_detail(self, production_id: str) -> Optional[dict]:
-        # production_id 就是 hostname
-        machines = self._read_machines()
-        for m in machines:
-            if m["hostname"] == production_id:
-                return m
-        return None
+        if machine:
+            # 返回指定机器
+            for uid, l in live.items():
+                if l.get("_hostname") == machine:
+                    return self._build_machine_detail(machine, uid, l, git.get(machine, {}), now)
+            if machine in git:
+                return self._build_machine_detail(machine, "", {}, git[machine], now)
+            return {"_note": "未找到该机器数据"}
 
-    def get_sidebar_links(self) -> list:
+        # 返回所有机器
+        result = {}
+        seen = set()
+        for uid, l in sorted(live.items(), key=lambda x: x[1].get("_hostname", "")):
+            hn = l.get("_hostname", "")
+            if hn in seen:
+                continue
+            seen.add(hn)
+            result[hn] = self._build_machine_detail(hn, uid, l, git.get(hn, {}), now)
+        for hn, hb in sorted(git.items()):
+            if hn not in seen:
+                result[hn] = self._build_machine_detail(hn, "", {}, hb, now)
+        return result
+
+    def _build_machine_detail(self, hostname, uid, live, git_hb, now):
+        entry = {
+            "hostname": hostname,
+            "_uid": uid[:8]+"..." if uid else "",
+            "status": "offline",
+            "last_seen": "",
+            "os": "",
+            "cpu_load": 0,
+            "disk_used_gb": 0,
+            "disk_total_gb": 0,
+            "disk_avail_gb": 0,
+            "guardd_version": git_hb.get("guardd_version", ""),
+            "current_task": git_hb.get("current_task"),
+            "minutes_ago": 999,
+            "_live": False,
+            "_last_push_sec": 0,
+            "minutes_ago": 999,
+        }
+        if live:
+            received = live.get("_received_at", "")
+            if received:
+                try:
+                    delta = (now - datetime.fromisoformat(received)).total_seconds()
+                    entry["_live"] = delta < 120
+                    entry["_last_push_sec"] = round(delta)
+                    entry["minutes_ago"] = round(delta / 60)
+                    entry["status"] = "online" if delta < 300 else ("recent" if delta < 3600 else "offline")
+                    entry["last_seen"] = received
+                except:
+                    pass
+            cpu = live.get("cpu", {})
+            entry["cpu_load"] = cpu.get("load_1m", 0)
+            disk = live.get("disk", {})
+            entry["disk_used_gb"] = disk.get("used_gb", 0)
+            entry["disk_total_gb"] = disk.get("total_gb", 0)
+            entry["disk_avail_gb"] = disk.get("available_gb", 0)
+            entry["os"] = live.get("os", "")
+            entry["guardd_version"] = live.get("guardd_version", "")
+        elif git_hb:
+            entry["last_seen"] = git_hb.get("last_seen", "")
+            # git 心跳数据在嵌套结构中：disk.used_gb, cpu.load_1m
+            _disk = git_hb.get("disk", {})
+            entry["disk_used_gb"] = _disk.get("used_gb", 0)
+            entry["disk_total_gb"] = _disk.get("total_gb", 0)
+            entry["disk_avail_gb"] = _disk.get("available_gb", 0)
+            _cpu = git_hb.get("cpu", {})
+            entry["cpu_load"] = _cpu.get("load_1m", 0)
+            entry["os"] = git_hb.get("os", "")
+            if git_hb.get("last_seen"):
+                try:
+                    delta = (now - datetime.fromisoformat(git_hb["last_seen"])).total_seconds()
+                    entry["minutes_ago"] = round(delta / 60)
+                    entry["status"] = "online" if delta < 900 else "offline"
+                except:
+                    pass
+        return entry
+
+    def actions(self) -> list[dict]:
+        machines = get_machine_list()
         return [
-            {"label": "联邦总览", "url": "/#/federation"},
-            {"label": "在线机器", "url": "/#/federation?status=online"},
+            {"name": f"唤醒 {hn}", "method": "POST", "endpoint": f"/api/wakeup/{hn}"}
+            for hn in machines
         ]
+
+    # ── 兼容旧版 ────────────────────────────────────────────
+    def get_productions(self, limit=50, offset=0, strategy=None, status=None):
+        """旧版兼容 — 返回机器列表"""
+        result = self.detail()
+        return list(result.values())
+
+    def get_summary(self) -> dict:
+        return self.summary(get_machine_list())

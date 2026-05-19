@@ -149,7 +149,8 @@ class AVEDashboardPlugin(DashboardPlugin):
 
     def get_capabilities(self) -> dict:
         """解析 AVE_ARCHITECTURE_PLAN.md 中的原子能力"""
-        plan_path = _AVE_SCRIPTS / "AVE_ARCHITECTURE_PLAN.md"
+        _SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "09_ave" / "scripts"
+        plan_path = _SCRIPTS_DIR / "AVE_ARCHITECTURE_PLAN.md"
         if not plan_path.exists():
             return {"groups": [], "error": "架构文档不存在"}
 

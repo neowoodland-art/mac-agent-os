@@ -1,51 +1,94 @@
 # plugins/base.py
-# Dashboard 数据源插件基类
-# 版本: 1.0.0 | 更新: 2026-05-16
+# Dashboard v4.0 插件基类 — 联邦控制中心规范
+# 版本: 2.0.0 | 更新: 2026-05-18
 
-from typing import Optional
+import json, os, uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional, Any
+
+# ── 路径常量（所有插件用这些, 禁止硬编码）──────────────────
+HOME = Path.home()
+AGENT_SYNC = HOME / "workbuddy-agent-os" / "agent-sync"
+AGENT_LOCAL = HOME / "workbuddy-agent-os" / "agent-local"
+CROSS_MACHINE = AGENT_SYNC / "04_memory" / "cross_machine"
+DASHBOARD_LOCAL = AGENT_LOCAL / "runtime" / "dashboard"
+
+# ── 本机身份 ───────────────────────────────────────────────
+HOSTNAME_FILE = AGENT_LOCAL / "identity" / "cached_hostname"
+UID_FILE = AGENT_LOCAL / "identity" / "machine_uid"
+REGISTRY_FILE = CROSS_MACHINE / "status" / "live" / "_registry.json"
+
+def resolve_hostname() -> str:
+    if HOSTNAME_FILE.exists():
+        return HOSTNAME_FILE.read_text().strip()
+    return os.uname().nodename
+
+def resolve_uid() -> str:
+    if UID_FILE.exists():
+        return UID_FILE.read_text().strip()
+    return "unknown"
+
+HOSTNAME = resolve_hostname()
+MACHINE_UID = resolve_uid()
 
 
 class DashboardPlugin:
-    """数据源插件基类
+    """插件基类 v2.0
 
-    每个模块实现此基类, 注册到 Dashboard 作为数据源。
-    每个插件对应一个独立的数据源 (AVE / Matrix / guardd 等)。
+    每个系统模块实现此基类, 自动注册到联邦控制中心。
+    插件实例化后, summary() 数据自动写入 cross_machine/data/{name}/{uid}.json
+    供所有机器的 Dashboard 读取展示。
+
+    子类必须定义:
+        name, label, icon, version, description, order
+
+    子类必须实现:
+        summary(machines) — 返回概览数据 (含各机器分区)
+        detail(machine)   — 返回指定机器的详细数据
+
+    子类可选实现:
+        actions()         — 返回可执行操作列表
     """
 
-    # ── 插件元信息 ──────────────────────────────────────────
-    name: str = ""          # 唯一标识 (如 "ave", "matrix", "guardd")
-    label: str = ""         # 中文展示名 (如 "视频工厂", "矩阵养号", "系统状态")
-    order: int = 99         # 展示排序 (值越小越靠前)
-    description: str = ""   # 简要描述
+    # ── 元信息 (子类必须定义) ───────────────────────────────
+    name: str = ""              # 唯一标识, 如 "matrix"
+    label: str = ""             # 中文名, 如 "账号矩阵"
+    icon: str = "📦"           # 图标
+    version: str = "1.0.0"     # 插件版本
+    description: str = ""      # 简要说明
+    order: int = 99            # 排序 (值越小越靠前)
 
-    # ── 数据源 API ──────────────────────────────────────────
+    # ── 核心接口 (子类必须实现) ─────────────────────────────
 
-    def is_available(self) -> bool:
-        """检查数据源是否可用 (DB 文件存在等)"""
+    def summary(self, machines: list[str]) -> dict:
+        """
+        概览数据。machines: 当前所有在线机器 hostname 列表。
+        返回结构示例:
+        {
+            "总账号": 8,
+            "在线": 6,
+            "各机器": {
+                "chengzigedeAir": {"账号":5, "在线":4},
+                "Redmi-12C": {"账号":3, "在线":2},
+                "7kechengdeAir": {"_note": "未接入此模块"},
+            }
+        }
+        某机器未接入此模块时, 返回 {"_note": "未接入此模块"}
+        """
         raise NotImplementedError
 
-    def get_summary(self) -> dict:
-        """总览统计"""
-        raise NotImplementedError
-
-    def get_productions(self, limit: int = 50, offset: int = 0,
-                         strategy: Optional[str] = None,
-                         status: Optional[str] = None) -> list:
-        """生产/任务列表"""
-        raise NotImplementedError
-
-    def get_production_detail(self, production_id: int) -> Optional[dict]:
-        """单条详情"""
-        raise NotImplementedError
-
-    def get_cost_breakdown(self) -> list:
-        """费用分析"""
+    def detail(self, machine: str = "") -> dict:
+        """
+        详细面板数据。machine="" 返回所有机器汇总; 否则返回指定机器。
+        返回结构由各插件自定义。
+        """
         raise NotImplementedError
 
     # ── 可选覆写 ────────────────────────────────────────────
 
-    def get_sidebar_links(self) -> list[dict]:
-        """侧边栏快速链接 (示例: [{"label": "口播策略", "url": "#"}])"""
+    def actions(self) -> list[dict]:
+        """可执行操作列表, 用于 Dashboard 操作面板"""
         return []
 
     def get_sub_views(self) -> list[dict]:
@@ -59,3 +102,37 @@ class DashboardPlugin:
     def health_check(self) -> bool:
         """健康检查"""
         return self.is_available()
+
+    # ── 数据写入 ────────────────────────────────────────────
+
+    def write_shared(self):
+        """将 summary() 数据写入 cross_machine, 供其他机器读取"""
+        from ._registry import get_machine_list
+        machines = get_machine_list()
+        try:
+            data = self.summary(machines)
+        except Exception as e:
+            data = {"_error": str(e)}
+        out = {
+            "plugin": self.name,
+            "version": self.version,
+            "machine_uid": MACHINE_UID,
+            "hostname": HOSTNAME,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "data": data,
+        }
+        path = CROSS_MACHINE / "data" / self.name
+        path.mkdir(parents=True, exist_ok=True)
+        (path / f"{MACHINE_UID}.json").write_text(
+            json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    # ── 兼容旧版 ────────────────────────────────────────────
+
+    def is_available(self) -> bool:
+        """旧版兼容"""
+        return True
+
+    def get_summary(self) -> dict:
+        """旧版兼容 — 转为 summary(machines)"""
+        from ._registry import get_machine_list
+        return self.summary(get_machine_list())
