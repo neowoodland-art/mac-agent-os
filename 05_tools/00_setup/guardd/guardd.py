@@ -366,9 +366,11 @@ def _git_sync():
         if r.stdout.strip():
             subprocess.run(["git", "commit", "-m", f"sync: guardd heartbeat {datetime.now().strftime('%Y-%m-%d %H:%M')}"],
                          capture_output=True, text=True, timeout=15, cwd=str(repo))
-        # push 到所有远程
-        for remote in ["origin", "github"]:
-            subprocess.run(["git", "push", remote, "+main:main"], capture_output=True,
+        # push 到所有远程（自动检测存在的远程，避免不存在的远程报错）
+        remotes = subprocess.run(["git", "remote"], capture_output=True,
+                                text=True, timeout=10, cwd=str(repo))
+        for remote in remotes.stdout.strip().splitlines():
+            subprocess.run(["git", "push", remote, "main"], capture_output=True,
                           text=True, timeout=30, cwd=str(repo))
     except Exception as e:
         logger.debug(f"  Git sync failed: {e}")
