@@ -1,0 +1,45 @@
+---
+title: "2026-05-16_ch08-film-style"
+source_dir: 03_knowledge/20_methods
+source_file: 2026-05-16_ch08-film-style.md
+date: 2026-05-17
+collected_date: 2026-05-17
+tags: ["待补充"]
+nature: method
+domain: general
+status: inbox
+---
+
+# 2026-05-16_ch08-film-style
+
+> 来源：03_knowledge/20_methods
+
+# ch08-film-style
+# Ch8: 电影风格AI视频创作
+---
+## 一、电影级提示词结构
+### 九要素顺序（从入门到精通）
+---
+## 二、电影级术语库
+### 景别体系
+### 镜头运动
+### 光影术语
+---
+## 三、五个电影级案例模板
+### 案例1：东方废土史诗
+### 案例2：极致微距商品（商业广告TVC）
+### 案例3：心理惊悚/悬疑
+### 案例4：极致自然风光
+### 案例5：动态武侠美学
+---
+## 四、四个必须避免的坑
+---
+## 五、邵氏电影美学（既有知识）
+**三大风格要素**：
+**核心关键词**：
+---
+## 六、经典电影风格参考
+## 已有知识关联
+- [[20_methods/shaoshi-film-aesthetics-prompts\|邵氏电影美学提示词技巧]]
+- [[20_methods/li-dao-ai-video-prompts\|李导AI提示词全集]] — 景别/视角/构图/视听语言
+## 采集来源
