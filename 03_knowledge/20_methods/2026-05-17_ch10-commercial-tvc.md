@@ -1,4 +1,5 @@
 ---
+
 id: KB-20260517-052
 title: ""
 type: method
@@ -16,6 +17,8 @@ version: 1
 previous_version: ""
 superseded_by: ""
 summary: ""
+collected: true
+collected_date: 2026-05-20
 ---
 
 # ch10-commercial-tvc

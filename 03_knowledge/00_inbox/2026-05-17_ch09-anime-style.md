@@ -1,16 +1,16 @@
 ---
-title: "2026-05-16_ch09-anime-style"
+title: "2026-05-17_ch09-anime-style"
 source_dir: 03_knowledge/20_methods
-source_file: 2026-05-16_ch09-anime-style.md
-date: 2026-05-17
-collected_date: 2026-05-17
+source_file: 2026-05-17_ch09-anime-style.md
+date: 2026-05-20
+collected_date: 2026-05-20
 tags: ["待补充"]
 nature: method
 domain: general
 status: inbox
 ---
 
-# 2026-05-16_ch09-anime-style
+# 2026-05-17_ch09-anime-style
 
 > 来源：03_knowledge/20_methods
 
@@ -30,12 +30,6 @@ status: inbox
 3. **质感升级**
 - 加入"次表面散射(SSS)"或"BJD质感" → 告别塑料皮
 - 加入"轮廓光"+"丁达尔效应"+"强烈明暗对比" → 空间深度
-### 三、主流动漫风格速查表
-### 风格一致性要点
-1. 追求稳定性首选写实风格
-2. 必须使用风格化时不要频繁切换风格
-3. 先确定基础风格，后续用同一风格设定
-4. 提示词中明确要求"保持角色一致"
 ### 动漫分镜的提示词适配
 ### AI漫剧完整工作流
 ---

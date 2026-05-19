@@ -1,16 +1,16 @@
 ---
-title: "2026-05-16_ch15-narrative-structure"
+title: "2026-05-17_ch15-narrative-structure"
 source_dir: 03_knowledge/20_methods
-source_file: 2026-05-16_ch15-narrative-structure.md
-date: 2026-05-17
-collected_date: 2026-05-17
+source_file: 2026-05-17_ch15-narrative-structure.md
+date: 2026-05-20
+collected_date: 2026-05-20
 tags: ["待补充"]
 nature: method
 domain: general
 status: inbox
 ---
 
-# 2026-05-16_ch15-narrative-structure
+# 2026-05-17_ch15-narrative-structure
 
 > 来源：03_knowledge/20_methods
 

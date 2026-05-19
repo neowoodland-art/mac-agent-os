@@ -1,19 +1,20 @@
 ---
-title: "2026-05-16_lip-sync-solutions-comparison"
+title: "2026-05-17_2026-05-16_lip-sync-solutions-comparison"
 source_dir: 03_knowledge/20_methods
-source_file: 2026-05-16_lip-sync-solutions-comparison.md
-date: 2026-05-17
-collected_date: 2026-05-17
+source_file: 2026-05-17_2026-05-16_lip-sync-solutions-comparison.md
+date: 2026-05-20
+collected_date: 2026-05-20
 tags: ["待补充"]
 nature: method
 domain: general
 status: inbox
 ---
 
-# 2026-05-16_lip-sync-solutions-comparison
+# 2026-05-17_2026-05-16_lip-sync-solutions-comparison
 
 > 来源：03_knowledge/20_methods
 
+# 2026-05-16_lip-sync-solutions-comparison
 # lip-sync-solutions-comparison
 # AI 视频唇形同步（Lip-Sync）方案调研与成本对比
 ---
@@ -36,6 +37,3 @@ status: inbox
 - 7s → 收 10s → $0.028 ≈ ¥0.20
 - 10 个镜头 → 约 $0.14 ≈ ¥1.00
 - **注意**：通过 fal.ai 代理，非 Kling 官方直连
-### 限制
-- 输入视频必须 720p 或 1080p
-- Audio→Video 视频最长 10s（太短）

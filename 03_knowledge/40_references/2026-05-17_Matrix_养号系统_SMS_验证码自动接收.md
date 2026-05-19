@@ -1,4 +1,5 @@
 ---
+
 id: KB-20260517-066
 title: ""
 type: reference
@@ -16,6 +17,8 @@ version: 1
 previous_version: ""
 superseded_by: ""
 summary: ""
+collected: true
+collected_date: 2026-05-20
 ---
 
 # Matrix 养号系统 SMS 验证码自动接收

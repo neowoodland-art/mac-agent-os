@@ -1,19 +1,20 @@
 ---
-title: "2026-05-16_character-consistency-reference-sheet"
+title: "2026-05-17_2026-05-16_character-consistency-reference-sheet"
 source_dir: 03_knowledge/20_methods
-source_file: 2026-05-16_character-consistency-reference-sheet.md
-date: 2026-05-17
-collected_date: 2026-05-17
+source_file: 2026-05-17_2026-05-16_character-consistency-reference-sheet.md
+date: 2026-05-20
+collected_date: 2026-05-20
 tags: ["待补充"]
 nature: method
 domain: general
 status: inbox
 ---
 
-# 2026-05-16_character-consistency-reference-sheet
+# 2026-05-17_2026-05-16_character-consistency-reference-sheet
 
 > 来源：03_knowledge/20_methods
 
+# 2026-05-16_character-consistency-reference-sheet
 # character-consistency-reference-sheet
 # 角色一致性定妆照方案（参考图/多视角 Character Sheet/九宫格）
 ---
@@ -30,4 +31,3 @@ status: inbox
 - 用 **同一张参考图** 锚定每一次生成
 - 每张图必须清晰展示角色的 **面部、发型、服装**
 - 参考图要求：**中性光照 + 干净背景**，让模型聚焦主体
-- 切忌在不同场景间切换参考图——哪怕姿态/光线的微小差异都会导致面部重构

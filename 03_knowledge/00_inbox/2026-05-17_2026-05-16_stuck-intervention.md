@@ -1,19 +1,20 @@
 ---
-title: "2026-05-16_stuck-intervention"
+title: "2026-05-17_2026-05-16_stuck-intervention"
 source_dir: 03_knowledge/20_methods
-source_file: 2026-05-16_stuck-intervention.md
-date: 2026-05-17
-collected_date: 2026-05-17
+source_file: 2026-05-17_2026-05-16_stuck-intervention.md
+date: 2026-05-20
+collected_date: 2026-05-20
 tags: ["待补充"]
 nature: method
 domain: general
 status: inbox
 ---
 
-# 2026-05-16_stuck-intervention
+# 2026-05-17_2026-05-16_stuck-intervention
 
 > 来源：03_knowledge/20_methods
 
+# 2026-05-16_stuck-intervention
 # stuck-intervention
 # 卡壳干预模板
 ---
