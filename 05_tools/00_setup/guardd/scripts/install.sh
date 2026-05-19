@@ -1,17 +1,29 @@
 #!/bin/bash
-# guardd 安装脚本 — 部署到 launchd，设置 300 秒周期
+# guardd 安装脚本 — 动态生成 plist → 部署到 launchd，设置 300 秒周期
 # 用法: bash scripts/install.sh
+# 多机器兼容：自动探测本机路径，无需手动修改 plist 模板
 
 set -euo pipefail
 
 GUARDD_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PLIST_SRC="$GUARDD_DIR/com.agentos.guardd.plist"
 PLIST_DEST="$HOME/Library/LaunchAgents/com.agentos.guardd.plist"
 GUARDD_PY="$GUARDD_DIR/guardd.py"
 RUNTIME_DIR="$HOME/workbuddy-agent-os/agent-local/runtime/guardd"
 
+# ── 自动探测 Python ──────────────────────────────────────
+# 优先使用 agent-os venv，fallback 到当前 python3
+if [ -x "$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3" ]; then
+    PYTHON_BIN="$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+elif [ -x "$HOME/.workbuddy/binaries/python/envs/default/bin/python3" ]; then
+    PYTHON_BIN="$HOME/.workbuddy/binaries/python/envs/default/bin/python3"
+else
+    PYTHON_BIN=$(command -v python3)
+fi
+PYTHON_LIB_DIR="$(dirname "$(dirname "$PYTHON_BIN")")/versions/$(basename "$(dirname "$(dirname "$PYTHON_BIN")")")/lib" 2>/dev/null || echo ""
+
 echo "=== guardd 安装脚本 ==="
 echo "源目录: $GUARDD_DIR"
+echo "Python:  $PYTHON_BIN"
 
 # 1. 检查 guardd.py 是否存在
 if [ ! -f "$GUARDD_PY" ]; then
@@ -28,21 +40,64 @@ echo "✅ 运行时目录: $RUNTIME_DIR"
 chmod +x "$GUARDD_PY"
 echo "✅ guardd.py 可执行权限"
 
-# 4. 修复 plist 中的路径为绝对路径
-#    替换占位符（如果有），否则直接复制
-cp "$PLIST_SRC" "$PLIST_DEST"
-echo "✅ plist 已部署: $PLIST_DEST"
+# 4. 动态生成 plist（多机器兼容，不依赖静态模板）
+cat > "$PLIST_DEST" << PLEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.agentos.guardd</string>
 
-# 5. 加载到 launchd
-launchctl bootout gui/$(id -u) "$PLIST_DEST" 2>/dev/null || true
+    <key>ProgramArguments</key>
+    <array>
+        <string>$PYTHON_BIN</string>
+        <string>$GUARDD_PY</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>${RUNTIME_DIR}/stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>${RUNTIME_DIR}/stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <key>GUARDD_DASHBOARD_URL</key>
+        <string>http://localhost:9988</string>
+    </dict>
+
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>ThrottleInterval</key>
+    <integer>300</integer>
+</dict>
+</plist>
+PLEOF
+echo "✅ plist 已动态生成: $PLIST_DEST"
+
+# 5. 卸载旧的 launchd job（如果存在）
+launchctl bootout gui/$(id -u)/com.agentos.guardd 2>/dev/null || true
+
+# 6. 加载新 plist
 launchctl bootstrap gui/$(id -u) "$PLIST_DEST"
 echo "✅ guardd 已加载到 launchd"
 
-# 6. 立即启动一次（测试）
+# 7. 立即启动一次（测试）
 launchctl kickstart -k gui/$(id -u)/com.agentos.guardd
 echo "✅ guardd 已启动"
 
-# 7. 验证
+# 8. 验证
 sleep 2
 if [ -f "$RUNTIME_DIR/last_run.json" ]; then
     echo "✅ guardd 首次运行成功"
