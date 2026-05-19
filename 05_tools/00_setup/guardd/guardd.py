@@ -316,6 +316,26 @@ def module_heartbeat():
 
     path = status_dir / "heartbeat.json"
     path.write_text(json.dumps(heartbeat, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    # ── 同时写入 v4 格式 status/live/{uid}.json ──
+    live_dir = DIR_STATUS / "live"
+    live_dir.mkdir(parents=True, exist_ok=True)
+    live_data = {**heartbeat, "_uid": MACHINE_UID, "_hostname": HOSTNAME,
+                 "_received_at": datetime.now(timezone.utc).isoformat()}
+    (live_dir / f"{MACHINE_UID}.json").write_text(
+        json.dumps(live_data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    # ── 更新 _registry.json ──
+    reg_file = live_dir / "_registry.json"
+    reg = {}
+    if reg_file.exists():
+        try:
+            reg = json.loads(reg_file.read_text())
+        except: pass
+    reg[MACHINE_UID] = {"hostname": HOSTNAME, "uid": MACHINE_UID,
+                        "last_seen": datetime.now(timezone.utc).isoformat(), "status": "online"}
+    reg_file.write_text(json.dumps(reg, indent=2, ensure_ascii=False), encoding="utf-8")
+
     logger.info(f"  心跳已上报 — CPU load={cpu_load}, 磁盘可用={disk_info['available_gb']}G")
 
     # ── 实时推送到 Dashboard (反向连接) ──
