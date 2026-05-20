@@ -120,33 +120,39 @@ def cmd_account_status(args):
 # ════════════════════════════════════════════════════════════
 
 def cmd_nurture_run(args):
-    """执行养号"""
-    from matrix_modules.nurture.runner import nurture_multi
+    """执行养号（支持抖音/小红书平台自动路由）"""
+    import yaml
+    config_path = LOCAL_ROOT / "config" / "accounts.yaml"
+    with open(config_path) as f:
+        data = yaml.safe_load(f)
 
     identities = args.account or []
     if not identities:
-        import yaml
-        config_path = LOCAL_ROOT / "config" / "accounts.yaml"
-        with open(config_path) as f:
-            data = yaml.safe_load(f)
+        # 未指定账号时，根据 platform 参数或默认取抖音
+        platform = getattr(args, 'platform', 'douyin')
         identities = [
             a["id"] for a in data.get("accounts", [])
-            if a.get("enabled") and a.get("platform") == "douyin"
+            if a.get("enabled") and a.get("platform") == platform
         ]
 
     if not identities:
         print("❌ 没有指定账号, 可用: matrix account list")
         sys.exit(1)
 
+    # 按平台分组
+    douyin_ids = []
+    xhs_ids = []
+    for a in data.get("accounts", []):
+        if a["id"] in identities:
+            if a.get("platform") == "xiaohongshu":
+                xhs_ids.append(a["id"])
+            else:
+                douyin_ids.append(a["id"])
+
     # 自动判断引擎
-    import yaml
-    config_path = LOCAL_ROOT / "config" / "accounts.yaml"
-    with open(config_path) as f:
-        data = yaml.safe_load(f)
     engines = {}
     for a in data.get("accounts", []):
         if a["id"] in identities:
-            # 优先检查 identity_dir（有则用 Camoufox），否则按 browser_type 判断
             if a.get("identity_dir"):
                 engines[a["id"]] = "camoufox"
             else:
@@ -162,16 +168,41 @@ def cmd_nurture_run(args):
             sys.exit(1)
 
     import time
-    nurture_multi._t_start = time.time()
 
-    asyncio.run(nurture_multi(
-        identities=identities,
-        blueprint_name=args.blueprint or "douyin_browse_v2",
-        rounds=args.rounds or 10,
-        headless=args.headless or False,
-        engines=engines,
-        daemon=True,  # 默认开启：脚本退出后保持浏览器窗口
-    ))
+    # ── 小红书养号 ──
+    if xhs_ids:
+        print(f"\n{'='*55}")
+        print(f" 📕 小红书养号 ({len(xhs_ids)} 个账号)")
+        print(f"{'='*55}")
+        from matrix_modules.nurture.runner import nurture_xhs_loop
+        for xhs_id in xhs_ids:
+            asyncio.run(nurture_xhs_loop(
+                identity_name=xhs_id,
+                rounds=args.rounds or 10,
+                headless=args.headless or False,
+                behavior_config=behavior_config,
+                daemon=getattr(args, 'daemon', False),
+            ))
+            # 账号间间隔（资源释放）
+            if len(xhs_ids) > 1:
+                print(f"  ⏳ 账号间隔 10s...")
+                time.sleep(10)
+
+    # ── 抖音养号 ──
+    if douyin_ids:
+        print(f"\n{'='*55}")
+        print(f" 🎵 抖音养号 ({len(douyin_ids)} 个账号)")
+        print(f"{'='*55}")
+        from matrix_modules.nurture.runner import nurture_multi
+        nurture_multi._t_start = time.time()
+        asyncio.run(nurture_multi(
+            identities=douyin_ids,
+            blueprint_name=args.blueprint or "douyin_browse_v2",
+            rounds=args.rounds or 10,
+            headless=args.headless or False,
+            engines=engines,
+            daemon=getattr(args, 'daemon', True),
+        ))
 
 
 def cmd_nurture_schedule(args):
@@ -397,7 +428,8 @@ def main():
     p_nur_run.add_argument("-r", "--rounds", type=int, default=10, help="循环轮数")
     p_nur_run.add_argument("--headless", action="store_true", help="无头模式")
     p_nur_run.add_argument("--behavior", help="行为配置JSON")
-    p_nur_run.add_argument("--daemon", action="store_true", help="完成后保持浏览器连接不退出（默认开启）")
+    p_nur_run.add_argument("--daemon", action="store_true", help="完成后保持浏览器连接不退出（抖音默认开启，小红书默认关闭）")
+    p_nur_run.add_argument("--platform", default="douyin", help="平台: douyin | xiaohongshu")
     p_nur_run.set_defaults(func=cmd_nurture_run)
 
     p_nur_sched = nur_sub.add_parser("schedule", help="设置定时任务")

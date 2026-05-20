@@ -1589,3 +1589,262 @@ async def nurture_multi(identities: List[str],
         ))
 
     await asyncio.gather(*tasks)
+
+
+# ════════════════════════════════════════════════════════════
+#  小红书养号 Runner
+# ════════════════════════════════════════════════════════════
+
+async def nurture_xhs_loop(
+    identity_name: str,
+    rounds: int = 10,
+    headless: bool = False,
+    behavior_config: dict = None,
+    daemon: bool = False,
+):
+    """小红书单账号养号循环
+
+    设计原则（抖音踩坑防护）:
+    1. 每步操作独立 try/except，失败不崩流程
+    2. 操作前后锚点验证
+    3. 3 次连续失败 → 截图 → 暂停
+    4. 运行完关闭浏览器（不 daemon，节省资源）
+    5. 强制使用 agent-os venv Python
+    """
+    import sys
+    exe = sys.executable
+    if "agent-os" not in exe:
+        print(f"❌ 必须使用 agent-os venv Python: {exe}")
+        sys.exit(1)
+
+    # 加载账号配置
+    import yaml
+    config_path = LOCAL_ROOT / "config" / "accounts.yaml"
+    with open(config_path) as f:
+        data = yaml.safe_load(f)
+
+    acct = None
+    for a in data.get("accounts", []):
+        if a["id"] == identity_name:
+            acct = a
+            break
+
+    if not acct:
+        print(f"❌ 账号 {identity_name} 未找到")
+        return
+
+    if acct.get("platform") != "xiaohongshu":
+        print(f"❌ 账号 {identity_name} 平台不是 xiaohongshu")
+        return
+
+    # 获取身份目录
+    identity_dir = acct.get("identity_dir", identity_name)
+    if not identity_dir.startswith("/"):
+        identity_dir = str(LOCAL_ROOT / identity_dir)
+
+    # 窗口配置
+    win_pos = acct.get("window_position", [0, 0])
+    w_left, w_top = int(win_pos[0]), int(win_pos[1]) if isinstance(win_pos, (list, tuple)) else (0, 0)
+
+    # 加载行为配置
+    from matrix_modules.nurture.behavior import BehaviorConfig
+    bhv = BehaviorConfig(behavior_config)
+
+    # 日志文件
+    LOG_FILE = f"/tmp/matrix_nurture_xhs_{identity_name}.log"
+    def _log(msg):
+        ts = time.strftime("%H:%M:%S")
+        line = f"[{ts}] {msg}"
+        print(line)
+        try:
+            with open(LOG_FILE, "a") as f:
+                f.write(line + "\n")
+        except:
+            pass
+
+    _log(f"{'='*55}")
+    _log(f" 🦀 {identity_name} — 小红书养号 ({rounds}轮) [Camoufox]")
+    _log(f"{'='*55}")
+
+    # 导入小红书操作模块
+    from matrix_modules.ops.xhs import browse, interact
+    from matrix_modules.comment.xhs.corpus import random_comment
+    from matrix_modules.ops.xhs.selectors import ANCHORS
+
+    # 连接浏览器
+    from cdp_connector import CDPConnector
+    conn = CDPConnector(
+        identity_dir=identity_dir,
+        headless=headless,
+        window=(702, 783),
+        window_position=(w_left, w_top),
+    )
+
+    try:
+        await conn.connect()
+    except Exception as e:
+        _log(f"❌ 浏览器连接失败: {e}")
+        return
+
+    # 清理锁文件（抖音踩坑 #5）
+    import glob
+    for lock_file in glob.glob(f"{identity_dir}/user_data/**/.parentlock", recursive=True):
+        try:
+            os.remove(lock_file)
+            _log(f"  🧹 清理锁文件: {lock_file}")
+        except:
+            pass
+    for lock_file in glob.glob(f"{identity_dir}/user_data/**/lock", recursive=True):
+        try:
+            os.remove(lock_file)
+        except:
+            pass
+
+    # 反检测
+    try:
+        await conn.init_anti_detection()
+    except Exception as e:
+        _log(f"⚠️ 反检测初始化失败: {e}")
+
+    # 进入小红书首页
+    try:
+        await browse.goto_home(conn.page)
+        await asyncio.sleep(3)
+        # 关闭登录弹窗（未登录状态）
+        await browse.dismiss_login_modal(conn.page)
+        await asyncio.sleep(1)
+    except Exception as e:
+        _log(f"❌ 首页导航失败: {e}")
+        await conn.close()
+        return
+
+    # 验证首页锚点
+    is_home = await browse.check_anchor(conn.page, "home_page")
+    if not is_home:
+        _log(f"⚠️ 首页锚点验证失败，尝试刷新...")
+        await conn.page.reload()
+        await asyncio.sleep(3)
+
+    passed_rounds = 0
+    consecutive_failures = 0
+
+    for r in range(1, rounds + 1):
+        _log(f"\n{'='*40}")
+        _log(f" 🔁 {identity_name} 第 {r}/{rounds} 轮")
+        _log(f"{'='*40}")
+
+        round_ok = True
+        try:
+            # ── Step 1: 瀑布流浏览 ──
+            _log("  📜 瀑布流浏览...")
+            await browse.scroll_feed_human(conn.page, screens=random.randint(1, 3))
+            await asyncio.sleep(bhv.click_delay())
+
+            # ── Step 2: 点击笔记卡片 ──
+            _log("  🎯 点击笔记卡片...")
+            note_url = await browse.click_note_card(conn.page)
+            if not note_url:
+                _log("  ⚠️ 未找到可点击的笔记")
+                round_ok = False
+            else:
+                _log(f"  ✅ 进入笔记: {note_url[:60]}...")
+                await asyncio.sleep(bhv.click_delay())
+
+                # 验证详情页锚点
+                is_detail = await browse.check_anchor(conn.page, "note_detail")
+                if not is_detail:
+                    _log("  ⚠️ 详情页锚点验证失败")
+
+                # ── Step 3: 浏览内容 ──
+                watch_time = await browse.browse_note_detail(conn.page)
+                _log(f"  👀 浏览 {watch_time:.0f}s")
+
+                # ── Step 4: 随机互动 ──
+                interact_result = await interact.random_interact(conn.page)
+                actions = []
+                if interact_result.get("like"):
+                    actions.append("点赞")
+                if interact_result.get("collect"):
+                    actions.append("收藏")
+                if interact_result.get("follow"):
+                    actions.append("关注")
+                if actions:
+                    _log(f"  ❤️ 互动: {' '.join(actions)}")
+
+                # ── Step 5: 评论（每 3 轮 1 次）──
+                if r % 3 == 0:
+                    _log("  💬 尝试评论...")
+                    comment_text = random_comment()
+                    comment_result = await interact.comment(conn.page, comment_text)
+                    if comment_result.get("success"):
+                        _log(f"  ✅ 评论发送: {comment_text}")
+                    else:
+                        _log(f"  ⚠️ 评论失败: {comment_result.get('error', 'unknown')}")
+
+                # ── Step 6: 返回首页 ──
+                _log("  🔙 返回首页...")
+                await browse.go_back_to_home(conn.page)
+                await asyncio.sleep(bhv.click_delay())
+
+            # ── Step 7: 搜索发现（每 2 轮 1 次）──
+            if r % 2 == 0 and round_ok:
+                _log("  🔍 搜索发现...")
+                kw = await browse.search(conn.page)
+                if kw:
+                    _log(f"  ✅ 搜索: {kw}")
+                    await asyncio.sleep(2)
+                    # 点击一个搜索结果
+                    result_url = await browse.click_search_result(conn.page)
+                    if result_url:
+                        _log(f"  ✅ 点击结果")
+                        await asyncio.sleep(random.uniform(3, 6))
+                        await browse.go_back_to_home(conn.page)
+                    else:
+                        _log("  ⚠️ 无搜索结果可点击")
+                else:
+                    _log("  ⚠️ 搜索失败")
+
+        except Exception as e:
+            _log(f"  ❌ 本轮异常: {e}")
+            round_ok = False
+
+        # 失败计数与防护
+        if round_ok:
+            passed_rounds += 1
+            consecutive_failures = 0
+        else:
+            consecutive_failures += 1
+            _log(f"  ⚠️ 连续失败 {consecutive_failures}/3")
+
+        if consecutive_failures >= 3:
+            _log(f"  🛑 连续失败 3 次，暂停该账号")
+            try:
+                screenshot_path = f"/tmp/xhs_error_{identity_name}_{int(time.time())}.png"
+                await conn.page.screenshot(path=screenshot_path)
+                _log(f"  📸 截图保存: {screenshot_path}")
+            except:
+                pass
+            break
+
+        # 轮间休息
+        if r < rounds:
+            rest = bhv.round_break()
+            _log(f"  ⏳ 休息 {rest:.0f}s...")
+            await asyncio.sleep(rest)
+
+    # ── 完成汇总 ──
+    elapsed = time.time() - getattr(nurture_multi, '_t_start', time.time())
+    _log(f"\n{'='*40}")
+    _log(f" 🏁 {identity_name} 养号完成")
+    _log(f"    轮数: {passed_rounds}/{rounds}")
+    _log(f"    耗时: {elapsed:.0f}s ({elapsed/60:.1f}min)")
+
+    # 关闭浏览器（不 daemon，节省资源）
+    _log("  🔒 关闭浏览器...")
+    try:
+        await conn.close()
+        _log("  ✅ 浏览器已关闭")
+    except Exception as e:
+        _log(f"  ⚠️ 关闭异常: {e}")
+
+    _log(f"{'='*40}")
