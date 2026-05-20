@@ -1601,6 +1601,7 @@ async def nurture_xhs_loop(
     headless: bool = False,
     behavior_config: dict = None,
     daemon: bool = False,
+    use_ai_comments: bool = False,
 ):
     """小红书单账号养号循环
 
@@ -1610,6 +1611,9 @@ async def nurture_xhs_loop(
     3. 3 次连续失败 → 截图 → 暂停
     4. 运行完关闭浏览器（不 daemon，节省资源）
     5. 强制使用 agent-os venv Python
+
+    Args:
+        use_ai_comments: 使用 AI 生成评论（需 oMLX 模型运行中）
     """
     import sys
     exe = sys.executable
@@ -1742,6 +1746,31 @@ async def nurture_xhs_loop(
         except Exception:
             pass
 
+    # ── 登录态检查（P0 #14）──
+    _xhs_log(f"  🔐 检测登录状态...")
+    try:
+        from auth_manager import check_login_by_cookie_sync, get_session_id, count_platform_cookies
+        cookies = await conn.context.cookies()
+        logged_in = check_login_by_cookie_sync(cookies, "xiaohongshu")
+        session_val = get_session_id(cookies, "xiaohongshu")
+        cookie_cnt = count_platform_cookies(cookies, "xiaohongshu")
+        if logged_in:
+            _xhs_log(f"  ✅ 登录检测: 已登录 (cookies={cookie_cnt})")
+            if session_val:
+                _xhs_log(f"     session: {session_val[:20]}...")
+        else:
+            _xhs_log(f"  ⚠️ 登录检测: 未登录 (cookie_count={cookie_cnt})")
+            _xhs_log(f"     允许未登录浏览，但评论/互动可能受限")
+            # 截图供参考
+            try:
+                ss_path = f"/tmp/xhs_login_check_{identity_name}.png"
+                await conn.page.screenshot(path=ss_path)
+                _xhs_log(f"     📸 截图: {ss_path}")
+            except:
+                pass
+    except Exception as e:
+        _xhs_log(f"  ⚠️ 登录态检测异常: {e}")
+
     # 记录开始时间（P0 #4）
     _t_start = time.time()
     passed_rounds = 0
@@ -1793,7 +1822,29 @@ async def nurture_xhs_loop(
                 # ── Step 5: 评论（每 3 轮 1 次）──
                 if r % 3 == 0:
                     _xhs_log("  💬 尝试评论...")
-                    comment_text = random_comment()
+                    if use_ai_comments:
+                        # AI 生成评论（P2 #17）
+                        try:
+                            from matrix_modules.comment.ai_generator import AICommentGenerator
+                            ig = AICommentGenerator()
+                            note_info = await conn.page.evaluate("""
+                            () => {
+                                const t = document.querySelector('.title, h1, [class*=note-title]');
+                                const c = document.querySelector('.content, .desc, [class*=content]');
+                                return {
+                                    title: t ? t.textContent.trim().substring(0, 80) : '',
+                                    content: c ? c.textContent.trim().substring(0, 150) : '',
+                                };
+                            }
+                            """)
+                            comment_text = ig.generate_with_context(
+                                note_title=note_info.get("title", ""),
+                                note_content=note_info.get("content", ""),
+                            )
+                        except Exception:
+                            comment_text = random_comment()
+                    else:
+                        comment_text = random_comment()
                     comment_result = await interact.comment(conn.page, comment_text)
                     if comment_result.get("success"):
                         _xhs_log(f"  ✅ 评论发送: {comment_text}")

@@ -31,14 +31,36 @@ __version__ = "1.0.0"
 # Cookie 检测（核心方案）
 # ══════════════════════════════════════════════════════════════
 
-async def check_login_by_cookie(context) -> bool:
+# ── 各平台登录态 Cookie 规则 ──
+LOGIN_COOKIE_RULES = {
+    "douyin": {
+        "domain": "douyin",
+        "names": ("sessionid", "sid_guard"),
+    },
+    "xiaohongshu": {
+        "domain": "xiaohongshu",
+        "names": ("a1", "web_session"),
+    },
+    "kuaishou": {
+        "domain": "kuaishou",
+        "names": ("kuaishou.login",),
+    },
+    "zhihu": {
+        "domain": "zhihu",
+        "names": ("z_c0", "d_c0"),
+    },
+}
+
+
+async def check_login_by_cookie(context, platform: str = "douyin") -> bool:
     """通过 Cookie 检测登录状态
     
-    检测 sessionid 或 sid_guard 是否存在（douyin.com）。
+    检测平台特有的 session cookie 是否存在。
     这是主方案，不依赖页面 DOM 布局。
     
     参数:
         context: Playwright BrowserContext
+        platform: 平台名称 (douyin/xiaohongshu/kuaishou/zhihu)
     
     返回:
         bool: True=已登录, False=未登录
@@ -48,50 +70,67 @@ async def check_login_by_cookie(context) -> bool:
     except Exception:
         return False
     
+    rule = LOGIN_COOKIE_RULES.get(platform)
+    if not rule:
+        return False
+    
     for c in cookies:
         domain = c.get("domain", "")
         name = c.get("name", "")
-        if "douyin" in domain and name in ("sessionid", "sid_guard"):
+        if rule["domain"] in domain and name in rule["names"]:
             return True
     
     return False
 
 
-def check_login_by_cookie_sync(cookies: list) -> bool:
+def check_login_by_cookie_sync(cookies: list, platform: str = "douyin") -> bool:
     """同步版 Cookie 检测（从已获取的 Cookie 列表判断）
     
     参数:
         cookies: Cookie 列表（每个为 dict，含 domain/name 字段）
+        platform: 平台名称 (douyin/xiaohongshu/...)
     
     返回:
         bool: True=已登录
     """
+    rule = LOGIN_COOKIE_RULES.get(platform)
+    if not rule:
+        return False
+    
     for c in cookies:
         domain = c.get("domain", "")
         name = c.get("name", "")
-        if "douyin" in domain and name in ("sessionid", "sid_guard"):
+        if rule["domain"] in domain and name in rule["names"]:
             return True
     return False
 
 
-def get_session_id(cookies: list) -> Optional[str]:
-    """从 Cookie 列表中提取 sessionid 值
+def get_session_id(cookies: list, platform: str = "douyin") -> Optional[str]:
+    """从 Cookie 列表中提取 session cookie 值
     
     参数:
         cookies: Cookie 列表
+        platform: 平台名称
     
     返回:
-        str/None: sessionid 值或 None
+        str/None: session cookie 值或 None
     """
+    rule = LOGIN_COOKIE_RULES.get(platform)
+    if not rule:
+        return None
     for c in cookies:
-        if c.get("name") == "sessionid":
+        if c.get("name") in rule["names"]:
             return c.get("value")
     return None
 
 
-def count_douyin_cookies(cookies: list) -> int:
-    """统计 douyin.com 相关 Cookie 数量"""
-    return sum(1 for c in cookies if "douyin" in c.get("domain", ""))
+def count_platform_cookies(cookies: list, platform: str = "douyin") -> int:
+    """统计指定平台的 Cookie 数量"""
+    rule = LOGIN_COOKIE_RULES.get(platform)
+    if not rule:
+        return 0
+    domain_hint = rule["domain"]
+    return sum(1 for c in cookies if domain_hint in c.get("domain", ""))
 
 
 # ══════════════════════════════════════════════════════════════
@@ -180,9 +219,9 @@ async def get_login_status(context, page=None, platform: str = "douyin") -> dict
     # Cookie 检测
     try:
         cookies = await context.cookies()
-        result["cookie_ok"] = check_login_by_cookie_sync(cookies)
-        result["cookie_count"] = count_douyin_cookies(cookies)
-        result["session_id"] = get_session_id(cookies)
+        result["cookie_ok"] = check_login_by_cookie_sync(cookies, platform)
+        result["cookie_count"] = count_platform_cookies(cookies, platform)
+        result["session_id"] = get_session_id(cookies, platform)
     except Exception:
         result["cookie_ok"] = False
     
@@ -300,7 +339,9 @@ async def wait_for_login(context, page, platform: str = "douyin",
         status = await get_login_status(context, page, platform)
         if status["logged_in"]:
             return status
+        print(f"   ⏳ 等待登录... ({i * interval + interval}s/{timeout}s)")
     # 超时
+    print(f"   ⏰ 等待超时 ({timeout}s)")
     return {"logged_in": False, "cookie_ok": False, "dom_ok": False,
             "cookie_count": 0, "session_id": None, "method": ""}
 
@@ -331,12 +372,13 @@ async def _test_check(port: int = 9222):
         await page.goto("https://www.douyin.com/", wait_until="domcontentloaded", timeout=15000)
         await asyncio.sleep(3)
         
-        status = await get_login_status(context, page)
+        status = await get_login_status(context, page, platform="douyin")
+        domain = "douyin"
         print(f"\n📊 登录状态检测 (端口 {port})")
         print(f"  Cookie OK:     {'✅' if status['cookie_ok'] else '❌'}")
         print(f"  DOM OK:        {'✅' if status['dom_ok'] else '❌'}")
-        print(f"  douyin Cookie: {status['cookie_count']} 个")
-        print(f"  sessionid:     {status['session_id'][:20] + '...' if status['session_id'] else '❌'}")
+        print(f"  {domain} Cookie: {status['cookie_count']} 个")
+        print(f"  session:       {status['session_id'][:20] + '...' if status['session_id'] else '❌'}")
         print(f"  最终判断:       {'✅ 已登录 (via ' + status['method'] + ')' if status['logged_in'] else '❌ 未登录'}")
         
         await pw.stop()
