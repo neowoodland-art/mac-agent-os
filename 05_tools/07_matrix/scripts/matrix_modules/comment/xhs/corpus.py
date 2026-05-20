@@ -16,6 +16,17 @@
 import random
 
 # ════════════════════════════════════════════════════════════
+# 会话级去重 — 同一运行中不重复发送相同评论
+# ════════════════════════════════════════════════════════════
+
+_used_comments: set = set()
+
+
+def reset_session():
+    """清空已用评论记录（新账号/新运行开始时调用）"""
+    _used_comments.clear()
+
+# ════════════════════════════════════════════════════════════
 # 按分类组织的语料
 # ════════════════════════════════════════════════════════════
 
@@ -175,7 +186,7 @@ GENERAL_SHORT = [
 
 def get_comment(category: str = None, length: str = "medium") -> str:
     """
-    获取一条小红书风格评论
+    获取一条小红书风格评论（自动去重：同一运行中不会重复返回相同评论）
 
     Args:
         category: 分类标签 (lifestyle/food/travel/beauty/fashion/tips/emotion)
@@ -188,18 +199,30 @@ def get_comment(category: str = None, length: str = "medium") -> str:
     Returns:
         评论文本
     """
+    global _used_comments
+
     if length == "short":
-        return random.choice(GENERAL_SHORT)
+        available = [c for c in GENERAL_SHORT if c not in _used_comments]
+        if not available:
+            available = GENERAL_SHORT  # 用完了就复用
+        comment = random.choice(available)
+        _used_comments.add(comment)
+        return comment
 
     if category and category in CORPUS:
-        pool = CORPUS[category]
+        pool = [c for c in CORPUS[category] if c not in _used_comments]
+        if not pool:
+            pool = CORPUS[category]  # 用完了就复用
     else:
-        # 随机合并所有分类
-        pool = []
+        all_items = []
         for cat_items in CORPUS.values():
-            pool.extend(cat_items)
+            all_items.extend(cat_items)
+        pool = [c for c in all_items if c not in _used_comments]
+        if not pool:
+            pool = all_items  # 用完了就复用
 
     comment = random.choice(pool)
+    _used_comments.add(comment)
 
     # 长度控制
     if length == "long" and len(comment) < 20:

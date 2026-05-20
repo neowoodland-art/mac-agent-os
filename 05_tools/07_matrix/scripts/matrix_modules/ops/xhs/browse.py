@@ -23,9 +23,19 @@ from .selectors import (
 # ════════════════════════════════════════════════════════════
 
 async def goto_home(page):
-    """回到小红书首页/发现页"""
-    await page.goto("https://www.xiaohongshu.com/explore", timeout=20000, wait_until="commit")
-    await asyncio.sleep(3)
+    """回到小红书首页/发现页（锚点等待 + 超时兜底）"""
+    try:
+        await page.goto("https://www.xiaohongshu.com/explore", timeout=20000, wait_until="commit")
+        # 锚点等待: 等 #app 出现（SPA 水合）
+        try:
+            await page.wait_for_selector("#app", timeout=8000)
+        except Exception:
+            pass
+        await asyncio.sleep(2)  # 额外等待渲染稳定
+    except Exception:
+        # 兜底: 直接导航，不抛异常
+        await page.goto("https://www.xiaohongshu.com/explore", timeout=30000, wait_until="domcontentloaded")
+        await asyncio.sleep(5)
     return "home"
 
 
@@ -98,22 +108,21 @@ async def click_note_card(page, index: int = None) -> Optional[str]:
 
 async def scroll_feed(page, distance: int = None):
     """
-    滚动瀑布流
+    滚动瀑布流（单方式: 鼠标滚轮，避免双重滚动）
 
     Args:
         distance: 滚动距离(px)，None 时随机
     """
     dist = distance or random.randint(300, 800)
 
-    # 方式1: JS 滚动
-    await page.evaluate(f"window.scrollBy(0, {dist})")
-    await asyncio.sleep(random.uniform(0.5, 1.5))
-
-    # 方式2: 鼠标滚轮（更拟人）
+    # 鼠标滚轮（拟人）
     try:
         await page.mouse.wheel(0, dist)
+        await asyncio.sleep(random.uniform(0.5, 1.5))
     except Exception:
-        pass
+        # fallback: JS 滚动
+        await page.evaluate(f"window.scrollBy(0, {dist})")
+        await asyncio.sleep(random.uniform(0.5, 1.5))
 
     return dist
 
@@ -144,20 +153,38 @@ async def scroll_feed_human(page, screens: int = 2):
 
 async def browse_note_detail(page, duration: float = None):
     """
-    在笔记详情页浏览内容
+    在笔记详情页浏览内容（图文/视频自适应）
 
     Args:
         duration: 浏览时长(秒)，None 时随机 4~12 秒
+
+    Returns:
+        实际浏览秒数
     """
     watch = duration or random.uniform(4, 12)
 
-    # 模拟阅读：缓慢滚动
-    steps = int(watch / 2)
-    for _ in range(steps):
-        await page.evaluate(f"window.scrollBy(0, {random.randint(50, 150)})")
-        await asyncio.sleep(random.uniform(1.0, 2.5))
+    # 检测是否是视频笔记
+    has_video = await page.evaluate("""
+        () => {
+            const v = document.querySelector('video');
+            if (!v) return false;
+            const rect = v.getBoundingClientRect();
+            return rect.width > 100 && rect.height > 100;
+        }
+    """)
 
-    return watch
+    if has_video:
+        # 视频笔记：看视频，不滚动
+        # 等待视频加载
+        await asyncio.sleep(random.uniform(1, 2))
+        return watch
+    else:
+        # 图文笔记：缓慢滚动模拟阅读
+        steps = int(watch / 2)
+        for _ in range(steps):
+            await page.evaluate(f"window.scrollBy(0, {random.randint(50, 150)})")
+            await asyncio.sleep(random.uniform(1.0, 2.5))
+        return watch
 
 
 async def go_back_to_home(page):

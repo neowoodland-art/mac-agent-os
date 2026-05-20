@@ -68,7 +68,6 @@ def cmd_account_list(args):
         phone = a.get("phone", "")
         phone_str = f" 📞{phone}" if phone else ""
         print(f"  • {acct_id:15s} | {platform:8s} | {engine:10s}{phone_str} | {notes}")
-        print(f"  • {acct_id:15s} | {platform:8s} | {engine:10s} | {notes}")
         if identity != "-":
             ud = LOCAL_ROOT / identity / "user_data"
             files = len(list(ud.glob("*"))) if ud.exists() else 0

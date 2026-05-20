@@ -7,6 +7,7 @@
 - 操作后验证状态变化（防假点击）
 - 评论状态机: closed → panel_open → input_focused → text_entered → sent
 """
+import json
 import random
 import asyncio
 import subprocess
@@ -25,18 +26,39 @@ from .selectors import (
 
 async def like(page) -> bool:
     """
-    点赞当前笔记
+    点赞当前笔记（含状态验证）
 
     Returns:
         是否成功
     """
     try:
+        # 记录点击前的点赞状态
+        was_liked = await page.evaluate("""
+            () => {
+                const btn = document.querySelector('.like-btn, [class*=like-btn], .interaction-like');
+                if (!btn) return 'not_found';
+                const cls = btn.className || btn.classList?.toString() || '';
+                return cls.includes('active') || cls.includes('liked') || cls.includes('sel') ? 'liked' : 'not_liked';
+            }
+        """)
+        if was_liked == 'liked':
+            return True  # 已经是点赞状态，无需重复操作
+
         # 方式1: Playwright locator 点击
         btn = await page.query_selector(LIKE_BUTTON)
         if btn:
             await btn.click()
             await asyncio.sleep(0.5)
-            return True
+            # 验证状态变化
+            now_liked = await page.evaluate("""
+                () => {
+                    const btn = document.querySelector('.like-btn, [class*=like-btn], .interaction-like');
+                    if (!btn) return false;
+                    const cls = btn.className || btn.classList?.toString() || '';
+                    return cls.includes('active') || cls.includes('liked') || cls.includes('sel');
+                }
+            """)
+            return bool(now_liked)
 
         # 方式2: JS 直接点击
         result = await page.evaluate("""
@@ -60,13 +82,34 @@ async def like(page) -> bool:
 # ════════════════════════════════════════════════════════════
 
 async def collect(page) -> bool:
-    """收藏当前笔记"""
+    """收藏当前笔记（含状态验证）"""
     try:
+        # 检查是否已收藏
+        was_collected = await page.evaluate("""
+            () => {
+                const btn = document.querySelector('.collect-btn, [class*=collect-btn], .interaction-collect');
+                if (!btn) return 'not_found';
+                const cls = btn.className || btn.classList?.toString() || '';
+                return cls.includes('active') || cls.includes('sel') ? 'collected' : 'not_collected';
+            }
+        """)
+        if was_collected == 'collected':
+            return True
+
         btn = await page.query_selector(COLLECT_BUTTON)
         if btn:
             await btn.click()
             await asyncio.sleep(0.5)
-            return True
+            # 验证状态变化
+            now_collected = await page.evaluate("""
+                () => {
+                    const btn = document.querySelector('.collect-btn, [class*=collect-btn], .interaction-collect');
+                    if (!btn) return false;
+                    const cls = btn.className || btn.classList?.toString() || '';
+                    return cls.includes('active') || cls.includes('sel');
+                }
+            """)
+            return bool(now_collected)
 
         # JS 兜底
         result = await page.evaluate("""
@@ -89,13 +132,34 @@ async def collect(page) -> bool:
 # ════════════════════════════════════════════════════════════
 
 async def follow(page) -> bool:
-    """关注当前笔记作者"""
+    """关注当前笔记作者（含状态验证）"""
     try:
+        # 检查是否已关注
+        was_followed = await page.evaluate("""
+            () => {
+                const btn = document.querySelector('.follow-btn, [class*=follow-btn], .interaction-follow');
+                if (!btn) return 'not_found';
+                const txt = btn.textContent || '';
+                return txt.includes('已关注') ? 'followed' : 'not_followed';
+            }
+        """)
+        if was_followed == 'followed':
+            return True
+
         btn = await page.query_selector(FOLLOW_BUTTON)
         if btn:
             await btn.click()
             await asyncio.sleep(0.5)
-            return True
+            # 验证关注成功
+            now_followed = await page.evaluate("""
+                () => {
+                    const btn = document.querySelector('.follow-btn, [class*=follow-btn], .interaction-follow');
+                    if (!btn) return false;
+                    const txt = btn.textContent || '';
+                    return txt.includes('已关注');
+                }
+            """)
+            return bool(now_followed)
 
         # JS 兜底
         result = await page.evaluate("""
@@ -221,13 +285,14 @@ class CommentStateMachine:
             await self.page.keyboard.press("Meta+v")
             await asyncio.sleep(0.5)
 
-            # 4. 验证输入成功
+            # 4. 验证输入成功（json.dumps 防注入）
+            needle = json.dumps(text[:10])
             has_text = await self.page.evaluate(f"""
                 () => {{
                     const inp = document.querySelector('.comment-input input, [contenteditable=true], textarea, .editor');
                     if (!inp) return false;
                     const val = inp.value || inp.textContent || inp.innerText || '';
-                    return val.includes('{text[:5]}');
+                    return val.includes({needle});
                 }}
             """)
 
@@ -277,11 +342,12 @@ class CommentStateMachine:
             return False
 
         try:
-            # 检查评论列表中是否出现我们的评论
+            # 检查评论列表中是否出现我们的评论（json.dumps 防注入）
+            needle = json.dumps(self.text[:8])
             has_comment = await self.page.evaluate(f"""
                 () => {{
                     const comments = [...document.querySelectorAll('.comment-item, [class*=comment-item]')];
-                    return comments.some(c => c.textContent.includes('{self.text[:8]}'));
+                    return comments.some(c => c.textContent.includes({needle}));
                 }}
             """)
 
@@ -292,7 +358,11 @@ class CommentStateMachine:
             # 兜底: 检查输入框是否清空（发送后通常会清空）
             inp = await self.page.query_selector(COMMENT_INPUT)
             if inp:
-                val = await inp.input_value()
+                tag = await inp.evaluate("el => el.tagName.toLowerCase()")
+                if tag in ("input", "textarea"):
+                    val = await inp.input_value()
+                else:
+                    val = await inp.evaluate("el => el.textContent || el.innerText || ''")
                 if not val or len(val) < len(self.text) / 2:
                     self.state = "verified"
                     return True
@@ -384,8 +454,8 @@ async def random_interact(page, behavior_config: dict = None) -> dict:
         results["collect"] = await collect(page)
         await asyncio.sleep(random.uniform(0.5, 1.5))
 
-    # 关注: 15 中 1 (6.7%)
-    if random.random() < 0.067:
+    # 关注: 40 中 1 (2.5%) — 真用户关注频率很低
+    if random.random() < 0.025:
         results["follow"] = await follow(page)
         await asyncio.sleep(random.uniform(0.5, 1.5))
 

@@ -1652,7 +1652,7 @@ async def nurture_xhs_loop(
 
     # 日志文件
     LOG_FILE = f"/tmp/matrix_nurture_xhs_{identity_name}.log"
-    def _log(msg):
+    def _xhs_log(msg):
         ts = time.strftime("%H:%M:%S")
         line = f"[{ts}] {msg}"
         print(line)
@@ -1662,14 +1662,17 @@ async def nurture_xhs_loop(
         except:
             pass
 
-    _log(f"{'='*55}")
-    _log(f" 🦀 {identity_name} — 小红书养号 ({rounds}轮) [Camoufox]")
-    _log(f"{'='*55}")
+    _xhs_log(f"{'='*55}")
+    _xhs_log(f" 🦀 {identity_name} — 小红书养号 ({rounds}轮) [Camoufox]")
+    _xhs_log(f"{'='*55}")
 
     # 导入小红书操作模块
     from matrix_modules.ops.xhs import browse, interact
-    from matrix_modules.comment.xhs.corpus import random_comment
+    from matrix_modules.comment.xhs.corpus import random_comment, reset_session
     from matrix_modules.ops.xhs.selectors import ANCHORS
+
+    # 重置评论去重（新账号新会话）
+    reset_session()
 
     # 连接浏览器
     from cdp_connector import CDPConnector
@@ -1680,18 +1683,12 @@ async def nurture_xhs_loop(
         window_position=(w_left, w_top),
     )
 
-    try:
-        await conn.connect()
-    except Exception as e:
-        _log(f"❌ 浏览器连接失败: {e}")
-        return
-
-    # 清理锁文件（抖音踩坑 #5）
+    # 清理锁文件（必须在 connect 之前，抖音踩坑 #5）
     import glob
     for lock_file in glob.glob(f"{identity_dir}/user_data/**/.parentlock", recursive=True):
         try:
             os.remove(lock_file)
-            _log(f"  🧹 清理锁文件: {lock_file}")
+            print(f"  🧹 清理锁文件: {lock_file}")
         except:
             pass
     for lock_file in glob.glob(f"{identity_dir}/user_data/**/lock", recursive=True):
@@ -1700,64 +1697,86 @@ async def nurture_xhs_loop(
         except:
             pass
 
+    try:
+        await conn.connect()
+    except Exception as e:
+        _xhs_log(f"❌ 浏览器连接失败: {e}")
+        return
+
     # 反检测
     try:
         await conn.init_anti_detection()
     except Exception as e:
-        _log(f"⚠️ 反检测初始化失败: {e}")
+        _xhs_log(f"⚠️ 反检测初始化失败: {e}")
 
-    # 进入小红书首页
-    try:
-        await browse.goto_home(conn.page)
-        await asyncio.sleep(3)
-        # 关闭登录弹窗（未登录状态）
-        await browse.dismiss_login_modal(conn.page)
-        await asyncio.sleep(1)
-    except Exception as e:
-        _log(f"❌ 首页导航失败: {e}")
-        await conn.close()
-        return
+    # 进入小红书首页（带重试，P1 #9）
+    for attempt in range(1, 4):
+        try:
+            await browse.goto_home(conn.page)
+            await asyncio.sleep(3)
+            # 关闭登录弹窗
+            await browse.dismiss_login_modal(conn.page)
+            await asyncio.sleep(1)
+            # 重初始化反检测
+            try:
+                await conn.init_anti_detection()
+            except Exception:
+                pass
+            break
+        except Exception as e:
+            _xhs_log(f"❌ 首页导航失败 (第{attempt}次): {e}")
+            if attempt < 3:
+                await asyncio.sleep(3)
+            else:
+                await conn.close()
+                return
 
     # 验证首页锚点
     is_home = await browse.check_anchor(conn.page, "home_page")
     if not is_home:
-        _log(f"⚠️ 首页锚点验证失败，尝试刷新...")
+        _xhs_log(f"⚠️ 首页锚点验证失败，尝试刷新...")
         await conn.page.reload()
         await asyncio.sleep(3)
+        try:
+            await conn.init_anti_detection()
+        except Exception:
+            pass
 
+    # 记录开始时间（P0 #4）
+    _t_start = time.time()
     passed_rounds = 0
     consecutive_failures = 0
 
     for r in range(1, rounds + 1):
-        _log(f"\n{'='*40}")
-        _log(f" 🔁 {identity_name} 第 {r}/{rounds} 轮")
-        _log(f"{'='*40}")
+        _xhs_log(f"\n{'='*40}")
+        _xhs_log(f" 🔁 {identity_name} 第 {r}/{rounds} 轮")
+        _xhs_log(f"{'='*40}")
 
         round_ok = True
         try:
             # ── Step 1: 瀑布流浏览 ──
-            _log("  📜 瀑布流浏览...")
+            _xhs_log("  📜 瀑布流浏览...")
             await browse.scroll_feed_human(conn.page, screens=random.randint(1, 3))
             await asyncio.sleep(bhv.click_delay())
 
             # ── Step 2: 点击笔记卡片 ──
-            _log("  🎯 点击笔记卡片...")
+            _xhs_log("  🎯 点击笔记卡片...")
             note_url = await browse.click_note_card(conn.page)
             if not note_url:
-                _log("  ⚠️ 未找到可点击的笔记")
+                _xhs_log("  ⚠️ 未找到可点击的笔记")
                 round_ok = False
             else:
-                _log(f"  ✅ 进入笔记: {note_url[:60]}...")
+                _xhs_log(f"  ✅ 进入笔记: {note_url[:60]}...")
                 await asyncio.sleep(bhv.click_delay())
 
                 # 验证详情页锚点
                 is_detail = await browse.check_anchor(conn.page, "note_detail")
                 if not is_detail:
-                    _log("  ⚠️ 详情页锚点验证失败")
+                    _xhs_log("  ⚠️ 详情页锚点验证失败")
 
                 # ── Step 3: 浏览内容 ──
                 watch_time = await browse.browse_note_detail(conn.page)
-                _log(f"  👀 浏览 {watch_time:.0f}s")
+                _xhs_log(f"  👀 浏览 {watch_time:.0f}s")
 
                 # ── Step 4: 随机互动 ──
                 interact_result = await interact.random_interact(conn.page)
@@ -1769,43 +1788,48 @@ async def nurture_xhs_loop(
                 if interact_result.get("follow"):
                     actions.append("关注")
                 if actions:
-                    _log(f"  ❤️ 互动: {' '.join(actions)}")
+                    _xhs_log(f"  ❤️ 互动: {' '.join(actions)}")
 
                 # ── Step 5: 评论（每 3 轮 1 次）──
                 if r % 3 == 0:
-                    _log("  💬 尝试评论...")
+                    _xhs_log("  💬 尝试评论...")
                     comment_text = random_comment()
                     comment_result = await interact.comment(conn.page, comment_text)
                     if comment_result.get("success"):
-                        _log(f"  ✅ 评论发送: {comment_text}")
+                        _xhs_log(f"  ✅ 评论发送: {comment_text}")
                     else:
-                        _log(f"  ⚠️ 评论失败: {comment_result.get('error', 'unknown')}")
+                        _xhs_log(f"  ⚠️ 评论失败: {comment_result.get('error', 'unknown')}")
 
                 # ── Step 6: 返回首页 ──
-                _log("  🔙 返回首页...")
+                _xhs_log("  🔙 返回首页...")
                 await browse.go_back_to_home(conn.page)
                 await asyncio.sleep(bhv.click_delay())
 
+                # P1 #11: 返回首页后重新关闭弹窗
+                await browse.dismiss_login_modal(conn.page)
+
             # ── Step 7: 搜索发现（每 2 轮 1 次）──
             if r % 2 == 0 and round_ok:
-                _log("  🔍 搜索发现...")
+                _xhs_log("  🔍 搜索发现...")
                 kw = await browse.search(conn.page)
                 if kw:
-                    _log(f"  ✅ 搜索: {kw}")
+                    _xhs_log(f"  ✅ 搜索: {kw}")
                     await asyncio.sleep(2)
                     # 点击一个搜索结果
                     result_url = await browse.click_search_result(conn.page)
                     if result_url:
-                        _log(f"  ✅ 点击结果")
+                        _xhs_log(f"  ✅ 点击结果")
                         await asyncio.sleep(random.uniform(3, 6))
                         await browse.go_back_to_home(conn.page)
+                        # 返回后重新关闭弹窗
+                        await browse.dismiss_login_modal(conn.page)
                     else:
-                        _log("  ⚠️ 无搜索结果可点击")
+                        _xhs_log("  ⚠️ 无搜索结果可点击")
                 else:
-                    _log("  ⚠️ 搜索失败")
+                    _xhs_log("  ⚠️ 搜索失败")
 
         except Exception as e:
-            _log(f"  ❌ 本轮异常: {e}")
+            _xhs_log(f"  ❌ 本轮异常: {e}")
             round_ok = False
 
         # 失败计数与防护
@@ -1814,14 +1838,14 @@ async def nurture_xhs_loop(
             consecutive_failures = 0
         else:
             consecutive_failures += 1
-            _log(f"  ⚠️ 连续失败 {consecutive_failures}/3")
+            _xhs_log(f"  ⚠️ 连续失败 {consecutive_failures}/3")
 
         if consecutive_failures >= 3:
-            _log(f"  🛑 连续失败 3 次，暂停该账号")
+            _xhs_log(f"  🛑 连续失败 3 次，暂停该账号")
             try:
                 screenshot_path = f"/tmp/xhs_error_{identity_name}_{int(time.time())}.png"
                 await conn.page.screenshot(path=screenshot_path)
-                _log(f"  📸 截图保存: {screenshot_path}")
+                _xhs_log(f"  📸 截图保存: {screenshot_path}")
             except:
                 pass
             break
@@ -1829,22 +1853,22 @@ async def nurture_xhs_loop(
         # 轮间休息
         if r < rounds:
             rest = bhv.round_break()
-            _log(f"  ⏳ 休息 {rest:.0f}s...")
+            _xhs_log(f"  ⏳ 休息 {rest:.0f}s...")
             await asyncio.sleep(rest)
 
     # ── 完成汇总 ──
-    elapsed = time.time() - getattr(nurture_multi, '_t_start', time.time())
-    _log(f"\n{'='*40}")
-    _log(f" 🏁 {identity_name} 养号完成")
-    _log(f"    轮数: {passed_rounds}/{rounds}")
-    _log(f"    耗时: {elapsed:.0f}s ({elapsed/60:.1f}min)")
+    elapsed = time.time() - _t_start
+    _xhs_log(f"\n{'='*40}")
+    _xhs_log(f" 🏁 {identity_name} 养号完成")
+    _xhs_log(f"    轮数: {passed_rounds}/{rounds}")
+    _xhs_log(f"    耗时: {elapsed:.0f}s ({elapsed/60:.1f}min)")
 
     # 关闭浏览器（不 daemon，节省资源）
-    _log("  🔒 关闭浏览器...")
+    _xhs_log("  🔒 关闭浏览器...")
     try:
         await conn.close()
-        _log("  ✅ 浏览器已关闭")
+        _xhs_log("  ✅ 浏览器已关闭")
     except Exception as e:
-        _log(f"  ⚠️ 关闭异常: {e}")
+        _xhs_log(f"  ⚠️ 关闭异常: {e}")
 
-    _log(f"{'='*40}")
+    _xhs_log(f"{'='*40}")
