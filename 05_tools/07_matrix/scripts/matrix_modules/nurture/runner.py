@@ -1788,14 +1788,27 @@ async def nurture_xhs_loop(
             await browse.scroll_feed_human(conn.page, screens=random.randint(1, 3))
             await asyncio.sleep(bhv.click_delay())
 
-            # ── Step 2: 点击笔记卡片 ──
+            # ── Step 2: 点击笔记卡片（QR墙回退重试）──
             _xhs_log("  🎯 点击笔记卡片...")
-            note_url = await browse.click_note_card(conn.page)
-            if not note_url:
-                # 区分 QR 码墙 vs 无卡片
-                qr_check = await conn.page.evaluate(is_note_detail_mode_js())
-                if qr_check.get('qr_blocked'):
-                    _xhs_log("  🚫 QR码拦截墙（账号被标记）")
+            note_url = None
+            qr_block_count = 0
+            for card_attempt in range(3):
+                note_url = await browse.click_note_card(conn.page)
+                if note_url == 'qr_blocked':
+                    # QR 码拦截墙 — 回退后换卡片重试（非常用登录，多刷会恢复）
+                    qr_block_count += 1
+                    _xhs_log(f"  🚫 QR码拦截墙（回退重试 {qr_block_count}/3）")
+                    await asyncio.sleep(2)
+                    continue
+                elif note_url:
+                    break  # 成功进入笔记
+                else:
+                    # 无卡片或锚点失败
+                    break
+
+            if not note_url or note_url == 'qr_blocked':
+                if qr_block_count >= 3:
+                    _xhs_log(f"  🚫 连续 {qr_block_count} 次 QR 码拦截墙，跳过本轮")
                 else:
                     _xhs_log("  ⚠️ 未找到可点击的笔记")
                 round_ok = False

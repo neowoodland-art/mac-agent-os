@@ -148,8 +148,10 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
             # 锚点验证
             anchor = await page.evaluate(is_note_detail_mode_js())
             if anchor.get('qr_blocked'):
-                # QR 码拦截墙 — 该账号已被标记，直接放弃不做 fallback
-                return None
+                # QR 码拦截墙 — 非常用登录触发，回退重试其他卡片
+                await page.go_back(timeout=10000)
+                await asyncio.sleep(2)
+                return 'qr_blocked'
             if anchor.get('is_detail'):
                 return page.url
 
@@ -159,7 +161,9 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                 await asyncio.sleep(2)
                 anchor = await page.evaluate(is_note_detail_mode_js())
                 if anchor.get('qr_blocked'):
-                    return None
+                    await page.go_back(timeout=10000)
+                    await asyncio.sleep(2)
+                    return 'qr_blocked'
                 if anchor.get('is_detail'):
                     return page.url
             return None
@@ -170,7 +174,13 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                 try:
                     await page.goto(href, timeout=15000, wait_until="commit")
                     await asyncio.sleep(2)
-                    return page.url
+                    anchor = await page.evaluate(is_note_detail_mode_js())
+                    if anchor.get('qr_blocked'):
+                        await page.go_back(timeout=10000)
+                        await asyncio.sleep(2)
+                        return 'qr_blocked'
+                    if anchor.get('is_detail'):
+                        return page.url
                 except Exception:
                     pass
             return None
