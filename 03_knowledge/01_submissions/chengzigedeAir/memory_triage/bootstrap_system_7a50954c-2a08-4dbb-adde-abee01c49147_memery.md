@@ -1,3 +1,8 @@
+---
+collected: true
+collected_date: 2026-05-25
+---
+
 # L3 Bootstrap 存档 — system_7a50954c-2a08-4dbb-adde-abee01c49147_memery
 > 冷启动时间: 2026-04-25T21:43:52.802931
 

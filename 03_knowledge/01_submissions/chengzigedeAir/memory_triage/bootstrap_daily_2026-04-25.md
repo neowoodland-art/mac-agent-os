@@ -1,3 +1,8 @@
+---
+collected: true
+collected_date: 2026-05-25
+---
+
 # L3 Bootstrap 存档 — daily_2026-04-25
 > 冷启动时间: 2026-04-25T15:02:12.357734
 
