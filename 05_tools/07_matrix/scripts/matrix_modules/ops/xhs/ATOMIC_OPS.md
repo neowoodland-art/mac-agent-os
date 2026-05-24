@@ -216,6 +216,35 @@ is_detail = has_mask && has_interact_bar && has_note_url
 锚点:     section.note-item 存在
 ```
 
+### 3.12 评论输入 `comment()`
+
+```
+前置状态: 笔记详情页，底部栏可见
+操作:
+  1. find_comment_entry() → 取 collect 右侧第一个按钮
+     - 排除 like-wrapper / collect-wrapper（按 class 过滤）
+     - 按 x 坐标排序，取第 3 个元素
+  2. L 形路径移动到评论入口 → 单击打开评论区
+  3. 等待评论区渲染（2s）
+  4. 定位输入框:
+     - querySelectorAll('textarea, [contenteditable], input')
+     - 排除 y < 150 的元素（顶部搜索栏）
+     - 优先选 viewport 下半部分、高度 > 25px 的元素
+  5. L 形路径移动到输入框 → 单击聚焦
+  6. JS: inp.focus() 补充
+  7. pbcopy(comment_text)
+  8. page.keyboard.press("Meta+v")
+  9. page.keyboard.press("Enter")
+ 10. 验证: 输入框.value/textContent 长度 = 0 → ✅ 已发送
+后置状态: 评论已发送
+锚点:     输入框已清空
+⚠️ 注意:
+  - 输入框是 <p contenteditable="true">，不是 <textarea>
+  - Meta+V 后 textContent 可能为空，跳过中间验证
+  - 用 "输入框清空" 作为发送验证标准
+  - 发送失败时可能有验证码弹窗
+```
+
 ---
 
 ## 四、评论状态机
@@ -240,8 +269,17 @@ closed → panel_open → input_focused → text_entered → sent → verified
 
 - **输入方式**：pbcopy（剪贴板）→ `Meta+V`（系统级粘贴），和抖音一致
 - ⚠️ XHS 输入框可能是 `contenteditable div` 或 `input`，pbcopy + Meta+V 对两种都有效
-- **发送方式**：优先点击发送按钮，兜底 Enter 键
-- **验证**：发送后检查输入框清空（比检查评论列表更可靠）
+**发送方式**：优先点击发送按钮，兜底 Enter 键
+**验证**：发送后检查输入框清空（比检查评论列表更可靠）
+**评论入口定位**：collect-wrapper 右侧第一个非 like/collect 元素
+
+### 4.4 XHS 评论输入注意事项
+
+- **评论入口按钮**：位于底部互动栏最右侧（collect-wrapper 的右侧），可能显示评论计数
+- **输入框类型**：XHS 使用 `<p contenteditable="true">` 作为评论输入框（不是 `<textarea>` 或 `<input>`）
+- **输入验证**：`value`/`textContent` 在 Meta+V 后可能为空，跳过输入验证，直接发送后检查清空状态
+- **搜索框干扰**：顶部搜索栏也是 `<input>`，必须用 `y < 150` 排除
+- **发送验证**：输入框清空 = 发送成功（比评论区出现评论更可靠）
 
 ---
 
@@ -273,6 +311,10 @@ closed → panel_open → input_focused → text_entered → sent → verified
 | 鼠标路径穿过输入框 | 直线移动会经过评论区输入框 | L 形路径 |
 | SPA 过渡延迟 | click 后页面需要时间加载 | 等待 3~5s |
 | 图片查看器状态 | 没有互动栏、URL 可能不变 | is_note_detail_mode() 三要素判断 |
+| 评论按钮误判 | like-wrapper 文本是数字，被误判为评论按钮 | 取 collect 右侧第一个非 like/collect 元素 |
+| 输入框选中搜索栏 | 顶部搜索栏 input 优先级高 | 排除 y < 150 的元素 |
+| nohup 模式 EOF | input() 在后台无 TTY | 替换为 asyncio.sleep() |
+| 卡片 href 指向 profile | 部分卡片链接到用户主页 | 用正则 /\/explore\/[a-f0-9]{20,}/ 过滤 |
 
 ---
 
