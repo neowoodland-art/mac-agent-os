@@ -1759,8 +1759,8 @@ async def nurture_xhs_loop(
             if session_val:
                 _xhs_log(f"     session: {session_val[:20]}...")
         else:
-            _xhs_log(f"  ⚠️ 登录检测: 未登录 (cookie_count={cookie_cnt})")
-            _xhs_log(f"     允许未登录浏览，但评论/互动可能受限")
+            _xhs_log(f"  ❌ 登录检测: 未登录 (cookie_count={cookie_cnt})")
+            _xhs_log(f"     账号 cookie 已失效，需要重新登录，终止养号")
             # 截图供参考
             try:
                 ss_path = f"/tmp/xhs_login_check_{identity_name}.png"
@@ -1768,6 +1768,8 @@ async def nurture_xhs_loop(
                 _xhs_log(f"     📸 截图: {ss_path}")
             except:
                 pass
+            await conn.close()
+            return
     except Exception as e:
         _xhs_log(f"  ⚠️ 登录态检测异常: {e}")
 
