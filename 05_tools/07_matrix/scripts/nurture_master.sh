@@ -29,6 +29,21 @@ echo "[$(date '+%H:%M:%S')] 养号主控启动"
 echo "[$(date '+%H:%M:%S')] ========================================"
 
 # ═══════════════════════════════════════════════════════════════
+# Phase 0: 全量 Cookie 备份（防误删）
+# ═══════════════════════════════════════════════════════════════
+echo ""
+echo "[$(date '+%H:%M:%S')] 💾 全量 Cookie 备份..."
+$PYTHON -c "
+import sys; sys.path.insert(0, '$HOME/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts')
+from matrix_modules.utils.cookie_manager import backup_all_identities
+bak = backup_all_identities(platform='master', label='pre_start')
+for k, v in bak.items():
+    if v: print(f'  ✅ {k}: {v.split(chr(47))[-1]}')
+    else: print(f'  ⚠️ {k}: 无 cookie 文件')
+" 2>&1
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
 # Phase 1: 抖音 1 小时
 # ═══════════════════════════════════════════════════════════════
 echo ""

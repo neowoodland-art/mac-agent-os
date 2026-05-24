@@ -168,6 +168,18 @@ def cmd_nurture_run(args):
 
     import time
 
+    # ── Cookie 全量备份（防误删，共享 identity_dir 防护）──
+    if xhs_ids or douyin_ids:
+        print(" 💾 养号前全量 Cookie 备份...")
+        try:
+            from matrix_modules.utils.cookie_manager import backup_all_identities
+            bak = backup_all_identities(platform='nurture', label='pre_run')
+            for k, v in bak.items():
+                if v:
+                    print(f"    ✅ {k}")
+        except Exception as e:
+            print(f"    ⚠️ Cookie 备份: {e}")
+
     # ── 小红书养号 ──
     if xhs_ids:
         print(f"\n{'='*55}")

@@ -1417,6 +1417,17 @@ async def nurture_loop(identity_name: str,
     else:
         identity_dir = str(LOCAL_ROOT / "identities" / identity_name)
 
+    # ── Cookie 自动备份（防护：共享 identity_dir 防误删）──
+    try:
+        from matrix_modules.utils.cookie_manager import CookieGuard
+        identity_name_dir = os.path.basename(identity_dir)
+        guard = CookieGuard(identity_name_dir)
+        bak = guard.backup(platform="douyin", label="auto")
+        if bak:
+            _log(f"    💾 Cookie 已自动备份")
+    except Exception:
+        pass
+
     config = load_identity_config(identity_name, identity_dir_override=identity_dir)
 
     # 确定引擎：有 identity_dir 就用 Camoufox，否则按 browser_type 判断
@@ -1645,6 +1656,16 @@ async def nurture_xhs_loop(
     identity_dir = acct.get("identity_dir", identity_name)
     if not identity_dir.startswith("/"):
         identity_dir = str(LOCAL_ROOT / identity_dir)
+
+    # ── Cookie 自动备份（防护：备份当前状态以防误删）──
+    try:
+        from matrix_modules.utils.cookie_manager import CookieGuard
+        guard = CookieGuard(os.path.basename(identity_dir))
+        bak = guard.backup(platform="xiaohongshu", label="auto")
+        if bak:
+            _xhs_log(f"  💾 Cookie 已自动备份")
+    except Exception:
+        pass
 
     # 窗口配置
     win_pos = acct.get("window_position", [0, 0])
