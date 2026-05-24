@@ -1755,7 +1755,7 @@ async def nurture_xhs_loop(
         session_val = get_session_id(cookies, "xiaohongshu")
         cookie_cnt = count_platform_cookies(cookies, "xiaohongshu")
         if logged_in:
-            _xhs_log(f"  ✅ 登录检测: 已登录 (cookies={cookie_cnt})")
+            _xhs_log(f"  ✅ Cookie检测: 已登录 (cookies={cookie_cnt})")
             if session_val:
                 _xhs_log(f"     session: {session_val[:20]}...")
         else:
@@ -1770,8 +1770,44 @@ async def nurture_xhs_loop(
                 pass
             await conn.close()
             return
+
     except Exception as e:
         _xhs_log(f"  ⚠️ 登录态检测异常: {e}")
+
+    # ── 页面级登录验证（cookie 可能存在但服务端已失效）──
+    _xhs_log(f"  🔐 页面级登录验证...")
+    try:
+        # 检查页面上是否有登录弹窗或"登录"相关元素
+        page_has_login_ui = await conn.page.evaluate("""
+            () => {
+                const bodyText = document.body?.innerText || '';
+                // 登录弹窗特征文字
+                if (bodyText.includes('请登录') || bodyText.includes('立即登录') ||
+                    bodyText.includes('扫码登录') || bodyText.includes('手机号登录')) {
+                    // 确认是弹窗/对话框，而非导航栏文字
+                    const modals = document.querySelectorAll('[class*=login], [class*=modal], [role=dialog]');
+                    for (const m of modals) {
+                        if (m.offsetHeight > 100) return true;
+                    }
+                }
+                return false;
+            }
+        """)
+        if page_has_login_ui:
+            _xhs_log(f"  ❌ 页面级检测: 登录弹窗存在，cookie 已被服务端失效")
+            _xhs_log(f"     账号需要重新登录，终止养号")
+            try:
+                ss_path = f"/tmp/xhs_login_page_{identity_name}.png"
+                await conn.page.screenshot(path=ss_path)
+                _xhs_log(f"     📸 截图: {ss_path}")
+            except:
+                pass
+            await conn.close()
+            return
+        else:
+            _xhs_log(f"  ✅ 页面级检测: 无登录弹窗，登录态有效")
+    except Exception as e:
+        _xhs_log(f"  ⚠️ 页面级登录验证异常: {e}")
 
     # 记录开始时间（P0 #4）
     _t_start = time.time()
