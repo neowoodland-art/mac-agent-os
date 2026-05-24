@@ -1673,7 +1673,7 @@ async def nurture_xhs_loop(
     # 导入小红书操作模块
     from matrix_modules.ops.xhs import browse, interact
     from matrix_modules.comment.xhs.corpus import random_comment, reset_session
-    from matrix_modules.ops.xhs.selectors import ANCHORS
+    from matrix_modules.ops.xhs.selectors import ANCHORS, is_note_detail_mode_js
 
     # 重置评论去重（新账号新会话）
     reset_session()
@@ -1793,7 +1793,7 @@ async def nurture_xhs_loop(
             note_url = await browse.click_note_card(conn.page)
             if not note_url:
                 # 区分 QR 码墙 vs 无卡片
-                qr_check = await conn.page.evaluate(browse.selectors.is_note_detail_mode_js())
+                qr_check = await conn.page.evaluate(is_note_detail_mode_js())
                 if qr_check.get('qr_blocked'):
                     _xhs_log("  🚫 QR码拦截墙（账号被标记）")
                 else:
