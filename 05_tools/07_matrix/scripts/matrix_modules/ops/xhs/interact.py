@@ -1,8 +1,14 @@
 """
 小红书 — 交互类操作（点赞、收藏、关注、评论）
-基于 2026-05-20 DOM 分析 + 抖音踩坑经验
+基于 2026-05-20/2026-05-27 DOM 分析 + Playwright mouse API + L 形鼠标路径
 
-防护设计:
+v2 更新 (2026-05-27):
+- 点赞/收藏改用 Playwright page.mouse API（非 JS dispatchEvent / element.click()）
+- 鼠标移动采用 L 形路径（先上移→再水平→再下移），避开评论区输入框
+- 使用 get_bottom_bar_buttons_js() 获取精确按钮位置
+- 操作前后锚点验证
+
+核心设计:
 - 每个操作独立 try/except，失败不崩流程
 - 操作后验证状态变化（防假点击）
 - 评论状态机: closed → panel_open → input_focused → text_entered → sent
@@ -16,63 +22,109 @@ from typing import Optional
 from .selectors import (
     LIKE_BUTTON, COLLECT_BUTTON, FOLLOW_BUTTON,
     COMMENT_ENTRY, COMMENT_INPUT, COMMENT_SEND,
-    ANCHORS
+    ANCHORS, get_bottom_bar_buttons_js
 )
 
 
 # ════════════════════════════════════════════════════════════
-# 点赞
+# 辅助: L 形鼠标路径
+# ════════════════════════════════════════════════════════════
+
+async def mouse_move_l_shape(page, target_x: int, target_y: int,
+                              safe_y: int = 100, steps: int = 8):
+    """L 形鼠标路径 — 避开评论区输入框
+
+    三段式: 当前位置 → (cx, safe_y) → (target_x, safe_y) → (target_x, target_y)
+
+    Args:
+        safe_y: 安全 Y 坐标（输入框上方区域）
+        steps: 每段的 steps 数（实际三段总和）
+    """
+    cx, cy = await page.evaluate("""() => {
+        // Playwright 不暴露鼠标位置，从视口中心估算
+        return {x: Math.round(window.innerWidth / 2), y: Math.round(window.innerHeight / 2)};
+    }""")
+
+    # Segment 1: 垂直上移到安全区
+    await page.mouse.move(cx, safe_y, steps=max(3, steps // 3))
+    await asyncio.sleep(random.uniform(0.08, 0.15))
+
+    # Segment 2: 水平移动到目标 X
+    await page.mouse.move(target_x, safe_y, steps=max(3, steps // 3))
+    await asyncio.sleep(random.uniform(0.08, 0.15))
+
+    # Segment 3: 垂直下移到目标
+    await page.mouse.move(target_x, target_y, steps=max(3, steps // 3))
+    await asyncio.sleep(random.uniform(0.15, 0.3))
+
+
+# ════════════════════════════════════════════════════════════
+# 点赞 (Playwright page.mouse API)
 # ════════════════════════════════════════════════════════════
 
 async def like(page) -> bool:
     """
-    点赞当前笔记（含状态验证）
+    点赞当前笔记 — Playwright page.mouse API（L 形路径）
 
     Returns:
         是否成功
     """
     try:
-        # 记录点击前的点赞状态
-        was_liked = await page.evaluate("""
-            () => {
-                const btn = document.querySelector('.like-btn, [class*=like-btn], .interaction-like');
-                if (!btn) return 'not_found';
-                const cls = btn.className || btn.classList?.toString() || '';
-                return cls.includes('active') || cls.includes('liked') || cls.includes('sel') ? 'liked' : 'not_liked';
-            }
-        """)
-        if was_liked == 'liked':
-            return True  # 已经是点赞状态，无需重复操作
+        # 1. 获取底部栏按钮位置
+        btns = await page.evaluate(get_bottom_bar_buttons_js())
+        like_btn = btns.get('like') if btns else None
 
-        # 方式1: Playwright locator 点击
-        btn = await page.query_selector(LIKE_BUTTON)
-        if btn:
-            await btn.click()
-            await asyncio.sleep(0.5)
-            # 验证状态变化
-            now_liked = await page.evaluate("""
-                () => {
-                    const btn = document.querySelector('.like-btn, [class*=like-btn], .interaction-like');
-                    if (!btn) return false;
-                    const cls = btn.className || btn.classList?.toString() || '';
-                    return cls.includes('active') || cls.includes('liked') || cls.includes('sel');
+        if not like_btn:
+            return False
+
+        # 2. 如果已点赞，跳过
+        if like_btn.get('isActive'):
+            return True
+
+        # 3. 确保按钮可见
+        if not like_btn.get('visible'):
+            await page.evaluate("""() => {
+                const btns = document.querySelectorAll('span.like-wrapper, [class*="like-wrapper"]');
+                for (const btn of btns) {
+                    const r = btn.getBoundingClientRect();
+                    if (r.left > window.innerWidth * 0.3) {
+                        btn.scrollIntoView({behavior: 'instant', block: 'center'});
+                        break;
+                    }
                 }
-            """)
-            return bool(now_liked)
+            }""")
+            await asyncio.sleep(1)
+            # 重新获取位置
+            btns = await page.evaluate(get_bottom_bar_buttons_js())
+            like_btn = btns.get('like') if btns else None
+            if not like_btn:
+                return False
 
-        # 方式2: JS 直接点击
-        result = await page.evaluate("""
-            () => {
-                const btn = document.querySelector('.like-btn, [class*=like-btn], .interaction-like');
-                if (btn) { btn.click(); return true; }
-                // 兜底: 找包含点赞图标的按钮
-                const allBtns = [...document.querySelectorAll('button, div[role=button]')];
-                const likeBtn = allBtns.find(b => b.textContent.includes('赞') || b.innerHTML.includes('like'));
-                if (likeBtn) { likeBtn.click(); return true; }
-                return false;
-            }
-        """)
-        return bool(result)
+        # 4. L 形路径移动 + Playwright mouse.click
+        await mouse_move_l_shape(page, like_btn['x'], like_btn['y'], safe_y=100)
+        await asyncio.sleep(random.uniform(0.2, 0.4))
+
+        await page.mouse.click(like_btn['x'], like_btn['y'])
+        await asyncio.sleep(random.uniform(1.5, 2.5))
+
+        # 5. 验证点赞状态
+        btns_after = await page.evaluate(get_bottom_bar_buttons_js())
+        if btns_after and btns_after.get('like', {}).get('isActive'):
+            return True
+
+        # 重试一次
+        like_btn2 = btns_after.get('like') if btns_after else like_btn
+        if like_btn2:
+            await mouse_move_l_shape(page, like_btn2['x'], like_btn2['y'], safe_y=100)
+            await asyncio.sleep(0.2)
+            await page.mouse.click(like_btn2['x'], like_btn2['y'])
+            await asyncio.sleep(2)
+
+            btns_after2 = await page.evaluate(get_bottom_bar_buttons_js())
+            if btns_after2 and btns_after2.get('like', {}).get('isActive'):
+                return True
+
+        return False
     except Exception:
         return False
 
@@ -82,47 +134,67 @@ async def like(page) -> bool:
 # ════════════════════════════════════════════════════════════
 
 async def collect(page) -> bool:
-    """收藏当前笔记（含状态验证）"""
+    """
+    收藏当前笔记 — Playwright page.mouse API（L 形路径）
+
+    Returns:
+        是否成功
+    """
     try:
-        # 检查是否已收藏
-        was_collected = await page.evaluate("""
-            () => {
-                const btn = document.querySelector('.collect-btn, [class*=collect-btn], .interaction-collect');
-                if (!btn) return 'not_found';
-                const cls = btn.className || btn.classList?.toString() || '';
-                return cls.includes('active') || cls.includes('sel') ? 'collected' : 'not_collected';
-            }
-        """)
-        if was_collected == 'collected':
+        # 1. 获取底部栏按钮位置
+        btns = await page.evaluate(get_bottom_bar_buttons_js())
+        collect_btn = btns.get('collect') if btns else None
+
+        if not collect_btn:
+            return False
+
+        # 2. 如果已收藏，跳过
+        if collect_btn.get('isActive'):
             return True
 
-        btn = await page.query_selector(COLLECT_BUTTON)
-        if btn:
-            await btn.click()
-            await asyncio.sleep(0.5)
-            # 验证状态变化
-            now_collected = await page.evaluate("""
-                () => {
-                    const btn = document.querySelector('.collect-btn, [class*=collect-btn], .interaction-collect');
-                    if (!btn) return false;
-                    const cls = btn.className || btn.classList?.toString() || '';
-                    return cls.includes('active') || cls.includes('sel');
+        # 3. 确保按钮可见
+        if not collect_btn.get('visible'):
+            await page.evaluate("""() => {
+                const btns = document.querySelectorAll('span.collect-wrapper, [class*="collect-wrapper"]');
+                for (const btn of btns) {
+                    const r = btn.getBoundingClientRect();
+                    if (r.left > window.innerWidth * 0.3) {
+                        btn.scrollIntoView({behavior: 'instant', block: 'center'});
+                        break;
+                    }
                 }
-            """)
-            return bool(now_collected)
+            }""")
+            await asyncio.sleep(1)
+            btns = await page.evaluate(get_bottom_bar_buttons_js())
+            collect_btn = btns.get('collect') if btns else None
+            if not collect_btn:
+                return False
 
-        # JS 兜底
-        result = await page.evaluate("""
-            () => {
-                const btn = document.querySelector('.collect-btn, [class*=collect-btn], .interaction-collect');
-                if (btn) { btn.click(); return true; }
-                const allBtns = [...document.querySelectorAll('button, div[role=button]')];
-                const collectBtn = allBtns.find(b => b.textContent.includes('收藏') || b.innerHTML.includes('collect'));
-                if (collectBtn) { collectBtn.click(); return true; }
-                return false;
-            }
-        """)
-        return bool(result)
+        # 4. L 形路径移动 + Playwright mouse.click
+        await mouse_move_l_shape(page, collect_btn['x'], collect_btn['y'], safe_y=100)
+        await asyncio.sleep(random.uniform(0.2, 0.4))
+
+        await page.mouse.click(collect_btn['x'], collect_btn['y'])
+        await asyncio.sleep(random.uniform(1.5, 2.5))
+
+        # 5. 验证收藏状态
+        btns_after = await page.evaluate(get_bottom_bar_buttons_js())
+        if btns_after and btns_after.get('collect', {}).get('isActive'):
+            return True
+
+        # 重试一次
+        collect_btn2 = btns_after.get('collect') if btns_after else collect_btn
+        if collect_btn2:
+            await mouse_move_l_shape(page, collect_btn2['x'], collect_btn2['y'], safe_y=100)
+            await asyncio.sleep(0.2)
+            await page.mouse.click(collect_btn2['x'], collect_btn2['y'])
+            await asyncio.sleep(2)
+
+            btns_after2 = await page.evaluate(get_bottom_bar_buttons_js())
+            if btns_after2 and btns_after2.get('collect', {}).get('isActive'):
+                return True
+
+        return False
     except Exception:
         return False
 

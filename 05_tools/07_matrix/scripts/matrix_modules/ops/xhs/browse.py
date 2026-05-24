@@ -1,6 +1,12 @@
 """
 小红书 — 浏览类操作
-基于 2026-05-20 DOM 分析结果
+基于 2026-05-20 DOM 分析 + 2026-05-27 Playwright mouse API 验证
+
+v2 更新 (2026-05-27):
+- click_note_card 默认使用 Playwright page.mouse API（真人鼠标模拟）
+- 单次单击（避免双击触发图片查看器）
+- 点击后 is_note_detail_mode 锚点验证
+- 使用 section.note-item 定位（避免 a 标签 zero-bounding-rect bug）
 
 核心差异（vs 抖音）:
 - 双列瀑布流 → 需要定位具体卡片
@@ -58,26 +64,45 @@ async def get_note_cards(page) -> List[dict]:
         return []
 
 
-async def click_note_card(page, index: int = None) -> Optional[str]:
+async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -> Optional[str]:
     """
     点击笔记卡片进入详情页
 
+    v2 变更 (2026-05-27):
+    - 默认使用 Playwright page.mouse API（真人鼠标模拟）
+    - 单次单击（非双击，XHS 双击会触发图片查看器）
+    - 点击后锚点验证（is_note_detail_mode）
+    - 使用 section.note-item 定位（避免 a 标签 zero-bounding-rect bug）
+
     Args:
         index: 卡片索引（0-based），None 时随机选择
+        use_mouse_api: True 用 page.mouse API，False 用 element.click()
 
     Returns:
         笔记 URL，失败返回 None
     """
-    cards = await get_note_cards(page)
+    from .selectors import is_note_detail_mode_js
+
+    # 优先用 section.note-item 获取 bounding rect
+    cards = await page.evaluate("""() => {
+        const sections = [...document.querySelectorAll('section.note-item')];
+        return sections.map((s, i) => {
+            const r = s.getBoundingClientRect();
+            return {
+                index: i,
+                href: s.querySelector('a')?.href || '',
+                rect: {x: r.x, y: r.y, w: r.width, h: r.height},
+            };
+        }).filter(c => c.rect.w >= 10 && c.rect.h >= 10);
+    }""")
+
     if not cards:
         return None
 
-    # 随机选择卡片（避免总是点第一个）
+    # 随机选择
     if index is None:
-        # 优先选前 4 个，避免滚动到底部
         max_idx = min(3, len(cards) - 1)
         index = random.randint(0, max_idx)
-
     if index >= len(cards):
         index = random.randint(0, len(cards) - 1)
 
@@ -86,24 +111,82 @@ async def click_note_card(page, index: int = None) -> Optional[str]:
     if not href:
         return None
 
-    # 使用 Playwright 点击（模拟真人）
-    try:
-        # 先尝试通过索引定位元素
-        cards_els = await page.query_selector_all(NOTE_CARD)
-        if index < len(cards_els):
-            await cards_els[index].click()
+    if use_mouse_api:
+        # ── Playwright page.mouse API（单次单击） ──
+        try:
+            # scrollIntoView
+            await page.evaluate(f"""
+                () => {{
+                    const s = document.querySelectorAll('section.note-item')[{index}];
+                    if (s) s.scrollIntoView({{block: 'center'}});
+                }}
+            """)
+            await asyncio.sleep(0.5)
+
+            # 重新获取位置
+            pos = await page.evaluate(f"""
+                () => {{
+                    const s = document.querySelectorAll('section.note-item')[{index}];
+                    if (!s) return null;
+                    const r = s.getBoundingClientRect();
+                    return {{x: r.x, y: r.y, w: r.width, h: r.height}};
+                }}
+            """)
+            if not pos or pos['w'] < 10:
+                return None
+
+            cx = pos['x'] + pos['w'] / 2
+            cy = pos['y'] + pos['h'] / 2
+
+            await page.mouse.move(cx, cy, steps=random.randint(5, 12))
+            await asyncio.sleep(random.uniform(0.3, 0.8))
+
+            # ⚡ 单次单击（XHS 双击触发图片查看器）
+            await page.mouse.click(cx, cy)
+            await asyncio.sleep(3)
+
+            # 锚点验证
+            anchor = await page.evaluate(is_note_detail_mode_js())
+            if anchor.get('is_detail'):
+                return page.url
+
+            # 锚点失败 — fallback 直接导航
+            if href:
+                await page.goto(href, timeout=15000, wait_until="commit")
+                await asyncio.sleep(2)
+                anchor = await page.evaluate(is_note_detail_mode_js())
+                if anchor.get('is_detail'):
+                    return page.url
+            return None
+
+        except Exception:
+            # fallback
+            if href:
+                try:
+                    await page.goto(href, timeout=15000, wait_until="commit")
+                    await asyncio.sleep(2)
+                    return page.url
+                except Exception:
+                    pass
+            return None
+    else:
+        # ── 传统 element.click() 方式 ──
+        try:
+            cards_els = await page.query_selector_all(NOTE_CARD)
+            if index < len(cards_els):
+                await cards_els[index].click()
+                await asyncio.sleep(2)
+                return page.url
+        except Exception:
+            pass
+
+        # fallback: 直接导航
+        try:
+            await page.goto(href, timeout=15000, wait_until="commit")
             await asyncio.sleep(2)
             return page.url
-    except Exception:
-        pass
-
-    # fallback: 直接导航到链接
-    try:
-        await page.goto(href, timeout=15000, wait_until="commit")
-        await asyncio.sleep(2)
-        return page.url
-    except Exception:
-        return None
+        except Exception:
+            return None
 
 
 async def scroll_feed(page, distance: int = None):

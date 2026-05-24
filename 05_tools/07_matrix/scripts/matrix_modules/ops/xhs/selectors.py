@@ -1,11 +1,16 @@
 """
 小红书 DOM 选择器集中管理
-基于 2026-05-20 Playwright + Camoufox 实际 DOM 分析结果
+基于 2026-05-20/2026-05-27 Playwright + Camoufox 实际 DOM 分析和测试
 
 分析环境:
 - URL: https://www.xiaohongshu.com/explore
 - 分辨率: 702x783 (Camoufox 窗口)
 - 状态: 未登录（登录弹窗已隐藏）
+
+v2 更新 (2026-05-27):
+- 新增 note-detail-mask / like-wrapper / collect-wrapper 实际 DOM 选择器
+- 新增锚点检测函数 is_note_detail_mode_js()
+- 新增 L 形鼠标路径辅助函数
 """
 
 # ════════════════════════════════════════════════════════════
@@ -133,6 +138,23 @@ LOGIN_MODAL_CLOSE = ".close-btn, [class*=close], button:has-text('关闭'), [cla
 OVERLAY = "[class*=mask], [class*=overlay], [class*=modal], div[style*='position: fixed']"
 
 # ════════════════════════════════════════════════════════════
+# v2 更新: 基于实际 DOM 分析的精确选择器 (2026-05-27)
+# ════════════════════════════════════════════════════════════
+
+# 笔记详情遮罩层 (SPA 详情页容器)
+NOTE_DETAIL_MASK = ".note-detail-mask, [class*=\"note-detail\"]"
+
+# 底部互动栏点赞按钮 (span.like-wrapper, 实际 DOM 分析确认)
+# 注意: 页面中有大量 like-wrapper (评论区每个回复也有), 需用 x > viewW*0.3 区分底部栏
+LIKE_WRAPPER = "span.like-wrapper, [class*=\"like-wrapper\"]"
+
+# 底部互动栏收藏按钮 (span.collect-wrapper)
+COLLECT_WRAPPER = "span.collect-wrapper, [class*=\"collect-wrapper\"]"
+
+# 底部互动栏 (interactions 容器)
+INTERACTIONS_BAR = ".interactions, [class*=interactions]"
+
+# ════════════════════════════════════════════════════════════
 # 锚点验证选择器 (用于操作前后状态校验)
 # ════════════════════════════════════════════════════════════
 
@@ -142,6 +164,9 @@ ANCHORS = {
 
     # 笔记详情页锚点: 有笔记内容或标题
     "note_detail": ".note-detail, [class*=note-detail], .title, h1",
+
+    # v2: 笔记详情遮罩锚点 (SPA 详情页容器)
+    "note_detail_mask": ".note-detail-mask, [class*=note-detail]",
 
     # 视频播放页锚点: 有 video 元素
     "video_page": "video",
@@ -186,6 +211,124 @@ def get_note_cards_js() -> str:
                 h: Math.round(card.getBoundingClientRect().height)
             } : null
         }));
+    }
+    """
+
+
+def get_bottom_bar_buttons_js() -> str:
+    """JS 代码: 获取底部互动栏按钮（排除评论区里的 like-wrapper）"""
+    return """
+    () => {
+        const viewW = window.innerWidth;
+        const likeBtns = [...document.querySelectorAll('span.like-wrapper, [class*="like-wrapper"]')];
+        const collectBtns = [...document.querySelectorAll('span.collect-wrapper, [class*="collect-wrapper"]')];
+
+        // 底部栏按钮的特征: x > 视口宽度 30%
+        let likeBtn = null;
+        let collectBtn = null;
+
+        for (const el of likeBtns) {
+            const r = el.getBoundingClientRect();
+            if (r.left > viewW * 0.3) {
+                likeBtn = {
+                    x: Math.round(r.x + r.width / 2),
+                    y: Math.round(r.y + r.height / 2),
+                    w: Math.round(r.width),
+                    h: Math.round(r.height),
+                    visible: r.bottom <= window.innerHeight && r.top >= 0,
+                    cls: (el.className || '').substring(0, 50),
+                    text: (el.textContent || '').trim().substring(0, 20),
+                    isActive: (el.className || '').includes('active') || (el.className || '').includes('liked'),
+                };
+                break;
+            }
+        }
+
+        for (const el of collectBtns) {
+            const r = el.getBoundingClientRect();
+            if (r.left > viewW * 0.3) {
+                collectBtn = {
+                    x: Math.round(r.x + r.width / 2),
+                    y: Math.round(r.y + r.height / 2),
+                    w: Math.round(r.width),
+                    h: Math.round(r.height),
+                    visible: r.bottom <= window.innerHeight && r.top >= 0,
+                    cls: (el.className || '').substring(0, 50),
+                    text: (el.textContent || '').trim().substring(0, 20),
+                    isActive: (el.className || '').includes('active'),
+                };
+                break;
+            }
+        }
+        return { like: likeBtn, collect: collectBtn };
+    }
+    """
+
+
+def is_note_detail_mode_js() -> str:
+    """JS 代码: 检测当前是否为笔记详情模式（而非图片查看器）
+
+    返回:
+        { is_detail: bool, reason: str, has_mask: bool,
+          has_interact_bar: bool, has_lightbox: bool, ... }
+    """
+    return """
+    () => {
+        const viewW = window.innerWidth;
+        const viewH = window.innerHeight;
+
+        // 1. 检测 note-detail-mask
+        const masks = document.querySelectorAll('.note-detail-mask, [class*="note-detail"]');
+        const hasMask = masks.length > 0;
+
+        // 2. 检测底部互动栏（x > 视口宽度30% 的 like-wrapper）
+        const likeBtns = document.querySelectorAll('span.like-wrapper, [class*="like-wrapper"]');
+        const collectBtns = document.querySelectorAll('span.collect-wrapper, [class*="collect-wrapper"]');
+        let hasInteractBar = false;
+        for (const el of likeBtns) {
+            const r = el.getBoundingClientRect();
+            if (r.left > viewW * 0.3) { hasInteractBar = true; break; }
+        }
+        if (!hasInteractBar) {
+            for (const el of collectBtns) {
+                const r = el.getBoundingClientRect();
+                if (r.left > viewW * 0.3) { hasInteractBar = true; break; }
+            }
+        }
+
+        // 3. 检测图片查看器特征
+        const lightboxEls = document.querySelectorAll(
+            '[class*="lightbox"], [class*="image-viewer"], [class*="fullscreen-image"]'
+        );
+        let lightboxFullscreen = false;
+        for (const el of lightboxEls) {
+            const r = el.getBoundingClientRect();
+            if (r.width > viewW * 0.8 && r.height > viewH * 0.8) {
+                lightboxFullscreen = true;
+                break;
+            }
+        }
+
+        // 4. URL 验证
+        const urlPath = window.location.pathname || '';
+        const hasNoteUrl = /^\\/explore\\/[a-f0-9]{20,}/.test(urlPath);
+
+        // 综合判断
+        const isDetail = hasMask && hasInteractBar && hasNoteUrl;
+        let reason = '';
+        if (isDetail) reason = '笔记详情模式';
+        else if (hasMask && !hasInteractBar) reason = '疑似图片查看器';
+        else if (!hasMask) reason = '不在详情页';
+        else reason = '未知状态';
+
+        return {
+            is_detail: isDetail,
+            reason: reason,
+            has_mask: hasMask,
+            has_interact_bar: hasInteractBar,
+            lightbox_fullscreen: lightboxFullscreen,
+            has_note_url: hasNoteUrl,
+        };
     }
     """
 
