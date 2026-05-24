@@ -270,12 +270,19 @@ def is_note_detail_mode_js() -> str:
 
     返回:
         { is_detail: bool, reason: str, has_mask: bool,
-          has_interact_bar: bool, has_lightbox: bool, ... }
+          has_interact_bar: bool, has_lightbox: bool, qr_blocked: bool, ... }
     """
     return """
     () => {
         const viewW = window.innerWidth;
         const viewH = window.innerHeight;
+
+        // 0. 检测 QR 码拦截墙（"请打开小红书App扫码查看"）
+        const bodyText = document.body?.innerText || '';
+        const qrBlocked = bodyText.includes('请打开小红书App') || bodyText.includes('当前笔记暂时无法浏览');
+        if (qrBlocked) {
+            return { is_detail: false, reason: 'QR码拦截墙', qr_blocked: true };
+        }
 
         // 1. 检测 note-detail-mask
         const masks = document.querySelectorAll('.note-detail-mask, [class*="note-detail"]');
@@ -328,6 +335,7 @@ def is_note_detail_mode_js() -> str:
             has_interact_bar: hasInteractBar,
             lightbox_fullscreen: lightboxFullscreen,
             has_note_url: hasNoteUrl,
+            qr_blocked: false,
         };
     }
     """

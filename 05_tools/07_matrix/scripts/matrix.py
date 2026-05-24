@@ -171,22 +171,24 @@ def cmd_nurture_run(args):
     # ── 小红书养号 ──
     if xhs_ids:
         print(f"\n{'='*55}")
-        print(f" 📕 小红书养号 ({len(xhs_ids)} 个账号)")
+        print(f" 📕 小红书养号 ({len(xhs_ids)} 个账号) — 并行执行")
         print(f"{'='*55}")
         from matrix_modules.nurture.runner import nurture_xhs_loop
-        for xhs_id in xhs_ids:
-            asyncio.run(nurture_xhs_loop(
-                identity_name=xhs_id,
-                rounds=args.rounds or 10,
-                headless=args.headless or False,
-                behavior_config=behavior_config,
-                daemon=getattr(args, 'daemon', False),
-                use_ai_comments=getattr(args, 'ai_comments', False),
-            ))
-            # 账号间间隔（资源释放）
-            if len(xhs_ids) > 1:
-                print(f"  ⏳ 账号间隔 10s...")
-                time.sleep(10)
+
+        async def _run_all_xhs():
+            tasks = []
+            for xhs_id in xhs_ids:
+                tasks.append(nurture_xhs_loop(
+                    identity_name=xhs_id,
+                    rounds=args.rounds or 10,
+                    headless=args.headless or False,
+                    behavior_config=behavior_config,
+                    daemon=getattr(args, 'daemon', False),
+                    use_ai_comments=getattr(args, 'ai_comments', False),
+                ))
+            await asyncio.gather(*tasks)
+
+        asyncio.run(_run_all_xhs())
 
     # ── 抖音养号 ──
     if douyin_ids:

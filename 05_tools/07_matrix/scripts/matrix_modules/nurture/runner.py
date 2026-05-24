@@ -1792,7 +1792,12 @@ async def nurture_xhs_loop(
             _xhs_log("  🎯 点击笔记卡片...")
             note_url = await browse.click_note_card(conn.page)
             if not note_url:
-                _xhs_log("  ⚠️ 未找到可点击的笔记")
+                # 区分 QR 码墙 vs 无卡片
+                qr_check = await conn.page.evaluate(browse.selectors.is_note_detail_mode_js())
+                if qr_check.get('qr_blocked'):
+                    _xhs_log("  🚫 QR码拦截墙（账号被标记）")
+                else:
+                    _xhs_log("  ⚠️ 未找到可点击的笔记")
                 round_ok = False
             else:
                 _xhs_log(f"  ✅ 进入笔记: {note_url[:60]}...")

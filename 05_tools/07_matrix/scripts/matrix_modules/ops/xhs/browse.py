@@ -147,6 +147,9 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
 
             # 锚点验证
             anchor = await page.evaluate(is_note_detail_mode_js())
+            if anchor.get('qr_blocked'):
+                # QR 码拦截墙 — 该账号已被标记，直接放弃不做 fallback
+                return None
             if anchor.get('is_detail'):
                 return page.url
 
@@ -155,6 +158,8 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                 await page.goto(href, timeout=15000, wait_until="commit")
                 await asyncio.sleep(2)
                 anchor = await page.evaluate(is_note_detail_mode_js())
+                if anchor.get('qr_blocked'):
+                    return None
                 if anchor.get('is_detail'):
                     return page.url
             return None
