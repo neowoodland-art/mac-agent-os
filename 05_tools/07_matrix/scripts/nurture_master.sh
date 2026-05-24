@@ -2,12 +2,27 @@
 # ===============================================================
 # 养号主控脚本 — 抖音1h → 小红书1h → 循环
 # 并行运行三个账号，每个阶段固定时长
+# macOS 兼容：用 macos_timeout 替代 GNU timeout
 # ===============================================================
 
 PYTHON="/Users/5kecheng/.workbuddy/binaries/python/envs/agent-os/bin/python3"
 MATRIX="$HOME/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts/matrix.py"
 LOG_DIR="/tmp/nurture_master"
 mkdir -p "$LOG_DIR"
+
+# macOS 兼容的 timeout 实现（GNU timeout 在 macOS 不可用）
+macos_timeout() {
+    local secs=$1; shift
+    "$@" &
+    local pid=$!
+    (sleep "$secs" && kill -TERM "$pid" 2>/dev/null) &
+    local killer=$!
+    wait "$pid" 2>/dev/null
+    local status=$?
+    kill "$killer" 2>/dev/null
+    wait "$killer" 2>/dev/null
+    return $status
+}
 
 echo "[$(date '+%H:%M:%S')] ========================================"
 echo "[$(date '+%H:%M:%S')] 养号主控启动"
@@ -23,10 +38,16 @@ echo "[$(date '+%H:%M:%S')] ═════════════════�
 echo ""
 
 # 抖音三个账号并行（-r 10 表示多轮循环，由 nurture_multi 管理时长）
-timeout 4000 $PYTHON $MATRIX nurture run \
-    -a douyin_01 -a douyin_02 -a douyin_camo01 -r 10 2>&1 | tee "$LOG_DIR/douyin_phase.log"
-
+$PYTHON $MATRIX nurture run \
+    -a douyin_01 -a douyin_02 -a douyin_camo01 -r 10 \
+    > "$LOG_DIR/douyin_phase.log" 2>&1 &
+DY_PID=$!
+# 4000s 超时保护
+( sleep 4000 && kill $DY_PID 2>/dev/null ) &
+DY_KILLER=$!
+wait $DY_PID 2>/dev/null
 DY_STATUS=$?
+kill $DY_KILLER 2>/dev/null; wait $DY_KILLER 2>/dev/null
 echo "[$(date '+%H:%M:%S')] 抖音阶段退出码: $DY_STATUS"
 
 # ═══════════════════════════════════════════════════════════════
@@ -46,10 +67,15 @@ echo "[$(date '+%H:%M:%S')] ═════════════════�
 echo ""
 
 # 小红书三个账号并行
-timeout 4000 $PYTHON $MATRIX nurture run \
-    -a xhs_01 -a xhs_02 -a xhs_03 -r 10 2>&1 | tee "$LOG_DIR/xhs_phase.log"
-
+$PYTHON $MATRIX nurture run \
+    -a xhs_01 -a xhs_02 -a xhs_03 -r 10 \
+    > "$LOG_DIR/xhs_phase.log" 2>&1 &
+XHS_PID=$!
+( sleep 4000 && kill $XHS_PID 2>/dev/null ) &
+XHS_KILLER=$!
+wait $XHS_PID 2>/dev/null
 XHS_STATUS=$?
+kill $XHS_KILLER 2>/dev/null; wait $XHS_KILLER 2>/dev/null
 echo "[$(date '+%H:%M:%S')] 小红书阶段退出码: $XHS_STATUS"
 
 # ═══════════════════════════════════════════════════════════════
