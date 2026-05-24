@@ -1717,10 +1717,7 @@ async def nurture_xhs_loop(
     for attempt in range(1, 4):
         try:
             await browse.goto_home(conn.page)
-            await asyncio.sleep(3)
-            # 关闭登录弹窗
-            await browse.dismiss_login_modal(conn.page)
-            await asyncio.sleep(1)
+            await asyncio.sleep(5)  # 充分等待页面渲染 + 登录弹窗弹出
             # 重初始化反检测
             try:
                 await conn.init_anti_detection()
@@ -1740,14 +1737,59 @@ async def nurture_xhs_loop(
     if not is_home:
         _xhs_log(f"⚠️ 首页锚点验证失败，尝试刷新...")
         await conn.page.reload()
-        await asyncio.sleep(3)
+        await asyncio.sleep(5)  # 充分等待刷新后弹窗
         try:
             await conn.init_anti_detection()
         except Exception:
             pass
 
-    # ── 登录态检查（P0 #14）──
+    # ── 登录态检查（P0 #14）—— 先页面级检测，再 cookie 检测 ──
+    # 关键：页面级检测必须在 dismiss_login_modal 之前执行
     _xhs_log(f"  🔐 检测登录状态...")
+
+    # Step 1: 页面级检测（登录弹窗是否有"登录之后更精彩"/"扫码登录"等锚点）
+    _xhs_log(f"  🔐 页面级登录验证...")
+    page_login_detected = False
+    try:
+        page_login_info = await conn.page.evaluate("""
+            () => {
+                const bodyText = document.body?.innerText || '';
+                // 登录弹窗特征文字
+                const loginKeywords = ['登录之后更精彩', '扫码登录', '手机号登录', '请登录', '立即登录', '其他方式登录'];
+                const matched = loginKeywords.filter(kw => bodyText.includes(kw));
+                if (matched.length === 0) return { detected: false, keywords: [] };
+
+                // 确认是弹窗/对话框（高可见度的模态框，非导航栏小文字）
+                const modals = document.querySelectorAll('[class*=login], [class*=modal], [role=dialog], [class*=mask]');
+                let modalVisible = false;
+                for (const m of modals) {
+                    const r = m.getBoundingClientRect();
+                    if (r.width > 200 && r.height > 100) {
+                        modalVisible = true;
+                        break;
+                    }
+                }
+                return { detected: modalVisible, keywords: matched };
+            }
+        """)
+        page_login_detected = page_login_info.get('detected', False)
+        if page_login_detected:
+            _xhs_log(f"  ❌ 页面级检测: 登录弹窗存在 (关键词: {page_login_info.get('keywords', [])})")
+            _xhs_log(f"     账号未登录或 session 已失效，需要重新登录，终止养号")
+            try:
+                ss_path = f"/tmp/xhs_login_page_{identity_name}.png"
+                await conn.page.screenshot(path=ss_path)
+                _xhs_log(f"     📸 截图: {ss_path}")
+            except:
+                pass
+            await conn.close()
+            return
+        else:
+            _xhs_log(f"  ✅ 页面级检测: 无登录弹窗")
+    except Exception as e:
+        _xhs_log(f"  ⚠️ 页面级登录验证异常: {e}")
+
+    # Step 2: Cookie 检测（本地 cookie 验证）
     try:
         from auth_manager import check_login_by_cookie_sync, get_session_id, count_platform_cookies
         cookies = await conn.context.cookies()
@@ -1761,7 +1803,6 @@ async def nurture_xhs_loop(
         else:
             _xhs_log(f"  ❌ 登录检测: 未登录 (cookie_count={cookie_cnt})")
             _xhs_log(f"     账号 cookie 已失效，需要重新登录，终止养号")
-            # 截图供参考
             try:
                 ss_path = f"/tmp/xhs_login_check_{identity_name}.png"
                 await conn.page.screenshot(path=ss_path)
@@ -1774,40 +1815,9 @@ async def nurture_xhs_loop(
     except Exception as e:
         _xhs_log(f"  ⚠️ 登录态检测异常: {e}")
 
-    # ── 页面级登录验证（cookie 可能存在但服务端已失效）──
-    _xhs_log(f"  🔐 页面级登录验证...")
-    try:
-        # 检查页面上是否有登录弹窗或"登录"相关元素
-        page_has_login_ui = await conn.page.evaluate("""
-            () => {
-                const bodyText = document.body?.innerText || '';
-                // 登录弹窗特征文字
-                if (bodyText.includes('请登录') || bodyText.includes('立即登录') ||
-                    bodyText.includes('扫码登录') || bodyText.includes('手机号登录')) {
-                    // 确认是弹窗/对话框，而非导航栏文字
-                    const modals = document.querySelectorAll('[class*=login], [class*=modal], [role=dialog]');
-                    for (const m of modals) {
-                        if (m.offsetHeight > 100) return true;
-                    }
-                }
-                return false;
-            }
-        """)
-        if page_has_login_ui:
-            _xhs_log(f"  ❌ 页面级检测: 登录弹窗存在，cookie 已被服务端失效")
-            _xhs_log(f"     账号需要重新登录，终止养号")
-            try:
-                ss_path = f"/tmp/xhs_login_page_{identity_name}.png"
-                await conn.page.screenshot(path=ss_path)
-                _xhs_log(f"     📸 截图: {ss_path}")
-            except:
-                pass
-            await conn.close()
-            return
-        else:
-            _xhs_log(f"  ✅ 页面级检测: 无登录弹窗，登录态有效")
-    except Exception as e:
-        _xhs_log(f"  ⚠️ 页面级登录验证异常: {e}")
+    # 登录确认后，关闭可能残留的弹窗（如未登录浏览后的提醒）
+    await browse.dismiss_login_modal(conn.page)
+    await asyncio.sleep(1)
 
     # 记录开始时间（P0 #4）
     _t_start = time.time()

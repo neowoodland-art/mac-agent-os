@@ -148,8 +148,8 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
             # 锚点验证
             anchor = await page.evaluate(is_note_detail_mode_js())
             if anchor.get('qr_blocked'):
-                # QR 码拦截墙 — 非常用登录触发，回退重试其他卡片
-                await page.go_back(timeout=10000)
+                # QR 码拦截墙 — 非常用登录触发，导航回首页重试其他卡片
+                await goto_home(page)
                 await asyncio.sleep(2)
                 return 'qr_blocked'
             if anchor.get('is_detail'):
@@ -161,7 +161,7 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                 await asyncio.sleep(2)
                 anchor = await page.evaluate(is_note_detail_mode_js())
                 if anchor.get('qr_blocked'):
-                    await page.go_back(timeout=10000)
+                    await goto_home(page)
                     await asyncio.sleep(2)
                     return 'qr_blocked'
                 if anchor.get('is_detail'):
@@ -176,7 +176,7 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                     await asyncio.sleep(2)
                     anchor = await page.evaluate(is_note_detail_mode_js())
                     if anchor.get('qr_blocked'):
-                        await page.go_back(timeout=10000)
+                        await goto_home(page)
                         await asyncio.sleep(2)
                         return 'qr_blocked'
                     if anchor.get('is_detail'):
