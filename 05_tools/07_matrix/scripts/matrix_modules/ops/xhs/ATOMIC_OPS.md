@@ -4,6 +4,37 @@
 
 ---
 
+## 零、登录检测（关键！之前犯过错）
+
+### 核心原则
+- XHS **没有右上角用户头像**，不要用头像/用户菜单判断登录态
+- XHS 未登录也能看到瀑布流卡片，有卡片不等于已登录
+
+### 正确检测方法
+1. 检查页面是否有 `position:fixed` 且覆盖 >50% viewport 的大覆盖层（登录弹窗）
+2. 检查页面文字是否包含 "请打开小红书App扫码"（验证码页）
+3. 无覆盖层 + 有卡片(`section.note-item`) = 已登录
+
+### 实现（已在 v2 测试脚本中验证）
+
+```javascript
+// 登录检测 JS
+const overlays = [...document.querySelectorAll('div')].filter(el => {
+    const s = window.getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    return s.position === 'fixed'
+        && r.width >= window.innerWidth * 0.5
+        && r.height >= window.innerHeight * 0.5;
+});
+const needsQr = document.body.innerText.includes('请打开小红书App扫码');
+const blocked = needsQr || overlays.length > 0;
+```
+
+### 登录后确认
+- 覆盖层消失
+- 瀑布流卡片正常加载
+- （可选）点击卡片能进入 `note-detail-mask` 模式
+
 ## 一、基础定位规则
 
 ### 1.1 笔记卡片定位
@@ -328,3 +359,29 @@ ops/xhs/
 ├── browse.py           — 浏览类操作
 └── interact.py         — 交互类操作（点赞/收藏/关注/评论）
 ```
+
+## 八、自动化运行
+
+### CLI 入口
+```bash
+# 单账号
+matrix nurture run -a xhs_01 -r 10
+
+# 三账号并行
+matrix nurture run -a xhs_01 -a xhs_02 -a xhs_03 -r 10
+```
+
+### 主控脚本
+`~/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts/nurture_master.sh`
+
+执行流程: 抖音 1h → 小红书 1h → 完成
+
+### 定时任务
+WorkBuddy 自动化 "三账号每日养号" 每日 10:00 触发，调用 nurture_master.sh
+
+### 框架入口
+`matrix_modules/nurture/runner.py` 中的 `nurture_xhs_loop()` 函数已封装完整循环逻辑：
+- 瀑布流浏览 → 点击卡片 → 浏览内容 → 随机互动 → 返回首页 → 搜索发现
+- 互动概率: 20% 点赞, 12.5% 收藏, 2.5% 关注
+- 每 3 轮评论一次，每 2 轮搜索一次
+- 连续 3 轮失败自动暂停 + 截图
