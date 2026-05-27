@@ -136,7 +136,8 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                 return None
 
             cx = pos['x'] + pos['w'] / 2
-            cy = pos['y'] + pos['h'] / 2
+            # 点卡片偏下方（60% 高度处，避开顶部作者区）
+            cy = pos['y'] + pos['h'] * 0.6
 
             await page.mouse.move(cx, cy, steps=random.randint(5, 12))
             await asyncio.sleep(random.uniform(0.3, 0.8))
@@ -286,23 +287,39 @@ async def browse_note_detail(page, duration: float = None):
 
 
 async def go_back_to_home(page):
-    """从详情页返回首页"""
+    """从详情页返回首页（SPA 兼容：强制刷新触发 Vue 重渲染）"""
     try:
-        # 方式1: 浏览器返回
-        await page.go_back(timeout=10000, wait_until="commit")
+        # SPA 返回到首页：直接导航到 explore（避免 go_back 导致组件未挂载）
+        await goto_home(page)
         await asyncio.sleep(2)
+
+        # 触发 SPA 重渲染：微滚动触发 Vue IntersectionObserver
+        # （解决图片不加载问题）
+        try:
+            await page.evaluate("""
+                () => {
+                    window.scrollBy(0, 1);
+                    setTimeout(() => window.scrollBy(0, -1), 100);
+                }
+            """)
+            await asyncio.sleep(1)
+        except Exception:
+            pass
 
         # 验证是否回到首页
         cards = await get_note_cards(page)
         if cards:
             return True
 
-        # 方式2: 直接导航
-        await goto_home(page)
+        # 方式2: 刷新兜底
+        await page.reload()
+        await asyncio.sleep(3)
         return True
+
     except Exception:
         # 兜底: 直接导航
         await goto_home(page)
+        await asyncio.sleep(3)
         return True
 
 

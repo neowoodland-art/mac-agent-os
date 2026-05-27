@@ -516,18 +516,18 @@ async def random_interact(page, behavior_config: dict = None) -> dict:
         "comment_text": "",
     }
 
-    # 点赞: 5 中 1 (20%)
-    if random.random() < 0.20:
+    # 点赞: 3 中 1 (~33%)
+    if random.random() < 0.33:
         results["like"] = await like(page)
         await asyncio.sleep(random.uniform(0.5, 1.5))
 
-    # 收藏: 8 中 1 (12.5%)
-    if random.random() < 0.125:
+    # 收藏: 5 中 1 (20%)
+    if random.random() < 0.20:
         results["collect"] = await collect(page)
         await asyncio.sleep(random.uniform(0.5, 1.5))
 
-    # 关注: 40 中 1 (2.5%) — 真用户关注频率很低
-    if random.random() < 0.025:
+    # 关注: 10 中 1 (10%)
+    if random.random() < 0.10:
         results["follow"] = await follow(page)
         await asyncio.sleep(random.uniform(0.5, 1.5))
 
