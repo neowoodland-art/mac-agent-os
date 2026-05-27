@@ -98,6 +98,10 @@ COMMENT_SEND = ".send-btn, [class*=send-btn], button:has-text('发送'), button[
 
 # 搜索框
 SEARCH_INPUT = "input.search-input"
+# AI 布局备用搜索框（ai-layout-active 版本没有 .search-input）
+SEARCH_INPUT_ALT = "input[type='text'], [class*=search] input, [placeholder*='搜索']"
+# 通用搜索检测
+SEARCH_INPUT_BROAD = "input:not([type='hidden']):not([type='password']):not([type='email'])"
 
 # 搜索按钮
 SEARCH_BUTTON = ".search-icon, [class*=search-icon], button:has-text('搜索')"

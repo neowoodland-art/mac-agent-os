@@ -1840,6 +1840,36 @@ async def nurture_xhs_loop(
     await browse.dismiss_login_modal(conn.page)
     await asyncio.sleep(1)
 
+    # ── 页面布局版本检测（兼容 AI-layout）──
+    _xhs_log(f"  📐 检测页面布局版本...")
+    try:
+        layout_info = await conn.page.evaluate("""() => {
+            const hasSearchInput = !!document.querySelector('input.search-input');
+            const hasHeader = !!document.querySelector('.header-container');
+            const hasAiLayout = !!document.querySelector('.ai-layout-active');
+            const firstNoteY = (() => {
+                const card = document.querySelector('section.note-item');
+                if (!card) return -1;
+                return Math.round(card.getBoundingClientRect().y);
+            })();
+            return {
+                version: hasAiLayout ? 'ai-layout' : (hasSearchInput ? 'standard' : 'unknown'),
+                has_search_input: hasSearchInput,
+                has_header: hasHeader,
+                ai_layout: hasAiLayout,
+                first_card_y: firstNoteY,
+            };
+        }""")
+        v = layout_info.get('version', 'unknown')
+        _xhs_log(f"    📐 布局版本: {v}")
+        _xhs_log(f"    📐 搜索框: {'✅' if layout_info.get('has_search_input') else '❌'}")
+        _xhs_log(f"    📐 顶部栏: {'✅' if layout_info.get('has_header') else '❌'}")
+        _xhs_log(f"    📐 首卡 y 偏移: {layout_info.get('first_card_y', '?')}px")
+        if v == 'ai-layout':
+            _xhs_log(f"    ⚠️ AI-layout 布局，搜索交互使用备用选择器 + URL 兜底")
+    except Exception as e:
+        _xhs_log(f"  ⚠️ 布局检测异常: {e}")
+
     # 记录开始时间（P0 #4）
     _t_start = time.time()
     passed_rounds = 0

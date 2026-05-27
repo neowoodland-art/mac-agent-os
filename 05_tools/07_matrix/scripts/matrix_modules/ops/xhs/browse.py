@@ -321,7 +321,7 @@ SEARCH_KEYWORDS = [
 
 async def search(page, keyword: str = None) -> str:
     """
-    搜索关键词
+    搜索关键词（兼容标准版 + AI-layout 版）
 
     Args:
         keyword: 搜索词，None 时随机选择
@@ -331,23 +331,36 @@ async def search(page, keyword: str = None) -> str:
     """
     kw = keyword or random.choice(SEARCH_KEYWORDS)
 
+    # ── 方式1: 标准搜索框 ──
     try:
-        # 定位搜索框
         search_input = await page.query_selector(SEARCH_INPUT)
         if search_input:
             await search_input.click()
             await asyncio.sleep(0.5)
             await search_input.fill(kw)
             await asyncio.sleep(0.3)
-
-            # 按回车搜索
             await search_input.press("Enter")
             await asyncio.sleep(3)
             return kw
     except Exception:
         pass
 
-    # fallback: URL 直接搜索
+    # ── 方式2: AI 布局备用搜索框 ──
+    try:
+        from .selectors import SEARCH_INPUT_ALT
+        search_input = await page.query_selector(SEARCH_INPUT_ALT)
+        if search_input:
+            await search_input.click()
+            await asyncio.sleep(0.5)
+            await search_input.fill(kw)
+            await asyncio.sleep(0.3)
+            await search_input.press("Enter")
+            await asyncio.sleep(3)
+            return kw
+    except Exception:
+        pass
+
+    # ── 方式3: URL 直接搜索 ──
     try:
         encoded_kw = kw.replace(" ", "%20")
         await page.goto(
@@ -362,7 +375,7 @@ async def search(page, keyword: str = None) -> str:
 
 async def click_search_result(page, index: int = None) -> Optional[str]:
     """
-    点击搜索结果中的笔记
+    点击搜索结果中的笔记（兼容标准版 + AI-layout 版）
 
     Args:
         index: 结果索引，None 时随机
@@ -370,14 +383,27 @@ async def click_search_result(page, index: int = None) -> Optional[str]:
     Returns:
         笔记 URL
     """
+    # ── 方式1: 标准搜索结果选择器 ──
     try:
         results = await page.query_selector_all(".note-item, [class*=search-result] a")
-        if not results:
-            return None
+        if results:
+            idx = index if index is not None else random.randint(0, min(3, len(results) - 1))
+            if idx < len(results):
+                await results[idx].click()
+                await asyncio.sleep(2)
+                return page.url
+    except Exception:
+        pass
 
-        idx = index if index is not None else random.randint(0, min(3, len(results) - 1))
-        if idx < len(results):
-            await results[idx].click()
+    # ── 方式2: 通用链接点击（找任何包含笔记 ID 的链接）──
+    try:
+        links = await page.evaluate("""() => {
+            const links = [...document.querySelectorAll('a[href*="/explore/"]')];
+            return links.map(a => a.href).filter(h => /\\/explore\\/[a-f0-9]{20,}/.test(h));
+        }""")
+        if links:
+            target = random.choice(links)
+            await page.goto(target, timeout=15000, wait_until="commit")
             await asyncio.sleep(2)
             return page.url
     except Exception:
