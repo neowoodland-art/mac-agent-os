@@ -83,15 +83,21 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
     """
     from .selectors import is_note_detail_mode_js
 
+    # 先确保图片加载完成
+    await wait_for_feed_ready(page, timeout=6)
+
     # 优先用 section.note-item 获取 bounding rect
+    # 只选在当前视口内（y < viewport height）的卡片
     cards = await page.evaluate("""() => {
         const sections = [...document.querySelectorAll('section.note-item')];
+        const viewH = window.innerHeight;
         return sections.map((s, i) => {
             const r = s.getBoundingClientRect();
             return {
                 index: i,
                 href: s.querySelector('a')?.href || '',
                 rect: {x: r.x, y: r.y, w: r.width, h: r.height},
+                in_viewport: r.y >= 0 && r.y < viewH,
             };
         }).filter(c => c.rect.w >= 10 && c.rect.h >= 10);
     }""")
@@ -99,12 +105,16 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
     if not cards:
         return None
 
-    # 随机选择
+    # 优先从可视区内的卡片中选择
+    visible_cards = [c for c in cards if c.get('in_viewport')]
+    pool = visible_cards if len(visible_cards) >= 2 else cards
+
+    # 随机选择（优先选可视区的前几卡）
     if index is None:
-        max_idx = min(3, len(cards) - 1)
-        index = random.randint(0, max_idx)
+        max_idx = min(2, len(pool) - 1)  # 只从0-2选
+        index = pool[random.randint(0, max_idx)]['index']
     if index >= len(cards):
-        index = random.randint(0, len(cards) - 1)
+        index = cards[random.randint(0, len(cards) - 1)]['index']
 
     card = cards[index]
     href = card.get("href")
@@ -286,40 +296,66 @@ async def browse_note_detail(page, duration: float = None):
         return watch
 
 
-async def go_back_to_home(page):
-    """从详情页返回首页（SPA 兼容：强制刷新触发 Vue 重渲染）"""
+async def wait_for_feed_ready(page, timeout: float = 8.0) -> bool:
+    """等待首页瀑布流图片加载完成"""
     try:
-        # SPA 返回到首页：直接导航到 explore（避免 go_back 导致组件未挂载）
-        await goto_home(page)
-        await asyncio.sleep(2)
+        for _ in range(int(timeout * 2)):
+            ready = await page.evaluate("""() => {
+                const cards = document.querySelectorAll('section.note-item');
+                if (cards.length < 5) return 'no_cards';
+                const imgs = [...cards].map(c => c.querySelector('img')).filter(Boolean).slice(0, 5);
+                if (imgs.length === 0) return 'no_images';
+                const loaded = imgs.filter(img => img.complete && img.naturalWidth > 0);
+                if (loaded.length >= 3) return 'ready';
+                return 'loading';
+            }""")
+            if ready == 'ready':
+                return True
+            await asyncio.sleep(0.5)
+        return False
+    except Exception:
+        return False
 
-        # 触发 SPA 重渲染：微滚动触发 Vue IntersectionObserver
-        # （解决图片不加载问题）
+
+async def go_back_to_home(page):
+    """从详情页返回首页（SPA 正确回退 + 等待图片加载）"""
+    try:
+        # 方式1: 浏览器 go_back（触发 SPA popstate 事件，Vue Router 正确导航）
+        await page.go_back(timeout=10000, wait_until="domcontentloaded")
+        await asyncio.sleep(1)
+
+        # 验证 + 等待图片
+        cards = await get_note_cards(page)
+        if cards:
+            images_ok = await wait_for_feed_ready(page, timeout=5)
+            if images_ok:
+                return True
+
+        # 方式2: JS 触发 SPA 导航（popstate 兼容）
         try:
             await page.evaluate("""
                 () => {
-                    window.scrollBy(0, 1);
-                    setTimeout(() => window.scrollBy(0, -1), 100);
+                    window.history.back();
                 }
             """)
-            await asyncio.sleep(1)
+            await asyncio.sleep(3)
+            images_ok = await wait_for_feed_ready(page, timeout=5)
+            if images_ok:
+                return True
         except Exception:
             pass
 
-        # 验证是否回到首页
-        cards = await get_note_cards(page)
-        if cards:
-            return True
-
-        # 方式2: 刷新兜底
+        # 方式3: reload 兜底
         await page.reload()
         await asyncio.sleep(3)
-        return True
+        images_ok = await wait_for_feed_ready(page, timeout=5)
+        return bool(images_ok or await get_note_cards(page))
 
     except Exception:
         # 兜底: 直接导航
         await goto_home(page)
         await asyncio.sleep(3)
+        await wait_for_feed_ready(page, timeout=5)
         return True
 
 
