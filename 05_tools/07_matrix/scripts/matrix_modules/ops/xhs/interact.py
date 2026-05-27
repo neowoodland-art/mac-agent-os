@@ -254,73 +254,54 @@ async def follow(page) -> bool:
 # ════════════════════════════════════════════════════════════
 
 class CommentStateMachine:
-    """小红书评论状态机"""
+    """小红书评论状态机（v2: XHS 输入框直接可见于详情页底部，无需打开面板）
 
-    STATES = ["closed", "panel_open", "input_focused", "text_entered", "sent", "verified"]
+    状态迁移:
+        closed → input_focused → text_entered → sent → verified
+    """
+
+    STATES = ["closed", "input_focused", "text_entered", "sent", "verified"]
 
     def __init__(self, page):
         self.page = page
         self.state = "closed"
         self.text = ""
 
-    async def open_panel(self) -> bool:
-        """Step 1: 打开评论区"""
-        if self.state != "closed":
-            return True
-
-        try:
-            # 方式1: 点击评论入口
-            entry = await self.page.query_selector(COMMENT_ENTRY)
-            if entry:
-                await entry.click()
-                await asyncio.sleep(1.5)
-
-                # 验证评论区是否打开
-                has_comments = await self.page.evaluate("""
-                    () => document.querySelector('.comment-section, [class*=comment-section], [class*=comment-list]') !== null
-                """)
-                if has_comments:
-                    self.state = "panel_open"
-                    return True
-
-            # 方式2: 滚动到评论区
-            await self.page.evaluate("""
-                () => {
-                    const el = document.querySelector('.comment-section, [class*=comment-section]');
-                    if (el) el.scrollIntoView({behavior: 'smooth', block: 'center'});
-                }
-            """)
-            await asyncio.sleep(1.5)
-            self.state = "panel_open"
-            return True
-
-        except Exception:
-            return False
-
     async def focus_input(self) -> bool:
-        """Step 2: 聚焦输入框"""
+        """Step 1: 聚焦输入框（XHS 输入框在详情页底部直接可见）"""
         if self.state == "input_focused":
             return True
-        if self.state != "panel_open":
-            return False
 
         try:
-            # 方式1: Playwright 点击输入框
-            inp = await self.page.query_selector(COMMENT_INPUT)
-            if inp:
-                await inp.click()
-                await asyncio.sleep(0.5)
-                self.state = "input_focused"
-                return True
+            # 方式1: 找评论区底部输入框（优先用 p.content-input / div.input-box）
+            selectors = [
+                "p.content-input",           # 实际 typing 区域
+                "div.input-box",             # 输入框容器
+                "[class*=engage-bar]",       # 底部互动栏
+                "[contenteditable=true]",    # 任何可编辑元素
+            ]
+            for sel in selectors:
+                el = await self.page.query_selector(sel)
+                if el:
+                    # 滚动到可视区域
+                    try:
+                        await el.scroll_into_view_if_needed()
+                        await asyncio.sleep(0.5)
+                    except Exception:
+                        pass
+                    await el.click()
+                    await asyncio.sleep(1)
+                    self.state = "input_focused"
+                    return True
 
-            # 方式2: JS 聚焦
+            # 方式2: JS 暴力聚焦
             await self.page.evaluate("""
                 () => {
-                    const inp = document.querySelector('.comment-input input, [contenteditable=true], textarea');
+                    const inp = document.querySelector('p.content-input, div.input-box, [contenteditable=true]');
                     if (inp) { inp.focus(); inp.click(); }
                 }
             """)
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1)
             self.state = "input_focused"
             return True
 
@@ -328,7 +309,7 @@ class CommentStateMachine:
             return False
 
     async def enter_text(self, text: str) -> bool:
-        """Step 3: 输入评论文本（pbcopy + Cmd+V 系统级粘贴）"""
+        """Step 2: 输入评论文本（pbcopy + Cmd+V 系统级粘贴）"""
         if self.state == "text_entered":
             return True
         if self.state != "input_focused":
@@ -337,18 +318,15 @@ class CommentStateMachine:
         self.text = text
 
         try:
-            # 小红书输入框可能是 contenteditable div 或 input
-            # 策略: pbcopy + 系统级键盘粘贴（和抖音一样）
-
             # 1. 复制文本到剪贴板
             subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
             await asyncio.sleep(0.3)
 
-            # 2. 确保输入框聚焦
+            # 2. 确保输入框聚焦（JS 兜底）
             await self.page.evaluate("""
                 () => {
-                    const inp = document.querySelector('.comment-input input, [contenteditable=true], textarea, .editor');
-                    if (inp) { inp.focus(); }
+                    const inp = document.querySelector('p.content-input, [contenteditable=true]');
+                    if (inp) inp.focus();
                 }
             """)
             await asyncio.sleep(0.3)
@@ -357,13 +335,13 @@ class CommentStateMachine:
             await self.page.keyboard.press("Meta+v")
             await asyncio.sleep(0.5)
 
-            # 4. 验证输入成功（json.dumps 防注入）
+            # 4. 验证输入成功
             needle = json.dumps(text[:10])
             has_text = await self.page.evaluate(f"""
                 () => {{
-                    const inp = document.querySelector('.comment-input input, [contenteditable=true], textarea, .editor');
+                    const inp = document.querySelector('p.content-input, [contenteditable=true], div.input-box');
                     if (!inp) return false;
-                    const val = inp.value || inp.textContent || inp.innerText || '';
+                    const val = inp.textContent || inp.innerText || '';
                     return val.includes({needle});
                 }}
             """)
@@ -372,11 +350,28 @@ class CommentStateMachine:
                 self.state = "text_entered"
                 return True
 
-            # 5. fallback: Playwright fill
-            inp = await self.page.query_selector(COMMENT_INPUT)
-            if inp:
-                await inp.fill(text)
-                await asyncio.sleep(0.3)
+            # 5. 空格刷新 Draft.js 状态 + 再次粘贴
+            await self.page.keyboard.press("Space")
+            await asyncio.sleep(0.2)
+            await self.page.evaluate("""
+                () => {
+                    const inp = document.querySelector('p.content-input, [contenteditable=true]');
+                    if (inp) inp.focus();
+                }
+            """)
+            await asyncio.sleep(0.2)
+            await self.page.keyboard.press("Meta+v")
+            await asyncio.sleep(0.5)
+
+            has_text2 = await self.page.evaluate(f"""
+                () => {{
+                    const inp = document.querySelector('p.content-input, [contenteditable=true], div.input-box');
+                    if (!inp) return false;
+                    const val = inp.textContent || inp.innerText || '';
+                    return val.includes({needle});
+                }}
+            """)
+            if has_text2:
                 self.state = "text_entered"
                 return True
 
@@ -386,20 +381,12 @@ class CommentStateMachine:
             return False
 
     async def send(self) -> bool:
-        """Step 4: 发送评论"""
+        """Step 3: 发送评论"""
         if self.state != "text_entered":
             return False
 
         try:
-            # 方式1: 点击发送按钮
-            btn = await self.page.query_selector(COMMENT_SEND)
-            if btn:
-                await btn.click()
-                await asyncio.sleep(1.5)
-                self.state = "sent"
-                return True
-
-            # 方式2: Enter 键发送
+            # 方式1: Enter 键发送
             await self.page.keyboard.press("Enter")
             await asyncio.sleep(1.5)
             self.state = "sent"
@@ -409,35 +396,38 @@ class CommentStateMachine:
             return False
 
     async def verify(self) -> bool:
-        """Step 5: 验证评论是否发送成功"""
+        """Step 4: 验证评论是否发送成功"""
         if self.state != "sent":
             return False
 
         try:
-            # 检查评论列表中是否出现我们的评论（json.dumps 防注入）
+            # 检查输入框是否清空（发送后通常清空）
             needle = json.dumps(self.text[:8])
-            has_comment = await self.page.evaluate(f"""
+            inp_clear = await self.page.evaluate(f"""
                 () => {{
-                    const comments = [...document.querySelectorAll('.comment-item, [class*=comment-item]')];
-                    return comments.some(c => c.textContent.includes({needle}));
+                    const inp = document.querySelector('p.content-input, [contenteditable=true], div.input-box');
+                    if (!inp) return false;
+                    const val = inp.textContent || inp.innerText || '';
+                    return !val.includes({needle}) || val.trim().length < 3;
                 }}
             """)
 
-            if has_comment:
+            if inp_clear:
                 self.state = "verified"
                 return True
 
-            # 兜底: 检查输入框是否清空（发送后通常会清空）
-            inp = await self.page.query_selector(COMMENT_INPUT)
-            if inp:
-                tag = await inp.evaluate("el => el.tagName.toLowerCase()")
-                if tag in ("input", "textarea"):
-                    val = await inp.input_value()
-                else:
-                    val = await inp.evaluate("el => el.textContent || el.innerText || ''")
-                if not val or len(val) < len(self.text) / 2:
-                    self.state = "verified"
-                    return True
+            # 兜底：等待 + 再检查一次
+            await asyncio.sleep(2)
+            inp_clear2 = await self.page.evaluate(f"""
+                () => {{
+                    const inp = document.querySelector('p.content-input, [contenteditable=true], div.input-box');
+                    if (!inp) return false;
+                    return (inp.textContent || inp.innerText || '').trim().length < 3;
+                }}
+            """)
+            if inp_clear2:
+                self.state = "verified"
+                return True
 
             return False
 
@@ -447,7 +437,10 @@ class CommentStateMachine:
 
 async def comment(page, text: str) -> dict:
     """
-    评论当前笔记（完整状态机）
+    评论当前笔记（完整状态机 v2 - XHS 版）
+
+    区别抖音: XHS 的评论输入框在详情页底部直接显示，
+    无需先打开评论区面板。
 
     Args:
         text: 评论内容
@@ -459,31 +452,25 @@ async def comment(page, text: str) -> dict:
     result = {"success": False, "state": "closed", "error": ""}
 
     try:
-        # Step 1: 打开评论区
-        if not await sm.open_panel():
-            result["error"] = "无法打开评论区"
-            return result
-        result["state"] = sm.state
-
-        # Step 2: 聚焦输入框
+        # Step 1: 聚焦输入框（XHS 版直接聚��，无需打开面板）
         if not await sm.focus_input():
             result["error"] = "无法聚焦输入框"
             return result
         result["state"] = sm.state
 
-        # Step 3: 输入文本
+        # Step 2: 输入文本
         if not await sm.enter_text(text):
             result["error"] = "无法输入文本"
             return result
         result["state"] = sm.state
 
-        # Step 4: 发送
+        # Step 3: 发送
         if not await sm.send():
             result["error"] = "发送失败"
             return result
         result["state"] = sm.state
 
-        # Step 5: 验证
+        # Step 4: 验证
         if await sm.verify():
             result["success"] = True
             result["state"] = "verified"

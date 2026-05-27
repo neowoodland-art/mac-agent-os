@@ -81,13 +81,15 @@ SHARE_BUTTON = ".share-btn, [class*=share-btn]"
 # ════════════════════════════════════════════════════════════
 
 # 评论入口/评论数按钮
-COMMENT_ENTRY = ".comment-btn, [class*=comment-btn], .interaction-comment, [class*=comment-count]"
+COMMENT_ENTRY = ".comment-btn, [class*=comment-btn], .interaction-comment, [class*=comment-count], [class*=engage-bar], .interact-container"
 
 # 评论区容器
 COMMENT_SECTION = ".comment-section, [class*=comment-section], .comment-list"
 
-# 评论输入框
-COMMENT_INPUT = ".comment-input, [class*=comment-input] input, [contenteditable=true], textarea[placeholder*=评论]"
+# 评论输入框（XHS 在详情页底部直接显示，无需打开面板）
+# 容器: div.input-box / div.engage-bar
+# 编辑区: p.content-input (contenteditable=true)
+COMMENT_INPUT = ".input-box, [class*=input-box], p.content-input, [class*=content-input], [contenteditable=true]"
 
 # 评论发送按钮
 COMMENT_SEND = ".send-btn, [class*=send-btn], button:has-text('发送'), button[type=submit]"
