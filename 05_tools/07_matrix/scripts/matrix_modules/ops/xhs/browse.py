@@ -217,23 +217,27 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
 
 async def scroll_feed(page, distance: int = None):
     """
-    滚动瀑布流（单方式: 鼠标滚轮，避免双重滚动）
+    滚动瀑布流（键盘箭头↓拟人，SPA 识别为真人操作）
 
     Args:
         distance: 滚动距离(px)，None 时随机
     """
-    dist = distance or random.randint(300, 800)
-
-    # 鼠标滚轮（拟人）
+    # 键盘箭头↓滚动（SPA 响应 IntersectionObserver 加载图片）
     try:
-        await page.mouse.wheel(0, dist)
-        await asyncio.sleep(random.uniform(0.5, 1.5))
+        presses = max(3, (distance or random.randint(300, 800)) // 30)
+        for _ in range(presses):
+            await page.keyboard.press("ArrowDown")
+            await asyncio.sleep(random.uniform(0.05, 0.15))
     except Exception:
-        # fallback: JS 滚动
-        await page.evaluate(f"window.scrollBy(0, {dist})")
-        await asyncio.sleep(random.uniform(0.5, 1.5))
+        # fallback: 鼠标滚轮
+        try:
+            dist = distance or random.randint(300, 800)
+            await page.mouse.wheel(0, dist)
+        except Exception:
+            pass
+    await asyncio.sleep(random.uniform(0.5, 1.5))
 
-    return dist
+    return distance
 
 
 async def scroll_feed_human(page, screens: int = 2):

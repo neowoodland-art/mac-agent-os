@@ -268,42 +268,72 @@ class CommentStateMachine:
         self.text = ""
 
     async def focus_input(self) -> bool:
-        """Step 1: 聚焦输入框（XHS 输入框在详情页底部直接可见）"""
+        """Step 1: 聚焦输入框（全部用 Playwright 真实鼠标/键盘，不用 JS 合成事件）"""
         if self.state == "input_focused":
             return True
 
         try:
-            # 方式1: 找评论区底部输入框（优先用 p.content-input / div.input-box）
-            selectors = [
-                "p.content-input",           # 实际 typing 区域
-                "div.input-box",             # 输入框容器
-                "[class*=engage-bar]",       # 底部互动栏
-                "[contenteditable=true]",    # 任何可编辑元素
-            ]
-            for sel in selectors:
-                el = await self.page.query_selector(sel)
-                if el:
-                    # 滚动到可视区域
-                    try:
-                        await el.scroll_into_view_if_needed()
-                        await asyncio.sleep(0.5)
-                    except Exception:
-                        pass
-                    await el.click()
-                    await asyncio.sleep(1)
-                    self.state = "input_focused"
-                    return True
+            # 方式1: 键盘滚到底部 → 找输入框坐标 → Playwright 鼠标点击
+            # （不用 JS scrollTo/focus/click，XHS Draft.js 不认合成事件）
 
-            # 方式2: JS 暴力聚焦
-            await self.page.evaluate("""
+            # 1a) 键盘箭头滚动到底部
+            for _ in range(20):
+                await self.page.keyboard.press("ArrowDown")
+                await asyncio.sleep(0.1)
+            await asyncio.sleep(0.5)
+
+            # 1b) 用 JS 只读坐标，不触发任何事件
+            pos = await self.page.evaluate("""() => {
+                const candidates = document.querySelectorAll(
+                    'p.content-input, div.input-box, [contenteditable=true], ' +
+                    '[class*=engage-bar], [role="textbox"], .notranslate'
+                );
+                let best = null;
+                let bestY = -1;
+                for (const el of candidates) {
+                    if (el.offsetHeight < 20) continue;
+                    const r = el.getBoundingClientRect();
+                    // 排除搜索框（在顶部 y<100）
+                    if (r.y < 100) continue;
+                    if (r.y > bestY) {
+                        bestY = r.y;
+                        best = {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
+                    }
+                }
+                return best;
+            }""")
+
+            if pos and pos.get('x') and pos.get('y'):
+                # 真实鼠标移动 + 点击
+                await self.page.mouse.move(pos['x'], pos['y'], steps=8)
+                await asyncio.sleep(random.uniform(0.3, 0.8))
+                await self.page.mouse.click(pos['x'], pos['y'])
+                await asyncio.sleep(1.5)
+                self.state = "input_focused"
+                return True
+
+            # 方式2: Tab 导航到输入框
+            await self.page.keyboard.press("Tab")
+            await asyncio.sleep(0.3)
+            await self.page.keyboard.press("Tab")
+            await asyncio.sleep(0.3)
+            await self.page.keyboard.press("Tab")
+            await asyncio.sleep(0.3)
+            # 检查是否聚焦到输入框
+            focused = await self.page.evaluate("""
                 () => {
-                    const inp = document.querySelector('p.content-input, div.input-box, [contenteditable=true]');
-                    if (inp) { inp.focus(); inp.click(); }
+                    const el = document.activeElement;
+                    if (!el) return false;
+                    return el.getAttribute('contenteditable') === 'true'
+                        || el.tagName === 'INPUT'
+                        || el.tagName === 'TEXTAREA';
                 }
             """)
-            await asyncio.sleep(1)
-            self.state = "input_focused"
-            return True
+            if focused:
+                self.state = "input_focused"
+                return True
+
+            return False
 
         except Exception:
             return False
