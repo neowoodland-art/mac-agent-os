@@ -216,54 +216,42 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
 
 
 async def scroll_feed(page, distance: int = None):
-    """滚动一小段（PageDown 大段 + ArrowDown 微调，模拟真人阅读）"""
+    """鼠标滚轮滚动一小段（真人的滚轮操作，触发 IntersectionObserver）"""
     try:
-        dist = distance or random.randint(200, 600)
-        # 大段滚动用 PageDown（≈ 一屏），细调用 ArrowDown
-        if dist > 200:
-            await page.keyboard.press("PageDown")
-            await asyncio.sleep(random.uniform(0.3, 0.6))
-        # 微调
-        for _ in range(random.randint(1, 4)):
-            await page.keyboard.press("ArrowDown")
-            await asyncio.sleep(random.uniform(0.2, 0.4))
+        dist = distance or random.randint(80, 200)
+        await page.mouse.wheel(0, dist)
     except Exception:
-        try:
-            await page.mouse.wheel(0, distance or 300)
-        except Exception:
-            pass
-    # 阅读停顿（让 IntersectionObserver 有时间加载图片）
-    await asyncio.sleep(random.uniform(1.0, 2.5))
+        pass
+    await asyncio.sleep(random.uniform(0.5, 1.2))
     return distance
 
 
 async def scroll_feed_human(page, screens: int = 1):
     """
-    拟人化滚动：PageDown + 回滚验证，保证卡片在视口内
+    真人滚轮下滑：鼠标滚轮 × 多次，模拟真实阅读节奏
 
-    核心规则：每次滚动后确保至少 2 张卡片在视口内。
-    如果滚动过头（卡片全跑出视口），用 ArrowUp 回滚到卡片可见。
-    每次滚动后等图片加载。
+    - 每次滚 80-200px（≈ 自然滚轮一次）
+    - 每次间隔 0.5-1.5s（看内容/等图片加载）
+    - 每次滚完后检查卡片是否在视口内
+    - 如果滚过头了用 ArrowUp 回正
     """
     for s in range(screens):
-        # PageDown 滚动一屏
-        await page.keyboard.press("PageDown")
-        await asyncio.sleep(random.uniform(0.5, 1.0))
+        for tick in range(random.randint(3, 6)):
+            dist = random.randint(80, 200)
+            await page.mouse.wheel(0, dist)
+            await asyncio.sleep(random.uniform(0.5, 1.5))
 
-        # 验证卡片是否仍在视口内
+        # 回滚验证：确保至少 2 张卡片在视口
         cards_in_view = await page.evaluate("""() => {
-            const cards = document.querySelectorAll('section.note-item');
             const vh = window.innerHeight;
-            let count = 0;
-            for (const c of cards) {
+            let n = 0;
+            for (const c of document.querySelectorAll('section.note-item')) {
                 const r = c.getBoundingClientRect();
-                if (r.bottom > 0 && r.top < vh && r.width > 10) count++;
-                if (count >= 2) break;
+                if (r.bottom > 0 && r.top < vh && r.width > 10) n++;
+                if (n >= 2) break;
             }
-            return count;
+            return n;
         }""")
-
-        # 如果滚动过头了（0或1张在视口），用 ArrowUp 回滚
         if cards_in_view < 2:
             for _ in range(15):
                 await page.keyboard.press("ArrowUp")
@@ -271,7 +259,7 @@ async def scroll_feed_human(page, screens: int = 1):
             await asyncio.sleep(1)
 
         # 阅读停顿
-        await asyncio.sleep(random.uniform(1.5, 3.5))
+        await asyncio.sleep(random.uniform(2.0, 4.0))
 
     return screens
 
