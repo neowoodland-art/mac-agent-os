@@ -83,8 +83,8 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
     """
     from .selectors import is_note_detail_mode_js
 
-    # 先确保图片加载完成
-    await wait_for_feed_ready(page, timeout=6)
+    # 先确保图片加载完成（最多等 12 秒——回退后懒加载新卡片需要时间）
+    await wait_for_feed_ready(page, timeout=12)
 
     # 优先用 section.note-item 获取 bounding rect
     # 只选在当前视口内（y < viewport height）的卡片
