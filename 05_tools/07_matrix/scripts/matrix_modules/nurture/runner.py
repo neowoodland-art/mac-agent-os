@@ -1951,7 +1951,14 @@ async def nurture_xhs_loop(
 
                 # ── Step 3: 浏览内容 ──
                 watch_time = await browse.browse_note_detail(conn.page)
-                _xhs_log(f"  👀 浏览 {watch_time:.0f}s")
+                if watch_time < 0:
+                    _xhs_log(f"  ⚠️ 浏览异常（页面不在详情页），跳过本轮互动")
+                    round_ok = False
+                    # 尝试 ESC 退回
+                    await conn.page.keyboard.press("Escape")
+                    await asyncio.sleep(2)
+                else:
+                    _xhs_log(f"  👀 浏览 {watch_time:.0f}s")
 
                 # ── Step 4: 随机互动 ──
                 interact_result = await interact.random_interact(conn.page)
