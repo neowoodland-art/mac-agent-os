@@ -307,7 +307,12 @@ class CommentStateMachine:
             return False
 
     async def enter_text(self, text: str) -> bool:
-        """Step 2: 输入评论文本（pbcopy + Cmd+V 系统级粘贴，不用 JS）"""
+        """Step 2: 输入评论文本 + 等待UI变化后再验证
+
+        XHS 特殊行为：粘贴文本后评论区 UI 会重新渲染——
+        engage-bar 消失，出现"发送"/"取消"按钮。
+        必须等 UI 变化完再做二次 DOM 分析确认。
+        """
         if self.state == "text_entered":
             return True
         if self.state != "input_focused":
@@ -324,30 +329,49 @@ class CommentStateMachine:
             await self.page.keyboard.press("Meta+v")
             await asyncio.sleep(0.5)
 
-            # 3. 验证输入成功
+            # 3. 等 UI 变化完成（发送/取消按钮动画出现，输入框上移）
+            await asyncio.sleep(2)
+
+            # 4. **重新 DOM 分析** — 不限定具体选择器，全页面搜索文本
             needle = json.dumps(text[:8])
             has_text = await self.page.evaluate(f"""
                 () => {{
-                    const inp = document.querySelector('p.content-input, [contenteditable=true], div.input-box');
-                    if (!inp) return false;
-                    const val = inp.textContent || inp.innerText || '';
-                    return val.includes({needle});
+                    // 搜索整个页面 body 是否包含我们的文本
+                    const bodyText = document.body.innerText || document.body.textContent || '';
+                    if (bodyText.includes({needle})) return true;
+                    // 全面搜索所有可输入元素
+                    const allInputs = document.querySelectorAll(
+                        'input, textarea, [contenteditable], [class*=input], ' +
+                        '[class*=content], [class*=editor], [role=textbox]'
+                    );
+                    for (const el of allInputs) {{
+                        const val = el.value || el.textContent || el.innerText || '';
+                        if (val.includes({needle})) return true;
+                    }}
+                    return false;
                 }}
             """)
             if has_text:
                 self.state = "text_entered"
                 return True
 
-            # 4. Meta+v 不行则逐字输入（XHS Draft.js 兼容）
+            # 5. 逐字输入兜底
             await self.page.keyboard.type(text, delay=random.randint(50, 150))
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(2)  # 等 UI 变化
 
             has_text2 = await self.page.evaluate(f"""
                 () => {{
-                    const inp = document.querySelector('p.content-input, [contenteditable=true], div.input-box');
-                    if (!inp) return false;
-                    const val = inp.textContent || inp.innerText || '';
-                    return val.includes({needle});
+                    const bodyText = document.body.innerText || document.body.textContent || '';
+                    if (bodyText.includes({needle})) return true;
+                    const allInputs = document.querySelectorAll(
+                        'input, textarea, [contenteditable], [class*=input], ' +
+                        '[class*=content], [class*=editor], [role=textbox]'
+                    );
+                    for (const el of allInputs) {{
+                        const val = el.value || el.textContent || el.innerText || '';
+                        if (val.includes({needle})) return true;
+                    }}
+                    return false;
                 }}
             """)
             if has_text2:
@@ -360,29 +384,47 @@ class CommentStateMachine:
             return False
 
     async def send(self) -> bool:
-        """Step 3: 发送评论（有发送按钮点按钮，无则 Enter）"""
+        """Step 3: 发送评论 — 找"发送"按钮用坐标点击"""
         if self.state != "text_entered":
             return False
 
         try:
-            # 方式1: 找"发送"按钮（XHS 页面上的按钮）
-            btn_found = await self.page.evaluate("""() => {
-                const btns = document.querySelectorAll('button, div[role=button], [class*=btn], [class*=send]');
-                for (const btn of btns) {
-                    if ((btn.textContent||'').includes('发送')) return true;
-                }
-                return false;
-            }""")
-            if btn_found:
-                btn = await self.page.query_selector('button:has-text("发送"), [class*=send]:has-text("发送"), [class*=btn]:has-text("发送")')
-                if btn:
-                    await btn.click()
-                    await asyncio.sleep(2)
-                    self.state = "sent"
-                    return True
+            # 等 UI 稳定
+            await asyncio.sleep(1)
 
-            # 方式2: Enter 键发送
-            await self.page.keyboard.press("Enter")
+            # 方式1: 找"发送"按钮坐标 → 真实鼠标点击（不用 Playwright click）
+            send_pos = await self.page.evaluate("""() => {
+                const buttons = document.querySelectorAll('button');
+                for (const b of buttons) {
+                    if ((b.textContent||'').trim() === '发送' && b.offsetHeight > 10) {
+                        const r = b.getBoundingClientRect();
+                        return {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
+                    }
+                }
+                // 兜底：找任何包含"发送"的元素
+                const all = document.querySelectorAll('*');
+                for (const el of all) {
+                    if (el.offsetHeight > 10 && (el.textContent||'').trim() === '发送') {
+                        const r = el.getBoundingClientRect();
+                        return {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
+                    }
+                }
+                return null;
+            }""")
+            if send_pos:
+                await self.page.mouse.move(send_pos['x'], send_pos['y'], steps=6)
+                await asyncio.sleep(0.3)
+                await self.page.mouse.click(send_pos['x'], send_pos['y'])
+                await asyncio.sleep(2)
+                self.state = "sent"
+                return True
+
+            # 方式2: 坐标点击底部右侧（发送按钮通常在右下角）
+            win = await self.page.evaluate("() => ({w: window.innerWidth, h: window.innerHeight})")
+            sx, sy = int(win['w'] * 0.85), int(win['h'] - 60)
+            await self.page.mouse.move(sx, sy, steps=6)
+            await asyncio.sleep(0.3)
+            await self.page.mouse.click(sx, sy)
             await asyncio.sleep(2)
             self.state = "sent"
             return True
@@ -396,31 +438,43 @@ class CommentStateMachine:
             return False
 
         try:
-            # 检查输入框是否清空（发送后通常清空）
+            # 搜索页面中是否出现我们的评论文本
             needle = json.dumps(self.text[:8])
-            inp_clear = await self.page.evaluate(f"""
+            has_comment = await self.page.evaluate(f"""
                 () => {{
-                    const inp = document.querySelector('p.content-input, [contenteditable=true], div.input-box');
-                    if (!inp) return false;
-                    const val = inp.textContent || inp.innerText || '';
-                    return !val.includes({needle}) || val.trim().length < 3;
+                    // 检查整个页面
+                    const bodyText = document.body.innerText || document.body.textContent || '';
+                    // 输入框清空 = 发送成功（输入框不再包含我们的文本）
+                    const inputs = document.querySelectorAll('[contenteditable], input, textarea, [class*=input]');
+                    let inputEmpty = true;
+                    for (const inp of inputs) {{
+                        const val = inp.value || inp.textContent || inp.innerText || '';
+                        if (val.includes({needle})) {{ inputEmpty = false; break; }}
+                    }}
+                    // 发送成功后通常：输入框清空 + 页面有我们的文本
+                    return inputEmpty || bodyText.includes({needle});
                 }}
             """)
 
-            if inp_clear:
+            if has_comment:
                 self.state = "verified"
                 return True
 
-            # 兜底：等待 + 再检查一次
+            # 等一会再查
             await asyncio.sleep(2)
-            inp_clear2 = await self.page.evaluate(f"""
+            has_comment2 = await self.page.evaluate(f"""
                 () => {{
-                    const inp = document.querySelector('p.content-input, [contenteditable=true], div.input-box');
-                    if (!inp) return false;
-                    return (inp.textContent || inp.innerText || '').trim().length < 3;
+                    const bodyText = document.body.innerText || document.body.textContent || '';
+                    const inputs = document.querySelectorAll('[contenteditable], input, textarea, [class*=input]');
+                    let inputEmpty = true;
+                    for (const inp of inputs) {{
+                        const val = inp.value || inp.textContent || inp.innerText || '';
+                        if (val.includes({needle})) {{ inputEmpty = false; break; }}
+                    }}
+                    return inputEmpty || bodyText.includes({needle});
                 }}
             """)
-            if inp_clear2:
+            if has_comment2:
                 self.state = "verified"
                 return True
 
