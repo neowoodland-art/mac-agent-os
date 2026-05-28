@@ -239,25 +239,41 @@ async def scroll_feed(page, distance: int = None):
 
 async def scroll_feed_human(page, screens: int = 1):
     """
-    拟人化滚动：PageDown + 阅读停顿，模拟真人逐屏阅读
+    拟人化滚动：PageDown + 回滚验证，保证卡片在视口内
 
-    XHS 双列瀑布流一屏约 10-16 张卡片。
-    每屏之间停顿 1-3 秒模拟阅读，让 IntersectionObserver 加载图片。
-
-    Args:
-        screens: 滚动几屏
+    核心规则：每次滚动后确保至少 2 张卡片在视口内。
+    如果滚动过头（卡片全跑出视口），用 ArrowUp 回滚到卡片可见。
+    每次滚动后等图片加载。
     """
     for s in range(screens):
-        # 每次滚动 = PageDown × 1 + ArrowDown × 几下的组合
+        # PageDown 滚动一屏
         await page.keyboard.press("PageDown")
-        await asyncio.sleep(random.uniform(0.3, 0.6))
-        for _ in range(random.randint(2, 5)):
-            await page.keyboard.press("ArrowDown")
-            await asyncio.sleep(random.uniform(0.2, 0.4))
+        await asyncio.sleep(random.uniform(0.5, 1.0))
 
-        # 阅读停顿（Varied pause simulating reading）
-        pause = random.uniform(1.5, 3.5)
-        await asyncio.sleep(pause)
+        # 验证卡片是否仍在视口内
+        cards_in_view = await page.evaluate("""() => {
+            const cards = document.querySelectorAll('section.note-item');
+            const vh = window.innerHeight;
+            let count = 0;
+            for (const c of cards) {
+                const r = c.getBoundingClientRect();
+                if (r.bottom > 0 && r.top < vh && r.width > 10) count++;
+                if (count >= 2) break;
+            }
+            return count;
+        }""")
+
+        # 如果滚动过头了（0或1张在视口），用 ArrowUp 回滚
+        if cards_in_view < 2:
+            for _ in range(15):
+                await page.keyboard.press("ArrowUp")
+                await asyncio.sleep(0.08)
+            await asyncio.sleep(1)
+
+        # 阅读停顿
+        await asyncio.sleep(random.uniform(1.5, 3.5))
+
+    return screens
 
     return screens
 
@@ -305,73 +321,56 @@ async def browse_note_detail(page, duration: float = None):
 
 
 async def check_page_health(page) -> dict:
-    """诊断页面是否正常渲染（检测黑屏/未加载/CSS隐藏状态）"""
+    """诊断页面渲染状态（黑屏/滚动过头/CSS隐藏/正常）"""
     try:
         return await page.evaluate("""() => {
             const body = document.body;
             if (!body) return {alive: false, reason: 'no body'};
 
-            const cards = document.querySelectorAll('section.note-item');
+            const cards = [...document.querySelectorAll('section.note-item')];
             const imgs = [...document.querySelectorAll('img')];
             const loadedImgs = imgs.filter(i => i.complete && i.naturalWidth > 0);
             const noteDetail = document.querySelector('.note-detail-mask, [class*=note-detail]');
+            const vh = window.innerHeight;
+            const scrollY = window.scrollY;
 
-            // 检测 CSS 隐藏（有 DOM 但不可见）
-            function isVisuallyHidden(el) {
-                const style = window.getComputedStyle(el);
-                return style.display === 'none'
-                    || style.visibility === 'hidden'
-                    || style.opacity === '0'
-                    || parseFloat(style.opacity) < 0.1;
-            }
-            function isOffscreen(el) {
-                const r = el.getBoundingClientRect();
-                return r.width === 0 || r.height === 0
-                    || r.right < 0 || r.bottom < 0
-                    || r.left > window.innerWidth || r.top > window.innerHeight;
-            }
-
-            // 采样检查前5张卡片是否真正可见
-            let visibleCards = 0;
-            let hiddenCards = 0;
-            for (const c of [...cards].slice(0, 5)) {
-                if (isVisuallyHidden(c) || isOffscreen(c)) {
-                    hiddenCards++;
-                } else {
-                    visibleCards++;
+            let inView = 0, offScreenAbove = 0, offScreenBelow = 0, cssHidden = 0;
+            for (const c of cards.slice(0, 10)) {
+                const style = window.getComputedStyle(c);
+                const r = c.getBoundingClientRect();
+                if (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) < 0.1) {
+                    cssHidden++; continue;
                 }
+                if (r.bottom > 0 && r.top < vh && r.width > 10) { inView++; }
+                else if (r.bottom <= 0) { offScreenAbove++; }
+                else if (r.top >= vh) { offScreenBelow++; }
+                else { offScreenAbove++; }
             }
 
-            // body 背景色
-            const bg = window.getComputedStyle(body).backgroundColor;
-
-            // 判断是否黑屏
-            let blackScreen = false;
-            let reason = '';
+            let blackScreen = false, reason = '', scrollIssue = '';
             if (cards.length === 0 && !noteDetail) {
-                blackScreen = true;
-                reason = 'no cards and no detail - empty page';
-            } else if (cards.length > 0 && visibleCards === 0 && hiddenCards > 0) {
-                blackScreen = true;
-                reason = `cards exist but ${hiddenCards}/5 are CSS-hidden (display:none/opacity:0)`;
-            } else if (cards.length > 0 && loadedImgs.length === 0 && imgs.length > 5) {
-                blackScreen = true;
-                reason = 'cards exist but no images loaded - lazy loading stuck';
+                blackScreen = true; reason = 'empty page - no cards or detail';
+            } else if (cards.length > 0 && inView === 0 && offScreenBelow > 0) {
+                blackScreen = true; scrollIssue = 'below';
+                reason = `scrolled too far down - ${offScreenBelow} cards below viewport (scrollY=${scrollY})`;
+            } else if (cards.length > 0 && inView === 0 && offScreenAbove > 0) {
+                blackScreen = true; scrollIssue = 'above';
+                reason = `scrolled too far up - ${offScreenAbove} cards above viewport (scrollY=${scrollY})`;
+            } else if (cards.length > 0 && inView === 0 && cssHidden > 0) {
+                blackScreen = true; scrollIssue = 'css_hidden';
+                reason = `${cssHidden}/10 cards CSS-hidden (display:none/opacity:0)`;
+            } else if (cards.length > 0 && inView > 0 && loadedImgs.length === 0 && imgs.length > 5) {
+                blackScreen = true; scrollIssue = 'no_images';
+                reason = `${inView} cards visible but 0/${imgs.length} images loaded`;
             }
 
             return {
-                alive: !blackScreen,
-                black_screen: blackScreen,
-                reason: reason,
-                cards: cards.length,
-                visible_cards: visibleCards,
-                hidden_cards: hiddenCards,
-                total_images: imgs.length,
-                loaded_images: loadedImgs.length,
-                in_detail_mode: !!noteDetail,
-                bg_color: bg,
-                url: location.href.substring(0, 80),
-                viewport: `${window.innerWidth}x${window.innerHeight}`,
+                alive: !blackScreen, black_screen: blackScreen, reason: reason,
+                scroll_issue: scrollIssue, scroll_y: scrollY,
+                cards_total: cards.length, cards_in_view: inView,
+                cards_above: offScreenAbove, cards_below: offScreenBelow, cards_hidden: cssHidden,
+                total_images: imgs.length, loaded_images: loadedImgs.length,
+                in_detail_mode: !!noteDetail, vp_h: vh,
             };
         }""")
     except Exception as e:

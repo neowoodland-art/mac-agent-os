@@ -1884,15 +1884,35 @@ async def nurture_xhs_loop(
         try:
             # ── Step 1: 瀑布流浏览 + 页面健康检查 ──
             _xhs_log("  📜 瀑布流浏览...")
-            await browse.scroll_feed_human(conn.page, screens=random.randint(1, 3))
+            await browse.scroll_feed_human(conn.page, screens=random.randint(1, 2))
             await asyncio.sleep(bhv.click_delay())
 
-            # 页面健康检查（检测黑屏/CSS隐藏）
+            # 页面健康检查（检测黑屏/滚动过头）
             try:
                 health = await browse.check_page_health(conn.page)
                 if health.get('black_screen'):
+                    issue = health.get('scroll_issue', '')
                     _xhs_log(f"  ⚠️ 页面异常: {health.get('reason', 'unknown')}")
-                    _xhs_log(f"     cards={health.get('cards')} visible={health.get('visible_cards')} imgs={health.get('loaded_images')}/{health.get('total_images')}")
+                    _xhs_log(f"     in_view={health.get('cards_in_view')} above={health.get('cards_above')} below={health.get('cards_below')}")
+                    # 滚动过头 → 回正到卡片可见
+                    if issue == 'below':
+                        _xhs_log(f"  ↕️ 滚动回正（ArrowUp × 40）...")
+                        for _ in range(40):
+                            await conn.page.keyboard.press("ArrowUp")
+                            await asyncio.sleep(0.05)
+                        await asyncio.sleep(1.5)
+                        health = await browse.check_page_health(conn.page)
+                        if not health.get('black_screen'):
+                            _xhs_log(f"  ✅ 滚动回正成功")
+                    elif issue == 'above':
+                        _xhs_log(f"  ↕️ 滚动回正（ArrowDown × 40）...")
+                        for _ in range(40):
+                            await conn.page.keyboard.press("ArrowDown")
+                            await asyncio.sleep(0.05)
+                        await asyncio.sleep(1.5)
+                        health = await browse.check_page_health(conn.page)
+                        if not health.get('black_screen'):
+                            _xhs_log(f"  ✅ 滚动回正成功")
             except Exception:
                 pass
 
