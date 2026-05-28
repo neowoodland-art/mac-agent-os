@@ -216,46 +216,48 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
 
 
 async def scroll_feed(page, distance: int = None):
-    """
-    滚动瀑布流（键盘箭头↓拟人，SPA 识别为真人操作）
-
-    Args:
-        distance: 滚动距离(px)，None 时随机
-    """
-    # 键盘箭头↓滚动（SPA 响应 IntersectionObserver 加载图片）
+    """滚动一小段（PageDown 大段 + ArrowDown 微调，模拟真人阅读）"""
     try:
-        presses = max(3, (distance or random.randint(300, 800)) // 30)
-        for _ in range(presses):
+        dist = distance or random.randint(200, 600)
+        # 大段滚动用 PageDown（≈ 一屏），细调用 ArrowDown
+        if dist > 200:
+            await page.keyboard.press("PageDown")
+            await asyncio.sleep(random.uniform(0.3, 0.6))
+        # 微调
+        for _ in range(random.randint(1, 4)):
             await page.keyboard.press("ArrowDown")
-            await asyncio.sleep(random.uniform(0.05, 0.15))
+            await asyncio.sleep(random.uniform(0.2, 0.4))
     except Exception:
-        # fallback: 鼠标滚轮
         try:
-            dist = distance or random.randint(300, 800)
-            await page.mouse.wheel(0, dist)
+            await page.mouse.wheel(0, distance or 300)
         except Exception:
             pass
-    await asyncio.sleep(random.uniform(0.5, 1.5))
-
+    # 阅读停顿（让 IntersectionObserver 有时间加载图片）
+    await asyncio.sleep(random.uniform(1.0, 2.5))
     return distance
 
 
-async def scroll_feed_human(page, screens: int = 2):
+async def scroll_feed_human(page, screens: int = 1):
     """
-    拟人化滚动：分多次小滚动，中间随机停顿
+    拟人化滚动：PageDown + 阅读停顿，模拟真人逐屏阅读
+
+    XHS 双列瀑布流一屏约 10-16 张卡片。
+    每屏之间停顿 1-3 秒模拟阅读，让 IntersectionObserver 加载图片。
 
     Args:
         screens: 滚动几屏
     """
-    for _ in range(screens):
-        # 每次滚动一小段
-        dist = random.randint(200, 500)
-        await scroll_feed(page, dist)
+    for s in range(screens):
+        # 每次滚动 = PageDown × 1 + ArrowDown × 几下的组合
+        await page.keyboard.press("PageDown")
+        await asyncio.sleep(random.uniform(0.3, 0.6))
+        for _ in range(random.randint(2, 5)):
+            await page.keyboard.press("ArrowDown")
+            await asyncio.sleep(random.uniform(0.2, 0.4))
 
-        # 随机停顿（模拟阅读）
-        if random.random() < 0.4:
-            pause = random.uniform(1.0, 3.0)
-            await asyncio.sleep(pause)
+        # 阅读停顿（Varied pause simulating reading）
+        pause = random.uniform(1.5, 3.5)
+        await asyncio.sleep(pause)
 
     return screens
 
@@ -324,36 +326,46 @@ async def wait_for_feed_ready(page, timeout: float = 8.0) -> bool:
 
 
 async def go_back_to_home(page):
-    """从详情页返回首页（直接导航到 /explore + 滚动触发懒加载）
+    """从详情页返回首页（ESC 键关闭 SPA 遮罩，保留 feed 状态）
 
-    不用 page.go_back（SPA popstate 在 Firefox/Camoufox 不可靠）。
-    用 goto_home + 键盘箭头触发 IntersectionObserver 加载图片。
+    XHS 笔记详情是 SPA overlay (.note-detail-mask)，ESC 键关闭它。
+    - 底下的首页完全保留，包括已加载的图片
+    - 不需要重新导航或等待图片加载
+    - 完全真人操作，最接近真实用户行为
     """
     try:
-        # 直接导航到首页（整页加载，SPA 重新初始化）
-        await goto_home(page)
+        # ESC 键关闭详情遮罩（SPA 原生支持）
+        await page.keyboard.press("Escape")
         await asyncio.sleep(2)
 
-        # 键盘箭头滚动触发图片懒加载（IntersectionObserver）
+        # 验证是否回到首页（遮罩消失 + 瀑布流可见）
+        back = await page.evaluate("""() => {
+            const mask = document.querySelector('.note-detail-mask, [class*=note-detail]');
+            const cards = document.querySelectorAll('section.note-item');
+            return {mask_gone: !mask, cards: cards.length};
+        }""")
+        if back.get('mask_gone', True) and back.get('cards', 0) > 5:
+            return True
+
+        # 再按一次 ESC（有时候需要两次）
+        await page.keyboard.press("Escape")
+        await asyncio.sleep(1.5)
+
+        back2 = await page.evaluate("""() => {
+            const mask = document.querySelector('.note-detail-mask, [class*=note-detail]');
+            const cards = document.querySelectorAll('section.note-item');
+            return {mask_gone: !mask, cards: cards.length};
+        }""")
+        if back2.get('mask_gone', True) and back2.get('cards', 0) > 5:
+            return True
+
+        # 兜底: goto_home
+        await goto_home(page)
+        await asyncio.sleep(2)
         for _ in range(10):
             await page.keyboard.press("ArrowDown")
             await asyncio.sleep(0.1)
-        await asyncio.sleep(1)
-
-        # 验证 + 等待图片
-        cards = await get_note_cards(page)
-        if cards:
-            images_ok = await wait_for_feed_ready(page, timeout=8)
-            if images_ok:
-                return True
-
-        # 兜底: 强制 reload
-        await page.reload(wait_until="domcontentloaded")
-        await asyncio.sleep(3)
-        for _ in range(10):
-            await page.keyboard.press("ArrowDown")
-            await asyncio.sleep(0.1)
-        await wait_for_feed_ready(page, timeout=6)
+        await wait_for_feed_ready(page, timeout=8)
         return bool(await get_note_cards(page))
 
     except Exception:
