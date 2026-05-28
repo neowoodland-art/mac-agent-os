@@ -268,131 +268,35 @@ class CommentStateMachine:
         self.text = ""
 
     async def focus_input(self) -> bool:
-        """Step 1: 聚焦输入框（全部用 Playwright 真实鼠标/键盘，不用 JS 合成事件）"""
+        """Step 1: 聚焦输入框（坐标落位法，参照 Douyin calc_input_position）
+
+        XHS 评论区在笔记详情页底部固定位置，用窗口尺寸计算点击坐标：
+          input_x = window.innerWidth * 0.35  (输入框在左半侧)
+          input_y = window.innerHeight - 95    (距底部 ~95px，engage-bar 区域)
+        """
         if self.state == "input_focused":
             return True
 
         try:
-            # 方式1: 键盘滚到底部 → 找输入框坐标 → Playwright 鼠标点击
-            # （不用 JS scrollTo/focus/click，XHS Draft.js 不认合成事件）
-
-            # 1a) 先等页面稳定 → 键盘箭头滚动到底部
-            await asyncio.sleep(0.5)
+            # 键盘箭头滚动到底部
             for _ in range(40):
                 await self.page.keyboard.press("ArrowDown")
                 await asyncio.sleep(0.05)
-            # 等 SPA 加载评论区组件（关键！Vue 需要时间挂载底部输入框）
-            await asyncio.sleep(3)
+            await asyncio.sleep(3)  # 等 SPA 挂载评论区
 
-            # 1b) 用 JS 只读坐标，不触发任何事件
-            # 优先选 contenteditable / p.content-input / div.input-box
-            # （排除 buttons / 非输入按钮区）
-            pos = await self.page.evaluate("""() => {
-                const candidates = document.querySelectorAll(
-                    'p.content-input, div.input-box, [contenteditable=true], ' +
-                    '[class*=engage-bar], [role="textbox"], .notranslate'
-                );
-                // 先找可编辑的输入框
-                let input = null;
-                let fallback = null;
-                let bestInputY = 9999;
-                let bestFallbackY = -1;
-                for (const el of candidates) {
-                    if (el.offsetHeight < 20) continue;
-                    const r = el.getBoundingClientRect();
-                    if (r.y < 100) continue;
-                    // 检查是否可编辑输入框
-                    const isInput = el.isContentEditable ||
-                        el.classList.contains('content-input') ||
-                        el.classList.contains('input-box');
-                    if (isInput && r.y < bestInputY) {
-                        bestInputY = r.y;
-                        input = {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
-                    } else if (!isInput && r.y > bestFallbackY) {
-                        bestFallbackY = r.y;
-                        fallback = {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
-                    }
-                }
-                return input || fallback;  // 优先用输入框
-            }""")
+            # 计算输入框坐标
+            win = await self.page.evaluate("() => ({w: window.innerWidth, h: window.innerHeight})")
+            ix = int(win['w'] * 0.35)
+            iy = int(win['h'] - 95)
 
-            if not pos:
-                # 等一会再重试（SPA 可能还没挂载评论区）
-                await asyncio.sleep(2)
-                pos = await self.page.evaluate("""() => {
-                    const c = document.querySelectorAll('p.content-input,div.input-box,[contenteditable=true],[class*=engage-bar],[role=textbox],.notranslate');
-                    let input=null, fallback=null, inputY=9999, fbY=-1;
-                    for (const el of c) {
-                        if (el.offsetHeight<20) continue;
-                        const r = el.getBoundingClientRect();
-                        if (r.y<100) continue;
-                        const isIn = el.isContentEditable||el.classList.contains('content-input')||el.classList.contains('input-box');
-                        if (isIn && r.y<inputY) { inputY=r.y; input={x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}; }
-                        else if (!isIn && r.y>fbY) { fbY=r.y; fallback={x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}; }
-                    }
-                    return input||fallback;
-                }""")
+            # Playwright 真实鼠标点击（参照 Douyin 坐标双击策略）
+            await self.page.mouse.move(ix, iy, steps=10)
+            await asyncio.sleep(random.uniform(0.2, 0.5))
+            await self.page.mouse.click(ix, iy)
+            await asyncio.sleep(1.5)
 
-            if pos and pos.get('x') is not None and pos.get('y') is not None:            
-                await self.page.mouse.move(pos['x'], pos['y'], steps=8)
-                await asyncio.sleep(random.uniform(0.3, 0.8))
-                await self.page.mouse.click(pos['x'], pos['y'])
-                await asyncio.sleep(1.5)
-
-                # 验证是否真的聚焦了
-                focused = await self.page.evaluate("""
-                    () => {
-                        const el = document.activeElement;
-                        if (!el) return false;
-                        return true;
-                    }
-                """)
-                if focused:
-                    self.state = "input_focused"
-                    return True
-
-            # 方式2: 兜底 — 找页面中任何 input/textarea/contenteditable
-            fallback_pos = await self.page.evaluate("""() => {
-                // 更广泛地找：所有 input/textarea/contenteditable（排除顶部搜索框）
-                const all = document.querySelectorAll('input, textarea, [contenteditable]');
-                let best = null;
-                let bestY = -1;
-                for (const el of all) {
-                    if (el.offsetHeight < 15) continue;
-                    const r = el.getBoundingClientRect();
-                    if (r.y < 100) continue; // 排除顶部搜索
-                    if (r.y > bestY) {
-                        bestY = r.y;
-                        best = {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
-                    }
-                }
-                return best;
-            }""")
-            if fallback_pos and fallback_pos.get('x') is not None:
-                await self.page.mouse.move(fallback_pos['x'], fallback_pos['y'], steps=8)
-                await asyncio.sleep(0.3)
-                await self.page.mouse.click(fallback_pos['x'], fallback_pos['y'])
-                await asyncio.sleep(1.5)
-                self.state = "input_focused"
-                return True
-
-            # 方式3: Tab 导航 + 检查
-            await self.page.keyboard.press("Tab")
-            await asyncio.sleep(0.3)
-            await self.page.keyboard.press("Tab")
-            await asyncio.sleep(0.3)
-            await self.page.keyboard.press("Tab")
-            await asyncio.sleep(0.3)
-            # 检查是否聚焦到输入框
-            focused = await self.page.evaluate("""
-                () => {
-                    const el = document.activeElement;
-                    if (!el) return false;
-                    return el.getAttribute('contenteditable') === 'true'
-                        || el.tagName === 'INPUT'
-                        || el.tagName === 'TEXTAREA';
-                }
-            """)
+            # 验证
+            focused = await self.page.evaluate("() => document.activeElement !== null && document.activeElement !== document.body")
             if focused:
                 self.state = "input_focused"
                 return True
@@ -416,12 +320,12 @@ class CommentStateMachine:
             subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
             await asyncio.sleep(0.3)
 
-            # 2. Cmd+V 系统级粘贴（已经在 input_focused 状态，不用再次 JS focus）
+            # 2. 先试 Meta+v 粘贴
             await self.page.keyboard.press("Meta+v")
             await asyncio.sleep(0.5)
 
             # 3. 验证输入成功
-            needle = json.dumps(text[:10])
+            needle = json.dumps(text[:8])
             has_text = await self.page.evaluate(f"""
                 () => {{
                     const inp = document.querySelector('p.content-input, [contenteditable=true], div.input-box');
@@ -430,15 +334,12 @@ class CommentStateMachine:
                     return val.includes({needle});
                 }}
             """)
-
             if has_text:
                 self.state = "text_entered"
                 return True
 
-            # 4. 空格刷新 Draft.js 状态 + 再次粘贴
-            await self.page.keyboard.press("Space")
-            await asyncio.sleep(0.3)
-            await self.page.keyboard.press("Meta+v")
+            # 4. Meta+v 不行则逐字输入（XHS Draft.js 兼容）
+            await self.page.keyboard.type(text, delay=random.randint(50, 150))
             await asyncio.sleep(0.5)
 
             has_text2 = await self.page.evaluate(f"""
