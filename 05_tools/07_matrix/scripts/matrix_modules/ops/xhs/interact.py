@@ -303,16 +303,51 @@ class CommentStateMachine:
                 return best;
             }""")
 
-            if pos and pos.get('x') and pos.get('y'):
+            if pos and pos.get('x') is not None and pos.get('y') is not None:
                 # 真实鼠标移动 + 点击
                 await self.page.mouse.move(pos['x'], pos['y'], steps=8)
                 await asyncio.sleep(random.uniform(0.3, 0.8))
                 await self.page.mouse.click(pos['x'], pos['y'])
                 await asyncio.sleep(1.5)
+
+                # 验证是否真的聚焦了
+                focused = await self.page.evaluate("""
+                    () => {
+                        const el = document.activeElement;
+                        if (!el) return false;
+                        return true;
+                    }
+                """)
+                if focused:
+                    self.state = "input_focused"
+                    return True
+
+            # 方式2: 兜底 — 找页面中任何 input/textarea/contenteditable
+            fallback_pos = await self.page.evaluate("""() => {
+                // 更广泛地找：所有 input/textarea/contenteditable（排除顶部搜索框）
+                const all = document.querySelectorAll('input, textarea, [contenteditable]');
+                let best = null;
+                let bestY = -1;
+                for (const el of all) {
+                    if (el.offsetHeight < 15) continue;
+                    const r = el.getBoundingClientRect();
+                    if (r.y < 100) continue; // 排除顶部搜索
+                    if (r.y > bestY) {
+                        bestY = r.y;
+                        best = {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
+                    }
+                }
+                return best;
+            }""")
+            if fallback_pos and fallback_pos.get('x') is not None:
+                await self.page.mouse.move(fallback_pos['x'], fallback_pos['y'], steps=8)
+                await asyncio.sleep(0.3)
+                await self.page.mouse.click(fallback_pos['x'], fallback_pos['y'])
+                await asyncio.sleep(1.5)
                 self.state = "input_focused"
                 return True
 
-            # 方式2: Tab 导航到输入框
+            # 方式3: Tab 导航 + 检查
             await self.page.keyboard.press("Tab")
             await asyncio.sleep(0.3)
             await self.page.keyboard.press("Tab")
