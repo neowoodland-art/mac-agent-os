@@ -83,16 +83,13 @@ async def like(page) -> bool:
 
         # 3. 确保按钮可见
         if not like_btn.get('visible'):
-            await page.evaluate("""() => {
-                const btns = document.querySelectorAll('span.like-wrapper, [class*="like-wrapper"]');
-                for (const btn of btns) {
-                    const r = btn.getBoundingClientRect();
-                    if (r.left > window.innerWidth * 0.3) {
-                        btn.scrollIntoView({behavior: 'instant', block: 'center'});
-                        break;
-                    }
-                }
-            }""")
+            try:
+                el = await page.query_selector('span.like-wrapper, [class*="like-wrapper"]')
+                if el:
+                    await el.scroll_into_view_if_needed()
+                    await asyncio.sleep(1)
+            except Exception:
+                pass
             await asyncio.sleep(1)
             # 重新获取位置
             btns = await page.evaluate(get_bottom_bar_buttons_js())
@@ -154,16 +151,13 @@ async def collect(page) -> bool:
 
         # 3. 确保按钮可见
         if not collect_btn.get('visible'):
-            await page.evaluate("""() => {
-                const btns = document.querySelectorAll('span.collect-wrapper, [class*="collect-wrapper"]');
-                for (const btn of btns) {
-                    const r = btn.getBoundingClientRect();
-                    if (r.left > window.innerWidth * 0.3) {
-                        btn.scrollIntoView({behavior: 'instant', block: 'center'});
-                        break;
-                    }
-                }
-            }""")
+            try:
+                el = await page.query_selector('span.collect-wrapper, [class*="collect-wrapper"]')
+                if el:
+                    await el.scroll_into_view_if_needed()
+                    await asyncio.sleep(1)
+            except Exception:
+                pass
             await asyncio.sleep(1)
             btns = await page.evaluate(get_bottom_bar_buttons_js())
             collect_btn = btns.get('collect') if btns else None

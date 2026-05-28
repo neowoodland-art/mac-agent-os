@@ -276,8 +276,6 @@ async def scroll_feed_human(page, screens: int = 1):
 
     return screens
 
-    return screens
-
 
 # ════════════════════════════════════════════════════════════
 # 笔记详情页浏览
@@ -286,12 +284,13 @@ async def scroll_feed_human(page, screens: int = 1):
 async def browse_note_detail(page, duration: float = None):
     """
     在笔记详情页浏览内容（图文/视频自适应）
+    操作后验证：仍在详情页
 
     Args:
         duration: 浏览时长(秒)，None 时随机 4~12 秒
 
     Returns:
-        实际浏览秒数
+        实际浏览秒数，或 -1（页面不在详情页）
     """
     watch = duration or random.uniform(4, 12)
 
@@ -306,19 +305,28 @@ async def browse_note_detail(page, duration: float = None):
     """)
 
     if has_video:
-        # 视频笔记：看视频，不滚动
-        # 等待视频加载
         await asyncio.sleep(random.uniform(1, 2))
-        return watch
     else:
-        # 图文笔记：键盘箭头↓模拟真人阅读（不用 JS scrollBy，会破坏 SPA 状态）
+        # 图文笔记：键盘箭头↓模拟真人阅读
         steps = max(2, int(watch / 2))
         for _ in range(steps):
             for _ in range(random.randint(2, 5)):
                 await page.keyboard.press("ArrowDown")
                 await asyncio.sleep(random.uniform(0.1, 0.3))
             await asyncio.sleep(random.uniform(1.0, 2.5))
+
+    # 锚点验证：确认仍在详情页（浏览过程中可能误触导致跳转）
+    from .selectors import is_note_detail_mode_js
+    anchor = await page.evaluate(is_note_detail_mode_js())
+    if anchor.get('is_detail'):
         return watch
+    elif anchor.get('is_author_profile'):
+        return -1  # 误触到作者主页
+    elif anchor.get('qr_blocked'):
+        return -1
+    else:
+        # 不在详情页（退回首页了或其他）
+        return -1
 
 
 async def check_page_health(page) -> dict:
