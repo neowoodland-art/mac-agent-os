@@ -325,53 +325,32 @@ class CommentStateMachine:
             subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
             await asyncio.sleep(0.3)
 
-            # 2. 先试 Meta+v 粘贴
+            # 2. Meta+v 粘贴（XHS 输入框 focus 后可以直接粘贴）
             await self.page.keyboard.press("Meta+v")
-            await asyncio.sleep(0.5)
+            # 等待 UI 动画完成（文本框变化 + 发送/取消按钮出现 ≈ 2-3秒）
+            await asyncio.sleep(3)
 
-            # 3. 等 UI 变化完成（发送/取消按钮动画出现，输入框上移）
-            await asyncio.sleep(2)
-
-            # 4. **重新 DOM 分析** — 不限定具体选择器，全页面搜索文本
+            # 3. 全页面验证文本是否输入成功
+            # （不用具体选择器——粘贴后 engage-bar 结构改变，旧选择器失效）
             needle = json.dumps(text[:8])
             has_text = await self.page.evaluate(f"""
                 () => {{
-                    // 搜索整个页面 body 是否包含我们的文本
-                    const bodyText = document.body.innerText || document.body.textContent || '';
-                    if (bodyText.includes({needle})) return true;
-                    // 全面搜索所有可输入元素
-                    const allInputs = document.querySelectorAll(
-                        'input, textarea, [contenteditable], [class*=input], ' +
-                        '[class*=content], [class*=editor], [role=textbox]'
-                    );
-                    for (const el of allInputs) {{
-                        const val = el.value || el.textContent || el.innerText || '';
-                        if (val.includes({needle})) return true;
-                    }}
-                    return false;
+                    const t = document.body.innerText || document.body.textContent || '';
+                    // 输入区域的 textContent 也会出现在 body.innerText 中
+                    return t.includes({needle});
                 }}
             """)
             if has_text:
                 self.state = "text_entered"
                 return True
 
-            # 5. 逐字输入兜底
-            await self.page.keyboard.type(text, delay=random.randint(50, 150))
-            await asyncio.sleep(2)  # 等 UI 变化
-
+            # 4. 确实没输入成功的话重试一次 Meta+v
+            await self.page.keyboard.press("Meta+v")
+            await asyncio.sleep(3)
             has_text2 = await self.page.evaluate(f"""
                 () => {{
-                    const bodyText = document.body.innerText || document.body.textContent || '';
-                    if (bodyText.includes({needle})) return true;
-                    const allInputs = document.querySelectorAll(
-                        'input, textarea, [contenteditable], [class*=input], ' +
-                        '[class*=content], [class*=editor], [role=textbox]'
-                    );
-                    for (const el of allInputs) {{
-                        const val = el.value || el.textContent || el.innerText || '';
-                        if (val.includes({needle})) return true;
-                    }}
-                    return false;
+                    const t = document.body.innerText || document.body.textContent || '';
+                    return t.includes({needle});
                 }}
             """)
             if has_text2:
