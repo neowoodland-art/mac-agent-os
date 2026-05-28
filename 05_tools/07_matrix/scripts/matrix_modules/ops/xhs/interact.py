@@ -374,7 +374,7 @@ class CommentStateMachine:
             return False
 
     async def enter_text(self, text: str) -> bool:
-        """Step 2: 输入评论文本（pbcopy + Cmd+V 系统级粘贴）"""
+        """Step 2: 输入评论文本（pbcopy + Cmd+V 系统级粘贴，不用 JS）"""
         if self.state == "text_entered":
             return True
         if self.state != "input_focused":
@@ -387,20 +387,11 @@ class CommentStateMachine:
             subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
             await asyncio.sleep(0.3)
 
-            # 2. 确保输入框聚焦（JS 兜底）
-            await self.page.evaluate("""
-                () => {
-                    const inp = document.querySelector('p.content-input, [contenteditable=true]');
-                    if (inp) inp.focus();
-                }
-            """)
-            await asyncio.sleep(0.3)
-
-            # 3. 系统级粘贴 (Cmd+V)
+            # 2. Cmd+V 系统级粘贴（已经在 input_focused 状态，不用再次 JS focus）
             await self.page.keyboard.press("Meta+v")
             await asyncio.sleep(0.5)
 
-            # 4. 验证输入成功
+            # 3. 验证输入成功
             needle = json.dumps(text[:10])
             has_text = await self.page.evaluate(f"""
                 () => {{
@@ -415,16 +406,9 @@ class CommentStateMachine:
                 self.state = "text_entered"
                 return True
 
-            # 5. 空格刷新 Draft.js 状态 + 再次粘贴
+            # 4. 空格刷新 Draft.js 状态 + 再次粘贴
             await self.page.keyboard.press("Space")
-            await asyncio.sleep(0.2)
-            await self.page.evaluate("""
-                () => {
-                    const inp = document.querySelector('p.content-input, [contenteditable=true]');
-                    if (inp) inp.focus();
-                }
-            """)
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.3)
             await self.page.keyboard.press("Meta+v")
             await asyncio.sleep(0.5)
 
@@ -446,14 +430,30 @@ class CommentStateMachine:
             return False
 
     async def send(self) -> bool:
-        """Step 3: 发送评论"""
+        """Step 3: 发送评论（有发送按钮点按钮，无则 Enter）"""
         if self.state != "text_entered":
             return False
 
         try:
-            # 方式1: Enter 键发送
+            # 方式1: 找"发送"按钮（XHS 页面上的按钮）
+            btn_found = await self.page.evaluate("""() => {
+                const btns = document.querySelectorAll('button, div[role=button], [class*=btn], [class*=send]');
+                for (const btn of btns) {
+                    if ((btn.textContent||'').includes('发送')) return true;
+                }
+                return false;
+            }""")
+            if btn_found:
+                btn = await self.page.query_selector('button:has-text("发送"), [class*=send]:has-text("发送"), [class*=btn]:has-text("发送")')
+                if btn:
+                    await btn.click()
+                    await asyncio.sleep(2)
+                    self.state = "sent"
+                    return True
+
+            # 方式2: Enter 键发送
             await self.page.keyboard.press("Enter")
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(2)
             self.state = "sent"
             return True
 
