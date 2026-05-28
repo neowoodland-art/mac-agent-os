@@ -1887,7 +1887,7 @@ async def nurture_xhs_loop(
             await browse.scroll_feed_human(conn.page, screens=random.randint(1, 2))
             await asyncio.sleep(bhv.click_delay())
 
-            # 页面健康检查（检测黑屏/滚动过头）
+            # 页面健康检查（检测黑屏/滚动过头/广告遮罩）
             try:
                 health = await browse.check_page_health(conn.page)
                 if health.get('black_screen'):
@@ -1913,6 +1913,18 @@ async def nurture_xhs_loop(
                         health = await browse.check_page_health(conn.page)
                         if not health.get('black_screen'):
                             _xhs_log(f"  ✅ 滚动回正成功")
+
+                    # 滚动回正无效 → 点底部"发现" tab 刷新瀑布流
+                    if health.get('black_screen'):
+                        _xhs_log(f"  🔄 滚动回正无效，尝试底部\"发现\" tab 刷新...")
+                        await browse.click_bottom_nav_tab(conn.page, "发现")
+                        await asyncio.sleep(2)
+                        health = await browse.check_page_health(conn.page)
+                        if health.get('black_screen'):
+                            _xhs_log(f"  ⚠️ \"发现\" tab 仍黑屏，goto_home 兜底")
+                            await browse.goto_home(conn.page)
+                        else:
+                            _xhs_log(f"  ✅ 底部\"发现\" tab 刷新成功")
             except Exception:
                 pass
 
@@ -1940,9 +1952,9 @@ async def nurture_xhs_loop(
                 else:
                     _xhs_log("  ⚠️ 未找到可点击的笔记")
                 round_ok = False
-                # 页面可能已损坏→重新导航恢复
-                _xhs_log("  🔄 页面恢复: 重新导航首页...")
-                await browse.goto_home(conn.page)
+                # 页面可能已损坏→底部"发现" tab 恢复
+                _xhs_log("  🔄 页面恢复: 底部\"发现\" tab 恢复...")
+                await browse.click_bottom_nav_tab(conn.page, "发现")
                 await asyncio.sleep(3)
             else:
                 _xhs_log(f"  ✅ 进入笔记: {note_url[:60]}...")

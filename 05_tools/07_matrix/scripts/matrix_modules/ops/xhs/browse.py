@@ -159,8 +159,8 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
             # 锚点验证
             anchor = await page.evaluate(is_note_detail_mode_js())
             if anchor.get('qr_blocked'):
-                # QR 码拦截墙 — 非常用登录触发，导航回首页重试其他卡片
-                await goto_home(page)
+                # QR 码拦截墙 — 点底部"发现" tab 回到首页重试
+                await click_bottom_nav_tab(page, "发现")
                 await asyncio.sleep(2)
                 return 'qr_blocked'
             if anchor.get('is_author_profile'):
@@ -177,7 +177,7 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                 await asyncio.sleep(2)
                 anchor = await page.evaluate(is_note_detail_mode_js())
                 if anchor.get('qr_blocked'):
-                    await goto_home(page)
+                    await click_bottom_nav_tab(page, "发现")
                     await asyncio.sleep(2)
                     return 'qr_blocked'
                 if anchor.get('is_author_profile'):
@@ -196,7 +196,7 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                     await asyncio.sleep(2)
                     anchor = await page.evaluate(is_note_detail_mode_js())
                     if anchor.get('qr_blocked'):
-                        await goto_home(page)
+                        await click_bottom_nav_tab(page, "发现")
                         await asyncio.sleep(2)
                         return 'qr_blocked'
                     if anchor.get('is_author_profile'):
@@ -475,6 +475,67 @@ async def go_back_to_home(page):
         await goto_home(page)
         await asyncio.sleep(3)
         await wait_for_feed_ready(page, timeout=5)
+        return True
+
+
+# ════════════════════════════════════════════════════════════
+# 底部导航操作（2026-05-28 新增：黑屏/QR墙恢复）
+# ════════════════════════════════════════════════════════════
+
+async def click_bottom_nav_tab(page, tab_text: str = "发现"):
+    """点击底部导航栏中的 tab 恢复页面状态
+
+    用户实测（2026-05-28）:
+    - 黑屏 → 点击底部"发现"刷新瀑布流
+    - QR墙"当前笔记暂时无法浏览" → 点击底部"发现"回到首页
+
+    策略:
+    1. 按文本找底部导航中的元素（a/button/[tab]/[nav] 含指定文字）
+    2. 找 /explore 链接
+    3. 找底部固定栏第一个可用链接
+    4. goto_home 兜底
+
+    Returns:
+        True（无论是否成功，不影响流程）
+    """
+    try:
+        # 方式1: 按文本查找
+        selector = (
+            f'a:has-text("{tab_text}"), '
+            f'button:has-text("{tab_text}"), '
+            f'[class*=tab]:has-text("{tab_text}"), '
+            f'[class*=nav]:has-text("{tab_text}")'
+        )
+        tab_el = await page.query_selector(selector)
+        if tab_el:
+            await tab_el.click()
+            await asyncio.sleep(2)
+            await wait_for_feed_ready(page, timeout=8)
+            return True
+
+        # 方式2: /explore 链接（发现页）
+        explore_link = await page.query_selector('a[href*="/explore"]')
+        if explore_link:
+            await explore_link.click()
+            await asyncio.sleep(3)
+            await wait_for_feed_ready(page, timeout=8)
+            return True
+
+        # 方式3: 底部固定栏第一个链接
+        bottom_links = await page.query_selector_all(
+            '[class*="bottom"] a, [class*="tab"] a, nav a, [class*="footer"] a'
+        )
+        if bottom_links:
+            await bottom_links[0].click()
+            await asyncio.sleep(3)
+            await wait_for_feed_ready(page, timeout=8)
+            return True
+
+        # 兜底
+        await goto_home(page)
+        return True
+    except Exception:
+        await goto_home(page)
         return True
 
 
