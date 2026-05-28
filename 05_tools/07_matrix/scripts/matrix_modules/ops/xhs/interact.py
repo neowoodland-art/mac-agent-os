@@ -276,11 +276,13 @@ class CommentStateMachine:
             # 方式1: 键盘滚到底部 → 找输入框坐标 → Playwright 鼠标点击
             # （不用 JS scrollTo/focus/click，XHS Draft.js 不认合成事件）
 
-            # 1a) 键盘箭头滚动到底部
-            for _ in range(20):
+            # 1a) 先等页面稳定 → 键盘箭头滚动到底部（XHS 瀑布流加载需要时间）
+            await asyncio.sleep(1)
+            for _ in range(30):
                 await self.page.keyboard.press("ArrowDown")
-                await asyncio.sleep(0.1)
-            await asyncio.sleep(0.5)
+                await asyncio.sleep(0.08)
+            # 等 SPA 渲染评论区
+            await asyncio.sleep(1.5)
 
             # 1b) 用 JS 只读坐标，不触发任何事件
             pos = await self.page.evaluate("""() => {
