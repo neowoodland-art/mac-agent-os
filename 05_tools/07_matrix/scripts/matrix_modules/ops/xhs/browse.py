@@ -229,32 +229,39 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
 
 
 async def scroll_feed(page, distance: int = None):
-    """鼠标滚轮滚动一小段（真人的滚轮操作，触发 IntersectionObserver）"""
+    """键盘 ArrowDown 滚动一小段（触发 IntersectionObserver 加载图片）"""
     try:
-        dist = distance or random.randint(80, 200)
-        await page.mouse.wheel(0, dist)
+        presses = max(8, (distance or random.randint(150, 400)) // 15)
+        for _ in range(presses):
+            await page.keyboard.press("ArrowDown")
+            await asyncio.sleep(random.uniform(0.12, 0.25))
     except Exception:
-        pass
-    await asyncio.sleep(random.uniform(0.5, 1.2))
+        try:
+            await page.mouse.wheel(0, distance or 200)
+        except Exception:
+            pass
+    await asyncio.sleep(random.uniform(0.8, 1.5))
     return distance
 
 
 async def scroll_feed_human(page, screens: int = 1):
     """
-    真人滚轮下滑：鼠标滚轮 × 多次，模拟真实阅读节奏
+    键盘 ArrowDown 逐行滚动 + 视口验证，模拟真人阅读节奏
 
-    - 每次滚 80-200px（≈ 自然滚轮一次）
-    - 每次间隔 0.5-1.5s（看内容/等图片加载）
-    - 每次滚完后检查卡片是否在视口内
-    - 如果滚过头了用 ArrowUp 回正
+    - ArrowDown × 多次（≈ 自然阅读，每次触 IntersectionObserver）
+    - 每屏后检查卡片是否仍在视口
+    - 滚动过头自动 ArrowUp 回正
     """
     for s in range(screens):
-        for tick in range(random.randint(3, 6)):
-            dist = random.randint(80, 200)
-            await page.mouse.wheel(0, dist)
-            await asyncio.sleep(random.uniform(0.5, 1.5))
+        # ArrowDown × 8-15 次（≈ 半屏到一屏）
+        for _ in range(random.randint(8, 15)):
+            await page.keyboard.press("ArrowDown")
+            await asyncio.sleep(random.uniform(0.12, 0.25))
 
-        # 回滚验证：确保至少 2 张卡片在视口
+        # 阅读停顿
+        await asyncio.sleep(random.uniform(1.5, 3.0))
+
+        # 视口验证：确保至少 2 张卡片在视口内
         cards_in_view = await page.evaluate("""() => {
             const vh = window.innerHeight;
             let n = 0;
@@ -269,7 +276,7 @@ async def scroll_feed_human(page, screens: int = 1):
             for _ in range(15):
                 await page.keyboard.press("ArrowUp")
                 await asyncio.sleep(0.08)
-            await asyncio.sleep(1)
+            await asyncio.sleep(1.5)
 
         # 阅读停顿
         await asyncio.sleep(random.uniform(2.0, 4.0))
