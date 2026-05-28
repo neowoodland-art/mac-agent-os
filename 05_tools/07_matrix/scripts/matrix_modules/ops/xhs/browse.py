@@ -324,35 +324,42 @@ async def wait_for_feed_ready(page, timeout: float = 8.0) -> bool:
 
 
 async def go_back_to_home(page):
-    """从详情页返回首页（SPA 正确回退 + 等待图片加载）"""
+    """从详情页返回首页（直接导航到 /explore + 滚动触发懒加载）
+
+    不用 page.go_back（SPA popstate 在 Firefox/Camoufox 不可靠）。
+    用 goto_home + 键盘箭头触发 IntersectionObserver 加载图片。
+    """
     try:
-        # 方式1: 浏览器 go_back（触发 SPA popstate 事件，Vue Router 正确导航）
-        await page.go_back(timeout=10000, wait_until="domcontentloaded")
+        # 直接导航到首页（整页加载，SPA 重新初始化）
+        await goto_home(page)
+        await asyncio.sleep(2)
+
+        # 键盘箭头滚动触发图片懒加载（IntersectionObserver）
+        for _ in range(10):
+            await page.keyboard.press("ArrowDown")
+            await asyncio.sleep(0.1)
         await asyncio.sleep(1)
 
         # 验证 + 等待图片
         cards = await get_note_cards(page)
         if cards:
-            images_ok = await wait_for_feed_ready(page, timeout=5)
+            images_ok = await wait_for_feed_ready(page, timeout=8)
             if images_ok:
                 return True
 
-        # 方式2: JS 触发 SPA 导航（popstate 兼容）
-        try:
-            await page.evaluate("""
-                () => {
-                    window.history.back();
-                }
-            """)
-            await asyncio.sleep(3)
-            images_ok = await wait_for_feed_ready(page, timeout=5)
-            if images_ok:
-                return True
-        except Exception:
-            pass
+        # 兜底: 强制 reload
+        await page.reload(wait_until="domcontentloaded")
+        await asyncio.sleep(3)
+        for _ in range(10):
+            await page.keyboard.press("ArrowDown")
+            await asyncio.sleep(0.1)
+        await wait_for_feed_ready(page, timeout=6)
+        return bool(await get_note_cards(page))
 
-        # 方式3: reload 兜底
-        await page.reload()
+    except Exception:
+        await goto_home(page)
+        await asyncio.sleep(3)
+        return True
         await asyncio.sleep(3)
         images_ok = await wait_for_feed_ready(page, timeout=5)
         return bool(images_ok or await get_note_cards(page))
