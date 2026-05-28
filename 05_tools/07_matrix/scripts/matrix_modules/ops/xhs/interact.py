@@ -276,13 +276,13 @@ class CommentStateMachine:
             # 方式1: 键盘滚到底部 → 找输入框坐标 → Playwright 鼠标点击
             # （不用 JS scrollTo/focus/click，XHS Draft.js 不认合成事件）
 
-            # 1a) 先等页面稳定 → 键盘箭头滚动到底部（XHS 瀑布流加载需要时间）
-            await asyncio.sleep(1)
-            for _ in range(30):
+            # 1a) 先等页面稳定 → 键盘箭头滚动到底部
+            await asyncio.sleep(0.5)
+            for _ in range(40):
                 await self.page.keyboard.press("ArrowDown")
-                await asyncio.sleep(0.08)
-            # 等 SPA 渲染评论区
-            await asyncio.sleep(1.5)
+                await asyncio.sleep(0.05)
+            # 等 SPA 加载评论区组件（关键！Vue 需要时间挂载底部输入框）
+            await asyncio.sleep(3)
 
             # 1b) 用 JS 只读坐标，不触发任何事件
             # 优先选 contenteditable / p.content-input / div.input-box
@@ -316,8 +316,24 @@ class CommentStateMachine:
                 return input || fallback;  // 优先用输入框
             }""")
 
-            if pos and pos.get('x') is not None and pos.get('y') is not None:
-                # 真实鼠标移动 + 点击
+            if not pos:
+                # 等一会再重试（SPA 可能还没挂载评论区）
+                await asyncio.sleep(2)
+                pos = await self.page.evaluate("""() => {
+                    const c = document.querySelectorAll('p.content-input,div.input-box,[contenteditable=true],[class*=engage-bar],[role=textbox],.notranslate');
+                    let input=null, fallback=null, inputY=9999, fbY=-1;
+                    for (const el of c) {
+                        if (el.offsetHeight<20) continue;
+                        const r = el.getBoundingClientRect();
+                        if (r.y<100) continue;
+                        const isIn = el.isContentEditable||el.classList.contains('content-input')||el.classList.contains('input-box');
+                        if (isIn && r.y<inputY) { inputY=r.y; input={x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}; }
+                        else if (!isIn && r.y>fbY) { fbY=r.y; fallback={x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}; }
+                    }
+                    return input||fallback;
+                }""")
+
+            if pos and pos.get('x') is not None and pos.get('y') is not None:            
                 await self.page.mouse.move(pos['x'], pos['y'], steps=8)
                 await asyncio.sleep(random.uniform(0.3, 0.8))
                 await self.page.mouse.click(pos['x'], pos['y'])
