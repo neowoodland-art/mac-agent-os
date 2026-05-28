@@ -325,37 +325,36 @@ class CommentStateMachine:
             subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
             await asyncio.sleep(0.3)
 
-            # 2. Meta+v 粘贴（XHS 输入框 focus 后可以直接粘贴）
+            # 2. Meta+v 粘贴
             await self.page.keyboard.press("Meta+v")
-            # 等待 UI 动画完成（文本框变化 + 发送/取消按钮出现 ≈ 2-3秒）
-            await asyncio.sleep(3)
 
-            # 3. 全页面验证文本是否输入成功
-            # （不用具体选择器——粘贴后 engage-bar 结构改变，旧选择器失效）
+            # 3. 轮询等待 UI 动画 + 文本出现（XHS 变化需 1-5秒）
             needle = json.dumps(text[:8])
-            has_text = await self.page.evaluate(f"""
-                () => {{
-                    const t = document.body.innerText || document.body.textContent || '';
-                    // 输入区域的 textContent 也会出现在 body.innerText 中
-                    return t.includes({needle});
-                }}
-            """)
-            if has_text:
-                self.state = "text_entered"
-                return True
+            for _ in range(5):
+                await asyncio.sleep(1)
+                has_text = await self.page.evaluate(f"""
+                    () => {{
+                        const t = document.body.innerText || document.body.textContent || '';
+                        return t.includes({needle});
+                    }}
+                """)
+                if has_text:
+                    self.state = "text_entered"
+                    return True
 
-            # 4. 确实没输入成功的话重试一次 Meta+v
+            # 4. 重试一次 Meta+v
             await self.page.keyboard.press("Meta+v")
-            await asyncio.sleep(3)
-            has_text2 = await self.page.evaluate(f"""
-                () => {{
-                    const t = document.body.innerText || document.body.textContent || '';
-                    return t.includes({needle});
-                }}
-            """)
-            if has_text2:
-                self.state = "text_entered"
-                return True
+            for _ in range(5):
+                await asyncio.sleep(1)
+                has_text2 = await self.page.evaluate(f"""
+                    () => {{
+                        const t = document.body.innerText || document.body.textContent || '';
+                        return t.includes({needle});
+                    }}
+                """)
+                if has_text2:
+                    self.state = "text_entered"
+                    return True
 
             return False
 
