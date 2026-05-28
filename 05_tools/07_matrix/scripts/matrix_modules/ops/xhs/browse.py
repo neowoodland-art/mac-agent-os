@@ -163,6 +163,11 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                 await goto_home(page)
                 await asyncio.sleep(2)
                 return 'qr_blocked'
+            if anchor.get('is_author_profile'):
+                # 打成作者主页了 → ESC 退回再重试
+                await page.keyboard.press("Escape")
+                await asyncio.sleep(2)
+                return 'qr_blocked'  # 让外层走重试逻辑
             if anchor.get('is_detail'):
                 return page.url
 
@@ -173,6 +178,10 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                 anchor = await page.evaluate(is_note_detail_mode_js())
                 if anchor.get('qr_blocked'):
                     await goto_home(page)
+                    await asyncio.sleep(2)
+                    return 'qr_blocked'
+                if anchor.get('is_author_profile'):
+                    await page.keyboard.press("Escape")
                     await asyncio.sleep(2)
                     return 'qr_blocked'
                 if anchor.get('is_detail'):
@@ -188,6 +197,10 @@ async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -
                     anchor = await page.evaluate(is_note_detail_mode_js())
                     if anchor.get('qr_blocked'):
                         await goto_home(page)
+                        await asyncio.sleep(2)
+                        return 'qr_blocked'
+                    if anchor.get('is_author_profile'):
+                        await page.keyboard.press("Escape")
                         await asyncio.sleep(2)
                         return 'qr_blocked'
                     if anchor.get('is_detail'):

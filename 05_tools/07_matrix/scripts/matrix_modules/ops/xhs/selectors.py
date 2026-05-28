@@ -287,7 +287,18 @@ def is_note_detail_mode_js() -> str:
         const bodyText = document.body?.innerText || '';
         const qrBlocked = bodyText.includes('请打开小红书App') || bodyText.includes('当前笔记暂时无法浏览');
         if (qrBlocked) {
-            return { is_detail: false, reason: 'QR码拦截墙', qr_blocked: true };
+            return { is_detail: false, reason: 'QR码拦截墙', qr_blocked: true,
+                     is_author_profile: false };
+        }
+
+        // 0.5 检测是否进了作者主页（点了卡片但打到作者链接）
+        const urlPath = window.location.pathname || '';
+        const isAuthorProfile = /^\\/user\\/profile\\//.test(urlPath)
+            || /^\\/profile\\//.test(urlPath)
+            || !!document.querySelector('[class*="user-header"], [class*="profile-banner"]');
+        if (isAuthorProfile) {
+            return { is_detail: false, reason: '作者主页', qr_blocked: false,
+                     is_author_profile: true };
         }
 
         // 1. 检测 note-detail-mask
@@ -342,6 +353,7 @@ def is_note_detail_mode_js() -> str:
             lightbox_fullscreen: lightboxFullscreen,
             has_note_url: hasNoteUrl,
             qr_blocked: false,
+            is_author_profile: false,
         };
     }
     """
