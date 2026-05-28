@@ -1882,10 +1882,19 @@ async def nurture_xhs_loop(
 
         round_ok = True
         try:
-            # ── Step 1: 瀑布流浏览 ──
+            # ── Step 1: 瀑布流浏览 + 页面健康检查 ──
             _xhs_log("  📜 瀑布流浏览...")
             await browse.scroll_feed_human(conn.page, screens=random.randint(1, 3))
             await asyncio.sleep(bhv.click_delay())
+
+            # 页面健康检查（检测黑屏/CSS隐藏）
+            try:
+                health = await browse.check_page_health(conn.page)
+                if health.get('black_screen'):
+                    _xhs_log(f"  ⚠️ 页面异常: {health.get('reason', 'unknown')}")
+                    _xhs_log(f"     cards={health.get('cards')} visible={health.get('visible_cards')} imgs={health.get('loaded_images')}/{health.get('total_images')}")
+            except Exception:
+                pass
 
             # ── Step 2: 点击笔记卡片（QR墙回退重试）──
             _xhs_log("  🎯 点击笔记卡片...")

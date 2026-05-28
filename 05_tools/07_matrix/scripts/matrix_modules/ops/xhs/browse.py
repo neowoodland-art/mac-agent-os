@@ -304,6 +304,80 @@ async def browse_note_detail(page, duration: float = None):
         return watch
 
 
+async def check_page_health(page) -> dict:
+    """诊断页面是否正常渲染（检测黑屏/未加载/CSS隐藏状态）"""
+    try:
+        return await page.evaluate("""() => {
+            const body = document.body;
+            if (!body) return {alive: false, reason: 'no body'};
+
+            const cards = document.querySelectorAll('section.note-item');
+            const imgs = [...document.querySelectorAll('img')];
+            const loadedImgs = imgs.filter(i => i.complete && i.naturalWidth > 0);
+            const noteDetail = document.querySelector('.note-detail-mask, [class*=note-detail]');
+
+            // 检测 CSS 隐藏（有 DOM 但不可见）
+            function isVisuallyHidden(el) {
+                const style = window.getComputedStyle(el);
+                return style.display === 'none'
+                    || style.visibility === 'hidden'
+                    || style.opacity === '0'
+                    || parseFloat(style.opacity) < 0.1;
+            }
+            function isOffscreen(el) {
+                const r = el.getBoundingClientRect();
+                return r.width === 0 || r.height === 0
+                    || r.right < 0 || r.bottom < 0
+                    || r.left > window.innerWidth || r.top > window.innerHeight;
+            }
+
+            // 采样检查前5张卡片是否真正可见
+            let visibleCards = 0;
+            let hiddenCards = 0;
+            for (const c of [...cards].slice(0, 5)) {
+                if (isVisuallyHidden(c) || isOffscreen(c)) {
+                    hiddenCards++;
+                } else {
+                    visibleCards++;
+                }
+            }
+
+            // body 背景色
+            const bg = window.getComputedStyle(body).backgroundColor;
+
+            // 判断是否黑屏
+            let blackScreen = false;
+            let reason = '';
+            if (cards.length === 0 && !noteDetail) {
+                blackScreen = true;
+                reason = 'no cards and no detail - empty page';
+            } else if (cards.length > 0 && visibleCards === 0 && hiddenCards > 0) {
+                blackScreen = true;
+                reason = `cards exist but ${hiddenCards}/5 are CSS-hidden (display:none/opacity:0)`;
+            } else if (cards.length > 0 && loadedImgs.length === 0 && imgs.length > 5) {
+                blackScreen = true;
+                reason = 'cards exist but no images loaded - lazy loading stuck';
+            }
+
+            return {
+                alive: !blackScreen,
+                black_screen: blackScreen,
+                reason: reason,
+                cards: cards.length,
+                visible_cards: visibleCards,
+                hidden_cards: hiddenCards,
+                total_images: imgs.length,
+                loaded_images: loadedImgs.length,
+                in_detail_mode: !!noteDetail,
+                bg_color: bg,
+                url: location.href.substring(0, 80),
+                viewport: `${window.innerWidth}x${window.innerHeight}`,
+            };
+        }""")
+    except Exception as e:
+        return {"alive": False, "error": str(e)}
+
+
 async def wait_for_feed_ready(page, timeout: float = 8.0) -> bool:
     """等待首页瀑布流图片加载完成"""
     try:
@@ -359,12 +433,17 @@ async def go_back_to_home(page):
         if back2.get('mask_gone', True) and back2.get('cards', 0) > 5:
             return True
 
-        # 兜底: goto_home
+        # 检测页面健康度（ESC 可能没触发，或页面异常）
+        health = await check_page_health(page)
+        if health.get('alive'):
+            return True
+
+        # 兜底: goto_home + 键盘滚动恢复
         await goto_home(page)
         await asyncio.sleep(2)
-        for _ in range(10):
+        for _ in range(15):
             await page.keyboard.press("ArrowDown")
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.15)
         await wait_for_feed_ready(page, timeout=8)
         return bool(await get_note_cards(page))
 
