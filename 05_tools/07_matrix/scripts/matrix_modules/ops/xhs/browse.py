@@ -292,10 +292,12 @@ async def browse_note_detail(page, duration: float = None):
         await asyncio.sleep(random.uniform(1, 2))
         return watch
     else:
-        # 图文笔记：缓慢滚动模拟阅读
-        steps = int(watch / 2)
+        # 图文笔记：键盘箭头↓模拟真人阅读（不用 JS scrollBy，会破坏 SPA 状态）
+        steps = max(2, int(watch / 2))
         for _ in range(steps):
-            await page.evaluate(f"window.scrollBy(0, {random.randint(50, 150)})")
+            for _ in range(random.randint(2, 5)):
+                await page.keyboard.press("ArrowDown")
+                await asyncio.sleep(random.uniform(0.1, 0.3))
             await asyncio.sleep(random.uniform(1.0, 2.5))
         return watch
 

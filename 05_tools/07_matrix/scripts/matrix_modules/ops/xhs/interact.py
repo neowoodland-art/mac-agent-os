@@ -597,3 +597,5 @@ async def random_interact(page, behavior_config: dict = None) -> dict:
         await asyncio.sleep(random.uniform(0.5, 1.5))
 
     return results
+
+# VERSION: 2026-05-28 v3.1 - fixed focus_input input priority
