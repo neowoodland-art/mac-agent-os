@@ -292,9 +292,9 @@ def is_note_detail_mode_js() -> str:
         }
 
         // 0.5 检测是否进了作者主页（点了卡片但打到作者链接）
-        const urlPath = window.location.pathname || '';
-        const isAuthorProfile = /^\\/user\\/profile\\//.test(urlPath)
-            || /^\\/profile\\//.test(urlPath)
+        var p = window.location.pathname || '';
+        const isAuthorProfile = /^\\/user\\/profile\\//.test(p)
+            || /^\\/profile\\//.test(p)
             || !!document.querySelector('[class*="user-header"], [class*="profile-banner"]');
         if (isAuthorProfile) {
             return { is_detail: false, reason: '作者主页', qr_blocked: false,
