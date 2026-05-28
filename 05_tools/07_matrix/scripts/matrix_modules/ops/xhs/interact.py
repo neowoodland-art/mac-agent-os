@@ -285,24 +285,35 @@ class CommentStateMachine:
             await asyncio.sleep(1.5)
 
             # 1b) 用 JS 只读坐标，不触发任何事件
+            # 优先选 contenteditable / p.content-input / div.input-box
+            # （排除 buttons / 非输入按钮区）
             pos = await self.page.evaluate("""() => {
                 const candidates = document.querySelectorAll(
                     'p.content-input, div.input-box, [contenteditable=true], ' +
                     '[class*=engage-bar], [role="textbox"], .notranslate'
                 );
-                let best = null;
-                let bestY = -1;
+                // 先找可编辑的输入框
+                let input = null;
+                let fallback = null;
+                let bestInputY = 9999;
+                let bestFallbackY = -1;
                 for (const el of candidates) {
                     if (el.offsetHeight < 20) continue;
                     const r = el.getBoundingClientRect();
-                    // 排除搜索框（在顶部 y<100）
                     if (r.y < 100) continue;
-                    if (r.y > bestY) {
-                        bestY = r.y;
-                        best = {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
+                    // 检查是否可编辑输入框
+                    const isInput = el.isContentEditable ||
+                        el.classList.contains('content-input') ||
+                        el.classList.contains('input-box');
+                    if (isInput && r.y < bestInputY) {
+                        bestInputY = r.y;
+                        input = {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
+                    } else if (!isInput && r.y > bestFallbackY) {
+                        bestFallbackY = r.y;
+                        fallback = {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
                     }
                 }
-                return best;
+                return input || fallback;  // 优先用输入框
             }""")
 
             if pos and pos.get('x') is not None and pos.get('y') is not None:
