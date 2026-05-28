@@ -1940,6 +1940,10 @@ async def nurture_xhs_loop(
                 else:
                     _xhs_log("  ⚠️ 未找到可点击的笔记")
                 round_ok = False
+                # 页面可能已损坏→重新导航恢复
+                _xhs_log("  🔄 页面恢复: 重新导航首页...")
+                await browse.goto_home(conn.page)
+                await asyncio.sleep(3)
             else:
                 _xhs_log(f"  ✅ 进入笔记: {note_url[:60]}...")
                 await asyncio.sleep(bhv.click_delay())
