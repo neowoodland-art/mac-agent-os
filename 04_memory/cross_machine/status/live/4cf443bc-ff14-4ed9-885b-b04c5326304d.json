@@ -20,5 +20,11 @@
   "last_seen": "2026-05-29T05:03:07.280583+00:00",
   "status": "online",
   "guardd_version": "2.0.0",
-  "current_task": null
+  "current_task": null,
+  "_source": "push",
+  "_received_at": "2026-05-29T05:03:07.305900+00:00",
+  "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
+  "_hostname": "chengzigedeAir",
+  "_events": [],
+  "_uptime": 0
 }
