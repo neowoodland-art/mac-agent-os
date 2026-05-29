@@ -131,6 +131,20 @@ PYTHONUNBUFFERED=1 nohup python3 script.py > log.txt 2>&1 &
 **坑**：`store_true` + `getattr(args, 'daemon', True)` 当参数为 None 时返回 None 而非 True
 **正确做法**：`BooleanOptionalAction` + `args.daemon if args.daemon is not None else True`
 
+### page.evaluate() 无限挂起
+
+**现象**：养号运行到某一步突然停止，无错误日志，浏览器进程存活
+**根因**：Playwright 的 `page.evaluate()` 在页面状态异常时无限挂起，**无默认超时**
+**解决**：所有 `page.evaluate()` 调用加 `asyncio.wait_for()` 超时（8-10s）
+**影响范围**：所有涉及 JS 调用的函数（dismiss_login_modal, get_note_cards, click_refresh_button 等）
+**注意**：超时会捕获 `asyncio.TimeoutError`，返回 False/None，不会导致进程退出
+
+### 搜索结果页无 FAB 刷新按钮
+
+**现象**：搜索返回首页后 click_refresh_button() 一直在找按钮，日志显示"刷新瀑布流页面..."长时间无进展
+**根因**：go_back_to_home() 后可能回到搜索页，搜索页没有右下角 FAB 刷新按钮
+**解决**：click_refresh_button() 加 10s 超时 → 找不到按钮安全返回 False → 流程继续
+
 ## 诊断方法论
 
 遇到异常时按以下流程处理：

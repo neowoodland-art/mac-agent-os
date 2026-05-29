@@ -1,6 +1,6 @@
 ---
 title: 小红书养号页面交互技术
-tags: [xhs, browse, interaction, qr-wall, refresh, black-screen, ai-layout]
+tags: [xhs, browse, interaction, qr-wall, refresh, black-screen, ai-layout, tab-detection, timeout]
 created: 2026-05-29
 updated: 2026-05-29
 nature: method
@@ -83,6 +83,70 @@ macOS 窗口激活限制下，点击需要先聚焦再执行：
 1. 第一次点击 → 聚焦窗口（可能不触发元素事件）
 2. 第二次点击 → 实际执行操作
 
+## 误触作者主页（新标签页）检测
+
+点击笔记卡片时可能点到作者头像/名称，导致新标签页打开作者主页。
+
+### 检测方法（确定性锚点）
+
+```
+点击前: tabs_before = len(context.pages)
+执行点击（Playwright click）
+点击后: if len(context.pages) > tabs_before → 误触作者
+```
+
+- 新 tab URL 即为作者主页地址
+- 关闭新 tab，回到原 tab，重新选卡片重试（最多 3 次）
+- 3 次全部误触才返回 None（本轮失败，不导致全局退出）
+
+### 代码位置
+
+`browse.click_note_card(page, max_retries=3)`：
+- 使用 `page.context.pages` 获取所有标签页
+- 点击后比对 tab 数量变化
+- 比截图 + AI 分析更可靠，是确定性锚点
+
+## page.evaluate() 超时保护
+
+### 问题
+
+Playwright 的 `page.evaluate()` 在页面状态异常时会**无限挂起**，无默认超时。卡死时不会抛出异常，整个 asyncio 循环停滞。
+
+### 受影响的函数
+
+所有涉及 `page.evaluate()` 的操作都可能卡死：
+- `dismiss_login_modal()` — 登录弹窗关闭
+- `get_note_cards()` — 获取卡片列表
+- `click_note_card()` — 内部调用 get_note_cards
+- `browse_note_detail()` — 视频检测
+- `click_refresh_button()` — 刷新按钮查找
+- `click_qr_wall_back_button()` — QR墙按钮查找
+
+### 修复
+
+全部加 `asyncio.wait_for()` 超时保护：
+
+```python
+result = await asyncio.wait_for(
+    page.evaluate(some_js_function()),
+    timeout=10  # 秒
+)
+```
+
+### 超时时间表
+
+| 函数 | 超时 | 说明 |
+|------|------|------|
+| click_refresh_button | 10s | JS 三策略扫描，最复杂 |
+| click_qr_wall_back_button | 10s | QR 墙检测 + 按钮定位 |
+| get_note_cards | 10s | DOM 卡片遍历 |
+| dismiss_login_modal | 8s | 简单 DOM 操作 |
+| browse_note_detail (视频检测) | 8s | 简单 DOM 查询 |
+
+### 搜索结果页刷新按钮
+
+搜索页（URL含 `/search`）没有右下角 FAB 刷新按钮，`click_refresh_button()` 会在 10s 超时后安全返回 False，不会卡死。
+
 ## 常见问题与恢复策略
 
 ### 黑屏恢复
@@ -110,6 +174,23 @@ macOS 窗口激活限制下，点击需要先聚焦再执行：
 ```
 
 **重要区别**：QR 墙 ≠ 未登录。QR 墙是频控触发，多刷会恢复。未登录二维码弹窗是另一种情况。
+
+### 每轮必刷新策略（Step 0）
+
+为彻底防止瀑布流黑屏/卡死，小红书养号每轮循环开头**强制**点击右下角刷新按钮：
+
+```
+每轮循环:
+  Step 0: click_refresh_button()     ← 必执行（模拟鼠标点 FAB）
+  Step 1: scroll_feed_human()
+  Step 2: click_note_card()
+  ...
+  搜索返回后: click_refresh_button() × 1  ← 回到首页后也刷新
+```
+
+- 找不到刷新按钮时不中断，仅跳过并记日志（搜索结果页无 FAB）
+- `click_refresh_button()` 自带 10s 超时保护，不会卡死
+- 原锚点失败时的刷新逻辑保留作为兜底
 
 ### 首页锚点验证失败
 

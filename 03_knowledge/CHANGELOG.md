@@ -8,6 +8,12 @@
 - 抖音评论自动化双路径技术（方法卡：Draft.js输入、状态机、快捷键、视频页评论区定位）
 - Matrix 养号系统已知坑与解决方案（方法卡：浏览器引擎/macOS/XHS/抖音/代码层面问题汇总）
 
+### 更新（2026-05-29 13:00 → 19:00）
+- `xhs-browse-interaction-techniques.md`：新增"误触作者主页tab检测"、"page.evaluate()超时保护"、"搜索结果页刷新按钮问题"、"每轮必刷新策略"
+- `matrix-known-pitfalls.md`：新增"page.evaluate()无限挂起"、"搜索结果页无FAB刷新按钮"
+- `matrix-nurture-system-architecture.md`：更新小红书的完整养号轮次（含Step0强制刷新、超时保护）
+- `xhs-nurture skill`：同步所有新知识（刷新按钮、QR墙增强、误触作者检测、超时保护）
+
 ### 已有
 - 指纹分辨率触发小红书 AI-layout 版本（2026-05-27 事实卡）
 

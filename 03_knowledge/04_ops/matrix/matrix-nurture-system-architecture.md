@@ -59,9 +59,19 @@ XHS 和抖音可共享同一 identity_dir（如 `douyin_01_camo` 同时用于 `x
 ### 小红书养号轮次
 
 ```
-首页(瀑布流) → 滚动浏览(1-3屏) → 点击笔记卡片 → 浏览详情(随机时长) → 互动(点赞/收藏/关注)
-→ 评论(每3轮1次) → QR墙检测+返回首页 → 搜索发现(每2轮1次) → 循环
+首页(瀑布流)
+→ Step 0: click_refresh_button()         ← 必执行，预防黑屏/卡死
+→ Step 1: scroll_feed_human(1-3屏)        ← 拟人化滚动
+→ Step 2: click_note_card(max_retries=3)  ← 含误触作者→新标签页检测+重试
+→ Step 3: browse_note_detail(4-12s)       ← 图文/视频自适应
+→ Step 4: random_interact()               ← 点赞/收藏/关注随机触发
+→ Step 5: comment(每3轮1次)               ← pbcopy+Meta+V+Enter
+→ Step 6: QR墙检测 + 返回首页              ← click_qr_wall_back_button优先
+→ Step 7: 搜索发现(每2轮1次) → 返回后刷新  ← 搜索返回后加click_refresh_button
+→ 循环
 ```
+
+所有 `page.evaluate()` 调用均有 `asyncio.wait_for` 超时保护（8-10s），防止卡死。
 
 ## 后台运行
 
