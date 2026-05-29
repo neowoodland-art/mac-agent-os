@@ -1,6 +1,7 @@
 #!/bin/bash
 # ──────────────────────────────────────────────
 # Matrix 养号 × 天行 L2TP VPN 集成脚本
+# macOS 26 兼容版（使用 scutil 控制 VPN）
 # 自动：连VPN → 跑养号 → 断VPN
 # ──────────────────────────────────────────────
 
@@ -13,30 +14,25 @@ function log() { echo "[$(date '+%H:%M:%S')] $1"; }
 # ─── 1. 连接 VPN ───
 function vpn_connect() {
     log "🔗 连接 L2TP VPN..."
-    # 先看服务是否存在，不存在就创建
-    if ! networksetup -listallnetworkservices 2>/dev/null | grep -q "$SERVICE_NAME"; then
-        log "   创建 VPN 服务..."
-        sudo networksetup -addVPNservice "Wi-Fi" "$SERVICE_NAME" "l2tp" \
-            "61.172.169.45" "oali29h0001" "PZjquAXK"
-        sudo networksetup -setl2tpipsecsharedsecret "$SERVICE_NAME" "123456"
-    fi
-    sudo networksetup -connectpppoeservice "$SERVICE_NAME"
+    # 用 scutil 启动 VPN（macOS 26 兼容）
+    scutil --nc start "$SERVICE_NAME" 2>&1
     sleep 5
 
-    # 验证连接
     local new_ip=$(curl -s --max-time 5 ifconfig.me 2>/dev/null)
-    if [ -n "$new_ip" ] && [ "$new_ip" != "114.218.238.69" ]; then
-        # 如果IP不变，等3秒再查一次
+    log "   VPN 出口 IP: $new_ip"
+
+    # 如果 IP 没变，等3秒再试一次
+    if [ "$new_ip" = "114.218.238.69" ] || [ -z "$new_ip" ]; then
         sleep 3
         new_ip=$(curl -s --max-time 5 ifconfig.me 2>/dev/null)
+        log "   重查出口 IP: $new_ip"
     fi
-    log "   VPN 出口 IP: $new_ip"
 }
 
 # ─── 2. 断开 VPN ───
 function vpn_disconnect() {
     log "🔌 断开 L2TP VPN..."
-    sudo networksetup -disconnectpppoeservice "$SERVICE_NAME"
+    scutil --nc stop "$SERVICE_NAME" 2>&1
     log "   VPN 已断开"
 }
 
@@ -65,12 +61,15 @@ function main() {
     if [ $# -eq 0 ]; then
         echo ""
         echo "用法:"
-        echo "  sudo bash vpn_nurture.sh <账号ID> [轮数]"
-        echo "  sudo bash vpn_nurture.sh <账号1> <账号2> ... [--rounds N]"
+        echo "  bash vpn_nurture.sh <账号ID> [轮数]"
+        echo "  bash vpn_nurture.sh <账号1> <账号2> ... [--rounds N]"
         echo ""
         echo "示例:"
-        echo "  sudo bash vpn_nurture.sh douyin_test 5"
-        echo "  sudo bash vpn_nurture.sh douyin_01 douyin_02 --rounds 3"
+        echo "  bash vpn_nurture.sh douyin_test 5"
+        echo "  bash vpn_nurture.sh douyin_01 douyin_02 --rounds 3"
+        echo ""
+        echo "前置条件：先安装天行VPN配置"
+        echo "  桌面有 TianXing-L2TP.mobileconfig，双击安装"
         echo ""
         exit 1
     fi
