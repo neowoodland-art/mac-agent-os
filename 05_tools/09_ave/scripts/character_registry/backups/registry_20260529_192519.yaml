@@ -78,20 +78,11 @@ characters:
     reference_images:
       real_photo_portrait: /Users/7kecheng/workbuddy-agent-os/agent-sync/05_tools/09_ave/scripts/character_registry/assets/ghai_sports/reference_portrait.jpg
       real_photo_fullbody: /Users/7kecheng/workbuddy-agent-os/agent-sync/05_tools/09_ave/scripts/character_registry/assets/ghai_sports/reference_fullbody.png
-      face_anchor: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/face_anchor.png
-      grid: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid.png
-      portrait: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_front.png
-      expressions:
-        front: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_front.png
-        3qL: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_3qL.png
-        profile: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_profile.png
-        3qR: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_3qR.png
-        focus: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_focus.png
-        intense: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_intense.png
+      face_anchor: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/ghai_sports/baseline.png
       body:
-        front: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_body_front.png
-        side: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_body_side.png
-      seed: null
+        right_three_quarter: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/ghai_sports/right_three_quarter.png
+        right_side: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/ghai_sports/right_side.png
+        back: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/ghai_sports/back.png
     outfit_presets:
       running:
         outfit: 透气速干T恤和跑步短裤
@@ -112,43 +103,3 @@ characters:
     prompt_template:
       realistic: '{base}，{outfit}，{scene_desc}，{camera_angle}，写实摄影风格，自然光线'
       sport: '{base}，{outfit}，{scene_desc}，运动摄影风格，高速快门，{camera_angle}'
-  裔年轻:
-    name: 裔年轻
-    description: 中景镜头，一位气质干净清澈的亚裔年轻男性，长相温润正派，五官端正立体，眼神真诚温暖带笑。身着燕麦色羊绒衫（袖口微微挽起）外搭深藏蓝亚麻外套，直身微侧，姿态挺拔舒展。背景是雨后湿润的江南古巷，斑驳青砖墙，脚下石板路反着水光。他一手拎着一袋用褐色纸袋包着、微微冒着热气的桂花糕，低头看向纸袋，嘴角带着温柔的笑意。
-      高清细节，暖色调，湿漉漉的地面映照天色，整体呈现胶片般柔和细腻的质感。
-    base: 中景镜头，一位气质干净清澈的亚裔年轻男性，长相温润正派，五官端正立体，眼神真诚温暖带笑。身着燕麦色羊绒衫外搭深藏蓝亚麻外套，直身微侧，姿态挺拔舒展。背景是雨后湿润的江南古巷，斑驳青砖墙，脚下石板路反着水光。他一手拎着一袋用褐色纸袋包着、微微冒着热气的桂花糕，低头看向纸袋，嘴角带着温柔的笑意。
-      高清细节，暖色调，湿漉漉的地面映照天色，整体呈现胶片般柔和细腻的质感
-    personality: 气质干净清澈的亚裔年轻男性
-    voice_style: 默认
-    art_style: 写实摄影风格
-    appearance:
-    - 中景镜头
-    - 一位气质干净清澈的亚裔年轻男性
-    - 长相温润正派
-    - 五官端正立体
-    - 眼神真诚温暖带笑
-    face:
-      shape: ''
-      eyes: ''
-      nose: ''
-      lips: 嘴角
-      hair: ''
-      skin: ''
-      facial_hair: ''
-      glasses: ''
-      distinctive: ''
-    body:
-      build: ''
-      height: ''
-      posture: 挺拔
-      age_group: ''
-    clothing:
-      top: 身着燕麦色羊绒衫（袖口微微挽起）外搭深藏蓝亚麻外套
-      inner: 背景是雨后湿润的江南古巷
-      bottom: ''
-      shoes: ''
-      style: ''
-    prompt_template:
-      realistic: '{base}，{scene_desc}，{camera_angle}，写实摄影风格，自然光线'
-    preferred_bgm_tags:
-    - 温暖
