@@ -59,44 +59,71 @@ async def get_note_cards(page) -> List[dict]:
         return []
 
 
-async def click_note_card(page, index: int = None) -> Optional[str]:
+async def click_note_card(page, index: int = None, max_retries: int = 3) -> Optional[str]:
     """
     点击笔记卡片进入详情页
 
     Args:
         index: 卡片索引（0-based），None 时随机选择
+        max_retries: 误触作者主页时最大重试次数
 
     Returns:
         笔记 URL，失败返回 None
     """
-    cards = await get_note_cards(page)
-    if not cards:
-        return None
+    for attempt in range(max_retries):
+        cards = await get_note_cards(page)
+        if not cards:
+            return None
 
-    # 随机选择卡片（避免总是点第一个）
-    if index is None:
-        # 优先选前 4 个，避免滚动到底部
-        max_idx = min(3, len(cards) - 1)
-        index = random.randint(0, max_idx)
+        # 随机选择卡片（避免总是点第一个）
+        if index is None:
+            # 优先选前 4 个，避免滚动到底部
+            max_idx = min(3, len(cards) - 1)
+            idx = random.randint(0, max_idx)
+        else:
+            idx = index
 
-    if index >= len(cards):
-        index = random.randint(0, len(cards) - 1)
+        if idx >= len(cards):
+            idx = random.randint(0, len(cards) - 1)
 
-    card = cards[index]
-    href = card.get("href")
-    if not href:
-        return None
+        card = cards[idx]
+        href = card.get("href")
+        if not href:
+            return None
 
-    # 使用 Playwright 点击（模拟真人）
-    try:
-        # 先尝试通过索引定位元素
-        cards_els = await page.query_selector_all(NOTE_CARD)
-        if index < len(cards_els):
-            await cards_els[index].click()
-            await asyncio.sleep(2)
-            return page.url
-    except Exception:
-        pass
+        # 记录点击前 tab 数量
+        context = page.context
+        tabs_before = len(context.pages)
+        original_page = page
+
+        # 使用 Playwright 点击（模拟真人）
+        try:
+            # 先尝试通过索引定位元素
+            cards_els = await page.query_selector_all(NOTE_CARD)
+            if idx < len(cards_els):
+                await cards_els[idx].click()
+                await asyncio.sleep(2)
+
+                # 检测是否误触作者主页（新标签页）
+                tabs_after = len(context.pages)
+                if tabs_after > tabs_before:
+                    # 新 tab 打开了作者主页 — 关闭新 tab，回到原 tab
+                    new_tab = context.pages[-1]
+                    new_url = new_tab.url
+                    await new_tab.close()
+                    print(f"  [browse] 误触作者主页（新标签页已关闭）: {new_url[:50]}")
+                    # 切回原 tab
+                    page = original_page
+                    if attempt < max_retries - 1:
+                        _log(f"    🔄 重试点击笔记 ({attempt + 2}/{max_retries})...")
+                        await asyncio.sleep(1)
+                        continue
+                    else:
+                        return None
+
+                return page.url
+        except Exception:
+            pass
 
     # fallback: 直接导航到链接
     try:
