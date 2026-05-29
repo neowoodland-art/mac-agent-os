@@ -1,14 +1,8 @@
 """
 小红书 — 交互类操作（点赞、收藏、关注、评论）
-基于 2026-05-20/2026-05-27 DOM 分析 + Playwright mouse API + L 形鼠标路径
+基于 2026-05-20 DOM 分析 + 抖音踩坑经验
 
-v2 更新 (2026-05-27):
-- 点赞/收藏改用 Playwright page.mouse API（非 JS dispatchEvent / element.click()）
-- 鼠标移动采用 L 形路径（先上移→再水平→再下移），避开评论区输入框
-- 使用 get_bottom_bar_buttons_js() 获取精确按钮位置
-- 操作前后锚点验证
-
-核心设计:
+防护设计:
 - 每个操作独立 try/except，失败不崩流程
 - 操作后验证状态变化（防假点击）
 - 评论状态机: closed → panel_open → input_focused → text_entered → sent
@@ -22,106 +16,63 @@ from typing import Optional
 from .selectors import (
     LIKE_BUTTON, COLLECT_BUTTON, FOLLOW_BUTTON,
     COMMENT_ENTRY, COMMENT_INPUT, COMMENT_SEND,
-    ANCHORS, get_bottom_bar_buttons_js
+    ANCHORS
 )
 
 
 # ════════════════════════════════════════════════════════════
-# 辅助: L 形鼠标路径
-# ════════════════════════════════════════════════════════════
-
-async def mouse_move_l_shape(page, target_x: int, target_y: int,
-                              safe_y: int = 100, steps: int = 8):
-    """L 形鼠标路径 — 避开评论区输入框
-
-    三段式: 当前位置 → (cx, safe_y) → (target_x, safe_y) → (target_x, target_y)
-
-    Args:
-        safe_y: 安全 Y 坐标（输入框上方区域）
-        steps: 每段的 steps 数（实际三段总和）
-    """
-    cx, cy = await page.evaluate("""() => {
-        // Playwright 不暴露鼠标位置，从视口中心估算
-        return {x: Math.round(window.innerWidth / 2), y: Math.round(window.innerHeight / 2)};
-    }""")
-
-    # Segment 1: 垂直上移到安全区
-    await page.mouse.move(cx, safe_y, steps=max(3, steps // 3))
-    await asyncio.sleep(random.uniform(0.08, 0.15))
-
-    # Segment 2: 水平移动到目标 X
-    await page.mouse.move(target_x, safe_y, steps=max(3, steps // 3))
-    await asyncio.sleep(random.uniform(0.08, 0.15))
-
-    # Segment 3: 垂直下移到目标
-    await page.mouse.move(target_x, target_y, steps=max(3, steps // 3))
-    await asyncio.sleep(random.uniform(0.15, 0.3))
-
-
-# ════════════════════════════════════════════════════════════
-# 点赞 (Playwright page.mouse API)
+# 点赞
 # ════════════════════════════════════════════════════════════
 
 async def like(page) -> bool:
     """
-    点赞当前笔记 — Playwright page.mouse API（L 形路径）
+    点赞当前笔记（含状态验证）
 
     Returns:
         是否成功
     """
     try:
-        # 1. 获取底部栏按钮位置
-        btns = await page.evaluate(get_bottom_bar_buttons_js())
-        like_btn = btns.get('like') if btns else None
+        # 记录点击前的点赞状态
+        was_liked = await page.evaluate("""
+            () => {
+                const btn = document.querySelector('.like-btn, [class*=like-btn], .interaction-like');
+                if (!btn) return 'not_found';
+                const cls = btn.className || btn.classList?.toString() || '';
+                return cls.includes('active') || cls.includes('liked') || cls.includes('sel') ? 'liked' : 'not_liked';
+            }
+        """)
+        if was_liked == 'liked':
+            return True  # 已经是点赞状态，无需重复操作
 
-        if not like_btn:
-            return False
+        # 方式1: Playwright locator 点击
+        btn = await page.query_selector(LIKE_BUTTON)
+        if btn:
+            await btn.click()
+            await asyncio.sleep(0.5)
+            # 验证状态变化
+            now_liked = await page.evaluate("""
+                () => {
+                    const btn = document.querySelector('.like-btn, [class*=like-btn], .interaction-like');
+                    if (!btn) return false;
+                    const cls = btn.className || btn.classList?.toString() || '';
+                    return cls.includes('active') || cls.includes('liked') || cls.includes('sel');
+                }
+            """)
+            return bool(now_liked)
 
-        # 2. 如果已点赞，跳过
-        if like_btn.get('isActive'):
-            return True
-
-        # 3. 确保按钮可见
-        if not like_btn.get('visible'):
-            try:
-                el = await page.query_selector('span.like-wrapper, [class*="like-wrapper"]')
-                if el:
-                    await el.scroll_into_view_if_needed()
-                    await asyncio.sleep(1)
-            except Exception:
-                pass
-            await asyncio.sleep(1)
-            # 重新获取位置
-            btns = await page.evaluate(get_bottom_bar_buttons_js())
-            like_btn = btns.get('like') if btns else None
-            if not like_btn:
-                return False
-
-        # 4. L 形路径移动 + Playwright mouse.click
-        await mouse_move_l_shape(page, like_btn['x'], like_btn['y'], safe_y=100)
-        await asyncio.sleep(random.uniform(0.2, 0.4))
-
-        await page.mouse.click(like_btn['x'], like_btn['y'])
-        await asyncio.sleep(random.uniform(1.5, 2.5))
-
-        # 5. 验证点赞状态
-        btns_after = await page.evaluate(get_bottom_bar_buttons_js())
-        if btns_after and btns_after.get('like', {}).get('isActive'):
-            return True
-
-        # 重试一次
-        like_btn2 = btns_after.get('like') if btns_after else like_btn
-        if like_btn2:
-            await mouse_move_l_shape(page, like_btn2['x'], like_btn2['y'], safe_y=100)
-            await asyncio.sleep(0.2)
-            await page.mouse.click(like_btn2['x'], like_btn2['y'])
-            await asyncio.sleep(2)
-
-            btns_after2 = await page.evaluate(get_bottom_bar_buttons_js())
-            if btns_after2 and btns_after2.get('like', {}).get('isActive'):
-                return True
-
-        return False
+        # 方式2: JS 直接点击
+        result = await page.evaluate("""
+            () => {
+                const btn = document.querySelector('.like-btn, [class*=like-btn], .interaction-like');
+                if (btn) { btn.click(); return true; }
+                // 兜底: 找包含点赞图标的按钮
+                const allBtns = [...document.querySelectorAll('button, div[role=button]')];
+                const likeBtn = allBtns.find(b => b.textContent.includes('赞') || b.innerHTML.includes('like'));
+                if (likeBtn) { likeBtn.click(); return true; }
+                return false;
+            }
+        """)
+        return bool(result)
     except Exception:
         return False
 
@@ -131,64 +82,47 @@ async def like(page) -> bool:
 # ════════════════════════════════════════════════════════════
 
 async def collect(page) -> bool:
-    """
-    收藏当前笔记 — Playwright page.mouse API（L 形路径）
-
-    Returns:
-        是否成功
-    """
+    """收藏当前笔记（含状态验证）"""
     try:
-        # 1. 获取底部栏按钮位置
-        btns = await page.evaluate(get_bottom_bar_buttons_js())
-        collect_btn = btns.get('collect') if btns else None
-
-        if not collect_btn:
-            return False
-
-        # 2. 如果已收藏，跳过
-        if collect_btn.get('isActive'):
+        # 检查是否已收藏
+        was_collected = await page.evaluate("""
+            () => {
+                const btn = document.querySelector('.collect-btn, [class*=collect-btn], .interaction-collect');
+                if (!btn) return 'not_found';
+                const cls = btn.className || btn.classList?.toString() || '';
+                return cls.includes('active') || cls.includes('sel') ? 'collected' : 'not_collected';
+            }
+        """)
+        if was_collected == 'collected':
             return True
 
-        # 3. 确保按钮可见
-        if not collect_btn.get('visible'):
-            try:
-                el = await page.query_selector('span.collect-wrapper, [class*="collect-wrapper"]')
-                if el:
-                    await el.scroll_into_view_if_needed()
-                    await asyncio.sleep(1)
-            except Exception:
-                pass
-            await asyncio.sleep(1)
-            btns = await page.evaluate(get_bottom_bar_buttons_js())
-            collect_btn = btns.get('collect') if btns else None
-            if not collect_btn:
-                return False
+        btn = await page.query_selector(COLLECT_BUTTON)
+        if btn:
+            await btn.click()
+            await asyncio.sleep(0.5)
+            # 验证状态变化
+            now_collected = await page.evaluate("""
+                () => {
+                    const btn = document.querySelector('.collect-btn, [class*=collect-btn], .interaction-collect');
+                    if (!btn) return false;
+                    const cls = btn.className || btn.classList?.toString() || '';
+                    return cls.includes('active') || cls.includes('sel');
+                }
+            """)
+            return bool(now_collected)
 
-        # 4. L 形路径移动 + Playwright mouse.click
-        await mouse_move_l_shape(page, collect_btn['x'], collect_btn['y'], safe_y=100)
-        await asyncio.sleep(random.uniform(0.2, 0.4))
-
-        await page.mouse.click(collect_btn['x'], collect_btn['y'])
-        await asyncio.sleep(random.uniform(1.5, 2.5))
-
-        # 5. 验证收藏状态
-        btns_after = await page.evaluate(get_bottom_bar_buttons_js())
-        if btns_after and btns_after.get('collect', {}).get('isActive'):
-            return True
-
-        # 重试一次
-        collect_btn2 = btns_after.get('collect') if btns_after else collect_btn
-        if collect_btn2:
-            await mouse_move_l_shape(page, collect_btn2['x'], collect_btn2['y'], safe_y=100)
-            await asyncio.sleep(0.2)
-            await page.mouse.click(collect_btn2['x'], collect_btn2['y'])
-            await asyncio.sleep(2)
-
-            btns_after2 = await page.evaluate(get_bottom_bar_buttons_js())
-            if btns_after2 and btns_after2.get('collect', {}).get('isActive'):
-                return True
-
-        return False
+        # JS 兜底
+        result = await page.evaluate("""
+            () => {
+                const btn = document.querySelector('.collect-btn, [class*=collect-btn], .interaction-collect');
+                if (btn) { btn.click(); return true; }
+                const allBtns = [...document.querySelectorAll('button, div[role=button]')];
+                const collectBtn = allBtns.find(b => b.textContent.includes('收藏') || b.innerHTML.includes('collect'));
+                if (collectBtn) { collectBtn.click(); return true; }
+                return false;
+            }
+        """)
+        return bool(result)
     except Exception:
         return False
 
@@ -248,65 +182,81 @@ async def follow(page) -> bool:
 # ════════════════════════════════════════════════════════════
 
 class CommentStateMachine:
-    """小红书评论状态机（v2: XHS 输入框直接可见于详情页底部，无需打开面板）
+    """小红书评论状态机"""
 
-    状态迁移:
-        closed → input_focused → text_entered → sent → verified
-    """
-
-    STATES = ["closed", "input_focused", "text_entered", "sent", "verified"]
+    STATES = ["closed", "panel_open", "input_focused", "text_entered", "sent", "verified"]
 
     def __init__(self, page):
         self.page = page
         self.state = "closed"
         self.text = ""
 
-    async def focus_input(self) -> bool:
-        """Step 1: 聚焦输入框（坐标落位法，参照 Douyin calc_input_position）
-
-        XHS 评论区在笔记详情页底部固定位置，用窗口尺寸计算点击坐标：
-          input_x = window.innerWidth * 0.35  (输入框在左半侧)
-          input_y = window.innerHeight - 95    (距底部 ~95px，engage-bar 区域)
-        """
-        if self.state == "input_focused":
+    async def open_panel(self) -> bool:
+        """Step 1: 打开评论区"""
+        if self.state != "closed":
             return True
 
         try:
-            # 键盘箭头滚动到底部
-            for _ in range(40):
-                await self.page.keyboard.press("ArrowDown")
-                await asyncio.sleep(0.05)
-            await asyncio.sleep(3)  # 等 SPA 挂载评论区
+            # 方式1: 点击评论入口
+            entry = await self.page.query_selector(COMMENT_ENTRY)
+            if entry:
+                await entry.click()
+                await asyncio.sleep(1.5)
 
-            # 计算输入框坐标
-            win = await self.page.evaluate("() => ({w: window.innerWidth, h: window.innerHeight})")
-            ix = int(win['w'] * 0.35)
-            iy = int(win['h'] - 95)
+                # 验证评论区是否打开
+                has_comments = await self.page.evaluate("""
+                    () => document.querySelector('.comment-section, [class*=comment-section], [class*=comment-list]') !== null
+                """)
+                if has_comments:
+                    self.state = "panel_open"
+                    return True
 
-            # Playwright 真实鼠标点击（参照 Douyin 坐标双击策略）
-            await self.page.mouse.move(ix, iy, steps=10)
-            await asyncio.sleep(random.uniform(0.2, 0.5))
-            await self.page.mouse.click(ix, iy)
+            # 方式2: 滚动到评论区
+            await self.page.evaluate("""
+                () => {
+                    const el = document.querySelector('.comment-section, [class*=comment-section]');
+                    if (el) el.scrollIntoView({behavior: 'smooth', block: 'center'});
+                }
+            """)
             await asyncio.sleep(1.5)
+            self.state = "panel_open"
+            return True
 
-            # 验证
-            focused = await self.page.evaluate("() => document.activeElement !== null && document.activeElement !== document.body")
-            if focused:
+        except Exception:
+            return False
+
+    async def focus_input(self) -> bool:
+        """Step 2: 聚焦输入框"""
+        if self.state == "input_focused":
+            return True
+        if self.state != "panel_open":
+            return False
+
+        try:
+            # 方式1: Playwright 点击输入框
+            inp = await self.page.query_selector(COMMENT_INPUT)
+            if inp:
+                await inp.click()
+                await asyncio.sleep(0.5)
                 self.state = "input_focused"
                 return True
 
-            return False
+            # 方式2: JS 聚焦
+            await self.page.evaluate("""
+                () => {
+                    const inp = document.querySelector('.comment-input input, [contenteditable=true], textarea');
+                    if (inp) { inp.focus(); inp.click(); }
+                }
+            """)
+            await asyncio.sleep(0.5)
+            self.state = "input_focused"
+            return True
 
         except Exception:
             return False
 
     async def enter_text(self, text: str) -> bool:
-        """Step 2: 输入评论文本 + 等待UI变化后再验证
-
-        XHS 特殊行为：粘贴文本后评论区 UI 会重新渲染——
-        engage-bar 消失，出现"发送"/"取消"按钮。
-        必须等 UI 变化完再做二次 DOM 分析确认。
-        """
+        """Step 3: 输入评论文本（pbcopy + Cmd+V 系统级粘贴）"""
         if self.state == "text_entered":
             return True
         if self.state != "input_focused":
@@ -315,40 +265,48 @@ class CommentStateMachine:
         self.text = text
 
         try:
+            # 小红书输入框可能是 contenteditable div 或 input
+            # 策略: pbcopy + 系统级键盘粘贴（和抖音一样）
+
             # 1. 复制文本到剪贴板
             subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
             await asyncio.sleep(0.3)
 
-            # 2. Meta+v 粘贴
-            await self.page.keyboard.press("Meta+v")
+            # 2. 确保输入框聚焦
+            await self.page.evaluate("""
+                () => {
+                    const inp = document.querySelector('.comment-input input, [contenteditable=true], textarea, .editor');
+                    if (inp) { inp.focus(); }
+                }
+            """)
+            await asyncio.sleep(0.3)
 
-            # 3. 轮询等待 UI 动画 + 文本出现（XHS 变化需 1-5秒）
-            needle = json.dumps(text[:8])
-            for _ in range(5):
-                await asyncio.sleep(1)
-                has_text = await self.page.evaluate(f"""
-                    () => {{
-                        const t = document.body.innerText || document.body.textContent || '';
-                        return t.includes({needle});
-                    }}
-                """)
-                if has_text:
-                    self.state = "text_entered"
-                    return True
-
-            # 4. 重试一次 Meta+v
+            # 3. 系统级粘贴 (Cmd+V)
             await self.page.keyboard.press("Meta+v")
-            for _ in range(5):
-                await asyncio.sleep(1)
-                has_text2 = await self.page.evaluate(f"""
-                    () => {{
-                        const t = document.body.innerText || document.body.textContent || '';
-                        return t.includes({needle});
-                    }}
-                """)
-                if has_text2:
-                    self.state = "text_entered"
-                    return True
+            await asyncio.sleep(0.5)
+
+            # 4. 验证输入成功（json.dumps 防注入）
+            needle = json.dumps(text[:10])
+            has_text = await self.page.evaluate(f"""
+                () => {{
+                    const inp = document.querySelector('.comment-input input, [contenteditable=true], textarea, .editor');
+                    if (!inp) return false;
+                    const val = inp.value || inp.textContent || inp.innerText || '';
+                    return val.includes({needle});
+                }}
+            """)
+
+            if has_text:
+                self.state = "text_entered"
+                return True
+
+            # 5. fallback: Playwright fill
+            inp = await self.page.query_selector(COMMENT_INPUT)
+            if inp:
+                await inp.fill(text)
+                await asyncio.sleep(0.3)
+                self.state = "text_entered"
+                return True
 
             return False
 
@@ -356,48 +314,22 @@ class CommentStateMachine:
             return False
 
     async def send(self) -> bool:
-        """Step 3: 发送评论 — 找"发送"按钮用坐标点击"""
+        """Step 4: 发送评论"""
         if self.state != "text_entered":
             return False
 
         try:
-            # 等 UI 稳定
-            await asyncio.sleep(1)
-
-            # 方式1: 找"发送"按钮坐标 → 真实鼠标点击（不用 Playwright click）
-            send_pos = await self.page.evaluate("""() => {
-                const buttons = document.querySelectorAll('button');
-                for (const b of buttons) {
-                    if ((b.textContent||'').trim() === '发送' && b.offsetHeight > 10) {
-                        const r = b.getBoundingClientRect();
-                        return {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
-                    }
-                }
-                // 兜底：找任何包含"发送"的元素
-                const all = document.querySelectorAll('*');
-                for (const el of all) {
-                    if (el.offsetHeight > 10 && (el.textContent||'').trim() === '发送') {
-                        const r = el.getBoundingClientRect();
-                        return {x: Math.round(r.x + r.width/2), y: Math.round(r.y + r.height/2)};
-                    }
-                }
-                return null;
-            }""")
-            if send_pos:
-                await self.page.mouse.move(send_pos['x'], send_pos['y'], steps=6)
-                await asyncio.sleep(0.3)
-                await self.page.mouse.click(send_pos['x'], send_pos['y'])
-                await asyncio.sleep(2)
+            # 方式1: 点击发送按钮
+            btn = await self.page.query_selector(COMMENT_SEND)
+            if btn:
+                await btn.click()
+                await asyncio.sleep(1.5)
                 self.state = "sent"
                 return True
 
-            # 方式2: 坐标点击底部右侧（发送按钮通常在右下角）
-            win = await self.page.evaluate("() => ({w: window.innerWidth, h: window.innerHeight})")
-            sx, sy = int(win['w'] * 0.85), int(win['h'] - 60)
-            await self.page.mouse.move(sx, sy, steps=6)
-            await asyncio.sleep(0.3)
-            await self.page.mouse.click(sx, sy)
-            await asyncio.sleep(2)
+            # 方式2: Enter 键发送
+            await self.page.keyboard.press("Enter")
+            await asyncio.sleep(1.5)
             self.state = "sent"
             return True
 
@@ -405,26 +337,17 @@ class CommentStateMachine:
             return False
 
     async def verify(self) -> bool:
-        """Step 4: 验证评论是否发送成功"""
+        """Step 5: 验证评论是否发送成功"""
         if self.state != "sent":
             return False
 
         try:
-            # 搜索页面中是否出现我们的评论文本
+            # 检查评论列表中是否出现我们的评论（json.dumps 防注入）
             needle = json.dumps(self.text[:8])
             has_comment = await self.page.evaluate(f"""
                 () => {{
-                    // 检查整个页面
-                    const bodyText = document.body.innerText || document.body.textContent || '';
-                    // 输入框清空 = 发送成功（输入框不再包含我们的文本）
-                    const inputs = document.querySelectorAll('[contenteditable], input, textarea, [class*=input]');
-                    let inputEmpty = true;
-                    for (const inp of inputs) {{
-                        const val = inp.value || inp.textContent || inp.innerText || '';
-                        if (val.includes({needle})) {{ inputEmpty = false; break; }}
-                    }}
-                    // 发送成功后通常：输入框清空 + 页面有我们的文本
-                    return inputEmpty || bodyText.includes({needle});
+                    const comments = [...document.querySelectorAll('.comment-item, [class*=comment-item]')];
+                    return comments.some(c => c.textContent.includes({needle}));
                 }}
             """)
 
@@ -432,23 +355,17 @@ class CommentStateMachine:
                 self.state = "verified"
                 return True
 
-            # 等一会再查
-            await asyncio.sleep(2)
-            has_comment2 = await self.page.evaluate(f"""
-                () => {{
-                    const bodyText = document.body.innerText || document.body.textContent || '';
-                    const inputs = document.querySelectorAll('[contenteditable], input, textarea, [class*=input]');
-                    let inputEmpty = true;
-                    for (const inp of inputs) {{
-                        const val = inp.value || inp.textContent || inp.innerText || '';
-                        if (val.includes({needle})) {{ inputEmpty = false; break; }}
-                    }}
-                    return inputEmpty || bodyText.includes({needle});
-                }}
-            """)
-            if has_comment2:
-                self.state = "verified"
-                return True
+            # 兜底: 检查输入框是否清空（发送后通常会清空）
+            inp = await self.page.query_selector(COMMENT_INPUT)
+            if inp:
+                tag = await inp.evaluate("el => el.tagName.toLowerCase()")
+                if tag in ("input", "textarea"):
+                    val = await inp.input_value()
+                else:
+                    val = await inp.evaluate("el => el.textContent || el.innerText || ''")
+                if not val or len(val) < len(self.text) / 2:
+                    self.state = "verified"
+                    return True
 
             return False
 
@@ -458,10 +375,7 @@ class CommentStateMachine:
 
 async def comment(page, text: str) -> dict:
     """
-    评论当前笔记（完整状态机 v2 - XHS 版）
-
-    区别抖音: XHS 的评论输入框在详情页底部直接显示，
-    无需先打开评论区面板。
+    评论当前笔记（完整状态机）
 
     Args:
         text: 评论内容
@@ -473,25 +387,31 @@ async def comment(page, text: str) -> dict:
     result = {"success": False, "state": "closed", "error": ""}
 
     try:
-        # Step 1: 聚焦输入框（XHS 版直接聚��，无需打开面板）
+        # Step 1: 打开评论区
+        if not await sm.open_panel():
+            result["error"] = "无法打开评论区"
+            return result
+        result["state"] = sm.state
+
+        # Step 2: 聚焦输入框
         if not await sm.focus_input():
             result["error"] = "无法聚焦输入框"
             return result
         result["state"] = sm.state
 
-        # Step 2: 输入文本
+        # Step 3: 输入文本
         if not await sm.enter_text(text):
             result["error"] = "无法输入文本"
             return result
         result["state"] = sm.state
 
-        # Step 3: 发送
+        # Step 4: 发送
         if not await sm.send():
             result["error"] = "发送失败"
             return result
         result["state"] = sm.state
 
-        # Step 4: 验证
+        # Step 5: 验证
         if await sm.verify():
             result["success"] = True
             result["state"] = "verified"
@@ -524,21 +444,19 @@ async def random_interact(page, behavior_config: dict = None) -> dict:
         "comment_text": "",
     }
 
-    # 点赞: 3 中 1 (~33%)
-    if random.random() < 0.33:
+    # 点赞: 5 中 1 (20%)
+    if random.random() < 0.20:
         results["like"] = await like(page)
         await asyncio.sleep(random.uniform(0.5, 1.5))
 
-    # 收藏: 5 中 1 (20%)
-    if random.random() < 0.20:
+    # 收藏: 8 中 1 (12.5%)
+    if random.random() < 0.125:
         results["collect"] = await collect(page)
         await asyncio.sleep(random.uniform(0.5, 1.5))
 
-    # 关注: 10 中 1 (10%)
-    if random.random() < 0.10:
+    # 关注: 40 中 1 (2.5%) — 真用户关注频率很低
+    if random.random() < 0.025:
         results["follow"] = await follow(page)
         await asyncio.sleep(random.uniform(0.5, 1.5))
 
     return results
-
-# VERSION: 2026-05-28 v3.1 - fixed focus_input input priority
