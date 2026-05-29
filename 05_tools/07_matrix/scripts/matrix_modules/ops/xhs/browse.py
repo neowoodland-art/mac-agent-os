@@ -20,7 +20,8 @@ from typing import List, Optional
 from .selectors import (
     NOTE_CARD, NOTE_CARD_COVER, NOTE_CARD_IMG,
     SEARCH_INPUT, SEARCH_BUTTON,
-    ANCHORS, get_note_links_js, get_note_cards_js, dismiss_login_modal_js
+    ANCHORS, get_note_links_js, get_note_cards_js, dismiss_login_modal_js,
+    find_refresh_button_js, find_qr_wall_back_button_js,
 )
 
 

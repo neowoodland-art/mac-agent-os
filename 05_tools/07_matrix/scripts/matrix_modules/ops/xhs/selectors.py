@@ -377,3 +377,221 @@ def dismiss_login_modal_js() -> str:
         return 'modal dismissed';
     }
     """
+
+
+# ══════════════════════════════════════════════════════════
+# 刷新按钮 & QR墙返回首页按钮（2026-05-29 新增：鼠标模拟点击）
+# ══════════════════════════════════════════════════════════
+
+def find_refresh_button_js() -> str:
+    """JS 代码: 智能查找首页右下角刷新按钮（FAB 悬浮按钮）
+
+    查找范围: viewport 右侧 100px 内，底部 150px 内
+    匹配特征:
+    - SVG 图标含 refresh/reload 路径
+    - aria-label / title / data-tip 含 "刷新"/"refresh"
+    - class 含 "refresh"/"reload"/"fab"/"float"/"back-to-top"
+    - 常见小红书刷新 FAB: .back-to-top, [class*=refresh], [class*=fab]
+
+    返回: {found: bool, x: number, y: number, w: number, h: number}
+    """
+    return """
+    () => {
+        const viewW = window.innerWidth;
+        const viewH = window.innerHeight;
+
+        // 候选选择器（按优先级）
+        const candidates = [
+            // 1. 常见小红书"回到顶部/刷新" FAB
+            '.back-to-top',
+            '[class*="back-to-top"]',
+            '[class*="refresh"]',
+            '[class*="reload"]',
+            '[class*="fab"]',
+            '[class*="float-btn"]',
+            '[class*="float-btn"]',
+            'button[aria-label*="刷新"]',
+            'button[aria-label*="refresh"]',
+            '[title*="刷新"]',
+            '[title*="refresh"]',
+            'svg[aria-label*="刷新"]',
+            'svg[aria-label*="refresh"]',
+        ];
+
+        let best = null;
+        let bestScore = -1;
+
+        // 方式1: 按选择器查找
+        for (const sel of candidates) {
+            try {
+                const els = document.querySelectorAll(sel);
+                for (const el of els) {
+                    const r = el.getBoundingClientRect();
+                    if (r.width < 20 || r.height < 20) continue;
+                    if (r.right > viewW || r.bottom > viewH) continue;
+                    // 右下角加分（越靠右下方分越高）
+                    const score = (r.right / viewW) * 50 + (r.bottom / viewH) * 50;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = {el, rect: r};
+                    }
+                }
+            } catch(e) {}
+        }
+
+        // 方式2: 遍历所有含 SVG 的元素（找刷新图标）
+        if (!best) {
+            const allEls = document.querySelectorAll('*');
+            for (const el of allEls) {
+                const r = el.getBoundingClientRect();
+                if (r.width < 20 || r.height < 20) continue;
+                if (r.left < viewW - 100 || r.top < viewH - 150) continue;
+                const text = (el.textContent || '').trim().substring(0, 30);
+                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                const title = (el.getAttribute('title') || '').toLowerCase();
+                const cls = (el.className || '').toLowerCase();
+                const isRefresh = aria.includes('refresh') || aria.includes('刷新')
+                    || title.includes('refresh') || title.includes('刷新')
+                    || cls.includes('refresh') || cls.includes('reload') || cls.includes('fab');
+                if (isRefresh) {
+                    const score = (r.right / viewW) * 50 + (r.bottom / viewH) * 50;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = {el, rect: r};
+                    }
+                }
+            }
+        }
+
+        if (best) {
+            const r = best.rect;
+            return {
+                found: true,
+                x: Math.round(r.left + r.width / 2),
+                y: Math.round(r.top + r.height / 2),
+                w: Math.round(r.width),
+                h: Math.round(r.height),
+            };
+        }
+        return {found: false};
+    }
+    """
+
+
+def find_qr_wall_back_button_js() -> str:
+    """JS 代码: 智能查找 QR 拦截墙弹层上的"返回首页"按钮
+
+    检测 QR 墙: bodyText 含 "请打开小红书App" 或 "当前笔记暂时无法浏览"
+    在 QR 墙弹层内查找:
+    - button/a 标签含 "返回首页"/"返回"/"首页"/"发现"
+    - class 含 "back"/"close"/"btn"/"button"
+    - 常见小红书弹层按钮: .reds-button, [class*=btn]
+
+    返回: {found: bool, x: number, y: number, w: number, h: number, text: str}
+    """
+    return """
+    () => {
+        const bodyText = (document.body?.innerText || '').trim();
+        const hasQRWall = bodyText.includes('请打开小红书App')
+            || bodyText.includes('当前笔记暂时无法浏览')
+            || bodyText.includes('暂时无法浏览');
+
+        if (!hasQRWall) return {found: false, reason: 'no_qr_wall'};
+
+        // 查找弹层容器（常见选择器）
+        const wallSelectors = [
+            '[class*="modal"]', '[class*="dialog"]', '[class*="mask"]',
+            '[class*="popup"]', '[class*="overlay"]', '[role="dialog"]',
+            '.reds-modal', '.reds-dialog', '[class*="qr"]',
+        ];
+        let wallEl = null;
+        for (const sel of wallSelectors) {
+            const els = document.querySelectorAll(sel);
+            for (const el of els) {
+                const r = el.getBoundingClientRect();
+                if (r.width > 100 && r.height > 50) {
+                    const style = window.getComputedStyle(el);
+                    if (style.display !== 'none' && style.visibility !== 'hidden') {
+                        wallEl = el;
+                        break;
+                    }
+                }
+            }
+            if (wallEl) break;
+        }
+
+        // 备选: 找含 QR 文字的容器
+        if (!wallEl) {
+            const all = document.querySelectorAll('*');
+            for (const el of all) {
+                const t = (el.textContent || '').trim().substring(0, 50);
+                if (t.includes('请打开小红书App') || t.includes('暂时无法浏览')) {
+                    wallEl = el;
+                    break;
+                }
+            }
+        }
+
+        const root = wallEl || document;
+
+        // 在 wallEl 内查找"返回首页"/"返回"/"首页"按钮
+        const keywords = ['返回首页', '返回', '首页', '发现', '回到首页', '关闭'];
+        const btns = root.querySelectorAll('button, a, [class*=btn], [class*=button], [role=button]');
+        let best = null;
+        let bestScore = -1;
+
+        for (const btn of btns) {
+            const t = (btn.textContent || '').trim().substring(0, 20);
+            const aria = (btn.getAttribute('aria-label') || '').trim().substring(0, 30);
+            const text = t + aria;
+            const r = btn.getBoundingClientRect();
+            if (r.width < 10 || r.height < 10) continue;
+            const style = window.getComputedStyle(btn);
+            if (style.display === 'none' || style.visibility === 'hidden') continue;
+
+            for (const kw of keywords) {
+                if (text.includes(kw)) {
+                    const score = kw.length;  // 越精确匹配分越高
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = {el: btn, rect: r, text: t};
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (best) {
+            const r = best.rect;
+            return {
+                found: true,
+                x: Math.round(r.left + r.width / 2),
+                y: Math.round(r.top + r.height / 2),
+                w: Math.round(r.width),
+                h: Math.round(r.height),
+                text: best.text,
+            };
+        }
+
+        // 兜底: 找弹层内的第一个可见按钮
+        const firstBtn = root.querySelector('button, [class*=btn], [role=button]');
+        if (firstBtn) {
+            const r = firstBtn.getBoundingClientRect();
+            const style = window.getComputedStyle(firstBtn);
+            if (r.width > 10 && style.display !== 'none') {
+                return {
+                    found: true,
+                    x: Math.round(r.left + r.width / 2),
+                    y: Math.round(r.top + r.height / 2),
+                    w: Math.round(r.width),
+                    h: Math.round(r.height),
+                    text: (firstBtn.textContent || '').trim().substring(0, 20),
+                    fallback: true,
+                };
+            }
+        }
+
+        return {found: false, reason: 'no_button_found'};
+    }
+    """
+
