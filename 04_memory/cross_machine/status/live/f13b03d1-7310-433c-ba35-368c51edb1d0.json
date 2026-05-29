@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 3.57
+    "load_1m": 3.27
   },
   "memory": {
     "total_gb": 0,
@@ -17,11 +17,11 @@
     "used_gb": 82.8,
     "available_gb": 162.3
   },
-  "last_seen": "2026-05-29T02:59:46.362513+00:00",
+  "last_seen": "2026-05-29T03:04:49.009657+00:00",
   "status": "online",
   "guardd_version": "2.0.0",
   "current_task": null,
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
-  "_received_at": "2026-05-29T02:59:46.363704+00:00"
+  "_received_at": "2026-05-29T03:04:49.010547+00:00"
 }
