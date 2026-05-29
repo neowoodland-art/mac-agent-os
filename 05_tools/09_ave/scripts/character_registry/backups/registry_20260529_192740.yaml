@@ -78,20 +78,11 @@ characters:
     reference_images:
       real_photo_portrait: /Users/7kecheng/workbuddy-agent-os/agent-sync/05_tools/09_ave/scripts/character_registry/assets/ghai_sports/reference_portrait.jpg
       real_photo_fullbody: /Users/7kecheng/workbuddy-agent-os/agent-sync/05_tools/09_ave/scripts/character_registry/assets/ghai_sports/reference_fullbody.png
-      face_anchor: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/face_anchor.png
-      grid: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid.png
-      portrait: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_front.png
-      expressions:
-        front: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_front.png
-        3qL: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_3qL.png
-        profile: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_profile.png
-        3qR: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_3qR.png
-        focus: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_focus.png
-        intense: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_intense.png
+      face_anchor: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/ghai_sports/baseline.png
       body:
-        front: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_body_front.png
-        side: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_body_side.png
-      seed: null
+        right_three_quarter: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/ghai_sports/right_three_quarter.png
+        right_side: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/ghai_sports/right_side.png
+        back: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/ghai_sports/back.png
     outfit_presets:
       running:
         outfit: 透气速干T恤和跑步短裤
@@ -166,4 +157,3 @@ characters:
         smile: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_smile.png
         focused: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_focused.png
         laugh: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_laugh.png
-        serious: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_serious.png
