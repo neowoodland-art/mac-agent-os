@@ -43,7 +43,10 @@ async def goto_home(page):
 async def dismiss_login_modal(page):
     """关闭登录弹窗（未登录状态下浏览需要）"""
     try:
-        result = await page.evaluate(dismiss_login_modal_js())
+        result = await asyncio.wait_for(
+            page.evaluate(dismiss_login_modal_js()),
+            timeout=8
+        )
         await asyncio.sleep(0.5)
         return result
     except Exception:
@@ -53,7 +56,10 @@ async def dismiss_login_modal(page):
 async def get_note_cards(page) -> List[dict]:
     """获取当前页面所有笔记卡片信息"""
     try:
-        cards = await page.evaluate(get_note_cards_js())
+        cards = await asyncio.wait_for(
+            page.evaluate(get_note_cards_js()),
+            timeout=10
+        )
         return [c for c in cards if c.get("href")]
     except Exception:
         return []
@@ -192,14 +198,14 @@ async def browse_note_detail(page, duration: float = None):
     watch = duration or random.uniform(4, 12)
 
     # 检测是否是视频笔记
-    has_video = await page.evaluate("""
+    has_video = await asyncio.wait_for(page.evaluate("""
         () => {
             const v = document.querySelector('video');
             if (!v) return false;
             const rect = v.getBoundingClientRect();
             return rect.width > 100 && rect.height > 100;
         }
-    """)
+    """), timeout=8)
 
     if has_video:
         # 视频笔记：看视频，不滚动
