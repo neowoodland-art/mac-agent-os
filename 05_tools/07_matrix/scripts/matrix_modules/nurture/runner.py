@@ -1880,6 +1880,19 @@ async def nurture_xhs_loop(
     passed_rounds = 0
     consecutive_failures = 0
 
+    # 首轮前刷新页面（防黑屏 / 防页面状态残留）
+    _xhs_log("  🔄 首轮前刷新页面...")
+    try:
+        await conn.page.reload()
+        await asyncio.sleep(5)  # 等待页面完全渲染 + 登录弹窗
+        try:
+            await conn.init_anti_detection()
+        except Exception:
+            pass
+        _xhs_log("  ✅ 刷新完成")
+    except Exception as e:
+        _xhs_log(f"  ⚠️ 刷新异常: {e}")
+
     for r in range(1, rounds + 1):
         _xhs_log(f"\n{'='*40}")
         _xhs_log(f" 🔁 {identity_name} 第 {r}/{rounds} 轮")
