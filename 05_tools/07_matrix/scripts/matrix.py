@@ -195,7 +195,7 @@ def cmd_nurture_run(args):
                     rounds=args.rounds or 10,
                     headless=args.headless or False,
                     behavior_config=behavior_config,
-                    daemon=getattr(args, 'daemon', False),
+                    daemon=args.daemon if args.daemon is not None else False,
                     use_ai_comments=getattr(args, 'ai_comments', False),
                 ))
             await asyncio.gather(*tasks)
@@ -215,7 +215,7 @@ def cmd_nurture_run(args):
             rounds=args.rounds or 10,
             headless=args.headless or False,
             engines=engines,
-            daemon=getattr(args, 'daemon', True),
+            daemon=args.daemon if args.daemon is not None else True,
         ))
 
 
@@ -442,7 +442,7 @@ def main():
     p_nur_run.add_argument("-r", "--rounds", type=int, default=10, help="循环轮数")
     p_nur_run.add_argument("--headless", action="store_true", help="无头模式")
     p_nur_run.add_argument("--behavior", help="行为配置JSON")
-    p_nur_run.add_argument("--daemon", action="store_true", help="完成后保持浏览器连接不退出（抖音默认开启，小红书默认关闭）")
+    p_nur_run.add_argument("--daemon", action=argparse.BooleanOptionalAction, default=None, help="完成后保持浏览器连接不退出（抖音默认开启，小红书默认关闭）")
     p_nur_run.add_argument("--platform", default="douyin", help="平台: douyin | xiaohongshu")
     p_nur_run.add_argument("--ai-comments", action="store_true", help="使用 AI 生成评论（需 oMLX 模型运行中）")
     p_nur_run.set_defaults(func=cmd_nurture_run)

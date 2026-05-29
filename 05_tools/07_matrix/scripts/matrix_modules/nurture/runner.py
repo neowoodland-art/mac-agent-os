@@ -1562,7 +1562,12 @@ async def nurture_loop(identity_name: str,
         except (asyncio.CancelledError, KeyboardInterrupt):
             _log(f"    ⏹ daemon 结束", LOG_FILE)
     else:
-        _log(f"    (浏览器保持运行，Python退出)", LOG_FILE)
+        _log(f"    🔒 关闭浏览器...", LOG_FILE)
+        try:
+            await conn.close()
+            _log(f"    ✅ 浏览器已关闭", LOG_FILE)
+        except Exception as e:
+            _log(f"    ⚠️ 关闭异常: {e}", LOG_FILE)
     _log(f"{'='*40}", LOG_FILE)
 
 

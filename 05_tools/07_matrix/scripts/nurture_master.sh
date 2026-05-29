@@ -53,8 +53,10 @@ echo "[$(date '+%H:%M:%S')] ═════════════════�
 echo ""
 
 # 抖音三个账号并行（-r 10 表示多轮循环，由 nurture_multi 管理时长）
+# --no-daemon: 阶段结束后正常关闭浏览器，释放 profile 供下一阶段使用
 $PYTHON $MATRIX nurture run \
     -a douyin_01 -a douyin_02 -a douyin_camo01 -r 10 \
+    --no-daemon \
     > "$LOG_DIR/douyin_phase.log" 2>&1 &
 DY_PID=$!
 # 4000s 超时保护
