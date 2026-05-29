@@ -345,6 +345,107 @@ def api_characters():
                 "_source_hostname": HOSTNAME}
 
 
+# ── 角色生成/定制 API ──
+
+@app.post("/api/characters/generate-portrait")
+def api_generate_portrait(data: dict):
+    """为已有角色生成定妆照（工作流编辑器调用）"""
+    character_name = data.get("character_name", "")
+    description = data.get("description", "")
+    force = data.get("force", False)
+    seed = data.get("seed", 0)
+
+    if not character_name:
+        raise HTTPException(400, detail="缺少 character_name")
+
+    try:
+        from character_generator.pipeline import CharacterGenerationPipeline
+        pipeline = CharacterGenerationPipeline()
+        result = pipeline.generate_portrait(character_name, force=force, seed=seed)
+        return {"status": "ok", "name": character_name, "result": result}
+    except Exception as e:
+        logger.error(f"定妆照生成失败: {e}")
+        raise HTTPException(500, detail=f"生成失败: {str(e)}")
+
+
+@app.post("/api/characters/generate-from-direction")
+def api_generate_from_direction(data: dict):
+    """
+    从粗方向生成完整角色（方向→扩展→属性→生成→注册）
+    
+    请求:
+      direction: str — 粗方向描述
+      name: str (可选) — 角色名
+      generate_images: bool (默认 true) — 是否生成图像
+      seed: int (可选) — 固定种子
+      layers: dict (可选) — 前端模块化面板的逐层数据
+    
+    返回:
+      {name, description, attributes, baseline, angles, expressions, registered}
+    """
+    direction = data.get("direction", "")
+    name = data.get("name", "")
+    generate_images = data.get("generate_images", True)
+    seed = data.get("seed", 0)
+    layers = data.get("layers", {})  # 新增：前端模块化面板的逐层数据
+
+    if not direction:
+        raise HTTPException(400, detail="缺少 direction")
+
+    try:
+        from character_generator.pipeline import CharacterGenerationPipeline
+        pipeline = CharacterGenerationPipeline()
+        result = pipeline.run_full(
+            direction, character_name=name,
+            generate_variants=generate_images, seed=seed,
+        )
+        return {"status": "ok", **result}
+    except Exception as e:
+        logger.error(f"角色生成失败: {e}")
+        raise HTTPException(500, detail=f"角色生成失败: {str(e)}")
+
+
+@app.post("/api/characters/update")
+def api_update_character(data: dict):
+    """更新角色属性"""
+    name = data.get("name", "")
+    if not name:
+        raise HTTPException(400, detail="缺少 name")
+
+    try:
+        from character_generator.asset_registrar import AssetRegistrar
+        registrar = AssetRegistrar()
+        attrs = data.get("attributes", data)
+        registrar.register_character_properties(name, attrs)
+        return {"status": "ok", "name": name}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.get("/api/characters/capabilities")
+def api_character_capabilities():
+    """返回角色生成引擎支持的变体类型"""
+    from character_generator.prompt_assembler import PromptAssembler
+    assembler = PromptAssembler()
+    return {"variants": assembler.get_available_variants()}
+
+
+@app.post("/api/characters/expand-direction")
+def api_expand_direction(data: dict):
+    """仅扩展方向描述，不生成图像"""
+    direction = data.get("direction", "")
+    if not direction:
+        raise HTTPException(400, detail="缺少 direction")
+    try:
+        from character_generator.direction_expander import DirectionExpander
+        expander = DirectionExpander()
+        description = expander.expand(direction)
+        return {"direction": direction, "description": description}
+    except Exception as e:
+        # 回退到直接使用原始方向
+        return {"direction": direction, "description": direction}
+
+
 # ═══════════════════════════════════════════════════════════
 # 原子能力 API (AVE 插件数据)
 # ═══════════════════════════════════════════════════════════
