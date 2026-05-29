@@ -98,6 +98,17 @@ LAST_RUN_FILE = DIR_GUARDD_LOG / "last_run.json"
 ERROR_LOG_FILE = DIR_GUARDD_LOG / "errors.log"
 VERSIONS_FILE = DIR_KNOWLEDGE / "versions.json"
 
+# ── 日志配置 ──────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(str(LOG_FILE)),
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+logger = logging.getLogger("guardd")
+
 # ── 机器 UID（用于 Push 认证）───────────────────────────
 MACHINE_UID_FILE = DIR_IDENTITY / "machine_uid"
 MACHINE_UID = ""
@@ -112,17 +123,6 @@ try:
 except Exception as e:
     logger.warning(f"  UID 文件读写失败: {e}")
     MACHINE_UID = HOSTNAME  # 降级到 hostname
-
-# ── 日志配置 ──────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(str(LOG_FILE)),
-        logging.StreamHandler(sys.stdout),
-    ],
-)
-logger = logging.getLogger("guardd")
 
 # ── 确保运行时目录存在 ───────────────────────────────
 for d in [DIR_GUARDD_LOG, DIR_SUBMISSIONS_TRIAGE, DIR_TASKS_PENDING,
