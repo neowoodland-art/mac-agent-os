@@ -1,12 +1,6 @@
 """
 小红书 — 浏览类操作
-基于 2026-05-20 DOM 分析 + 2026-05-27 Playwright mouse API 验证
-
-v2 更新 (2026-05-27):
-- click_note_card 默认使用 Playwright page.mouse API（真人鼠标模拟）
-- 单次单击（避免双击触发图片查看器）
-- 点击后 is_note_detail_mode 锚点验证
-- 使用 section.note-item 定位（避免 a 标签 zero-bounding-rect bug）
+基于 2026-05-20 DOM 分析结果
 
 核心差异（vs 抖音）:
 - 双列瀑布流 → 需要定位具体卡片
@@ -21,7 +15,7 @@ from .selectors import (
     NOTE_CARD, NOTE_CARD_COVER, NOTE_CARD_IMG,
     SEARCH_INPUT, SEARCH_BUTTON,
     ANCHORS, get_note_links_js, get_note_cards_js, dismiss_login_modal_js,
-    find_refresh_button_js, find_qr_wall_back_button_js,
+    find_refresh_button_js, find_qr_wall_back_button_js
 )
 
 
@@ -65,222 +59,91 @@ async def get_note_cards(page) -> List[dict]:
         return []
 
 
-async def click_note_card(page, index: int = None, use_mouse_api: bool = True) -> Optional[str]:
+async def click_note_card(page, index: int = None) -> Optional[str]:
     """
     点击笔记卡片进入详情页
 
-    v2 变更 (2026-05-27):
-    - 默认使用 Playwright page.mouse API（真人鼠标模拟）
-    - 单次单击（非双击，XHS 双击会触发图片查看器）
-    - 点击后锚点验证（is_note_detail_mode）
-    - 使用 section.note-item 定位（避免 a 标签 zero-bounding-rect bug）
-
     Args:
         index: 卡片索引（0-based），None 时随机选择
-        use_mouse_api: True 用 page.mouse API，False 用 element.click()
 
     Returns:
         笔记 URL，失败返回 None
     """
-    from .selectors import is_note_detail_mode_js
-
-    # 先确保图片加载完成（最多等 12 秒——回退后懒加载新卡片需要时间）
-    await wait_for_feed_ready(page, timeout=12)
-
-    # 优先用 section.note-item 获取 bounding rect
-    # 只选在当前视口内（y < viewport height）的卡片
-    cards = await page.evaluate("""() => {
-        const sections = [...document.querySelectorAll('section.note-item')];
-        const viewH = window.innerHeight;
-        return sections.map((s, i) => {
-            const r = s.getBoundingClientRect();
-            return {
-                index: i,
-                href: s.querySelector('a')?.href || '',
-                rect: {x: r.x, y: r.y, w: r.width, h: r.height},
-                in_viewport: r.y >= 0 && r.y < viewH,
-            };
-        }).filter(c => c.rect.w >= 10 && c.rect.h >= 10);
-    }""")
-
+    cards = await get_note_cards(page)
     if not cards:
         return None
 
-    # 优先从可视区内的卡片中选择
-    visible_cards = [c for c in cards if c.get('in_viewport')]
-    pool = visible_cards if len(visible_cards) >= 2 else cards
-
-    # 随机选择（优先选可视区的前几卡）
+    # 随机选择卡片（避免总是点第一个）
     if index is None:
-        max_idx = min(2, len(pool) - 1)  # 只从0-2选
-        index = pool[random.randint(0, max_idx)]['index']
+        # 优先选前 4 个，避免滚动到底部
+        max_idx = min(3, len(cards) - 1)
+        index = random.randint(0, max_idx)
+
     if index >= len(cards):
-        index = cards[random.randint(0, len(cards) - 1)]['index']
+        index = random.randint(0, len(cards) - 1)
 
     card = cards[index]
     href = card.get("href")
     if not href:
         return None
 
-    if use_mouse_api:
-        # ── Playwright page.mouse API（单次单击） ──
-        try:
-            # scrollIntoView
-            await page.evaluate(f"""
-                () => {{
-                    const s = document.querySelectorAll('section.note-item')[{index}];
-                    if (s) s.scrollIntoView({{block: 'center'}});
-                }}
-            """)
-            await asyncio.sleep(0.5)
-
-            # 重新获取位置
-            pos = await page.evaluate(f"""
-                () => {{
-                    const s = document.querySelectorAll('section.note-item')[{index}];
-                    if (!s) return null;
-                    const r = s.getBoundingClientRect();
-                    return {{x: r.x, y: r.y, w: r.width, h: r.height}};
-                }}
-            """)
-            if not pos or pos['w'] < 10:
-                return None
-
-            cx = pos['x'] + pos['w'] / 2
-            # 点卡片偏下方（60% 高度处，避开顶部作者区）
-            cy = pos['y'] + pos['h'] * 0.6
-
-            await page.mouse.move(cx, cy, steps=random.randint(5, 12))
-            await asyncio.sleep(random.uniform(0.3, 0.8))
-
-            # ⚡ 单次单击（XHS 双击触发图片查看器）
-            await page.mouse.click(cx, cy)
-            await asyncio.sleep(3)
-
-            # 锚点验证
-            anchor = await page.evaluate(is_note_detail_mode_js())
-            if anchor.get('qr_blocked'):
-                # QR 码拦截墙 — 点底部"发现" tab 回到首页重试
-                await click_bottom_nav_tab(page, "发现")
-                await asyncio.sleep(2)
-                return 'qr_blocked'
-            if anchor.get('is_author_profile'):
-                # 打成作者主页了 → ESC 退回再重试
-                await page.keyboard.press("Escape")
-                await asyncio.sleep(2)
-                return 'qr_blocked'  # 让外层走重试逻辑
-            if anchor.get('is_detail'):
-                return page.url
-
-            # 锚点失败 — fallback 直接导航
-            if href:
-                await page.goto(href, timeout=15000, wait_until="commit")
-                await asyncio.sleep(2)
-                anchor = await page.evaluate(is_note_detail_mode_js())
-                if anchor.get('qr_blocked'):
-                    await click_bottom_nav_tab(page, "发现")
-                    await asyncio.sleep(2)
-                    return 'qr_blocked'
-                if anchor.get('is_author_profile'):
-                    await page.keyboard.press("Escape")
-                    await asyncio.sleep(2)
-                    return 'qr_blocked'
-                if anchor.get('is_detail'):
-                    return page.url
-            return None
-
-        except Exception:
-            # fallback
-            if href:
-                try:
-                    await page.goto(href, timeout=15000, wait_until="commit")
-                    await asyncio.sleep(2)
-                    anchor = await page.evaluate(is_note_detail_mode_js())
-                    if anchor.get('qr_blocked'):
-                        await click_bottom_nav_tab(page, "发现")
-                        await asyncio.sleep(2)
-                        return 'qr_blocked'
-                    if anchor.get('is_author_profile'):
-                        await page.keyboard.press("Escape")
-                        await asyncio.sleep(2)
-                        return 'qr_blocked'
-                    if anchor.get('is_detail'):
-                        return page.url
-                except Exception:
-                    pass
-            return None
-    else:
-        # ── 传统 element.click() 方式 ──
-        try:
-            cards_els = await page.query_selector_all(NOTE_CARD)
-            if index < len(cards_els):
-                await cards_els[index].click()
-                await asyncio.sleep(2)
-                return page.url
-        except Exception:
-            pass
-
-        # fallback: 直接导航
-        try:
-            await page.goto(href, timeout=15000, wait_until="commit")
+    # 使用 Playwright 点击（模拟真人）
+    try:
+        # 先尝试通过索引定位元素
+        cards_els = await page.query_selector_all(NOTE_CARD)
+        if index < len(cards_els):
+            await cards_els[index].click()
             await asyncio.sleep(2)
             return page.url
-        except Exception:
-            return None
+    except Exception:
+        pass
+
+    # fallback: 直接导航到链接
+    try:
+        await page.goto(href, timeout=15000, wait_until="commit")
+        await asyncio.sleep(2)
+        return page.url
+    except Exception:
+        return None
 
 
 async def scroll_feed(page, distance: int = None):
-    """键盘 ArrowDown 滚动一小段（触发 IntersectionObserver 加载图片）"""
+    """
+    滚动瀑布流（单方式: 鼠标滚轮，避免双重滚动）
+
+    Args:
+        distance: 滚动距离(px)，None 时随机
+    """
+    dist = distance or random.randint(300, 800)
+
+    # 鼠标滚轮（拟人）
     try:
-        presses = max(8, (distance or random.randint(150, 400)) // 15)
-        for _ in range(presses):
-            await page.keyboard.press("ArrowDown")
-            await asyncio.sleep(random.uniform(0.12, 0.25))
+        await page.mouse.wheel(0, dist)
+        await asyncio.sleep(random.uniform(0.5, 1.5))
     except Exception:
-        try:
-            await page.mouse.wheel(0, distance or 200)
-        except Exception:
-            pass
-    await asyncio.sleep(random.uniform(0.8, 1.5))
-    return distance
+        # fallback: JS 滚动
+        await page.evaluate(f"window.scrollBy(0, {dist})")
+        await asyncio.sleep(random.uniform(0.5, 1.5))
+
+    return dist
 
 
-async def scroll_feed_human(page, screens: int = 1):
+async def scroll_feed_human(page, screens: int = 2):
     """
-    键盘 ArrowDown 逐行滚动 + 视口验证，模拟真人阅读节奏
+    拟人化滚动：分多次小滚动，中间随机停顿
 
-    - ArrowDown × 多次（≈ 自然阅读，每次触 IntersectionObserver）
-    - 每屏后检查卡片是否仍在视口
-    - 滚动过头自动 ArrowUp 回正
+    Args:
+        screens: 滚动几屏
     """
-    for s in range(screens):
-        # ArrowDown × 8-15 次（≈ 半屏到一屏）
-        for _ in range(random.randint(8, 15)):
-            await page.keyboard.press("ArrowDown")
-            await asyncio.sleep(random.uniform(0.12, 0.25))
+    for _ in range(screens):
+        # 每次滚动一小段
+        dist = random.randint(200, 500)
+        await scroll_feed(page, dist)
 
-        # 阅读停顿
-        await asyncio.sleep(random.uniform(1.5, 3.0))
-
-        # 视口验证：确保至少 2 张卡片在视口内
-        cards_in_view = await page.evaluate("""() => {
-            const vh = window.innerHeight;
-            let n = 0;
-            for (const c of document.querySelectorAll('section.note-item')) {
-                const r = c.getBoundingClientRect();
-                if (r.bottom > 0 && r.top < vh && r.width > 10) n++;
-                if (n >= 2) break;
-            }
-            return n;
-        }""")
-        if cards_in_view < 2:
-            for _ in range(15):
-                await page.keyboard.press("ArrowUp")
-                await asyncio.sleep(0.08)
-            await asyncio.sleep(1.5)
-
-        # 阅读停顿
-        await asyncio.sleep(random.uniform(2.0, 4.0))
+        # 随机停顿（模拟阅读）
+        if random.random() < 0.4:
+            pause = random.uniform(1.0, 3.0)
+            await asyncio.sleep(pause)
 
     return screens
 
@@ -292,13 +155,12 @@ async def scroll_feed_human(page, screens: int = 1):
 async def browse_note_detail(page, duration: float = None):
     """
     在笔记详情页浏览内容（图文/视频自适应）
-    操作后验证：仍在详情页
 
     Args:
         duration: 浏览时长(秒)，None 时随机 4~12 秒
 
     Returns:
-        实际浏览秒数，或 -1（页面不在详情页）
+        实际浏览秒数
     """
     watch = duration or random.uniform(4, 12)
 
@@ -313,231 +175,129 @@ async def browse_note_detail(page, duration: float = None):
     """)
 
     if has_video:
+        # 视频笔记：看视频，不滚动
+        # 等待视频加载
         await asyncio.sleep(random.uniform(1, 2))
-    else:
-        # 图文笔记：键盘箭头↓模拟真人阅读
-        steps = max(2, int(watch / 2))
-        for _ in range(steps):
-            for _ in range(random.randint(2, 5)):
-                await page.keyboard.press("ArrowDown")
-                await asyncio.sleep(random.uniform(0.1, 0.3))
-            await asyncio.sleep(random.uniform(1.0, 2.5))
-
-    # 锚点验证：确认仍在详情页（浏览过程中可能误触导致跳转）
-    from .selectors import is_note_detail_mode_js
-    anchor = await page.evaluate(is_note_detail_mode_js())
-    if anchor.get('is_detail'):
         return watch
-    elif anchor.get('is_author_profile'):
-        return -1  # 误触到作者主页
-    elif anchor.get('qr_blocked'):
-        return -1
     else:
-        # 不在详情页（退回首页了或其他）
-        return -1
-
-
-async def check_page_health(page) -> dict:
-    """诊断页面渲染状态（黑屏/滚动过头/CSS隐藏/正常）"""
-    try:
-        return await page.evaluate("""() => {
-            const body = document.body;
-            if (!body) return {alive: false, reason: 'no body'};
-
-            const cards = [...document.querySelectorAll('section.note-item')];
-            const imgs = [...document.querySelectorAll('img')];
-            const loadedImgs = imgs.filter(i => i.complete && i.naturalWidth > 0);
-            const noteDetail = document.querySelector('.note-detail-mask, [class*=note-detail]');
-            const vh = window.innerHeight;
-            const scrollY = window.scrollY;
-
-            let inView = 0, offScreenAbove = 0, offScreenBelow = 0, cssHidden = 0;
-            for (const c of cards.slice(0, 10)) {
-                const style = window.getComputedStyle(c);
-                const r = c.getBoundingClientRect();
-                if (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) < 0.1) {
-                    cssHidden++; continue;
-                }
-                if (r.bottom > 0 && r.top < vh && r.width > 10) { inView++; }
-                else if (r.bottom <= 0) { offScreenAbove++; }
-                else if (r.top >= vh) { offScreenBelow++; }
-                else { offScreenAbove++; }
-            }
-
-            let blackScreen = false, reason = '', scrollIssue = '';
-            if (cards.length === 0 && !noteDetail) {
-                blackScreen = true; reason = 'empty page - no cards or detail';
-            } else if (cards.length > 0 && inView === 0 && offScreenBelow > 0) {
-                blackScreen = true; scrollIssue = 'below';
-                reason = `scrolled too far down - ${offScreenBelow} cards below viewport (scrollY=${scrollY})`;
-            } else if (cards.length > 0 && inView === 0 && offScreenAbove > 0) {
-                blackScreen = true; scrollIssue = 'above';
-                reason = `scrolled too far up - ${offScreenAbove} cards above viewport (scrollY=${scrollY})`;
-            } else if (cards.length > 0 && inView === 0 && cssHidden > 0) {
-                blackScreen = true; scrollIssue = 'css_hidden';
-                reason = `${cssHidden}/10 cards CSS-hidden (display:none/opacity:0)`;
-            } else if (cards.length > 0 && inView > 0 && loadedImgs.length === 0 && imgs.length > 5) {
-                blackScreen = true; scrollIssue = 'no_images';
-                reason = `${inView} cards visible but 0/${imgs.length} images loaded`;
-            }
-
-            return {
-                alive: !blackScreen, black_screen: blackScreen, reason: reason,
-                scroll_issue: scrollIssue, scroll_y: scrollY,
-                cards_total: cards.length, cards_in_view: inView,
-                cards_above: offScreenAbove, cards_below: offScreenBelow, cards_hidden: cssHidden,
-                total_images: imgs.length, loaded_images: loadedImgs.length,
-                in_detail_mode: !!noteDetail, vp_h: vh,
-            };
-        }""")
-    except Exception as e:
-        return {"alive": False, "error": str(e)}
-
-
-async def wait_for_feed_ready(page, timeout: float = 8.0) -> bool:
-    """等待首页瀑布流图片加载完成"""
-    try:
-        for _ in range(int(timeout * 2)):
-            ready = await page.evaluate("""() => {
-                const cards = document.querySelectorAll('section.note-item');
-                if (cards.length < 5) return 'no_cards';
-                const imgs = [...cards].map(c => c.querySelector('img')).filter(Boolean).slice(0, 5);
-                if (imgs.length === 0) return 'no_images';
-                const loaded = imgs.filter(img => img.complete && img.naturalWidth > 0);
-                if (loaded.length >= 3) return 'ready';
-                return 'loading';
-            }""")
-            if ready == 'ready':
-                return True
-            await asyncio.sleep(0.5)
-        return False
-    except Exception:
-        return False
+        # 图文笔记：缓慢滚动模拟阅读
+        steps = int(watch / 2)
+        for _ in range(steps):
+            await page.evaluate(f"window.scrollBy(0, {random.randint(50, 150)})")
+            await asyncio.sleep(random.uniform(1.0, 2.5))
+        return watch
 
 
 async def go_back_to_home(page):
-    """从详情页返回首页（ESC 键关闭 SPA 遮罩，保留 feed 状态）
-
-    XHS 笔记详情是 SPA overlay (.note-detail-mask)，ESC 键关闭它。
-    - 底下的首页完全保留，包括已加载的图片
-    - 不需要重新导航或等待图片加载
-    - 完全真人操作，最接近真实用户行为
-    """
+    """从详情页返回首页"""
     try:
-        # ESC 键关闭详情遮罩（SPA 原生支持）
-        await page.keyboard.press("Escape")
+        # 方式1: 浏览器返回
+        await page.go_back(timeout=10000, wait_until="commit")
         await asyncio.sleep(2)
 
-        # 验证是否回到首页（遮罩消失 + 瀑布流可见）
-        back = await page.evaluate("""() => {
-            const mask = document.querySelector('.note-detail-mask, [class*=note-detail]');
-            const cards = document.querySelectorAll('section.note-item');
-            return {mask_gone: !mask, cards: cards.length};
-        }""")
-        if back.get('mask_gone', True) and back.get('cards', 0) > 5:
+        # 验证是否回到首页
+        cards = await get_note_cards(page)
+        if cards:
             return True
 
-        # 再按一次 ESC（有时候需要两次）
-        await page.keyboard.press("Escape")
-        await asyncio.sleep(1.5)
-
-        back2 = await page.evaluate("""() => {
-            const mask = document.querySelector('.note-detail-mask, [class*=note-detail]');
-            const cards = document.querySelectorAll('section.note-item');
-            return {mask_gone: !mask, cards: cards.length};
-        }""")
-        if back2.get('mask_gone', True) and back2.get('cards', 0) > 5:
-            return True
-
-        # 检测页面健康度（ESC 可能没触发，或页面异常）
-        health = await check_page_health(page)
-        if health.get('alive'):
-            return True
-
-        # 兜底: goto_home + 键盘滚动恢复
+        # 方式2: 直接导航
         await goto_home(page)
-        await asyncio.sleep(2)
-        for _ in range(15):
-            await page.keyboard.press("ArrowDown")
-            await asyncio.sleep(0.15)
-        await wait_for_feed_ready(page, timeout=8)
-        return bool(await get_note_cards(page))
-
-    except Exception:
-        await goto_home(page)
-        await asyncio.sleep(3)
         return True
-        await asyncio.sleep(3)
-        images_ok = await wait_for_feed_ready(page, timeout=5)
-        return bool(images_ok or await get_note_cards(page))
-
     except Exception:
         # 兜底: 直接导航
         await goto_home(page)
-        await asyncio.sleep(3)
-        await wait_for_feed_ready(page, timeout=5)
         return True
 
 
 # ════════════════════════════════════════════════════════════
-# 底部导航操作（2026-05-28 新增：黑屏/QR墙恢复）
+# 物理按钮操作（鼠标模拟）
 # ════════════════════════════════════════════════════════════
 
-async def click_bottom_nav_tab(page, tab_text: str = "发现"):
-    """点击底部导航栏中的 tab 恢复页面状态
+async def _l_shaped_click(page, target_x: int, target_y: int, desc: str = "") -> bool:
+    """
+    L 型鼠标路径点击 — 模拟真人鼠标移动轨迹
 
-    用户实测（2026-05-28）:
-    - 黑屏 → 点击底部"发现"刷新瀑布流
-    - QR墙"当前笔记暂时无法浏览" → 点击底部"发现"回到首页
+    轨迹: 起点(随机偏移) → 水平移动到目标 x → 垂直移动到目标 y → 点击
+    """
+    import random
+    try:
+        viewport = page.viewport_size or {"width": 702, "height": 783}
+        # 起点随机偏移
+        start_x = target_x + random.randint(-150, 150)
+        start_y = target_y + random.randint(-100, 50)
+        # 限制在视口内
+        start_x = max(50, min(start_x, viewport["width"] - 50))
+        start_y = max(50, min(start_y, viewport["height"] - 50))
 
-    策略:
-    1. 按文本找底部导航中的元素（a/button/[tab]/[nav] 含指定文字）
-    2. 找 /explore 链接
-    3. 找底部固定栏第一个可用链接
-    4. goto_home 兜底
+        # 移动鼠标到起点
+        await page.mouse.move(start_x, start_y)
+        await asyncio.sleep(random.uniform(0.05, 0.15))
+
+        # L 型路径: 先水平移到目标 x
+        steps = random.randint(5, 10)
+        dx = (target_x - start_x) / steps
+        for i in range(steps):
+            await page.mouse.move(start_x + dx * (i + 1), start_y)
+            await asyncio.sleep(random.uniform(0.01, 0.03))
+
+        # 再垂直移到目标 y
+        steps_v = random.randint(3, 8)
+        dy = (target_y - start_y) / steps_v
+        for i in range(steps_v):
+            await page.mouse.move(target_x, start_y + dy * (i + 1))
+            await asyncio.sleep(random.uniform(0.01, 0.03))
+
+        # 微抖动（模拟手指不稳）
+        jitter_x = target_x + random.randint(-2, 2)
+        jitter_y = target_y + random.randint(-2, 2)
+        await page.mouse.move(jitter_x, jitter_y)
+        await asyncio.sleep(random.uniform(0.05, 0.1))
+
+        # 点击
+        await page.mouse.click(jitter_x, jitter_y)
+        return True
+    except Exception as e:
+        if desc:
+            pass  # 静默失败
+        return False
+
+
+async def click_refresh_button(page) -> bool:
+    """
+    点击小红书瀑布流页面右下角的刷新 FAB 按钮
 
     Returns:
-        True（无论是否成功，不影响流程）
+        True=点击成功, False=未找到按钮
     """
     try:
-        # 方式1: 按文本查找
-        selector = (
-            f'a:has-text("{tab_text}"), '
-            f'button:has-text("{tab_text}"), '
-            f'[class*=tab]:has-text("{tab_text}"), '
-            f'[class*=nav]:has-text("{tab_text}")'
-        )
-        tab_el = await page.query_selector(selector)
-        if tab_el:
-            await tab_el.click()
-            await asyncio.sleep(2)
-            await wait_for_feed_ready(page, timeout=8)
-            return True
+        result = await page.evaluate(find_refresh_button_js())
+        if not result or not result.get("found"):
+            return False
 
-        # 方式2: /explore 链接（发现页）
-        explore_link = await page.query_selector('a[href*="/explore"]')
-        if explore_link:
-            await explore_link.click()
-            await asyncio.sleep(3)
-            await wait_for_feed_ready(page, timeout=8)
-            return True
-
-        # 方式3: 底部固定栏第一个链接
-        bottom_links = await page.query_selector_all(
-            '[class*="bottom"] a, [class*="tab"] a, nav a, [class*="footer"] a'
-        )
-        if bottom_links:
-            await bottom_links[0].click()
-            await asyncio.sleep(3)
-            await wait_for_feed_ready(page, timeout=8)
-            return True
-
-        # 兜底
-        await goto_home(page)
-        return True
+        x, y = result["x"], result["y"]
+        return await _l_shaped_click(page, x, y, desc="refresh")
     except Exception:
-        await goto_home(page)
-        return True
+        return False
+
+
+async def click_qr_wall_back_button(page) -> bool:
+    """
+    检测 QR 检测墙并点击"返回首页"按钮
+
+    Returns:
+        True=检测到QR墙并成功点击返回, False=未检测到QR墙或点击失败
+    """
+    try:
+        result = await page.evaluate(find_qr_wall_back_button_js())
+        if not result or not result.get("found"):
+            return False
+
+        x, y = result["x"], result["y"]
+        btn_text = result.get("text", "")
+        success = await _l_shaped_click(page, x, y, desc="qr_back")
+        return success
+    except Exception:
+        return False
 
 
 # ════════════════════════════════════════════════════════════
@@ -555,7 +315,7 @@ SEARCH_KEYWORDS = [
 
 async def search(page, keyword: str = None) -> str:
     """
-    搜索关键词（兼容标准版 + AI-layout 版）
+    搜索关键词
 
     Args:
         keyword: 搜索词，None 时随机选择
@@ -565,36 +325,23 @@ async def search(page, keyword: str = None) -> str:
     """
     kw = keyword or random.choice(SEARCH_KEYWORDS)
 
-    # ── 方式1: 标准搜索框 ──
     try:
+        # 定位搜索框
         search_input = await page.query_selector(SEARCH_INPUT)
         if search_input:
             await search_input.click()
             await asyncio.sleep(0.5)
             await search_input.fill(kw)
             await asyncio.sleep(0.3)
+
+            # 按回车搜索
             await search_input.press("Enter")
             await asyncio.sleep(3)
             return kw
     except Exception:
         pass
 
-    # ── 方式2: AI 布局备用搜索框 ──
-    try:
-        from .selectors import SEARCH_INPUT_ALT
-        search_input = await page.query_selector(SEARCH_INPUT_ALT)
-        if search_input:
-            await search_input.click()
-            await asyncio.sleep(0.5)
-            await search_input.fill(kw)
-            await asyncio.sleep(0.3)
-            await search_input.press("Enter")
-            await asyncio.sleep(3)
-            return kw
-    except Exception:
-        pass
-
-    # ── 方式3: URL 直接搜索 ──
+    # fallback: URL 直接搜索
     try:
         encoded_kw = kw.replace(" ", "%20")
         await page.goto(
@@ -609,7 +356,7 @@ async def search(page, keyword: str = None) -> str:
 
 async def click_search_result(page, index: int = None) -> Optional[str]:
     """
-    点击搜索结果中的笔记（兼容标准版 + AI-layout 版）
+    点击搜索结果中的笔记
 
     Args:
         index: 结果索引，None 时随机
@@ -617,27 +364,14 @@ async def click_search_result(page, index: int = None) -> Optional[str]:
     Returns:
         笔记 URL
     """
-    # ── 方式1: 标准搜索结果选择器 ──
     try:
         results = await page.query_selector_all(".note-item, [class*=search-result] a")
-        if results:
-            idx = index if index is not None else random.randint(0, min(3, len(results) - 1))
-            if idx < len(results):
-                await results[idx].click()
-                await asyncio.sleep(2)
-                return page.url
-    except Exception:
-        pass
+        if not results:
+            return None
 
-    # ── 方式2: 通用链接点击（找任何包含笔记 ID 的链接）──
-    try:
-        links = await page.evaluate("""() => {
-            const links = [...document.querySelectorAll('a[href*="/explore/"]')];
-            return links.map(a => a.href).filter(h => /\\/explore\\/[a-f0-9]{20,}/.test(h));
-        }""")
-        if links:
-            target = random.choice(links)
-            await page.goto(target, timeout=15000, wait_until="commit")
+        idx = index if index is not None else random.randint(0, min(3, len(results) - 1))
+        if idx < len(results):
+            await results[idx].click()
             await asyncio.sleep(2)
             return page.url
     except Exception:

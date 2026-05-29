@@ -1417,17 +1417,6 @@ async def nurture_loop(identity_name: str,
     else:
         identity_dir = str(LOCAL_ROOT / "identities" / identity_name)
 
-    # ── Cookie 自动备份（防护：共享 identity_dir 防误删）──
-    try:
-        from matrix_modules.utils.cookie_manager import CookieGuard
-        identity_name_dir = os.path.basename(identity_dir)
-        guard = CookieGuard(identity_name_dir)
-        bak = guard.backup(platform="douyin", label="auto")
-        if bak:
-            _log(f"    💾 Cookie 已自动备份")
-    except Exception:
-        pass
-
     config = load_identity_config(identity_name, identity_dir_override=identity_dir)
 
     # 确定引擎：有 identity_dir 就用 Camoufox，否则按 browser_type 判断
@@ -1562,12 +1551,7 @@ async def nurture_loop(identity_name: str,
         except (asyncio.CancelledError, KeyboardInterrupt):
             _log(f"    ⏹ daemon 结束", LOG_FILE)
     else:
-        _log(f"    🔒 关闭浏览器...", LOG_FILE)
-        try:
-            await conn.close()
-            _log(f"    ✅ 浏览器已关闭", LOG_FILE)
-        except Exception as e:
-            _log(f"    ⚠️ 关闭异常: {e}", LOG_FILE)
+        _log(f"    (浏览器保持运行，Python退出)", LOG_FILE)
     _log(f"{'='*40}", LOG_FILE)
 
 
@@ -1662,16 +1646,6 @@ async def nurture_xhs_loop(
     if not identity_dir.startswith("/"):
         identity_dir = str(LOCAL_ROOT / identity_dir)
 
-    # ── Cookie 自动备份（防护：备份当前状态以防误删）──
-    try:
-        from matrix_modules.utils.cookie_manager import CookieGuard
-        guard = CookieGuard(os.path.basename(identity_dir))
-        bak = guard.backup(platform="xiaohongshu", label="auto")
-        if bak:
-            _xhs_log(f"  💾 Cookie 已自动备份")
-    except Exception:
-        pass
-
     # 窗口配置
     win_pos = acct.get("window_position", [0, 0])
     w_left, w_top = int(win_pos[0]), int(win_pos[1]) if isinstance(win_pos, (list, tuple)) else (0, 0)
@@ -1699,7 +1673,7 @@ async def nurture_xhs_loop(
     # 导入小红书操作模块
     from matrix_modules.ops.xhs import browse, interact
     from matrix_modules.comment.xhs.corpus import random_comment, reset_session
-    from matrix_modules.ops.xhs.selectors import ANCHORS, is_note_detail_mode_js
+    from matrix_modules.ops.xhs.selectors import ANCHORS
 
     # 重置评论去重（新账号新会话）
     reset_session()
@@ -1713,17 +1687,13 @@ async def nurture_xhs_loop(
         window_position=(w_left, w_top),
     )
 
-    # 清理锁文件（必须在 connect 之前，抖音踩坑 #5）
-    import glob
-    for lock_file in glob.glob(f"{identity_dir}/user_data/**/.parentlock", recursive=True):
+    # 清理锁文件（直接路径，不递归扫 22k+ 文件）
+    for lock in ['.parentlock', '.startup-incomplete', 'lock']:
         try:
-            os.remove(lock_file)
-            print(f"  🧹 清理锁文件: {lock_file}")
-        except:
-            pass
-    for lock_file in glob.glob(f"{identity_dir}/user_data/**/lock", recursive=True):
-        try:
-            os.remove(lock_file)
+            lf = Path(identity_dir) / 'user_data' / lock
+            if lf.exists():
+                lf.unlink()
+                print(f"  🧹 清理锁文件: {lock}")
         except:
             pass
 
@@ -1743,7 +1713,10 @@ async def nurture_xhs_loop(
     for attempt in range(1, 4):
         try:
             await browse.goto_home(conn.page)
-            await asyncio.sleep(5)  # 充分等待页面渲染 + 登录弹窗弹出
+            await asyncio.sleep(3)
+            # 关闭登录弹窗
+            await browse.dismiss_login_modal(conn.page)
+            await asyncio.sleep(1)
             # 重初始化反检测
             try:
                 await conn.init_anti_detection()
@@ -1761,61 +1734,21 @@ async def nurture_xhs_loop(
     # 验证首页锚点
     is_home = await browse.check_anchor(conn.page, "home_page")
     if not is_home:
-        _xhs_log(f"⚠️ 首页锚点验证失败，尝试刷新...")
-        await conn.page.reload()
-        await asyncio.sleep(5)  # 充分等待刷新后弹窗
+        _xhs_log(f"⚠️ 首页锚点验证失败，尝试点击刷新按钮...")
+        refreshed = await browse.click_refresh_button(conn.page)
+        if not refreshed:
+            _xhs_log(f"  ⚠️ 未找到刷新按钮，fallback 到 reload()")
+            await conn.page.reload()
+        else:
+            _xhs_log(f"  ✅ 已点击刷新按钮")
+        await asyncio.sleep(3)
         try:
             await conn.init_anti_detection()
         except Exception:
             pass
 
-    # ── 登录态检查（P0 #14）—— 先页面级检测，再 cookie 检测 ──
-    # 关键：页面级检测必须在 dismiss_login_modal 之前执行
+    # ── 登录态检查（P0 #14）──
     _xhs_log(f"  🔐 检测登录状态...")
-
-    # Step 1: 页面级检测（登录弹窗是否有"登录之后更精彩"/"扫码登录"等锚点）
-    _xhs_log(f"  🔐 页面级登录验证...")
-    page_login_detected = False
-    try:
-        page_login_info = await conn.page.evaluate("""
-            () => {
-                const bodyText = document.body?.innerText || '';
-                // 登录弹窗特征文字
-                const loginKeywords = ['登录之后更精彩', '扫码登录', '手机号登录', '请登录', '立即登录', '其他方式登录'];
-                const matched = loginKeywords.filter(kw => bodyText.includes(kw));
-                if (matched.length === 0) return { detected: false, keywords: [] };
-
-                // 确认是弹窗/对话框（高可见度的模态框，非导航栏小文字）
-                const modals = document.querySelectorAll('[class*=login], [class*=modal], [role=dialog], [class*=mask]');
-                let modalVisible = false;
-                for (const m of modals) {
-                    const r = m.getBoundingClientRect();
-                    if (r.width > 200 && r.height > 100) {
-                        modalVisible = true;
-                        break;
-                    }
-                }
-                return { detected: modalVisible, keywords: matched };
-            }
-        """)
-        page_login_detected = page_login_info.get('detected', False)
-        if page_login_detected:
-            _xhs_log(f"  ❌ 页面级检测: 登录弹窗存在 (关键词: {page_login_info.get('keywords', [])})")
-            _xhs_log(f"     账号未登录或 session 已失效，需要重新登录，终止养号")
-            try:
-                ss_path = f"/tmp/xhs_login_page_{identity_name}.png"
-                await conn.page.screenshot(path=ss_path)
-                _xhs_log(f"     📸 截图: {ss_path}")
-            except:
-                pass
-            await conn.close()
-            return
-        else:
-            _xhs_log(f"  ✅ 页面级检测: 无登录弹窗")
-    except Exception as e:
-        _xhs_log(f"  ⚠️ 页面级登录验证异常: {e}")
-
-    # Step 2: Cookie 检测（本地 cookie 验证）
     try:
         from auth_manager import check_login_by_cookie_sync, get_session_id, count_platform_cookies
         cookies = await conn.context.cookies()
@@ -1823,75 +1756,26 @@ async def nurture_xhs_loop(
         session_val = get_session_id(cookies, "xiaohongshu")
         cookie_cnt = count_platform_cookies(cookies, "xiaohongshu")
         if logged_in:
-            _xhs_log(f"  ✅ Cookie检测: 已登录 (cookies={cookie_cnt})")
+            _xhs_log(f"  ✅ 登录检测: 已登录 (cookies={cookie_cnt})")
             if session_val:
                 _xhs_log(f"     session: {session_val[:20]}...")
         else:
-            _xhs_log(f"  ❌ 登录检测: 未登录 (cookie_count={cookie_cnt})")
-            _xhs_log(f"     账号 cookie 已失效，需要重新登录，终止养号")
+            _xhs_log(f"  ⚠️ 登录检测: 未登录 (cookie_count={cookie_cnt})")
+            _xhs_log(f"     允许未登录浏览，但评论/互动可能受限")
+            # 截图供参考
             try:
                 ss_path = f"/tmp/xhs_login_check_{identity_name}.png"
                 await conn.page.screenshot(path=ss_path)
                 _xhs_log(f"     📸 截图: {ss_path}")
             except:
                 pass
-            await conn.close()
-            return
-
     except Exception as e:
         _xhs_log(f"  ⚠️ 登录态检测异常: {e}")
-
-    # 登录确认后，关闭可能残留的弹窗（如未登录浏览后的提醒）
-    await browse.dismiss_login_modal(conn.page)
-    await asyncio.sleep(1)
-
-    # ── 页面布局版本检测（兼容 AI-layout）──
-    _xhs_log(f"  📐 检测页面布局版本...")
-    try:
-        layout_info = await conn.page.evaluate("""() => {
-            const hasSearchInput = !!document.querySelector('input.search-input');
-            const hasHeader = !!document.querySelector('.header-container');
-            const hasAiLayout = !!document.querySelector('.ai-layout-active');
-            const firstNoteY = (() => {
-                const card = document.querySelector('section.note-item');
-                if (!card) return -1;
-                return Math.round(card.getBoundingClientRect().y);
-            })();
-            return {
-                version: hasAiLayout ? 'ai-layout' : (hasSearchInput ? 'standard' : 'unknown'),
-                has_search_input: hasSearchInput,
-                has_header: hasHeader,
-                ai_layout: hasAiLayout,
-                first_card_y: firstNoteY,
-            };
-        }""")
-        v = layout_info.get('version', 'unknown')
-        _xhs_log(f"    📐 布局版本: {v}")
-        _xhs_log(f"    📐 搜索框: {'✅' if layout_info.get('has_search_input') else '❌'}")
-        _xhs_log(f"    📐 顶部栏: {'✅' if layout_info.get('has_header') else '❌'}")
-        _xhs_log(f"    📐 首卡 y 偏移: {layout_info.get('first_card_y', '?')}px")
-        if v == 'ai-layout':
-            _xhs_log(f"    ⚠️ AI-layout 布局，搜索交互使用备用选择器 + URL 兜底")
-    except Exception as e:
-        _xhs_log(f"  ⚠️ 布局检测异常: {e}")
 
     # 记录开始时间（P0 #4）
     _t_start = time.time()
     passed_rounds = 0
     consecutive_failures = 0
-
-    # 首轮前刷新页面（防黑屏 / 防页面状态残留）
-    _xhs_log("  🔄 首轮前刷新页面...")
-    try:
-        await conn.page.reload()
-        await asyncio.sleep(5)  # 等待页面完全渲染 + 登录弹窗
-        try:
-            await conn.init_anti_detection()
-        except Exception:
-            pass
-        _xhs_log("  ✅ 刷新完成")
-    except Exception as e:
-        _xhs_log(f"  ⚠️ 刷新异常: {e}")
 
     for r in range(1, rounds + 1):
         _xhs_log(f"\n{'='*40}")
@@ -1900,80 +1784,17 @@ async def nurture_xhs_loop(
 
         round_ok = True
         try:
-            # ── Step 1: 瀑布流浏览 + 页面健康检查 ──
+            # ── Step 1: 瀑布流浏览 ──
             _xhs_log("  📜 瀑布流浏览...")
-            await browse.scroll_feed_human(conn.page, screens=random.randint(1, 2))
+            await browse.scroll_feed_human(conn.page, screens=random.randint(1, 3))
             await asyncio.sleep(bhv.click_delay())
 
-            # 页面健康检查（检测黑屏/滚动过头/广告遮罩）
-            try:
-                health = await browse.check_page_health(conn.page)
-                if health.get('black_screen'):
-                    issue = health.get('scroll_issue', '')
-                    _xhs_log(f"  ⚠️ 页面异常: {health.get('reason', 'unknown')}")
-                    _xhs_log(f"     in_view={health.get('cards_in_view')} above={health.get('cards_above')} below={health.get('cards_below')}")
-                    # 滚动过头 → 回正到卡片可见
-                    if issue == 'below':
-                        _xhs_log(f"  ↕️ 滚动回正（ArrowUp × 40）...")
-                        for _ in range(40):
-                            await conn.page.keyboard.press("ArrowUp")
-                            await asyncio.sleep(0.05)
-                        await asyncio.sleep(1.5)
-                        health = await browse.check_page_health(conn.page)
-                        if not health.get('black_screen'):
-                            _xhs_log(f"  ✅ 滚动回正成功")
-                    elif issue == 'above':
-                        _xhs_log(f"  ↕️ 滚动回正（ArrowDown × 40）...")
-                        for _ in range(40):
-                            await conn.page.keyboard.press("ArrowDown")
-                            await asyncio.sleep(0.05)
-                        await asyncio.sleep(1.5)
-                        health = await browse.check_page_health(conn.page)
-                        if not health.get('black_screen'):
-                            _xhs_log(f"  ✅ 滚动回正成功")
-
-                    # 滚动回正无效 → 点底部"发现" tab 刷新瀑布流
-                    if health.get('black_screen'):
-                        _xhs_log(f"  🔄 滚动回正无效，尝试底部\"发现\" tab 刷新...")
-                        await browse.click_bottom_nav_tab(conn.page, "发现")
-                        await asyncio.sleep(2)
-                        health = await browse.check_page_health(conn.page)
-                        if health.get('black_screen'):
-                            _xhs_log(f"  ⚠️ \"发现\" tab 仍黑屏，goto_home 兜底")
-                            await browse.goto_home(conn.page)
-                        else:
-                            _xhs_log(f"  ✅ 底部\"发现\" tab 刷新成功")
-            except Exception:
-                pass
-
-            # ── Step 2: 点击笔记卡片（QR墙回退重试）──
+            # ── Step 2: 点击笔记卡片 ──
             _xhs_log("  🎯 点击笔记卡片...")
-            note_url = None
-            qr_block_count = 0
-            for card_attempt in range(3):
-                note_url = await browse.click_note_card(conn.page)
-                if note_url == 'qr_blocked':
-                    # QR 码拦截墙 — 回退后换卡片重试（非常用登录，多刷会恢复）
-                    qr_block_count += 1
-                    _xhs_log(f"  🚫 QR码拦截墙（回退重试 {qr_block_count}/3）")
-                    await asyncio.sleep(2)
-                    continue
-                elif note_url:
-                    break  # 成功进入笔记
-                else:
-                    # 无卡片或锚点失败
-                    break
-
-            if not note_url or note_url == 'qr_blocked':
-                if qr_block_count >= 3:
-                    _xhs_log(f"  🚫 连续 {qr_block_count} 次 QR 码拦截墙，跳过本轮")
-                else:
-                    _xhs_log("  ⚠️ 未找到可点击的笔记")
+            note_url = await browse.click_note_card(conn.page)
+            if not note_url:
+                _xhs_log("  ⚠️ 未找到可点击的笔记")
                 round_ok = False
-                # 页面可能已损坏→底部"发现" tab 恢复
-                _xhs_log("  🔄 页面恢复: 底部\"发现\" tab 恢复...")
-                await browse.click_bottom_nav_tab(conn.page, "发现")
-                await asyncio.sleep(3)
             else:
                 _xhs_log(f"  ✅ 进入笔记: {note_url[:60]}...")
                 await asyncio.sleep(bhv.click_delay())
@@ -1985,14 +1806,7 @@ async def nurture_xhs_loop(
 
                 # ── Step 3: 浏览内容 ──
                 watch_time = await browse.browse_note_detail(conn.page)
-                if watch_time < 0:
-                    _xhs_log(f"  ⚠️ 浏览异常（页面不在详情页），跳过本轮互动")
-                    round_ok = False
-                    # 尝试 ESC 退回
-                    await conn.page.keyboard.press("Escape")
-                    await asyncio.sleep(2)
-                else:
-                    _xhs_log(f"  👀 浏览 {watch_time:.0f}s")
+                _xhs_log(f"  👀 浏览 {watch_time:.0f}s")
 
                 # ── Step 4: 随机互动 ──
                 interact_result = await interact.random_interact(conn.page)
@@ -2038,9 +1852,15 @@ async def nurture_xhs_loop(
                     else:
                         _xhs_log(f"  ⚠️ 评论失败: {comment_result.get('error', 'unknown')}")
 
-                # ── Step 6: 返回首页 ──
+                # ── Step 6: 检测 QR 墙 → 返回首页 ──
                 _xhs_log("  🔙 返回首页...")
-                await browse.go_back_to_home(conn.page)
+                # 先检测是否有 QR 检测墙弹窗
+                qr_back = await browse.click_qr_wall_back_button(conn.page)
+                if qr_back:
+                    _xhs_log("  ✅ 检测到 QR 墙，已点击返回首页按钮")
+                    await asyncio.sleep(2)
+                else:
+                    await browse.go_back_to_home(conn.page)
                 await asyncio.sleep(bhv.click_delay())
 
                 # P1 #11: 返回首页后重新关闭弹窗
