@@ -115,7 +115,7 @@ async def click_note_card(page, index: int = None, max_retries: int = 3) -> Opti
                     # 切回原 tab
                     page = original_page
                     if attempt < max_retries - 1:
-                        _log(f"    🔄 重试点击笔记 ({attempt + 2}/{max_retries})...")
+                        print(f"  [browse] 重试点击笔记 ({attempt + 2}/{max_retries})...")
                         await asyncio.sleep(1)
                         continue
                     else:
@@ -297,12 +297,17 @@ async def click_refresh_button(page) -> bool:
         True=点击成功, False=未找到按钮
     """
     try:
-        result = await page.evaluate(find_refresh_button_js())
+        result = await asyncio.wait_for(
+            page.evaluate(find_refresh_button_js()),
+            timeout=10
+        )
         if not result or not result.get("found"):
             return False
 
         x, y = result["x"], result["y"]
         return await _l_shaped_click(page, x, y, desc="refresh")
+    except asyncio.TimeoutError:
+        return False
     except Exception:
         return False
 
@@ -315,7 +320,10 @@ async def click_qr_wall_back_button(page) -> bool:
         True=检测到QR墙并成功点击返回, False=未检测到QR墙或点击失败
     """
     try:
-        result = await page.evaluate(find_qr_wall_back_button_js())
+        result = await asyncio.wait_for(
+            page.evaluate(find_qr_wall_back_button_js()),
+            timeout=10
+        )
         if not result or not result.get("found"):
             return False
 
@@ -323,6 +331,8 @@ async def click_qr_wall_back_button(page) -> bool:
         btn_text = result.get("text", "")
         success = await _l_shaped_click(page, x, y, desc="qr_back")
         return success
+    except asyncio.TimeoutError:
+        return False
     except Exception:
         return False
 
