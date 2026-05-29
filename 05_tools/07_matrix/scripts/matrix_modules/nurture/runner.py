@@ -1784,6 +1784,16 @@ async def nurture_xhs_loop(
 
         round_ok = True
         try:
+            # ── Step 0: 强制刷新瀑布流页面（每轮必执行）──
+            _xhs_log("  🔄 刷新瀑布流页面...")
+            refreshed = await browse.click_refresh_button(conn.page)
+            if refreshed:
+                _xhs_log("  ✅ 已点击刷新按钮")
+                await asyncio.sleep(2)
+            else:
+                _xhs_log("  ⚠️ 未找到刷新按钮，跳过（页面可能已正常）")
+            await asyncio.sleep(bhv.click_delay())
+
             # ── Step 1: 瀑布流浏览 ──
             _xhs_log("  📜 瀑布流浏览...")
             await browse.scroll_feed_human(conn.page, screens=random.randint(1, 3))
@@ -1879,6 +1889,10 @@ async def nurture_xhs_loop(
                         _xhs_log(f"  ✅ 点击结果")
                         await asyncio.sleep(random.uniform(3, 6))
                         await browse.go_back_to_home(conn.page)
+                        # 返回后刷新页面
+                        _xhs_log("  🔄 搜索返回后刷新页面...")
+                        await browse.click_refresh_button(conn.page)
+                        await asyncio.sleep(1)
                         # 返回后重新关闭弹窗
                         await browse.dismiss_login_modal(conn.page)
                     else:
