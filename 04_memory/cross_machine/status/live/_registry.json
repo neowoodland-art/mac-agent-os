@@ -5,6 +5,7 @@
     "uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
     "role": "workstation",
     "status": "online",
+<<<<<<< Updated upstream
     "last_seen": "2026-05-17T04:36:19+00:00"
   },
   "d19759cf-2159-4fe7-b6ff-db14ccf379f5": {
@@ -12,5 +13,8 @@
     "hostname": "7kecheng",
     "first_seen": "2026-05-31T09:41:23.000669+00:00",
     "last_seen": "2026-05-31T12:56:20.846035+00:00"
+=======
+    "last_seen": "2026-05-31T12:59:15.115068+00:00"
+>>>>>>> Stashed changes
   }
 }
