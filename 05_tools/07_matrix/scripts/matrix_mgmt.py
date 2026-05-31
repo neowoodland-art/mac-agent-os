@@ -723,6 +723,32 @@ class MatrixManager:
             }
             my_accounts.append(merged)
 
+        # 兜底: 扫描本地 accounts.yaml 中其他机器都没声明过的账号
+        # 只添加"孤儿账号"——避免 xhs_01 这种已被其他机器声明的情况
+        if self.LEGACY_PATH.exists():
+            try:
+                wpra_all = self._read_all_machines_accounts()
+                wpra_ids = {a["id"] for a in wpra_all}
+                legacy_data = yaml.safe_load(self.LEGACY_PATH.read_text()) or {}
+                legacy_accounts = legacy_data.get("accounts", [])
+                existing_ids = {a["id"] for a in my_accounts}
+                for acct in legacy_accounts:
+                    aid = acct.get("id", "")
+                    if not aid or aid in existing_ids or aid in wpra_ids:
+                        continue
+                    existing_ids.add(aid)
+                    my_accounts.append({
+                        "id": aid,
+                        "platform": acct.get("platform", ""),
+                        "phone_mask": acct.get("phone", acct.get("phone_mask", "")),
+                        "assigned_machine": local_hostname,
+                        "identity_hint": acct.get("identity_dir", aid).replace("identities/", ""),
+                        "enabled": acct.get("enabled", True),
+                        "notes": acct.get("notes", "本地账号 (来自 legacy accounts.yaml)"),
+                    })
+            except Exception as e:
+                print(f"  读取本地 accounts.yaml 兜底失败: {e}")
+
         # WPRA 格式写入
         output = {
             "schema_version": "2.0",
@@ -787,14 +813,29 @@ class MatrixManager:
         override_map = {a["id"]: a for a in override}
         local_hostname = self._local_hostname()
 
-        # 是否为当前机器: registry 指定 + override 有配置
+        # 是否为当前机器:
+        # 1) registry 中 assigned_machine == 本机
+        # 2) override 中有配置
+        # 3) 本地有身份目录 + Cookie (兜底)
         def is_local(acct: dict) -> bool:
             am = acct.get("assigned_machine", "")
-            if not am:
-                return False
             if am == local_hostname:
                 return True
-            return acct["id"] in override_map
+            if acct["id"] in override_map:
+                return True
+            # 兜底: 检查本地是否有身份目录 + Cookie
+            # 尝试多个可能的 identity_hint (account id / identity_hint / identity_dir)
+            candidates = [acct["id"],
+                          acct.get("identity_hint", ""),
+                          acct.get("identity_dir", "").replace("identities/", "")]
+            for hint in candidates:
+                if not hint:
+                    continue
+                if self._identity_exists_by_hint(hint):
+                    status = self._check_login_status_by_hint(hint)
+                    if status == "logged_in":
+                        return True
+            return False
 
         result = []
         for acct in registry:
@@ -823,9 +864,48 @@ class MatrixManager:
                 merged["_status"] = "remote"
             else:
                 merged["_status"] = self._check_login_status_by_hint(identity_hint)
-            merged["_identity_dir_exists"] = self._identity_exists_by_hint(identity_hint)
+                # 兜底: 如果 registry 的 identity_hint 不匹配本地目录，
+                # 用 account id 作为 hint 重试 (如 xhs_01)
+                if merged["_status"] in ("no_cookie", "no_identity") and identity_hint != aid:
+                    alt_status = self._check_login_status_by_hint(aid)
+                    if alt_status == "logged_in":
+                        merged["_status"] = alt_status
+                        merged["identity_hint"] = aid
+                        merged["identity_dir"] = f"identities/{aid}"
+            merged["_identity_dir_exists"] = self._identity_exists_by_hint(identity_hint) or self._identity_exists_by_hint(aid)
 
             result.append(merged)
+
+        # 兜底: 合并本地 accounts.yaml 中全所未有的孤儿账号
+        # 避免 xhs_01 这种已经被其他机器声明的情况重复
+        result_ids = {a["id"] for a in result}
+        if self.LEGACY_PATH.exists():
+            try:
+                legacy_data = yaml.safe_load(self.LEGACY_PATH.read_text()) or {}
+                for acct in legacy_data.get("accounts", []):
+                    aid = acct.get("id", "")
+                    if not aid or aid in result_ids:
+                        continue
+                    result_ids.add(aid)
+                    identity_hint = acct.get("identity_dir", aid).replace("identities/", "")
+                    merged = {
+                        "id": aid,
+                        "platform": acct.get("platform", ""),
+                        "phone": acct.get("phone", ""),
+                        "phone_mask": acct.get("phone_mask", ""),
+                        "enabled": acct.get("enabled", True),
+                        "notes": acct.get("notes", "本地未注册"),
+                        "is_local": True,
+                        "owner_machine": local_hostname,
+                        "identity_hint": identity_hint,
+                        "identity_dir": acct.get("identity_dir", f"identities/{identity_hint}"),
+                        "_status": self._check_login_status_by_hint(identity_hint),
+                        "_identity_dir_exists": self._identity_exists_by_hint(identity_hint),
+                        "_source": "legacy_local",
+                    }
+                    result.append(merged)
+            except Exception:
+                pass
 
         return result
 
