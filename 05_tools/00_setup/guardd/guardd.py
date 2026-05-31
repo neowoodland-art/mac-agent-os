@@ -8,7 +8,7 @@ guardd — AgentOS 联邦式协同守护进程
 
 所有模块使用规则引擎，不调用 LLM，0 token 消耗。
 """
-version = "2.2.0"
+version = "2.3.0"
 
 import json
 import logging
@@ -124,9 +124,15 @@ except Exception as e:
     logger.warning(f"  UID 文件读写失败: {e}")
     MACHINE_UID = HOSTNAME  # 降级到 hostname
 
+# ── WPRA v2.0: 本机机器命名空间 ──────────────────────
+DIR_MACHINES = CROSS_MACHINE / "machines"
+DIR_MY_MACHINE = DIR_MACHINES / MACHINE_UID
+DIR_MY_EVENTS = DIR_MY_MACHINE / "events"
+
 # ── 确保运行时目录存在 ───────────────────────────────
 for d in [DIR_GUARDD_LOG, DIR_SUBMISSIONS_TRIAGE, DIR_TASKS_PENDING,
-          DIR_TASKS_COMPLETED, DIR_ENCRYPTED_PENDING, DIR_ENCRYPTED_PROCESSED]:
+          DIR_TASKS_COMPLETED, DIR_ENCRYPTED_PENDING, DIR_ENCRYPTED_PROCESSED,
+          DIR_MY_MACHINE, DIR_MY_EVENTS]:
     d.mkdir(parents=True, exist_ok=True)
 
 
@@ -159,6 +165,59 @@ def _write_event(event_type, payload):
     path = event_dir / f"{event['id']}.json"
     path.write_text(json.dumps(event, indent=2, ensure_ascii=False), encoding="utf-8")
     return event["id"]
+
+
+# ════════════════════════════════════════════════════════════
+# WPRA v2.0 辅助函数
+# ════════════════════════════════════════════════════════════
+
+def _read_file_version(path):
+    """读取文件的 file_version，不存在或无效返回 0"""
+    data = _read_json(path)
+    if isinstance(data, dict):
+        return data.get("file_version", 0)
+    return 0
+
+
+def _write_machine_event(event_type, payload):
+    """写入一条事件到 machines/{MACHINE_UID}/events/{date}.jsonl
+    使用 JSONL 格式 (append-only)，比单文件更高效
+    """
+    today = datetime.now().strftime("%Y-%m-%d")
+    event_file = DIR_MY_EVENTS / f"{today}.jsonl"
+    event = {
+        "event_id": str(uuid.uuid4()),
+        "machine_uid": MACHINE_UID,
+        "machine_name": HOSTNAME,
+        "type": event_type,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "data": payload,
+    }
+    with open(event_file, "a", encoding="utf-8") as f:
+        f.write(json.dumps(event, ensure_ascii=False) + "\n")
+    return event["event_id"]
+
+
+def _ensure_machine_identity():
+    """确保 MACHINE.yaml 存在，首次运行时自动创建"""
+    identity_file = DIR_MY_MACHINE / "MACHINE.yaml"
+    if identity_file.exists():
+        return
+    import yaml
+    identity = {
+        "schema_version": "2.0",
+        "file_schema": "machine-identity-v1",
+        "machine_uid": MACHINE_UID,
+        "machine_name": HOSTNAME,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "role": "workstation",
+        "notes": f"Auto-registered by guardd v{version}",
+    }
+    identity_file.write_text(
+        yaml.dump(identity, default_flow_style=False, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    logger.info(f"  ✅ 机器身份已注册: {HOSTNAME} ({MACHINE_UID[:8]}...)")
 
 
 def _push_to_dashboard(heartbeat_data):
@@ -319,7 +378,7 @@ def module_heartbeat():
     path = status_dir / "heartbeat.json"
     path.write_text(json.dumps(heartbeat, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    # ── 同时写入 v4 格式 status/live/{uid}.json ──
+    # ── 同时写入 v4 格式 status/live/{uid}.json (向后兼容) ──
     live_dir = DIR_STATUS / "live"
     live_dir.mkdir(parents=True, exist_ok=True)
     live_data = {**heartbeat, "_uid": MACHINE_UID, "_hostname": HOSTNAME,
@@ -327,37 +386,35 @@ def module_heartbeat():
     (live_dir / f"{MACHINE_UID}.json").write_text(
         json.dumps(live_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    # ── 更新 _registry.json ──
-    reg_file = live_dir / "_registry.json"
-    reg = {}
-    if reg_file.exists():
-        try:
-            reg = json.loads(reg_file.read_text())
-        except: pass
-    reg[MACHINE_UID] = {"hostname": HOSTNAME, "uid": MACHINE_UID,
-                        "last_seen": datetime.now(timezone.utc).isoformat(), "status": "online"}
+    # ── WPRA v2.0: 写入 machines/{MACHINE_UID}/heartbeat.json ──
+    # 每台机器只写自己的命名空间，永远不会冲突
+    machine_hb = {
+        # WPRA 通用字段
+        "schema_version": "2.0",
+        "file_schema": "heartbeat-v2",
+        "file_version": _read_file_version(DIR_MY_MACHINE / "heartbeat.json") + 1,
+        "machine_uid": MACHINE_UID,
+        "machine_name": HOSTNAME,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        # 心跳数据
+        "status": "online",
+        "guardd_version": version,
+        "cpu_load": cpu_load,
+        "memory_pct": memory_info.get("percent", 0),
+        "disk_avail_gb": disk_info.get("available_gb", 0),
+        "uptime_sec": round(time.time() - _guardd_start_time) if _guardd_start_time else 0,
+        "current_task": current_task,
+    }
+    (DIR_MY_MACHINE / "heartbeat.json").write_text(
+        json.dumps(machine_hb, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    # ── 扫描 data/ 目录，补注册其他机器的 UID ──
-    data_dir = CROSS_MACHINE / "data"
-    if data_dir.exists():
-        for plugin_dir in data_dir.iterdir():
-            if plugin_dir.is_dir():
-                for f in plugin_dir.glob("*.json"):
-                    uid = f.stem
-                    if uid not in reg:
-                        try:
-                            d = json.loads(f.read_text())
-                            host = d.get("hostname", uid[:12])
-                            reg[uid] = {"hostname": host, "uid": uid,
-                                        "last_seen": d.get("timestamp", ""),
-                                        "status": "synced"}
-                        except:
-                            reg[uid] = {"hostname": uid[:12], "uid": uid,
-                                        "last_seen": "", "status": "synced"}
-
-    reg_file.write_text(json.dumps(reg, indent=2, ensure_ascii=False), encoding="utf-8")
+    # ── 记录心跳事件到 events/ ──
+    _write_machine_event("heartbeat", {"cpu": cpu_load, "disk_avail": disk_info.get("available_gb", 0)})
 
     logger.info(f"  心跳已上报 — CPU load={cpu_load}, 磁盘可用={disk_info['available_gb']}G")
+
+    # ── 确保 MACHINE.yaml 存在（首次运行时自动创建）──
+    _ensure_machine_identity()
 
     # ── 实时推送到 Dashboard (反向连接) ──
     _push_to_dashboard(heartbeat)
@@ -370,27 +427,52 @@ def module_heartbeat():
 
 
 def _git_sync():
-    """Git 同步: push 本机修改 + pull 远程更新"""
+    """Git 同步: 只 add 本机命名空间的文件 + 全局松散文件
+
+    WPRA v2.0 核心规则：
+    - 不再使用 git add -A（会 staging 其他机器的文件）
+    - 使用 glob 查找本机文件后精确 add
+    - 每个文件只被一个写入者管控，消除 git conflict
+    """
+    import glob as _glob
     try:
         repo = AGENT_SYNC
+        repo_str = str(repo)
+
         # 先 pull, 避免 push 冲突
         subprocess.run(["git", "pull", "--rebase"], capture_output=True, text=True,
-                      timeout=30, cwd=str(repo))
-        # add + commit + push
-        subprocess.run(["git", "add", "-A"], capture_output=True, text=True,
-                      timeout=15, cwd=str(repo))
+                      timeout=30, cwd=repo_str)
+
+        # 精确查找本机文件 → 精确 git add
+        # 使用 glob 展开路径，确保 git 看到的是真实存在的文件
+        rel_repo = repo_str
+        add_globs = [
+            f"04_memory/cross_machine/machines/{MACHINE_UID}/**",
+            f"04_memory/cross_machine/data/*/{MACHINE_UID}.json",
+            f"04_memory/cross_machine/events/**",
+            f"04_memory/cross_machine/tasks/**",
+        ]
+        for g in add_globs:
+            full = os.path.join(rel_repo, g)
+            for matched in _glob.glob(full, recursive=True):
+                if os.path.isfile(matched):
+                    rel = os.path.relpath(matched, rel_repo)
+                    subprocess.run(["git", "add", rel], capture_output=True, text=True,
+                                  timeout=15, cwd=repo_str)
+
         # 只在有变动时才 commit
         r = subprocess.run(["git", "status", "--porcelain"], capture_output=True,
-                          text=True, timeout=10, cwd=str(repo))
+                          text=True, timeout=10, cwd=repo_str)
         if r.stdout.strip():
-            subprocess.run(["git", "commit", "-m", f"sync: guardd heartbeat {datetime.now().strftime('%Y-%m-%d %H:%M')}"],
-                         capture_output=True, text=True, timeout=15, cwd=str(repo))
-        # push 到所有远程（自动检测存在的远程，避免不存在的远程报错）
+            subprocess.run(["git", "commit", "-m",
+                f"sync({HOSTNAME}): guardd {datetime.now().strftime('%Y-%m-%d %H:%M')}"],
+                         capture_output=True, text=True, timeout=15, cwd=repo_str)
+        # push 到所有远程
         remotes = subprocess.run(["git", "remote"], capture_output=True,
-                                text=True, timeout=10, cwd=str(repo))
+                                text=True, timeout=10, cwd=repo_str)
         for remote in remotes.stdout.strip().splitlines():
             subprocess.run(["git", "push", remote, "main"], capture_output=True,
-                          text=True, timeout=30, cwd=str(repo))
+                          text=True, timeout=30, cwd=repo_str)
     except Exception as e:
         logger.debug(f"  Git sync failed: {e}")
 
