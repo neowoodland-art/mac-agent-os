@@ -1,0 +1,41 @@
+# AVE v2.0 配置文件模板
+# 复制到 agent-local/tools/ave/config/local.yaml 并填入真实值
+
+# === 火山引擎 (豆包语音 2.0) ===
+volcano:
+  api_key: "sk-xxx"           # ARK → API Key 管理
+  app_id: "xxx"               # 语音控制台 → App ID
+  access_token: "xxx"         # 语音控制台 → Access Token
+  speaker_id: "xxx"           # 声音复刻 → 训练后获取
+  tts_model: "volcano_tts_2.0"
+
+# === 阿里云百炼 ===
+aliyun:
+  api_key: "sk-xxx"           # 百炼 → API Key
+  wan_model: "wan2.2-s2v"
+  cosyvoice_model: "cosyvoice-v3.5-plus"
+
+# === Pexels ===
+pexels:
+  api_key: "xxx"              # Pexels API Dashboard
+  rate_limit: 200             # 请求/小时
+
+# === 大模型 (文案解析) ===
+llm:
+  provider: "openai"          # openai | deepseek | volc
+  api_key: "sk-xxx"
+  base_url: "https://api.deepseek.com"  # 或 openai/volc 地址
+  model: "deepseek-chat"      # 或 gpt-4o / doubao-pro
+
+# === 输出设置 ===
+output:
+  resolution: "1080x1920"     # 竖屏
+  fps: 30
+  codec: "h264"
+  bitrate: "8M"
+
+# === 缓存 ===
+cache:
+  enabled: true
+  max_size_gb: 10
+  ttl_days: 7

@@ -1,0 +1,56 @@
+skill:
+  name: "知识库管理器"
+  id: "kb_manager"
+  version: "1.1.0"
+  category: "core-system"
+  status: "active"
+  created: "2026-04-25"
+  updated: "2026-04-29"
+
+description:
+  short: "知识入库、分类归档、frontmatter生成、双轨向量检索"
+  use_cases:
+    - "将inbox各分区内容分类归档到知识库"
+    - "从URL/文件/文本生成标准知识卡片"
+    - "双轨向量检索（本地+协同）"
+  tags: ["知识库", "入库", "分类", "检索"]
+
+ownership:
+  master_editor: "my-macbook_macOS14.4_16GB_master"
+  readonly_on_other_devices: true
+
+environment:
+  os: "macos"
+  python_path: "~/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+  pip_dependencies:
+    - "trafilatura>=1.6.0"
+    - "chromadb>=1.0.0"
+
+setup:
+  install_script: ""
+  post_check: "python3 -c 'import trafilatura; print(\"OK\")'"
+
+usage:
+  entry_point: "kb_ingest.py"
+  scheduled: ""
+  manual_trigger: "知识入库 --url <url>"
+
+scripts:
+  - kb_ingest.py     # 知识入库主程序
+  - kb_search.py     # 双轨向量检索
+
+inbox_paths:
+  knowledge_clipping: "03_knowledge/00_stream/inbox/knowledge/clipping/"
+  knowledge_feed:     "03_knowledge/00_stream/inbox/knowledge/feed/"
+  memory:             "03_knowledge/00_stream/inbox/memory/"
+  tools:              "03_knowledge/00_stream/inbox/tools/"
+  personal:           "03_knowledge/00_stream/inbox/personal/"
+  media:              "03_knowledge/00_stream/inbox/media/"
+
+changelog:
+  - version: "1.1.0"
+    date: "2026-04-29"
+    changes: "适配新inbox五分区+clipping/feed子分区，新增kb_search.py双轨检索"
+  - version: "1.0.0"
+    date: "2026-04-25"
+    changes: "初始版本"
