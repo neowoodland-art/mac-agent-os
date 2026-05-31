@@ -449,6 +449,8 @@ def _git_sync():
         add_globs = [
             f"04_memory/cross_machine/machines/{MACHINE_UID}/**",
             f"04_memory/cross_machine/data/*/{MACHINE_UID}.json",
+            f"04_memory/cross_machine/status/live/{MACHINE_UID}.json",
+            f"04_memory/cross_machine/status/{HOSTNAME}/**",
             f"04_memory/cross_machine/events/**",
             f"04_memory/cross_machine/tasks/**",
         ]
