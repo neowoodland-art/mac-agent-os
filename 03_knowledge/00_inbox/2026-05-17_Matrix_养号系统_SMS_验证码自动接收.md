@@ -1,0 +1,45 @@
+---
+title: "2026-05-17_Matrix_养号系统_SMS_验证码自动接收"
+source_dir: 03_knowledge/40_references
+source_file: 2026-05-17_Matrix_养号系统_SMS_验证码自动接收.md
+date: 2026-05-20
+collected_date: 2026-05-20
+tags: ["待补充"]
+nature: reference
+domain: general
+status: inbox
+---
+
+# 2026-05-17_Matrix_养号系统_SMS_验证码自动接收
+
+> 来源：03_knowledge/40_references
+
+# Matrix 养号系统 SMS 验证码自动接收
+
+> 来源：03_knowledge/40_references
+
+# SMS 验证码自动接收模块
+
+## 架构
+
+```
+base.py — SMSHandler（抽象基类）
+  ├── ManualSMSHandler — 手动输入（信号文件交互）
+  └── ApiSMSHandler — API 自动轮询（默认）
+       API: https://wx.tyhtak.com/api/biz/msg/messages
+       配置: config/sms.yaml
+```
+
+## 配置
+
+位置：`config_template/sms.yaml`（模板）→ `scripts/config/sms.yaml`（实际）
+每台机器独立，已加入 .gitignore。
+
+```yaml
+sms:
+  api_key: "gtmsg2026"
+  phone: "15370103682"
+  base_url: "https://wx.tyhtak.com/api/biz/msg/messages"
+  poll_interv
+
+...（内容已截断，完整内容见源文件）
