@@ -1076,6 +1076,64 @@ async def api_matrix_restore(data: dict):
         raise HTTPException(500, detail=str(e))
 
 
+# ═══════════════════════════════════════════
+# 工作流引擎 API
+# ═══════════════════════════════════════════
+
+from workflows import NODE_DEFINITIONS, WORKFLOW_TEMPLATES, get_runner, get_node_categories
+
+
+@app.get("/api/workflow/nodes")
+def api_workflow_nodes():
+    """返回所有节点类型（按分类）"""
+    return get_node_categories()
+
+
+@app.get("/api/workflow/node/{node_type}")
+def api_workflow_node(node_type: str):
+    """返回单个节点定义"""
+    node = NODE_DEFINITIONS.get(node_type)
+    if not node:
+        raise HTTPException(404, detail=f"未知节点类型: {node_type}")
+    return node
+
+
+@app.get("/api/workflow/templates")
+def api_workflow_templates():
+    """返回所有工作流模板"""
+    return {"templates": WORKFLOW_TEMPLATES, "total": len(WORKFLOW_TEMPLATES)}
+
+
+@app.post("/api/workflow/run")
+def api_workflow_run(data: dict):
+    """创建工作流运行"""
+    template_id = data.get("template_id", "custom")
+    nodes = data.get("nodes", [])
+    edges = data.get("edges", [])
+    if not nodes:
+        raise HTTPException(400, detail="缺少节点列表")
+    runner = get_runner()
+    run_id = runner.create_run(template_id, nodes, edges)
+    runner.start_run(run_id)
+    return {"run_id": run_id, "status": "running"}
+
+
+@app.get("/api/workflow/runs")
+def api_workflow_runs():
+    """列出所有运行"""
+    return {"runs": []}
+
+
+@app.get("/api/workflow/runs/{run_id}")
+def api_workflow_run_status(run_id: str):
+    """获取运行状态"""
+    runner = get_runner()
+    run = runner.get_run(run_id)
+    if not run:
+        raise HTTPException(404, detail="运行不存在")
+    return run
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9988
