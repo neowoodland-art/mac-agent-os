@@ -1,0 +1,57 @@
+# 脚本格式标准 — 漫剧视频工厂 v1.0
+# 所有输入的脚本都转为此标准格式
+
+# ── 顶层结构 ──
+#
+# script:
+#   meta:       # 元数据
+#   segments:   # 分镜列表
+#
+# ── 示例 ──
+
+script:
+  meta:
+    title: "小漫的一天"           # 脚本标题
+    source: "文字灵感"             # 来源: 文字灵感/参考视频/外部剧本
+    source_url: ""                 # 来源链接（如果是参考视频）
+    duration_sec: 60               # 预估总时长(秒)
+    character: "小漫"              # 使用的角色名（必须已在角色注册中心注册）
+    visual_style: "manhua"         # 默认视觉风格: manhua / realistic / mixed
+    bgm_style: "治愈"              # BGM 风格偏好
+
+  segments:
+    - id: 1                       # 分镜编号
+      scene: "清晨的咖啡馆"        # 场景名称
+      description: "小漫推开咖啡馆的门，阳光洒进来，她微笑着走向窗边的座位"
+                                   # 场景描述（叙事）
+      dialogue: ""                 # 对话内容
+                                   # 格式: "角色名: 对话内容" 或 "(旁白) 旁白内容"
+      emotion: "温暖平静"          # 角色情绪/表情
+      duration_sec: 8              # 此分镜时长(秒)
+      visual_style: "manhua"       # 视觉风格: manhua / realistic（覆盖meta级别）
+      camera: "wide_shot"          # 镜头类型
+                                   # wide_shot / medium_shot / close_up /
+                                   # over_shoulder / aerial / tracking / pan
+      transition: "fade_in"        # 转场效果
+                                   # cut / fade_in / fade_out / dissolve /
+                                   # wipe_left / zoom_in / none
+
+    - id: 2
+      scene: "咖啡馆靠窗座位"
+      description: "她坐下来，把画板放在桌上，拿出铅笔开始构思"
+      dialogue: "小漫: 今天一定要把草稿画完！"
+      emotion: "专注"
+      duration_sec: 6
+      visual_style: "manhua"
+      camera: "medium_shot"
+      transition: "cut"
+
+    - id: 3
+      scene: "落日的天台"
+      description: "傍晚的阳光洒在天台上，她低头看着刚完成的画，露出满足的微笑"
+      dialogue: "（旁白）有时候，最简单的快乐就在画笔下。"
+      emotion: "满足"
+      duration_sec: 10
+      visual_style: "manhua"
+      camera: "wide_shot"
+      transition: "dissolve"
