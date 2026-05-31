@@ -1,11 +1,11 @@
 {
   "hostname": "7kecheng",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "role": "workstation",
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.62
+    "load_1m": 1.63
   },
   "memory": {
     "total_gb": 0,
@@ -17,12 +17,12 @@
     "used_gb": 80.4,
     "available_gb": 164.7
   },
-  "last_seen": "2026-05-31T09:41:22.942580+00:00",
+  "last_seen": "2026-05-31T10:09:32.184928+00:00",
   "status": "online",
-  "guardd_version": "2.2.0",
+  "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-05-31T09:41:23.000669+00:00",
+  "_received_at": "2026-05-31T10:09:32.231772+00:00",
   "_uid": "d19759cf-2159-4fe7-b6ff-db14ccf379f5",
   "_hostname": "7kecheng",
   "_events": [],
