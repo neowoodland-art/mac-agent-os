@@ -336,6 +336,25 @@ def module_heartbeat():
         except: pass
     reg[MACHINE_UID] = {"hostname": HOSTNAME, "uid": MACHINE_UID,
                         "last_seen": datetime.now(timezone.utc).isoformat(), "status": "online"}
+
+    # ── 扫描 data/ 目录，补注册其他机器的 UID ──
+    data_dir = CROSS_MACHINE / "data"
+    if data_dir.exists():
+        for plugin_dir in data_dir.iterdir():
+            if plugin_dir.is_dir():
+                for f in plugin_dir.glob("*.json"):
+                    uid = f.stem
+                    if uid not in reg:
+                        try:
+                            d = json.loads(f.read_text())
+                            host = d.get("hostname", uid[:12])
+                            reg[uid] = {"hostname": host, "uid": uid,
+                                        "last_seen": d.get("timestamp", ""),
+                                        "status": "synced"}
+                        except:
+                            reg[uid] = {"hostname": uid[:12], "uid": uid,
+                                        "last_seen": "", "status": "synced"}
+
     reg_file.write_text(json.dumps(reg, indent=2, ensure_ascii=False), encoding="utf-8")
 
     logger.info(f"  心跳已上报 — CPU load={cpu_load}, 磁盘可用={disk_info['available_gb']}G")
@@ -918,12 +937,43 @@ def module_sync_checker():
 # 主循环
 # ════════════════════════════════════════════════════════════
 
+def module_dashboard_sync():
+    """将本机Dashboard插件数据写入 cross_machine/data/{plugin}/{uid}.json
+
+    确保所有机器的 Dashboard 可以看到本机的完整状态。
+    格式统一由 DashboardPlugin.write_shared() 保证。
+    """
+    import importlib, pkgutil
+    dashboard_plugins_dir = AGENT_SYNC / "05_tools" / "10_dashboard" / "plugins"
+    if not dashboard_plugins_dir.exists():
+        logger.debug("  Dashboard插件目录不存在，跳过")
+        return
+
+    sys.path.insert(0, str(dashboard_plugins_dir.parent))
+    try:
+        from plugins.base import MACHINE_UID as DASH_UID, HOSTNAME as DASH_HOST
+        from plugins import discover_plugins
+        discovered = discover_plugins()
+        for name, inst in discovered.items():
+            try:
+                if hasattr(inst, 'write_shared'):
+                    inst.write_shared()
+                    logger.info(f"  ✓ dashboard/{name} 已同步")
+            except Exception as e:
+                logger.debug(f"  dashboard/{name} 同步失败: {e}")
+    except Exception as e:
+        logger.debug(f"  Dashboard插件加载失败: {e}")
+    finally:
+        sys.path.pop(0)
+
+
 def main():
     start_time = time.time()
     logger.info(f"guardd v{version} 启动 — hostname={HOSTNAME}")
 
     modules = [
         ("heartbeat", module_heartbeat),
+        ("dashboard_sync", module_dashboard_sync),
         ("task_worker", module_task_worker),
         ("upgrade_checker", module_upgrade_checker),
         ("memory_triage", module_memory_triage),
