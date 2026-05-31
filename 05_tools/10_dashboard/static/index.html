@@ -146,6 +146,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div id="navBar" class="nav"></div>
   <div style="flex:1"></div>
   <div style="padding:6px 0;display:flex;gap:4px">
+    <div class="nav-item" onclick="collapseAllGroups()" style="flex:0;text-align:center;font-size:11px;padding:7px 6px" title="折叠全部">📂</div>
     <div class="nav-item" onclick="gitSync()" style="flex:1;text-align:center;font-size:11px">🔄 同步</div>
     <div class="nav-item" onclick="location.reload()" style="flex:1;text-align:center;font-size:11px">⟳ 刷新</div>
   </div>
@@ -460,6 +461,17 @@ function toggleGroup(el) {
   const isCollapsed = body.classList.toggle('collapsed');
   el.dataset.collapsed = isCollapsed ? 'true' : 'false';
   el.querySelector('span:last-child').textContent = isCollapsed ? '▶' : '▼';
+}
+function collapseAllGroups() {
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    const body = h.nextElementSibling;
+    if (body && body.classList && !body.classList.contains('collapsed')) {
+      body.classList.add('collapsed');
+      h.dataset.collapsed = 'true';
+      const arrow = h.querySelector('span:last-child');
+      if (arrow) arrow.textContent = '▶';
+    }
+  });
 }
 let currentPage = 0;
 const PAGE_SIZE = 30;
@@ -842,12 +854,10 @@ async function loadPlugins() {
         {view:'plugin-collector', label:'采集管理'},
       ]},
       '视频工厂': { icon: '🎬', items: [
-        {view:'plugin-ave', label:'视频工厂', sub:[
-          {view:'characters', label:'角色管理'},
-          {view:'char-gen', label:'角色生成'},
-          {view:'capabilities', label:'原子能力'},
-          {view:'workflow', label:'工作流'},
-        ]},
+        {view:'characters', label:'角色管理'},
+        {view:'char-gen', label:'角色生成'},
+        {view:'capabilities', label:'原子能力'},
+        {view:'workflow', label:'工作流'},
       ]},
       '矩阵养号': { icon: '📱', items: [
         {view:'matrix-summary', label:'多机总览'},
@@ -873,8 +883,8 @@ async function loadPlugins() {
     };
 
     for (const [gname, g] of Object.entries(groups)) {
-      html += `<div class="nav-group-header" onclick="toggleGroup(this)" data-collapsed="false">${g.icon} ${gname} <span style="float:right;font-size:10px;opacity:.5">▼</span></div>`;
-      html += `<div class="nav-group-body">`;
+      html += `<div class="nav-group-header" onclick="toggleGroup(this)" data-collapsed="true">${g.icon} ${gname} <span style="float:right;font-size:10px;opacity:.5">▶</span></div>`;
+      html += `<div class="nav-group-body collapsed">`;
       for (const item of g.items) {
         if (item.sub) {
           html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
