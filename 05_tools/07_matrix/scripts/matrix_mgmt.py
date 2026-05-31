@@ -723,18 +723,16 @@ class MatrixManager:
             }
             my_accounts.append(merged)
 
-        # 兜底: 扫描本地 accounts.yaml 中其他机器都没声明过的账号
-        # 只添加"孤儿账号"——避免 xhs_01 这种已被其他机器声明的情况
+        # 兜底: 扫描本地 accounts.yaml，把本机有身份目录的账号都写进去
+        # 每台机器独立声明，不查其他机器的数据（WPRA 读聚合时再处理重复）
         if self.LEGACY_PATH.exists():
             try:
-                wpra_all = self._read_all_machines_accounts()
-                wpra_ids = {a["id"] for a in wpra_all}
                 legacy_data = yaml.safe_load(self.LEGACY_PATH.read_text()) or {}
                 legacy_accounts = legacy_data.get("accounts", [])
                 existing_ids = {a["id"] for a in my_accounts}
                 for acct in legacy_accounts:
                     aid = acct.get("id", "")
-                    if not aid or aid in existing_ids or aid in wpra_ids:
+                    if not aid or aid in existing_ids:
                         continue
                     existing_ids.add(aid)
                     my_accounts.append({
@@ -801,6 +799,11 @@ class MatrixManager:
         WPRA v2.0: 优先读取 machines/*/accounts.yaml (写分区数据)
         如果不存在，降级到旧的 accounts_registry.yaml (向后兼容)
         同时检查本机身份目录和登录状态
+
+        去重规则: 同一 account_id 出现在多台机器时:
+          1. 优先保留 assigned_machine == source_machine 的权威声明
+          2. 否则保留本地机器的版本
+          3. 否则保留最新时间戳的版本
         """
         # ── WPRA v2.0: 优先读取所有机器的 accounts.yaml ──
         wpra_accounts = self._read_all_machines_accounts()
@@ -813,18 +816,57 @@ class MatrixManager:
         override_map = {a["id"]: a for a in override}
         local_hostname = self._local_hostname()
 
+        # ── 去重: 同一 ID 多机器时只保留权威版本 ──
+        deduped = {}
+        for acct in registry:
+            aid = acct["id"]
+            src_machine = acct.get("_source_machine_name", "") or acct.get("assigned_machine", "")
+            am = acct.get("assigned_machine", "")
+
+            if aid not in deduped:
+                deduped[aid] = acct
+                continue
+
+            # 冲突! 同一 ID 出现在多台机器
+            existing = deduped[aid]
+            existing_src = existing.get("_source_machine_name", "") or existing.get("assigned_machine", "")
+            existing_am = existing.get("assigned_machine", "")
+
+            # 规则1: 权威声明优先 (assigned_machine == source)
+            current_authoritative = (am == src_machine)
+            existing_authoritative = (existing_am == existing_src)
+
+            if current_authoritative and not existing_authoritative:
+                deduped[aid] = acct
+            elif current_authoritative == existing_authoritative:
+                # 规则2: 本机版本优先
+                if src_machine == local_hostname:
+                    deduped[aid] = acct
+                elif existing_src == local_hostname:
+                    pass  # keep existing
+                else:
+                    # 规则3: 最新时间戳
+                    cur_ts = acct.get("updated_at", "")
+                    ext_ts = existing.get("updated_at", "")
+                    if cur_ts > ext_ts:
+                        deduped[aid] = acct
+
         # 是否为当前机器:
-        # 1) registry 中 assigned_machine == 本机
+        # 1) assigned_machine == 本机
         # 2) override 中有配置
-        # 3) 本地有身份目录 + Cookie (兜底)
+        # 3) 同时在本地有身份目录 + Cookie (兜底)
         def is_local(acct: dict) -> bool:
             am = acct.get("assigned_machine", "")
             if am == local_hostname:
                 return True
             if acct["id"] in override_map:
                 return True
-            # 兜底: 检查本地是否有身份目录 + Cookie
-            # 尝试多个可能的 identity_hint (account id / identity_hint / identity_dir)
+            # 兜底: 仅当其他机器都没声明此 ID 时才用身份目录判断
+            # (避免 xhs_01 被 5kecheng 声明了却在本机显示为 local)
+            for other_aid, other_amt in _all_assignments.items():
+                if other_aid == acct["id"] and other_amt != local_hostname and other_amt:
+                    return False
+            # 检查本地身份目录
             candidates = [acct["id"],
                           acct.get("identity_hint", ""),
                           acct.get("identity_dir", "").replace("identities/", "")]
@@ -837,8 +879,11 @@ class MatrixManager:
                         return True
             return False
 
+        # 构建所有机器的 assignment 映射 (用于 is_local 兜底判断)
+        _all_assignments = {a["id"]: a.get("assigned_machine", "") for a in deduped.values()}
+
         result = []
-        for acct in registry:
+        for acct in deduped.values():
             aid = acct["id"]
             ovr = override_map.get(aid, {})
 
