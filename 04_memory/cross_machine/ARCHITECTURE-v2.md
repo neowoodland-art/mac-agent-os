@@ -607,13 +607,16 @@ T+1天: 机器C下线
 | 1.5 | 创建本机 MACHINE.yaml 身份声明 | guardd 首次运行时 | 低 |
 | 1.6 | 废弃旧文件标记（不删，加注释） | 文档 | 低 |
 
-### Phase 2：账号注册表重构
+### Phase 2：账号注册表重构（已完成 ✅）
 
-| # | 任务 | 涉及文件 | 风险 |
+| # | 任务 | 涉及文件 | 状态 |
 |:-:|:-----|:---------|:----:|
-| 2.1 | matrix_mgmt: 新增写入 `machines/*/accounts.yaml` | `matrix_mgmt.py` | 中 |
-| 2.2 | matrix_mgmt: 兼容读取旧 `accounts_registry.yaml` | `matrix_mgmt.py` | 中 |
-| 2.3 | Dashboard: matrix 插件改用新读聚合 | `plugins/matrix.py` | 中 |
+| 2.1 | matrix_mgmt: 新增 `_write_self_accounts()` | `matrix_mgmt.py` | ✅ |
+| 2.2 | matrix_mgmt: 新增 `_read_all_machines_accounts()` | `matrix_mgmt.py` | ✅ |
+| 2.3 | list_accounts(): WPRA优先，降级到旧文件 | `matrix_mgmt.py` | ✅ |
+| 2.4 | publish_status(): 触发 WPRA 同步写入 | `matrix_mgmt.py` | ✅ |
+| 2.5 | create/update/delete: 操作后更新 WPRA | `matrix_mgmt.py` | ✅ |
+| 2.6 | 修复硬编码 `/Users/5kecheng/` 路径 | `matrix_mgmt.py` | ✅ |
 
 ### Phase 3：Dashboard 读聚合适配
 
