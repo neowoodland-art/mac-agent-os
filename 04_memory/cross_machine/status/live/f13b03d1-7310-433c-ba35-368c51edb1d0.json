@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.85
+    "load_1m": 1.47
   },
   "memory": {
     "total_gb": 0,
@@ -17,15 +17,25 @@
     "used_gb": 84.3,
     "available_gb": 160.8
   },
-  "last_seen": "2026-05-31T10:24:12.650828+00:00",
+  "last_seen": "2026-05-31T10:29:15.949567+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-05-31T10:24:12.698992+00:00",
+  "_received_at": "2026-05-31T10:29:15.973771+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
   "_events": [
+    {
+      "id": "5502bdbe-13bf-47db-9341-88273f8f0758",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-05-31T10:24:15.852425+00:00",
+      "payload": {
+        "summary": "Merge made by the 'ort' strategy.\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      | 16 +++-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      | 18 +++--\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d",
+        "hostname": "5kechengdeAir"
+      }
+    },
     {
       "id": "7fa94700-b6cd-4647-a118-8a23a68363b9",
       "type": "sync_updated",
