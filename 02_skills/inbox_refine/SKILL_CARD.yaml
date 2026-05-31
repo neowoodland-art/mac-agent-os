@@ -1,0 +1,46 @@
+skill:
+  name: "收件箱精炼器"
+  id: "inbox_refine"
+  version: "1.1.0"
+  category: "core-system"
+  status: "active"
+  created: "2026-04-25"
+  updated: "2026-04-29"
+
+description:
+  short: "扫描协同inbox五分区，AI分类，自动归档到知识库"
+  use_cases:
+    - "定期扫描inbox各分区，按knowledge/memory/personal分类处理"
+    - "clipping分区：全文入库"
+    - "feed分区：摘要入库，原文归档"
+    - "memory分区：入长期记忆，同时建立知识卡"
+    - "personal分区：入personal知识区"
+    - "tools分区：转交工具审核流程"
+  tags: ["inbox", "精炼", "分类", "归档"]
+
+ownership:
+  master_editor: "my-macbook_macOS14.4_16GB_master"
+  readonly_on_other_devices: false
+
+environment:
+  os: "macos"
+  python_path: "~/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+  pip_dependencies:
+    - "chromadb>=1.0.0"
+
+setup:
+  install_script: ""
+  post_check: "python3 -c 'print(\"OK\")'"
+
+usage:
+  entry_point: "inbox_refine.py"
+  scheduled: "每日 03:00（master机器执行）"
+  manual_trigger: "收件箱精炼"
+
+changelog:
+  - version: "1.1.0"
+    date: "2026-04-29"
+    changes: "支持五分区差异化处理逻辑，适配新inbox路径"
+  - version: "1.0.0"
+    date: "2026-04-25"
+    changes: "初始版本"

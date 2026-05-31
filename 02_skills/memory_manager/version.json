@@ -1,0 +1,7 @@
+{
+  "name": "memory_manager",
+  "version": "1.0.0",
+  "description": "智能体记忆管理技能——每日对话提炼、去重、冲突检测、版本管理",
+  "dependencies": ["sqlite3"],
+  "mcp_tools": []
+}

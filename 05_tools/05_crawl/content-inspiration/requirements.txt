@@ -1,0 +1,11 @@
+# 口播素材系统 Python 依赖
+# 安装：~/.workbuddy/binaries/python/envs/agent-os/bin/pip install -r requirements.txt
+
+# 必需（通常已随 AgentOS 安装）
+httpx>=0.24.0
+PyYAML>=6.0
+Pillow>=9.0
+
+# 需要额外安装
+gradio>=4.0
+yt-dlp>=2024.0
