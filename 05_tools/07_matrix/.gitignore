@@ -1,0 +1,15 @@
+profiles/
+
+# Build / Python
+__pycache__/
+*.pyc
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+
+# Local config (per-machine, not synced)
+local.yaml

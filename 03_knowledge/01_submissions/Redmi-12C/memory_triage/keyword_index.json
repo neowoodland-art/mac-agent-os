@@ -1,0 +1,207 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-05-16T02:01:59.131227",
+  "entries": [
+    {
+      "fact_id": "FACT-2026-05-15-0001",
+      "keywords": [
+        "状态",
+        "即梦自动化项目",
+        "接续昨日",
+        "承接昨日未完成的工作"
+      ],
+      "domain": "personal-management",
+      "nature": "fact",
+      "summary": "[即梦自动化项目 — 接续昨日] - **状态**: 承接昨日未完成的工作",
+      "date": "2026-05-15",
+      "source": "claw_daily_log"
+    },
+    {
+      "fact_id": "FACT-2026-05-15-0002",
+      "keywords": [
+        "即梦自动化项目",
+        "ave",
+        "昨日文档",
+        "tools",
+        "接续昨日",
+        "PLANS",
+        "已创建",
+        "PLAN",
+        "JIMENG",
+        "AUTOMATION"
+      ],
+      "domain": "personal-management",
+      "nature": "fact",
+      "summary": "[即梦自动化项目 — 接续昨日] - **昨日文档**: 已创建 `05_tools/09_ave/PLANS/JIMENG_AUTOMATION_PLAN.md`",
+      "date": "2026-05-15",
+      "source": "claw_daily_log"
+    },
+    {
+      "fact_id": "FACT-2026-05-15-0004",
+      "keywords": [
+        "ave",
+        "tools",
+        "REPORT",
+        "PLANS",
+        "API",
+        "完整生成并保存了",
+        "能力全量调研",
+        "STRATEGY"
+      ],
+      "domain": "personal-management",
+      "nature": "fact",
+      "summary": "[API 能力全量调研 (10:50-11:30)] 完整生成并保存了 `05_tools/09_ave/PLANS/API_STRATEGY_REPORT.md`",
+      "date": "2026-05-15",
+      "source": "claw_daily_log"
+    },
+    {
+      "fact_id": "FACT-2026-05-15-0007",
+      "keywords": [
+        "video",
+        "而非",
+        "百炼",
+        "results",
+        "已知问题",
+        "output",
+        "已修复",
+        "生成",
+        "url",
+        "黄金时刻环绕",
+        "API",
+        "返回的"
+      ],
+      "domain": "personal-management",
+      "nature": "fact",
+      "summary": "[5秒电影级镜头「悬崖隐士·黄金时刻环绕」生成 (18:47-18:55)] - **已知问题**: 百炼 Kling API 返回的 `video_url` 在 `output.video_url` 而非 `output.results.",
+      "date": "2026-05-15",
+      "source": "claw_daily_log"
+    },
+    {
+      "fact_id": "FACT-2026-05-15-0010",
+      "keywords": [
+        "更新",
+        "prompt",
+        "添加关联文档索引",
+        "kling",
+        "complete",
+        "知识库入库",
+        "guide"
+      ],
+      "domain": "personal-management",
+      "nature": "fact",
+      "summary": "[知识库入库] - 更新: `kling-prompt-complete-guide.md` — 添加关联文档索引",
+      "date": "2026-05-15",
+      "source": "claw_daily_log"
+    },
+    {
+      "fact_id": "FACT-2026-05-15-0014",
+      "keywords": [
+        "数据混库",
+        "配置隔离缺失",
+        "数据无法跨机同步",
+        "Dashboard",
+        "事件无传播通道",
+        "缺陷",
+        "多智能体协同设计",
+        "被否决",
+        "记忆",
+        "Agent"
+      ],
+      "domain": "personal-management",
+      "nature": "fact",
+      "summary": "[Dashboard 多智能体协同设计 (21:10-21:25) → ❌ V1 被否决] - **缺陷**: 数据无法跨机同步、事件无传播通道、各 Agent 数据混库、记忆/配置隔离缺失",
+      "date": "2026-05-15",
+      "source": "claw_daily_log"
+    },
+    {
+      "fact_id": "FACT-2026-05-15-0015",
+      "keywords": [
+        "跨机任务",
+        "离线恢复",
+        "联邦式架构重新设计",
+        "情景验证",
+        "Dashboard",
+        "已验证视频生成",
+        "新机加入",
+        "会话恢复后",
+        "种场景"
+      ],
+      "domain": "personal-management",
+      "nature": "fact",
+      "summary": "[Dashboard V2 联邦式架构重新设计 (会话恢复后 17:38-17:55)] - **情景验证**: 已验证视频生成/跨机任务/新机加入/离线恢复 4 种场景",
+      "date": "2026-05-15",
+      "source": "claw_daily_log"
+    },
+    {
+      "fact_id": "FACT-2026-05-15-0017",
+      "keywords": [
+        "tools",
+        "guardd",
+        "创建文件",
+        "一键安装脚本",
+        "launchd",
+        "plist",
+        "deploy",
+        "setup",
+        "scripts",
+        "注册",
+        "启动验证",
+        "install"
+      ],
+      "domain": "personal-management",
+      "nature": "fact",
+      "summary": "[创建文件] - `05_tools/00_setup/guardd/scripts/install.sh` — 一键安装脚本（deploy plist + launchd 注册 + 启动验证）",
+      "date": "2026-05-15",
+      "source": "claw_daily_log"
+    },
+    {
+      "fact_id": "FACT-2026-05-15-0023",
+      "keywords": [
+        "Library",
+        "com",
+        "guardd",
+        "plist",
+        "LaunchAgents",
+        "已部署到",
+        "agentos",
+        "项未落地任务全部完成"
+      ],
+      "domain": "personal-management",
+      "nature": "fact",
+      "summary": "[3 项未落地任务全部完成] - plist 已部署到 `~/Library/LaunchAgents/com.agentos.guardd.plist`",
+      "date": "2026-05-15",
+      "source": "claw_daily_log"
+    },
+    {
+      "fact_id": "FACT-2026-05-15-0025",
+      "keywords": [],
+      "domain": "personal-management",
+      "nature": "fact",
+      "summary": "18513308610",
+      "date": "2026-05-15",
+      "source": "workbuddy_system_memery"
+    },
+    {
+      "fact_id": "FACT-2026-05-15-0026",
+      "keywords": [
+        "个人场景采用最小化加密方案",
+        "标准化工作流",
+        "遇到问题须停下来给出信息和选项让用户选择",
+        "日志摘要",
+        "倾向给出完整解决方案而非建议列表",
+        "偏好中文简洁指令",
+        "而非自行快速转向备选方案",
+        "开发中提供迭代技术反馈",
+        "文档需生产可用并保留技术细节",
+        "交互式菜单或分步指令格式",
+        "读取历史",
+        "追求简洁高效架构"
+      ],
+      "domain": "personal-management",
+      "nature": "opinion",
+      "summary": "偏好中文简洁指令，输出需结构化表格、交互式菜单或分步指令格式，文件使用中文命名。标准化工作流：读取历史→执行→交付→日志摘要；文档需生产可用并保留技术细节。遇到问题须停下来给出信息和选项让用户选择，而非自行快速转向备选方案；倾向给出完整解决",
+      "date": "2026-05-15",
+      "source": "workbuddy_system_memery"
+    }
+  ]
+}

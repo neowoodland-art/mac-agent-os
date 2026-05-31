@@ -1,0 +1,91 @@
+# ============================================
+# AVE 演示：励志金句合集
+# ============================================
+meta:
+  project_id: "vid_inspire_quotes_001"
+  style: "knowledge_lecture"
+  voice:
+    provider: "aliyun"
+    voice_id: "cosyvoice-v3.5-plus-bailian-f92cac2a41ce4fc78153c6097755a60e"
+    default_emotion: "温暖坚定"
+  bgm:
+    provider: "mlx-audiocraft"
+    mood: "inspiring"
+  output:
+    resolution: "1080x1920"
+    fps: 30
+  avatar:
+    image: "~/agent-local/tools/ave/avatar/ghai_avatar.jpg"
+    opening_text: "你好，今天分享几句让我醍醐灌顶的话。"
+    closing_text: "关注我，一起聆听世界，我们下期再见"
+
+segments:
+  - id: 1
+    text: "种一棵树最好的时间是十年前，其次是现在。"
+    duration_sec: 6
+    voice_emotion: "坚定"
+    camera: "slow_zoom_in"
+    material:
+      source: "pexels"
+      search: "trees sunlight forest nature"
+    subtitles: true
+
+  - id: 2
+    text: "人生没有白走的路，每一步都算数。"
+    duration_sec: 5
+    voice_emotion: "温暖"
+    camera: "static"
+    material:
+      source: "pexels"
+      search: "mountain path hiking trail"
+    subtitles: true
+
+  - id: 3
+    text: "不要等待机会，而要创造机会。"
+    duration_sec: 5
+    voice_emotion: "鼓励"
+    camera: "push_in"
+    material:
+      source: "pexels"
+      search: "sunrise sky hopeful"
+    subtitles: true
+
+  - id: 4
+    text: "你的潜力远比你想象的要大得多。"
+    duration_sec: 5
+    voice_emotion: "深沉有力"
+    camera: "slow_zoom_out"
+    material:
+      source: "pexels"
+      search: "stars night sky universe"
+    subtitles: true
+
+  - id: 5
+    text: "成功的秘诀就是坚持做对的事，哪怕进展缓慢。"
+    duration_sec: 7
+    voice_emotion: "温和而坚定"
+    camera: "slow_pan_right"
+    material:
+      source: "pexels"
+      search: "ocean waves calm beach"
+    subtitles: true
+
+  - id: 6
+    text: "当你觉得为时已晚的时候，恰恰是最早的时候。"
+    duration_sec: 6
+    voice_emotion: "启发"
+    camera: "static"
+    material:
+      source: "pexels"
+      search: "sunset golden clouds hope"
+    subtitles: true
+
+  - id: 7
+    text: "相信自己，你比你想象的更优秀。"
+    duration_sec: 5
+    voice_emotion: "温暖收尾"
+    camera: "slow_zoom_in"
+    material:
+      source: "pexels"
+      search: "mountain top view inspiring"
+    subtitles: true

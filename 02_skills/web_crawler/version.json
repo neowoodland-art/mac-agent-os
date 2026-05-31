@@ -1,0 +1,7 @@
+{
+  "name": "web_crawler",
+  "version": "1.0.0",
+  "description": "网页抓取占位技能（待实现）",
+  "dependencies": [],
+  "mcp_tools": []
+}

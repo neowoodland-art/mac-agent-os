@@ -1,0 +1,9 @@
+# 矩阵养号系统 Python 依赖
+# 安装: pip install -r requirements.txt
+
+# 浏览器自动化
+patchright>=1.40.0       # Playwright 反检测 fork（CDP + 指纹注入）
+camoufox>=0.4.0          # Firefox 内核浏览器（Camoufox）
+
+# 配置解析
+PyYAML>=6.0
