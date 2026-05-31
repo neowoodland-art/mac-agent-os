@@ -921,6 +921,60 @@ def api_matrix_system_info():
         raise HTTPException(500, detail=str(e))
 
 
+# ── 蓝图校验 ──
+
+@app.post("/api/matrix/blueprints/validate")
+async def api_matrix_validate_blueprint(data: dict):
+    """校验蓝图步骤编排合法性"""
+    try:
+        mgr = _get_matrix_mgr()
+        steps = data.get("steps", [])
+        return mgr.validate_blueprint_steps(steps)
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+# ── 备份恢复 ──
+
+@app.get("/api/matrix/backups")
+def api_matrix_backups():
+    """列出所有备份"""
+    try:
+        mgr = _get_matrix_mgr()
+        return {"backups": mgr.list_backups(), "total": len(mgr.list_backups())}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.post("/api/matrix/backup")
+async def api_matrix_create_backup(data: dict = {}):
+    """创建全量备份"""
+    try:
+        mgr = _get_matrix_mgr()
+        label = data.get("label", "manual")
+        logger.info(f"Matrix: 创建备份 label={label}")
+        return mgr.create_backup(label)
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.post("/api/matrix/restore")
+async def api_matrix_restore(data: dict):
+    """恢复备份"""
+    try:
+        mgr = _get_matrix_mgr()
+        identity = data.get("identity", "")
+        path = data.get("path", "")
+        if not identity or not path:
+            raise HTTPException(400, detail="identity 和 path 必填")
+        logger.info(f"Matrix: 恢复 {identity} 从 {path}")
+        return mgr.restore_backup(identity, path)
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9988

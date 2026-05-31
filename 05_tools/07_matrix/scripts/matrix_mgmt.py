@@ -181,11 +181,135 @@ class MatrixManager:
     # 蓝图（原子操作编排）
     # ═══════════════════════════════════════════════════════════
 
-    def list_atomic_ops(self) -> list[dict]:
-        """列出所有可用原子操作"""
-        ops = []
+    # ═══════════════════════════════════════════════════════════
+    # 原子操作依赖模型（防止错误编排）
+    # ═══════════════════════════════════════════════════════════
+    # 每个操作定义:
+    #   category:  操作类别 (navigation/browse/interact/utility/xhs)
+    #   requires:  前置操作（必须至少一个在此列表中 或 [] 表示无要求）
+    #   allows:    可选的后继操作（"*" 表示任意）
+    #   can_be_first: 是否可作为第一个步骤
+    #   desc:      简短描述
+    # ═══════════════════════════════════════════════════════════
 
-        # 从 douyin_ops.py 提取（基于函数名和文档）
+    OP_GRAPH = {
+        # ── 导航类 (entry points) ──
+        "goto_home": {
+            "category": "navigation", "label": "🏠 回到推荐页",
+            "requires": [], "allows": ["browse_feed", "enter_video", "scroll_feed", "search_keyword", "xhs_browse", "rest", "go_back", "like", "collect"],
+            "can_be_first": True, "desc": "回到抖音推荐页，固定起点"
+        },
+        "goto_url": {
+            "category": "navigation", "label": "🔗 导航到URL",
+            "requires": [], "allows": ["enter_video", "like", "collect", "follow", "comment_video_b", "scroll_feed", "rest", "go_back"],
+            "can_be_first": True, "desc": "直接打开指定视频/用户URL"
+        },
+        "go_back": {
+            "category": "navigation", "label": "⬅ 返回",
+            "requires": ["*"], "allows": ["browse_feed", "enter_video", "search_keyword", "scroll_feed", "xhs_browse", "xhs_click_note", "rest", "go_back"],
+            "can_be_first": False, "desc": "浏览器后退，回到上一页"
+        },
+
+        # ── 浏览类 (创建上下文) ──
+        "browse_feed": {
+            "category": "browse", "label": "📱 浏览推荐流",
+            "requires": ["goto_home", "go_back", "rest"], "allows": ["enter_video", "scroll_feed", "search_keyword", "like", "collect", "rest", "go_back"],
+            "can_be_first": True, "desc": "浏览推荐页视频流，自动滑视频"
+        },
+        "scroll_feed": {
+            "category": "browse", "label": "⬇ 下滑加载",
+            "requires": ["browse_feed", "enter_video", "goto_home", "xhs_browse", "go_back", "rest"],
+            "allows": ["enter_video", "scroll_feed", "like", "collect", "rest", "go_back", "xhs_click_note"],
+            "can_be_first": False, "desc": "瀑布流/视频流下滑加载更多内容"
+        },
+        "enter_video": {
+            "category": "browse", "label": "▶ 进入播放页",
+            "requires": ["browse_feed", "scroll_feed", "goto_url", "search_keyword", "rest"],
+            "allows": ["like", "collect", "follow", "comment_video_a", "comment_video_b", "scroll_feed", "next_video", "prev_video", "rest", "go_back"],
+            "can_be_first": False, "desc": "从推荐页点击卡片进入视频播放页"
+        },
+
+        # ── 交互类 (需视频上下文) ──
+        "like": {
+            "category": "interact", "label": "👍 点赞",
+            "requires": ["enter_video", "xhs_click_note", "browse_feed"], "allows": ["collect", "follow", "comment_video_a", "comment_video_b", "scroll_feed", "next_video", "prev_video", "rest", "go_back"],
+            "can_be_first": False, "desc": "点赞当前视频（KeyZ或点击选择器）"
+        },
+        "collect": {
+            "category": "interact", "label": "⭐ 收藏",
+            "requires": ["enter_video", "xhs_click_note"], "allows": ["like", "follow", "comment_video_a", "comment_video_b", "scroll_feed", "next_video", "prev_video", "rest", "go_back"],
+            "can_be_first": False, "desc": "收藏当前视频到收藏夹"
+        },
+        "follow": {
+            "category": "interact", "label": "➕ 关注",
+            "requires": ["enter_video", "xhs_click_note"], "allows": ["like", "collect", "comment_video_a", "comment_video_b", "scroll_feed", "next_video", "prev_video", "rest", "go_back"],
+            "can_be_first": False, "desc": "关注当前视频作者"
+        },
+        "comment_video_a": {
+            "category": "interact", "label": "💬 评论(Path A)",
+            "requires": ["enter_video"], "allows": ["like", "collect", "follow", "scroll_feed", "next_video", "prev_video", "rest", "go_back"],
+            "can_be_first": False, "desc": "弹窗覆盖层评论 (KeyX→pbcopy→Enter)"
+        },
+        "comment_video_b": {
+            "category": "interact", "label": "💬 评论(Path B)",
+            "requires": ["enter_video", "goto_url"], "allows": ["like", "collect", "follow", "scroll_feed", "rest", "go_back"],
+            "can_be_first": False, "desc": "全屏视频页评论 (scroll→click→Enter)"
+        },
+        "next_video": {
+            "category": "interact", "label": "⏭ 下一个视频",
+            "requires": ["enter_video", "like", "collect", "follow", "comment_video_a"], "allows": ["like", "collect", "follow", "comment_video_a", "comment_video_b", "scroll_feed", "rest", "go_back"],
+            "can_be_first": False, "desc": "切换到下一个视频"
+        },
+        "prev_video": {
+            "category": "interact", "label": "⏮ 上一个视频",
+            "requires": ["enter_video"], "allows": ["like", "collect", "follow", "comment_video_a", "comment_video_b", "rest", "go_back"],
+            "can_be_first": False, "desc": "切换到上一个视频"
+        },
+        "search_keyword": {
+            "category": "interact", "label": "🔍 搜索",
+            "requires": ["goto_home", "browse_feed", "rest", "go_back"], "allows": ["enter_video", "scroll_feed", "rest", "go_back"],
+            "can_be_first": True, "desc": "搜索关键词并打开搜索结果页"
+        },
+
+        # ── 小红书专用 ──
+        "xhs_browse": {
+            "category": "xhs", "label": "📕 瀑布流浏览",
+            "requires": ["goto_home", "rest", "go_back"], "allows": ["xhs_click_note", "scroll_feed", "xhs_search", "xhs_like", "rest", "go_back"],
+            "can_be_first": True, "desc": "小红书首页瀑布流浏览"
+        },
+        "xhs_click_note": {
+            "category": "xhs", "label": "📕 点击笔记",
+            "requires": ["xhs_browse", "scroll_feed", "rest"], "allows": ["xhs_like", "xhs_comment", "rest", "go_back", "scroll_feed"],
+            "can_be_first": False, "desc": "小红书点击笔记卡片进入详情页"
+        },
+        "xhs_like": {
+            "category": "xhs", "label": "📕 点赞",
+            "requires": ["xhs_click_note", "enter_video"], "allows": ["xhs_comment", "rest", "go_back", "scroll_feed"],
+            "can_be_first": False, "desc": "小红书点赞当前笔记"
+        },
+        "xhs_comment": {
+            "category": "xhs", "label": "📕 评论",
+            "requires": ["xhs_click_note", "xhs_like"], "allows": ["rest", "go_back", "scroll_feed"],
+            "can_be_first": False, "desc": "小红书评论当前笔记"
+        },
+        "xhs_search": {
+            "category": "xhs", "label": "📕 搜索",
+            "requires": ["xhs_browse", "goto_home", "rest", "go_back"], "allows": ["xhs_click_note", "scroll_feed", "rest", "go_back"],
+            "can_be_first": True, "desc": "小红书搜索关键词"
+        },
+
+        # ── 通用工具 ──
+        "rest": {
+            "category": "utility", "label": "⏳ 休息",
+            "requires": [], "allows": ["*"],
+            "can_be_first": True, "desc": "随机休息 5~20秒，模拟真人操作间隔"
+        },
+    }
+
+    def list_atomic_ops(self) -> list[dict]:
+        """列出所有可用原子操作（含依赖约束）"""
+        # 先尝试从 douyin_ops.py 提取异步函数
+        parsed_ops = []
         try:
             import ast
             ops_file = MATRIX_SCRIPTS / "douyin_ops.py"
@@ -194,44 +318,80 @@ class MatrixManager:
                 for node in ast.walk(tree):
                     if isinstance(node, ast.AsyncFunctionDef) and not node.name.startswith("_"):
                         doc = ast.get_docstring(node) or ""
-                        ops.append({
-                            "name": node.name,
-                            "type": "douyin",
-                            "doc": doc.split("\n")[0] if doc else "",
-                            "source": "douyin_ops.py",
-                        })
+                        name = node.name
+                        if name not in self.OP_GRAPH:
+                            parsed_ops.append({
+                                "name": name,
+                                "type": "douyin",
+                                "doc": doc.split("\n")[0] if doc else "",
+                                "source": "douyin_ops.py",
+                                "category": "auto",
+                                "requires": [],
+                                "allows": ["*"],
+                                "can_be_first": True,
+                                "label": name,
+                                "desc": doc.split("\n")[0] if doc else "",
+                            })
         except:
             pass
 
-        # 手动定义的核心操作
-        core_ops = [
-            {"name": "browse_feed", "type": "douyin", "doc": "浏览推荐视频流 (滑视频)", "source": "browse.py"},
-            {"name": "like_video", "type": "douyin", "doc": "点赞当前视频", "source": "interact.py"},
-            {"name": "collect_video", "type": "douyin", "doc": "收藏当前视频", "source": "interact.py"},
-            {"name": "comment_video_a", "type": "douyin", "doc": "评论(PATH A:弹窗覆盖层 KeyX)", "source": "runner.py"},
-            {"name": "comment_video_b", "type": "douyin", "doc": "评论(PATH B:全屏页 scroll+click)", "source": "runner.py"},
-            {"name": "follow_user", "type": "douyin", "doc": "关注当前视频作者", "source": "interact.py"},
-            {"name": "search_keyword", "type": "douyin", "doc": "搜索关键词并打开结果", "source": "browse.py"},
-            {"name": "scroll_feed", "type": "douyin", "doc": "馈流下滑加载更多", "source": "browse.py"},
-            {"name": "enter_video", "type": "douyin", "doc": "从推荐页点击进入视频播放页", "source": "browse.py"},
-            {"name": "xhs_browse", "type": "xhs", "doc": "小红书瀑布流浏览", "source": "runner.py"},
-            {"name": "xhs_click_note", "type": "xhs", "doc": "小红书点击笔记卡片", "source": "runner.py"},
-            {"name": "xhs_like", "type": "xhs", "doc": "小红书点赞笔记", "source": "runner.py"},
-            {"name": "xhs_comment", "type": "xhs", "doc": "小红书评论笔记", "source": "runner.py"},
-            {"name": "xhs_search", "type": "xhs", "doc": "小红书搜索", "source": "runner.py"},
-            {"name": "rest", "type": "通用", "doc": "随机休息 (5~20秒)", "source": "behavior.py"},
-        ]
+        # 合并手动定义的标准操作
+        result = {op["name"]: op for op in parsed_ops}
+        for name, info in self.OP_GRAPH.items():
+            result[name] = {
+                "name": name,
+                "type": info["category"],
+                "doc": info["desc"],
+                "source": "graph",
+                "category": info["category"],
+                "label": info["label"],
+                "desc": info["desc"],
+                "requires": info["requires"],
+                "allows": info["allows"],
+                "can_be_first": info["can_be_first"],
+            }
 
-        # 去重
-        seen = set()
-        for op in ops:
-            seen.add(op["name"])
-        for op in core_ops:
-            if op["name"] not in seen:
-                ops.append(op)
-                seen.add(op["name"])
+        return sorted(result.values(), key=lambda x: (x.get("category", "z"), x["name"]))
 
-        return ops
+    def validate_blueprint_steps(self, steps: list[dict]) -> dict:
+        """校验蓝图的步骤编排合法性
+        返回: {"valid": bool, "errors": [{"step": idx, "msg": str}, ...], "warnings": [...]}
+        """
+        errors = []
+        warnings = []
+        for i, step in enumerate(steps):
+            name = step.get("name", "")
+            info = self.OP_GRAPH.get(name)
+            if not info:
+                continue
+
+            # 检查第一个步骤能否作为起点
+            if i == 0 and not info["can_be_first"]:
+                errors.append({"step": i + 1, "op": name, "msg": f'"{info["label"]}" 不能作为第一个步骤，前置需要: {info["requires"]}'})
+
+            # 检查前置约束
+            if i > 0 and info["requires"]:
+                prev_name = steps[i - 1].get("name", "")
+                # requires=["*"] 表示任意前置皆可
+                if info["requires"] != ["*"]:
+                    # requires 列表中的操作必须出现在前面的步骤中（不一定是紧邻）
+                    prev_names = [s.get("name", "") for s in steps[:i]]
+                    if not any(r in prev_names for r in info["requires"] if r != "*"):
+                        errors.append({
+                            "step": i + 1, "op": name,
+                            "msg": f'"{info["label"]}" 的前置操作未满足。需要: {info["requires"]}，当前已有: {prev_names}'})
+
+            # 检查前一步骤能否接当前步骤
+            if i > 0:
+                prev_name = steps[i - 1].get("name", "")
+                prev_info = self.OP_GRAPH.get(prev_name)
+                if prev_info and prev_info["allows"] != ["*"]:
+                    if name not in prev_info["allows"]:
+                        errors.append({
+                            "step": i + 1, "op": name,
+                            "msg": f'上一步骤 "{prev_info["label"]}" 不能接 "{info["label"]}"。{prev_info["label"]} 的后继可选: {prev_info["allows"]}'})
+
+        return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
     def list_blueprints(self) -> list[dict]:
         """列出所有已保存蓝图"""
@@ -368,6 +528,99 @@ class MatrixManager:
                         result["identities_imported"] = result.get("identities_imported", 0) + 0.5
 
         return result
+
+    # ═══════════════════════════════════════════════════════════
+    # 备份恢复
+    # ═══════════════════════════════════════════════════════════
+
+    def list_backups(self) -> list[dict]:
+        """列出所有可用的备份快照"""
+        backups = []
+        backup_root = MATRIX_BACKUPS / "cookies"
+        if not backup_root.exists():
+            return backups
+        for identity_dir in sorted(backup_root.iterdir()):
+            if not identity_dir.is_dir():
+                continue
+            files = sorted(identity_dir.glob("*.bak"), key=lambda f: f.stat().st_mtime, reverse=True)
+            for f in files:
+                # 文件名格式: cookies.{timestamp}.{platform}.{label}.bak
+                parts = f.stem.split(".")
+                ts_str = parts[1] if len(parts) > 1 else "00000000_000000"
+                platform = parts[2] if len(parts) > 2 else "unknown"
+                label = ".".join(parts[3:]) if len(parts) > 3 else ""
+                try:
+                    ts = datetime.strptime(ts_str, "%Y%m%d_%H%M%S")
+                    time_str = ts.strftime("%m-%d %H:%M")
+                except:
+                    time_str = ts_str
+                backups.append({
+                    "identity": identity_dir.name,
+                    "file": f.name,
+                    "path": str(f),
+                    "size_kb": round(f.stat().st_size / 1024, 1),
+                    "timestamp": ts_str,
+                    "time_str": time_str,
+                    "platform": platform,
+                    "label": label,
+                })
+        return backups
+
+    def create_backup(self, label: str = "manual") -> dict:
+        """创建全量备份（调用 cookie_manager 的 backup_all_identities）"""
+        try:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "cookie_manager",
+                MATRIX_SCRIPTS / "matrix_modules" / "utils" / "cookie_manager.py"
+            )
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            result = mod.backup_all_identities(platform="dashboard", label=label)
+            count = sum(1 for v in result.values() if v)
+            return {"status": "ok", "backup_count": count, "details": result}
+        except Exception as e:
+            # fallback: 手动复制 cookie 文件
+            count = 0
+            for identity_dir in MATRIX_IDENTITIES.iterdir():
+                if not identity_dir.is_dir():
+                    continue
+                cookie = identity_dir / "user_data" / "cookies.sqlite"
+                if cookie.exists():
+                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    backup_dir = MATRIX_BACKUPS / "cookies" / identity_dir.name
+                    backup_dir.mkdir(parents=True, exist_ok=True)
+                    import shutil
+                    shutil.copy2(cookie, backup_dir / f"cookies.{ts}.dashboard.{label}.bak")
+                    count += 1
+            return {"status": "ok", "backup_count": count, "method": "manual_copy"}
+
+    def restore_backup(self, identity: str, backup_path: str) -> dict:
+        """从备份文件恢复指定身份的 Cookie"""
+        target_cookie = MATRIX_IDENTITIES / identity / "user_data" / "cookies.sqlite"
+        backup_file = Path(backup_path)
+        if not backup_file.exists():
+            raise ValueError(f"备份文件不存在: {backup_path}")
+        if not target_cookie.parent.exists():
+            raise ValueError(f"身份目录不存在: {identity}")
+
+        # 先创建当前状态的备份（安全保护）
+        if target_cookie.exists():
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_bak = MATRIX_BACKUPS / "cookies" / identity / f"cookies.{ts}.pre_restore.bak"
+            safe_bak.parent.mkdir(parents=True, exist_ok=True)
+            import shutil
+            shutil.copy2(target_cookie, safe_bak)
+
+        # 恢复
+        import shutil
+        shutil.copy2(backup_file, target_cookie)
+        return {
+            "status": "ok",
+            "identity": identity,
+            "restored_from": str(backup_file),
+            "size_kb": round(backup_file.stat().st_size / 1024, 1),
+        }
 
     # ═══════════════════════════════════════════════════════════
     # 内部工具
