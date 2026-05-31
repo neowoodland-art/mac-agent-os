@@ -112,3 +112,58 @@ characters:
     prompt_template:
       realistic: '{base}，{outfit}，{scene_desc}，{camera_angle}，写实摄影风格，自然光线'
       sport: '{base}，{outfit}，{scene_desc}，运动摄影风格，高速快门，{camera_angle}'
+  裔年轻:
+    name: 裔年轻
+    description: 中景镜头，一位气质干净清澈的亚裔年轻男性，长相温润正派，五官端正立体，眼神真诚温暖带笑。身着燕麦色羊绒衫（袖口微微挽起）外搭深藏蓝亚麻外套，直身微侧，姿态挺拔舒展。背景是雨后湿润的江南古巷，斑驳青砖墙，脚下石板路反着水光。他一手拎着一袋用褐色纸袋包着、微微冒着热气的桂花糕，低头看向纸袋，嘴角带着温柔的笑意。
+      高清细节，暖色调，湿漉漉的地面映照天色，整体呈现胶片般柔和细腻的质感。
+    base: 中景镜头，一位气质干净清澈的亚裔年轻男性，长相温润正派，五官端正立体，眼神真诚温暖带笑。身着燕麦色羊绒衫外搭深藏蓝亚麻外套，直身微侧，姿态挺拔舒展。背景是雨后湿润的江南古巷，斑驳青砖墙，脚下石板路反着水光。他一手拎着一袋用褐色纸袋包着、微微冒着热气的桂花糕，低头看向纸袋，嘴角带着温柔的笑意。
+      高清细节，暖色调，湿漉漉的地面映照天色，整体呈现胶片般柔和细腻的质感
+    personality: 气质干净清澈的亚裔年轻男性
+    voice_style: 默认
+    art_style: 写实摄影风格
+    appearance:
+    - 中景镜头
+    - 一位气质干净清澈的亚裔年轻男性
+    - 长相温润正派
+    - 五官端正立体
+    - 眼神真诚温暖带笑
+    face:
+      shape: ''
+      eyes: ''
+      nose: ''
+      lips: 嘴角
+      hair: ''
+      skin: ''
+      facial_hair: ''
+      glasses: ''
+      distinctive: ''
+    body:
+      build: ''
+      height: ''
+      posture: 挺拔
+      age_group: ''
+    clothing:
+      top: 身着燕麦色羊绒衫（袖口微微挽起）外搭深藏蓝亚麻外套
+      inner: 背景是雨后湿润的江南古巷
+      bottom: ''
+      shoes: ''
+      style: ''
+    prompt_template:
+      realistic: '{base}，{scene_desc}，{camera_angle}，写实摄影风格，自然光线'
+    preferred_bgm_tags:
+    - 温暖
+    reference_images:
+      face_anchor: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/front_face.png
+      baseline: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/front_face.png
+      body:
+        front: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/multi_angle_front.png
+        side: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/multi_angle_side.png
+        right_three_quarter: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/multi_angle_right_three_quarter.png
+        right_side: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/multi_angle_right_side.png
+        back: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/multi_angle_back.png
+      expressions:
+        neutral: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_neutral.png
+        smile: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_smile.png
+        focused: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_focused.png
+        laugh: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_laugh.png
+        serious: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_serious.png
