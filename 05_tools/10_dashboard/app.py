@@ -1076,6 +1076,51 @@ async def api_matrix_restore(data: dict):
         raise HTTPException(500, detail=str(e))
 
 
+# ── 跨机注册表 API ──
+
+@app.get("/api/matrix/cross-machines")
+def api_matrix_cross_machines():
+    """跨机矩阵概览：聚合所有机器的账号状态"""
+    try:
+        mgr = _get_matrix_mgr()
+        # 本机状态
+        local_status = mgr.publish_status()
+        accounts = mgr.list_accounts()
+
+        # 按机器分组
+        machines = {}
+        for a in accounts:
+            owner = a.get("owner_machine", "未分配")
+            if owner not in machines:
+                machines[owner] = {
+                    "hostname": owner,
+                    "total": 0, "local": 0,
+                    "enabled": 0, "logged_in": 0,
+                    "remote": 0, "accounts": [],
+                }
+            machines[owner]["total"] += 1
+            if a.get("is_local"): machines[owner]["local"] += 1
+            if a.get("_status") == "remote": machines[owner]["remote"] += 1
+            if a.get("enabled", False): machines[owner]["enabled"] += 1
+            if a.get("_status") == "logged_in": machines[owner]["logged_in"] += 1
+            machines[owner]["accounts"].append({
+                "id": a["id"],
+                "platform": a.get("platform", ""),
+                "phone_mask": a.get("phone_mask", ""),
+                "status": a.get("_status", "unknown"),
+                "enabled": a.get("enabled", False),
+            })
+
+        return {
+            "machines": list(machines.values()),
+            "total_machines": len(machines),
+            "total_accounts": len(accounts),
+            "source_hostname": HOSTNAME,
+        }
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
 # ═══════════════════════════════════════════
 # 工作流引擎 API
 # ═══════════════════════════════════════════

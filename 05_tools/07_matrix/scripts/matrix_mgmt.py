@@ -623,41 +623,94 @@ class MatrixManager:
         }
 
     # ═══════════════════════════════════════════════════════════
-    # 内部工具
+    # 跨机注册表: Registry (L0) + Override (L1) 双源读取
     # ═══════════════════════════════════════════════════════════
 
-    def _read_accounts_yaml(self) -> list:
-        if not MATRIX_ACCOUNTS_CFG.exists():
+    REGISTRY_PATH = MATRIX_CODE / "accounts_registry.yaml"
+    OVERRIDE_PATH = MATRIX_LOCAL / "config" / "accounts.override.yaml"
+    LEGACY_PATH = MATRIX_LOCAL / "config" / "accounts.yaml"
+    CROSS_MACHINE_DIR = AGENT_SYNC / "04_memory" / "cross_machine" / "data" / "matrix"
+
+    def _read_registry(self) -> list:
+        """读取 L0 注册表 (Gitee 同步, 所有账号定义)"""
+        if not self.REGISTRY_PATH.exists():
             return []
         try:
-            data = yaml.safe_load(MATRIX_ACCOUNTS_CFG.read_text()) or {}
+            data = yaml.safe_load(self.REGISTRY_PATH.read_text()) or {}
             return data.get("accounts", [])
         except Exception as e:
-            print(f"读取 accounts.yaml 失败: {e}")
+            print(f"读取 registry 失败: {e}")
             return []
 
-    def _write_accounts_yaml(self, accounts: list):
-        # 保持现有格式，仅更新 accounts 字段
-        if MATRIX_ACCOUNTS_CFG.exists():
-            existing = yaml.safe_load(MATRIX_ACCOUNTS_CFG.read_text()) or {}
-        else:
-            existing = {
-                "viewport": {"width": 702, "height": 783, "mobile": False},
-                "camoufox": {"screen": {"width": 702, "height": 783}},
-            }
-        existing["accounts"] = accounts
-        MATRIX_ACCOUNTS_CFG.parent.mkdir(parents=True, exist_ok=True)
-        MATRIX_ACCOUNTS_CFG.write_text(
-            yaml.dump(existing, default_flow_style=False, allow_unicode=True, sort_keys=False),
-            encoding="utf-8",
-        )
+    def _read_override(self) -> tuple[str, list]:
+        """读取 L1 覆写 (agent-local, 本机敏感字段)
+        返回 (hostname, accounts_list)
+        """
+        path = self.OVERRIDE_PATH
+        if not path.exists():
+            return ("", [])
+        try:
+            data = yaml.safe_load(path.read_text()) or {}
+            return (data.get("hostname", ""), data.get("accounts", []))
+        except:
+            return ("", [])
 
-    def _check_login_status(self, acct: dict) -> str:
-        """检查账号登录状态"""
-        identity_dir_name = acct.get("identity_dir", "").replace("identities/", "")
-        if not identity_dir_name:
+    def list_accounts(self) -> list[dict]:
+        """合并 Registry + Override 输出完整账号列表
+        同时检查本机身份目录和登录状态
+        """
+        registry = self._read_registry()
+        hostname, override = self._read_override()
+        override_map = {a["id"]: a for a in override}
+        local_hostname = os.uname().nodename
+
+        # 是否为当前机器: registry 指定 + override 有配置
+        def is_local(acct: dict) -> bool:
+            am = acct.get("assigned_machine", "")
+            if not am:
+                return False
+            if am == local_hostname:
+                return True
+            return acct["id"] in override_map
+
+        result = []
+        for acct in registry:
+            aid = acct["id"]
+            ovr = override_map.get(aid, {})
+
+            # 合并字段: Registry 为基础, Override 覆写
+            merged = dict(acct)
+            merged["phone"] = ovr.get("phone", acct.get("phone_mask", ""))
+            merged["proxy"] = ovr.get("proxy", acct.get("proxy", None))
+            merged["enabled"] = ovr.get("enabled", acct.get("enabled", True))
+            merged["is_local"] = is_local(acct)
+            merged["owner_machine"] = acct.get("assigned_machine", "")
+
+            # identity_dir 解析: 优先 override, 再 registry hint
+            identity_hint = acct.get("identity_hint", aid)
+            if ovr.get("identity_dir"):
+                merged["identity_dir"] = ovr["identity_dir"]
+            else:
+                merged["identity_dir"] = f"identities/{identity_hint}"
+
+            # 状态
+            if not merged["enabled"]:
+                merged["_status"] = "disabled"
+            elif not merged["is_local"]:
+                merged["_status"] = "remote"
+            else:
+                merged["_status"] = self._check_login_status_by_hint(identity_hint)
+            merged["_identity_dir_exists"] = self._identity_exists_by_hint(identity_hint)
+
+            result.append(merged)
+
+        return result
+
+    def _check_login_status_by_hint(self, hint: str) -> str:
+        """通过 identity_hint 检查登录状态"""
+        if not hint:
             return "no_identity"
-        cookie_path = MATRIX_IDENTITIES / identity_dir_name / "user_data" / "cookies.sqlite"
+        cookie_path = MATRIX_IDENTITIES / hint / "user_data" / "cookies.sqlite"
         if not cookie_path.exists():
             return "no_cookie"
         if cookie_path.stat().st_size < 100:
@@ -665,34 +718,102 @@ class MatrixManager:
         try:
             conn = sqlite3.connect(str(cookie_path), timeout=2)
             cur = conn.cursor()
-            platform = acct.get("platform", "douyin")
-            if platform in ("douyin", "xiaohongshu"):
-                like = "%douyin%" if platform == "douyin" else "%xiaohongshu%"
-                count = cur.execute(
-                    "SELECT count(*) FROM moz_cookies WHERE host LIKE ? AND name LIKE '%session%'",
-                    (like,),
-                ).fetchone()[0]
-            else:
-                count = cur.execute("SELECT count(*) FROM moz_cookies").fetchone()[0]
+            total = cur.execute("SELECT count(*) FROM moz_cookies").fetchone()[0]
+            session = cur.execute(
+                "SELECT count(*) FROM moz_cookies WHERE name LIKE '%session%'"
+            ).fetchone()[0]
             conn.close()
-            return "logged_in" if count > 0 else "no_session"
+            return "logged_in" if session > 0 else "no_session"
         except:
             return "error"
 
-    def _identity_exists(self, acct: dict) -> bool:
-        identity_dir_name = acct.get("identity_dir", "").replace("identities/", "")
-        if not identity_dir_name:
+    def _identity_exists_by_hint(self, hint: str) -> bool:
+        if not hint:
             return False
-        return (MATRIX_IDENTITIES / identity_dir_name).exists()
+        return (MATRIX_IDENTITIES / hint).exists()
+
+    # ── 向后兼容（保留对旧 accounts.yaml 的支持）──
+
+    def _read_accounts_yaml(self) -> list:
+        """向后兼容: 读取旧版 accounts.yaml"""
+        if self.LEGACY_PATH.exists():
+            try:
+                data = yaml.safe_load(self.LEGACY_PATH.read_text()) or {}
+                return data.get("accounts", [])
+            except:
+                pass
+        # fallback: registry + override 合成
+        return self.list_accounts()
+
+    def _write_accounts_yaml(self, accounts: list):
+        """向后兼容: 写回 override (不再是 accounts.yaml)"""
+        if self.OVERRIDE_PATH.exists():
+            existing = yaml.safe_load(self.OVERRIDE_PATH.read_text()) or {}
+        else:
+            existing = {"version": "1.0", "hostname": os.uname().nodename}
+        existing["accounts"] = accounts
+        self.OVERRIDE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        self.OVERRIDE_PATH.write_text(
+            yaml.dump(existing, default_flow_style=False, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+        )
+
+    def _check_login_status(self, acct: dict) -> str:
+        return self._check_login_status_by_hint(
+            acct.get("identity_hint", acct.get("identity_dir", acct["id"])).replace("identities/", "")
+        )
+
+    def _identity_exists(self, acct: dict) -> bool:
+        return self._identity_exists_by_hint(
+            acct.get("identity_hint", acct.get("identity_dir", acct["id"])).replace("identities/", "")
+        )
 
     def _count_backups(self, acct: dict) -> int:
-        identity_dir_name = acct.get("identity_dir", "").replace("identities/", "")
-        if not identity_dir_name:
+        hint = acct.get("identity_hint", acct.get("identity_dir", acct["id"])).replace("identities/", "")
+        if not hint:
             return 0
-        backup_dir = MATRIX_BACKUPS / "cookies" / identity_dir_name
+        backup_dir = MATRIX_BACKUPS / "cookies" / hint
         if backup_dir.exists():
             return len(list(backup_dir.glob("*.bak")))
         return 0
+
+    # ═══════════════════════════════════════════════════════════
+    # L2 运行时状态推送到 cross_machine (供 Dashboard 聚合)
+    # ═══════════════════════════════════════════════════════════
+
+    def publish_status(self) -> dict:
+        """将本机各账号状态写入 cross_machine/data/matrix/{uid}.json
+        供其他机器的 Dashboard 读取展示
+        """
+        accounts = self.list_accounts()
+        local = [a for a in accounts if a.get("is_local")]
+
+        status = {
+            "hostname": os.uname().nodename,
+            "timestamp": datetime.now().isoformat(),
+            "total_accounts": len(accounts),
+            "total_local": len(local),
+            "accounts": {},
+        }
+        for a in accounts:
+            status["accounts"][a["id"]] = {
+                "platform": a.get("platform", ""),
+                "phone_mask": a.get("phone_mask", ""),
+                "owner_machine": a.get("owner_machine", ""),
+                "is_local": a.get("is_local", False),
+                "status": a.get("_status", "unknown"),
+                "enabled": a.get("enabled", False),
+            }
+
+        # 写入 cross_machine
+        import json
+        uid_file = AGENT_LOCAL / "identity" / "machine_uid"
+        uid = uid_file.read_text().strip() if uid_file.exists() else "unknown"
+        self.CROSS_MACHINE_DIR.mkdir(parents=True, exist_ok=True)
+        (self.CROSS_MACHINE_DIR / f"{uid}.json").write_text(
+            json.dumps(status, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        return status
 
     # ═══════════════════════════════════════════════════════════
     # 系统信息
