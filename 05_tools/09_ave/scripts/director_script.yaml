@@ -1,0 +1,74 @@
+meta:
+  project_id: ''
+  style: knowledge_lecture
+  voice:
+    provider: volcano
+    voice_id: default
+    default_emotion: 专业沉稳
+  bgm:
+    provider: ace_step
+    genre: cinematic
+    tempo: 110
+    mood: inspirational
+    structure:
+    - section: intro
+      description: null
+    - section: main
+      description: null
+    - section: climax
+      description: null
+    - section: outro
+      description: null
+  output:
+    resolution: 1080x1920
+    fps: 30
+  avatar: null
+  material:
+    fallback: true
+segments:
+- id: 1
+  text: '# AVE 演示脚本：一个小笑话
+
+    # 用于验证 MVP 链路 (文案→人声→素材→合成)
+
+
+    标题: "一只会打太极的猫"
+
+
+    今天我要讲一个真实的故事。
+
+
+    我家养了一只橘猫，名字叫"大橘"。
+
+
+    大橘有个奇怪的爱好——每天早上六点，它会准时蹲在阳台的瑜伽垫上，开始打太极。
+
+
+    你没听错，打太极。
+
+
+    一开始我以为它在伸懒腰，后来发现不对劲。它的动作实在太标准了——野马分鬃、白鹤亮翅、搂膝拗步，一套下来行云流水。
+
+
+    更离谱的是，如果你在它练功的时候打扰它，它会瞪你一眼，然后换个地方继续打。
+
+
+    后来我调了监控才发现，它是在偷看我奶奶晨练，看了一年，学会了。
+
+
+    现在大橘在我们小区已经出名了，每天早上都有人专门来看它打太极。
+
+
+    所以下次有人说"猫不如狗聪明"，你就告诉他：有一种猫，比你还会养生。'
+  duration_sec: 68.8
+  voice_emotion: 正常讲述
+  camera: static
+  bgm_section: main
+  avatar: null
+  material:
+    source: pexels
+    search: knowledge_lecture
+    transition_in: fade_in
+    transition_out: dissolve
+    fallback: true
+  subtitles: true

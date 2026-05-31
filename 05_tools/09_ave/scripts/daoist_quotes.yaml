@@ -1,0 +1,114 @@
+meta:
+  project_id: "daoist_001"
+  style: knowledge_lecture
+  voice:
+    provider: aliyun
+    voice_id: cosyvoice-v3.5-plus-bailian-f92cac2a41ce4fc78153c6097755a60e
+    default_emotion: 专业沉稳
+  bgm:
+    provider: chord_pad
+    genre: cinematic
+    tempo: 70
+    mood: calm
+  output:
+    resolution: 1080x1920
+    fps: 30
+segments:
+- id: 1
+  text: "道家思想，源远流长。今天和大家分享几句道家经典金句，一起感受古人的智慧。"
+  duration_sec: 10
+  voice_emotion: 专业沉稳
+  bgm_section: intro
+  material:
+    source: pexels
+    search: "chinese landscape"
+    transition_in: fade_in
+- id: 2
+  text: "上善若水，水善利万物而不争。——《道德经》最上等的善就像水一样，默默滋养万物，却从不争抢。"
+  duration_sec: 12
+  voice_emotion: 专业沉稳
+  bgm_section: main
+  material:
+    source: pexels
+    search: "water flow nature"
+- id: 3
+  text: "飘风不终朝，骤雨不终日。——《道德经》越是猛烈的狂风暴雨，越不会持久。那些和风细雨，反而悠远绵长。"
+  duration_sec: 12
+  voice_emotion: 专业沉稳
+  bgm_section: main
+  material:
+    source: pexels
+    search: "rain nature calm"
+- id: 4
+  text: "祸兮福之所倚，福兮祸之所伏。——《道德经》坏事中藏着好运，好事中也藏着危机。顺境莫得意，逆境莫灰心。"
+  duration_sec: 12
+  voice_emotion: 专业沉稳
+  bgm_section: main
+  material:
+    source: pexels
+    search: "yin yang balance"
+- id: 5
+  text: "大方无隅，大器晚成。——《道德经》最宏大的方正反而没有棱角，最贵重的器物反而最后完成。真正有价值的事，需要时间沉淀。"
+  duration_sec: 12
+  voice_emotion: 专业沉稳
+  bgm_section: main
+  material:
+    source: pexels
+    search: "sunset time"
+- id: 6
+  text: "吾生也有涯，而知也无涯。——《庄子》以有限的生命去追求无限的知识，是一件危险的事。不是不学，而是要有取舍。"
+  duration_sec: 12
+  voice_emotion: 专业沉稳
+  bgm_section: main
+  material:
+    source: pexels
+    search: "reading book wisdom"
+- id: 7
+  text: "举世誉之而不加劝，举世非之而不加沮。——《庄子》全世界都赞美你，不会更努力；全世界都批评你，不会更沮丧。内心坚定，不因外物动摇。"
+  duration_sec: 12
+  voice_emotion: 专业沉稳
+  bgm_section: climax
+  material:
+    source: pexels
+    search: "mountain peak sunrise"
+- id: 8
+  text: "人生天地之间，若白驹过隙，忽然而已。——《庄子》人生在天地之间，就像白色骏马闪过缝隙，转瞬即逝。珍惜当下。"
+  duration_sec: 12
+  voice_emotion: 专业沉稳
+  bgm_section: main
+  material:
+    source: pexels
+    search: "time lapse nature"
+- id: 9
+  text: "相濡以沫，不如相忘于江湖。——《庄子》与其在干涸的车辙里用口水互相湿润，不如各自在大江大湖里自由遨游。"
+  duration_sec: 10
+  voice_emotion: 专业沉稳
+  bgm_section: main
+  material:
+    source: pexels
+    search: "lake fish swimming"
+- id: 10
+  text: "致虚极，守静笃。——《道德经》当我们放下一切杂念，内心达到极致的虚空和宁静时，就能感受到大道的存在了。"
+  duration_sec: 12
+  voice_emotion: 专业沉稳
+  bgm_section: main
+  material:
+    source: pexels
+    search: "meditation peace"
+- id: 11
+  text: "正身直行，众邪自息。——《淮南子》自身端正，走得正行得直，各种邪门歪道自然就会消失。修身立本。"
+  duration_sec: 10
+  voice_emotion: 专业沉稳
+  bgm_section: main
+  material:
+    source: pexels
+    search: "bamboo forest path"
+- id: 12
+  text: "道法自然，无为而治。以上几句道家智慧，与君共勉。关注我，一起领悟更多人生智慧。"
+  duration_sec: 10
+  voice_emotion: 专业沉稳
+  bgm_section: outro
+  material:
+    source: pexels
+    search: "chinese calligraphy"
+    transition_out: fade_out

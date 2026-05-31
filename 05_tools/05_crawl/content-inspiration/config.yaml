@@ -1,0 +1,57 @@
+# 口播素材采集系统配置
+# 使用前请根据本机环境修改以下内容
+
+# 采集平台（目前支持 xiaohongshu / douyin / bilibili）
+platforms:
+  - xiaohongshu
+
+# 采集关键词列表
+keywords:
+  - "普通人逆袭"
+  - "情感故事"
+  - "科普冷知识"
+  - "电影解说结构"
+
+# 每个关键词每次采集的最大数量
+max_count: 20
+
+# 本地 AI 模型配置（oMLX，非 Ollama）
+llm:
+  model: "Qwen2.5-VL-3B-Instruct-8bit"
+  base_url: "http://localhost:8000/v1"
+  api_key: "omlx"
+  timeout: 120          # 每条分析超时秒数
+  temperature: 0.3      # 低温度保证输出稳定
+
+# 数据存储路径（相对于项目根目录）
+storage:
+  raw_dir: "data/raw"                    # JSONL 原始数据
+  db_path: "data/database.db"            # SQLite 数据库
+  media_dir: "~/workbuddy-agent-os/agent-local/materials/video"   # 下载的视频
+  audio_dir: "~/workbuddy-agent-os/agent-local/materials/audio"   # 下载的音频
+  logs_dir: "logs"                       # 运行日志
+
+# MediaCrawler 配置
+crawler:
+  # MediaCrawler 项目路径（需手动 clone）
+  # 安装方式：cd ~/workbuddy-agent-os/agent-sync/05_tools/05_crawl && git clone https://github.com/NanmiCoder/MediaCrawler.git
+  project_path: ""
+  # 浏览器模式：headless（后台） / headed（有界面，调试用）
+  browser_mode: "headless"
+  # 请求间隔（秒），防反爬
+  request_delay: 2
+
+# Web 界面配置
+web:
+  host: "127.0.0.1"
+  port: 7860
+  title: "口播灵感工坊"
+
+# 下载配置
+download:
+  # yt-dlp 下载速率限制，0 表示不限
+  rate_limit: "1M"
+  # 下载重试次数
+  retries: 3
+  # 文件名模板
+  filename_template: "{platform}_{uploader}_{title:.20s}_{upload_date}.{ext}"
