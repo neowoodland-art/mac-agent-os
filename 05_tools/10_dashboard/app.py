@@ -421,6 +421,19 @@ def api_git_sync():
         return {"success": False, "error": str(e)}
 
 
+@app.get("/matrix-mgmt")
+def matrix_mgmt_page():
+    """Matrix 管理前端页面"""
+    mgmt_path = _static_dir / "matrix_mgmt.html"
+    if mgmt_path.exists():
+        from fastapi.responses import HTMLResponse
+        content = mgmt_path.read_text(encoding="utf-8")
+        return HTMLResponse(content=content, headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+        })
+    return {"error": "matrix_mgmt.html not found"}
+
+
 @app.get("/api/health")
 def health():
     return {
@@ -693,6 +706,219 @@ def api_daily_summary():
         "machines": machines_report,
         "total_machines": len(machines_report),
     }
+
+
+# ═══════════════════════════════════════════════════════════
+# Matrix 管理 API (v3.0 新增)
+# ═══════════════════════════════════════════════════════════
+
+import importlib.util
+_MATRIX_MGMT_PATH = Path(__file__).resolve().parent.parent / "07_matrix" / "scripts" / "matrix_mgmt.py"
+
+def _init_matrix_mgmt():
+    """初始化 MatrixManager 实例"""
+    if not _MATRIX_MGMT_PATH.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("matrix_mgmt", _MATRIX_MGMT_PATH)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.MatrixManager()
+
+def _get_matrix_mgr():
+    mgr = _init_matrix_mgmt()
+    if mgr is None:
+        raise HTTPException(503, detail="matrix_mgmt module not found")
+    return mgr
+
+
+@app.get("/api/matrix/accounts")
+def api_matrix_accounts():
+    """列出所有账号及状态"""
+    try:
+        mgr = _get_matrix_mgr()
+        return {"accounts": mgr.list_accounts(), "total": len(mgr.list_accounts())}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.get("/api/matrix/accounts/{account_id}")
+def api_matrix_account(account_id: str):
+    """获取单个账号详情"""
+    try:
+        mgr = _get_matrix_mgr()
+        acct = mgr.get_account(account_id)
+        if not acct:
+            raise HTTPException(404, detail=f"账号 {account_id} 不存在")
+        return acct
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.post("/api/matrix/accounts")
+async def api_matrix_create_account(data: dict):
+    """创建新账号"""
+    try:
+        mgr = _get_matrix_mgr()
+        # 记录到日志
+        logger.info(f"Matrix: 创建账号 {data.get('id','')}")
+        return mgr.create_account(data)
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.put("/api/matrix/accounts/{account_id}")
+async def api_matrix_update_account(account_id: str, data: dict):
+    """更新账号"""
+    try:
+        mgr = _get_matrix_mgr()
+        logger.info(f"Matrix: 更新账号 {account_id}")
+        return mgr.update_account(account_id, data)
+    except ValueError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.delete("/api/matrix/accounts/{account_id}")
+def api_matrix_delete_account(account_id: str, delete_identity: bool = False):
+    """删除账号"""
+    try:
+        mgr = _get_matrix_mgr()
+        logger.info(f"Matrix: 删除账号 {account_id} (delete_identity={delete_identity})")
+        return mgr.delete_account(account_id, delete_identity)
+    except ValueError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.get("/api/matrix/accounts/{account_id}/login-status")
+def api_matrix_login_status(account_id: str):
+    """检查登录状态"""
+    try:
+        mgr = _get_matrix_mgr()
+        return mgr.check_login_status(account_id)
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.post("/api/matrix/nurture/start")
+async def api_matrix_nurture_start(data: dict):
+    """启动养号"""
+    try:
+        mgr = _get_matrix_mgr()
+        accounts = data.get("accounts", [])
+        rounds = data.get("rounds", 10)
+        daemon = data.get("daemon", False)
+        logger.info(f"Matrix: 启动养号 {accounts} rounds={rounds}")
+        return mgr.run_nurture(accounts, rounds, daemon)
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+# ── 原子操作 & 蓝图 ──
+
+@app.get("/api/matrix/atom-ops")
+def api_matrix_atom_ops():
+    """列出所有可用原子操作"""
+    try:
+        mgr = _get_matrix_mgr()
+        return {"ops": mgr.list_atomic_ops(), "total": len(mgr.list_atomic_ops())}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.get("/api/matrix/blueprints")
+def api_matrix_blueprints():
+    """列出所有蓝图"""
+    try:
+        mgr = _get_matrix_mgr()
+        return {"blueprints": mgr.list_blueprints(), "total": len(mgr.list_blueprints())}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.post("/api/matrix/blueprints")
+async def api_matrix_save_blueprint(data: dict):
+    """保存蓝图"""
+    try:
+        mgr = _get_matrix_mgr()
+        name = data.get("name", "")
+        if not name:
+            raise HTTPException(400, detail="蓝图名称必填")
+        logger.info(f"Matrix: 保存蓝图 {name}")
+        return mgr.save_blueprint(name, data)
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.delete("/api/matrix/blueprints/{name}")
+def api_matrix_delete_blueprint(name: str):
+    """删除蓝图"""
+    try:
+        mgr = _get_matrix_mgr()
+        return mgr.delete_blueprint(name)
+    except ValueError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.post("/api/matrix/blueprints/{name}/execute")
+async def api_matrix_execute_blueprint(name: str, data: dict):
+    """执行蓝图"""
+    try:
+        mgr = _get_matrix_mgr()
+        account_id = data.get("account", "")
+        if not account_id:
+            raise HTTPException(400, detail="account 必填")
+        logger.info(f"Matrix: 执行蓝图 {name} on {account_id}")
+        return mgr.execute_blueprint(name, account_id)
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+# ── 导入导出 ──
+
+@app.get("/api/matrix/export")
+def api_matrix_export():
+    """导出账号配置+Cookie为ZIP"""
+    try:
+        mgr = _get_matrix_mgr()
+        zip_path = mgr.export_accounts()
+        return {"status": "ok", "path": zip_path, "size_kb": round(os.path.getsize(zip_path) / 1024, 1)}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.post("/api/matrix/import")
+async def api_matrix_import(data: dict):
+    """从ZIP导入"""
+    try:
+        mgr = _get_matrix_mgr()
+        zip_path = data.get("path", "")
+        overwrite = data.get("overwrite", False)
+        if not zip_path:
+            raise HTTPException(400, detail="path 必填")
+        return mgr.import_accounts(zip_path, overwrite)
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.get("/api/matrix/system-info")
+def api_matrix_system_info():
+    """系统信息"""
+    try:
+        mgr = _get_matrix_mgr()
+        return mgr.system_info()
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
 
 
 if __name__ == "__main__":

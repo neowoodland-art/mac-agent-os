@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matrix 养号管理面板</title>
+<style>
+:root {
+  --bg: #0f1117; --bg2: #1a1d2e; --bg3: #232740;
+  --text: #e1e4f0; --text2: #8b8fa3;
+  --primary: #6366f1; --primary-dim: #4f46e5;
+  --green: #22c55e; --red: #ef4444; --amber: #f59e0b; --blue: #3b82f6;
+  --border: #2a2d3e; --radius: 10px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh; }
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+/* Header */
+.header { display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.header h1 { font-size: 22px; display: flex; align-items: center; gap: 10px; }
+.header h1 span { background: var(--primary); padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+.header-right { display: flex; gap: 8px; align-items: center; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+.tab { padding: 10px 20px; border-radius: 8px; cursor: pointer; background: var(--bg2);
+  color: var(--text2); border: 1px solid var(--border); font-size: 14px; transition: .15s; }
+.tab:hover { background: var(--bg3); color: var(--text); }
+.tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* Stats */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.stat-card { background: var(--bg2); border-radius: var(--radius); padding: 16px; border: 1px solid var(--border); }
+.stat-card .label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
+.stat-card .value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+.stat-card .sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+th { color: var(--text2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+tr:hover td { background: var(--bg3); }
+
+/* Badge */
+.badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
+.badge-green { background: rgba(34,197,94,.15); color: var(--green); }
+.badge-red { background: rgba(239,68,68,.15); color: var(--red); }
+.badge-amber { background: rgba(245,158,11,.15); color: var(--amber); }
+.badge-blue { background: rgba(59,130,246,.15); color: var(--blue); }
+.badge-gray { background: rgba(139,143,163,.15); color: var(--text2); }
+
+/* Buttons */
+.btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; transition: .15s; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dim); }
+.btn-danger { background: rgba(239,68,68,.2); color: var(--red); border: 1px solid rgba(239,68,68,.3); }
+.btn-danger:hover { background: rgba(239,68,68,.3); }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+.btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--bg3); }
+.btn-icon { background: none; border: none; color: var(--text2); cursor: pointer; padding: 4px 8px; }
+.btn-icon:hover { color: var(--text); }
+
+/* Sections */
+.card { background: var(--bg2); border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+.card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+.flex { display: flex; gap: 8px; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.gap-4 { gap: 16px; }
+.mt-4 { margin-top: 16px; }
+.mb-2 { margin-bottom: 8px; }
+.text-sm { font-size: 13px; }
+.text-xs { font-size: 11px; }
+.text-muted { color: var(--text2); }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+
+/* Form */
+input, select, textarea { background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 12px; border-radius: 6px; font-size: 13px; width: 100%; }
+input:focus, select:focus { outline: none; border-color: var(--primary); }
+label { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: block; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.7);
+  display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal-box { background: var(--bg2); border-radius: 12px; max-width: 700px; width: 100%;
+  max-height: 85vh; overflow-y: auto; padding: 24px; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.modal-header h2 { font-size: 18px; }
+
+/* Loading */
+.loading { text-align: center; padding: 40px; color: var(--text2); }
+.error { text-align: center; padding: 20px; color: var(--red); }
+.hidden { display: none !important; }
+
+/* Atom ops grid */
+.ops-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.op-card { background: var(--bg3); border-radius: 8px; padding: 12px; border: 1px solid var(--border); cursor: pointer; transition: .15s; }
+.op-card:hover { border-color: var(--primary); }
+.op-card.selected { border-color: var(--green); background: rgba(34,197,94,.1); }
+.op-card .op-name { font-size: 13px; font-weight: 600; }
+.op-card .op-type { font-size: 10px; color: var(--text2); margin-top: 2px; }
+.op-card .op-doc { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+/* Blueprint step list */
+.step-list { margin: 8px 0; }
+.step-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); gap: 8px; }
+.step-item .step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--primary);
+  color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+.step-item .step-name { flex: 1; font-size: 13px; }
+.step-item .step-del { cursor: pointer; color: var(--red); font-size: 16px; opacity: .6; }
+.step-item .step-del:hover { opacity: 1; }
+
+@media (max-width: 768px) {
+  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+  .container { padding: 12px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1>📱 Matrix 养号管理 <span>v3.0</span></h1>
+    <div class="header-right">
+      <span id="hostDisplay" style="font-size:12px;color:var(--text2)"></span>
+      <button class="btn btn-outline btn-sm" onclick="loadAll()">⟳ 刷新</button>
+      <button class="btn btn-outline btn-sm" onclick="window.location.href='/'">← 主面板</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="statsBar"></div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('accounts',this)">👤 账号管理</div>
+    <div class="tab" onclick="switchTab('blueprints',this)">📋 蓝图编排</div>
+    <div class="tab" onclick="switchTab('atomops',this)">⚡ 原子操作</div>
+    <div class="tab" onclick="switchTab('importexport',this)">📦 导入导出</div>
+  </div>
+
+  <!-- ═══════════════════ Accounts Panel ═══════════════════ -->
+  <div id="panel-accounts">
+    <div class="card">
+      <div class="card-title">
+        <span>账号列表</span>
+        <div class="flex">
+          <button class="btn btn-primary btn-sm" onclick="showCreateAccount()">+ 新建账号</button>
+          <button class="btn btn-outline btn-sm" onclick="loadAccounts()">⟳</button>
+        </div>
+      </div>
+      <div id="accountList"><div class="loading">加载中...</div></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ Blueprints Panel ═══════════════════ -->
+  <div id="panel-blueprints" class="hidden">
+    <div class="card">
+      <div class="card-title">
+        <span>蓝图列表</span>
+        <div class="flex">
+          <button class="btn btn-primary btn-sm" onclick="showCreateBlueprint()">+ 新建蓝图</button>
+          <button class="btn btn-outline btn-sm" onclick="loadBlueprints()">⟳</button>
+        </div>
+      </div>
+      <div id="blueprintList"><div class="loading">加载中...</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>蓝图编排器</span></div>
+      <div id="blueprintEditor">
+        <div style="padding:20px;text-align:center;color:var(--text2)">选择或新建蓝图开始编排</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ AtomOps Panel ═══════════════════ -->
+  <div id="panel-atomops" class="hidden">
+    <div class="card">
+      <div class="card-title">
+        <span>可用原子操作</span>
+        <span id="atomOpCount" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div id="atomOpList"><div class="loading">加载中...</div></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ Import/Export Panel ═══════════════════ -->
+  <div id="panel-importexport" class="hidden">
+    <div class="stats" style="grid-template-columns:1fr 1fr">
+      <div class="card" style="margin:0">
+        <div class="card-title"><span>📤 导出</span></div>
+        <p class="text-sm text-muted mb-2">导出本机所有账号配置 + Cookie + 指纹</p>
+        <button class="btn btn-primary" onclick="exportAccounts()">导出 ZIP</button>
+        <div id="exportResult" class="mt-4 text-sm"></div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="card-title"><span>📥 导入</span></div>
+        <p class="text-sm text-muted mb-2">从 ZIP 文件导入账号配置 + Cookie</p>
+        <div class="form-row">
+          <div>
+            <label>ZIP 文件路径</label>
+            <input id="importPath" placeholder="/tmp/matrix_export_20260531.zip">
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <button class="btn btn-primary" onclick="importAccounts()">导入</button>
+          <label class="text-sm" style="display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="importOverwrite"> 覆盖现有配置
+          </label>
+        </div>
+        <div id="importResult" class="mt-4 text-sm"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modalOverlay" class="modal-overlay hidden" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" id="modalContent"></div>
+</div>
+
+<script>
+const API = '';
+
+// ── Init ──
+loadAll();
+async function loadAll() {
+  loadSystemInfo();
+  loadAccounts();
+  loadBlueprints();
+  loadAtomOps();
+}
+async function loadSystemInfo() {
+  try {
+    const r = await fetch(`${API}/api/matrix/system-info`);
+    const info = await r.json();
+    document.getElementById('statsBar').innerHTML = `
+      <div class="stat-card"><div class="label">总账号</div><div class="value">${info.total_accounts}</div></div>
+      <div class="stat-card"><div class="label">已启用</div><div class="value" style="color:var(--green)">${info.enabled_accounts}</div></div>
+      <div class="stat-card"><div class="label">已登录</div><div class="value" style="color:var(--blue)">${info.logged_in_accounts}</div></div>
+      <div class="stat-card"><div class="label">身份目录</div><div class="value">${info.identity_dirs}</div></div>
+      <div class="stat-card"><div class="label">蓝图</div><div class="value" style="color:var(--amber)">${info.blueprints}</div></div>
+    `;
+    document.getElementById('hostDisplay').textContent = `v${info.matrix_version} | ${info.data_root}`;
+  } catch(e) {
+    document.getElementById('statsBar').innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
+}
+
+// ── Tab Switching ──
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['accounts','blueprints','atomops','importexport'].forEach(p => {
+    document.getElementById('panel-' + p).classList.toggle('hidden', p !== name);
+  });
+}
+
+// ════════════════════════════════════════════════════════
+// Account Management
+// ════════════════════════════════════════════════════════
+
+async function loadAccounts() {
+  const el = document.getElementById('accountList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await fetch(`${API}/api/matrix/accounts`);
+    const data = await r.json();
+    const accts = data.accounts || [];
+
+    if (!accts.length) {
+      el.innerHTML = '<div class="error" style="padding:30px">暂无账号配置</div>';
+      return;
+    }
+
+    el.innerHTML = `<table><thead><tr>
+      <th>ID</th><th>平台</th><th>手机</th><th>登录状态</th><th>身份目录</th><th>窗口</th><th>代理</th><th>操作</th>
+    </tr></thead><tbody>${accts.map(a => {
+      const statusBadge = a._status === 'logged_in' ? 'badge-green' :
+        a._status === 'no_cookie' || a._status === 'no_session' ? 'badge-amber' :
+        a._status === 'disabled' ? 'badge-gray' : 'badge-red';
+      const statusText = a._status === 'logged_in' ? '✅ 已登录' :
+        a._status === 'no_cookie' ? '⚠️ 无Cookie' :
+        a._status === 'no_session' ? '⚠️ 无Session' :
+        a._status === 'disabled' ? '⏸ 停用' :
+        a._status === 'empty_cookie' ? '⚠️ Cookie空' : '❌ ' + (a._status||'未知');
+      return `<tr>
+        <td><strong>${a.id}</strong></td>
+        <td>${a.platform === 'douyin' ? '🎵' : a.platform === 'xiaohongshu' ? '📕' : '❓'} ${a.platform}</td>
+        <td>${(a.phone||'-').slice(0,11)}</td>
+        <td><span class="badge ${statusBadge}">${statusText}</span></td>
+        <td class="text-sm text-muted truncate">${a.identity_dir||'-'}</td>
+        <td class="text-xs text-muted">${(a.window||['-','-']).join('×')}</td>
+        <td class="text-xs text-muted">${a.proxy||'-'}</td>
+        <td>
+          <button class="btn btn-sm btn-outline" onclick="showEditAccount('${a.id}')">编辑</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteAccount('${a.id}')">删除</button>
+          ${a.enabled ? `<button class="btn btn-sm btn-primary" onclick="startNurture('${a.id}')">养号</button>` : ''}
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  } catch(e) {
+    el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
+}
+
+function showCreateAccount() {
+  showModal(`
+    <div class="modal-header"><h2>+ 新建账号</h2></div>
+    <div class="form-row">
+      <div><label>账号ID *</label><input id="fa-id" placeholder="douyin_03"></div>
+      <div><label>平台 *</label>
+        <select id="fa-platform"><option value="douyin">抖音</option><option value="xiaohongshu">小红书</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label>手机号</label><input id="fa-phone" placeholder="185xxxx1234"></div>
+      <div><label>身份目录</label><input id="fa-identity" placeholder="留空自动生成"></div>
+    </div>
+    <div class="form-row-3">
+      <div><label>窗口宽</label><input id="fa-w" value="702" type="number"></div>
+      <div><label>窗口高</label><input id="fa-h" value="783" type="number"></div>
+      <div><label>代理(可选)</label><input id="fa-proxy" placeholder="socks5://..."></div>
+    </div>
+    <div class="form-row">
+      <div><label>窗口X位置</label><input id="fa-posx" value="0" type="number"></div>
+      <div><label>窗口Y位置</label><input id="fa-posy" value="0" type="number"></div>
+    </div>
+    <div class="flex mt-4">
+      <button class="btn btn-primary" onclick="createAccount()">创建</button>
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+    </div>
+  `);
+}
+
+async function createAccount() {
+  const data = {
+    id: document.getElementById('fa-id').value,
+    platform: document.getElementById('fa-platform').value,
+    phone: document.getElementById('fa-phone').value,
+    identity_dir: document.getElementById('fa-identity').value || undefined,
+    window: [parseInt(document.getElementById('fa-w').value)||702, parseInt(document.getElementById('fa-h').value)||783],
+    window_position: [parseInt(document.getElementById('fa-posx').value)||0, parseInt(document.getElementById('fa-posy').value)||0],
+    proxy: document.getElementById('fa-proxy').value || null,
+    enabled: true,
+  };
+  try {
+    const r = await fetch(`${API}/api/matrix/accounts`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data),
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail||'创建失败'); }
+    closeModal();
+    loadAccounts(); loadSystemInfo();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+function showEditAccount(id) {
+  fetch(`${API}/api/matrix/accounts/${id}`).then(r=>r.json()).then(a => {
+    showModal(`
+      <div class="modal-header"><h2>编辑账号: ${a.id}</h2></div>
+      <div class="form-row">
+        <div><label>平台</label>
+          <select id="fe-platform"><option value="douyin" ${a.platform==='douyin'?'selected':''}>抖音</option>
+          <option value="xiaohongshu" ${a.platform==='xiaohongshu'?'selected':''}>小红书</option></select>
+        </div>
+        <div><label>手机号</label><input id="fe-phone" value="${a.phone||''}"></div>
+      </div>
+      <div class="form-row">
+        <div><label>启用</label>
+          <select id="fe-enabled"><option value="true" ${a.enabled?'selected':''}>启用</option>
+          <option value="false" ${!a.enabled?'selected':''}>停用</option></select>
+        </div>
+        <div><label>身份目录</label><input id="fe-identity" value="${a.identity_dir||''}"></div>
+      </div>
+      <div class="form-row">
+        <div><label>备注</label><input id="fe-notes" value="${(a.notes||'').replace(/"/g,'&quot;')}"></div>
+        <div><label>代理</label><input id="fe-proxy" value="${a.proxy||''}"></div>
+      </div>
+      <div class="flex mt-4">
+        <button class="btn btn-primary" onclick="updateAccount('${a.id}')">保存</button>
+        <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      </div>
+    `);
+  }).catch(e => alert('❌ ' + e.message));
+}
+
+async function updateAccount(id) {
+  const data = {
+    platform: document.getElementById('fe-platform').value,
+    phone: document.getElementById('fe-phone').value,
+    enabled: document.getElementById('fe-enabled').value === 'true',
+    identity_dir: document.getElementById('fe-identity').value,
+    notes: document.getElementById('fe-notes').value,
+    proxy: document.getElementById('fe-proxy').value || null,
+  };
+  try {
+    const r = await fetch(`${API}/api/matrix/accounts/${id}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data),
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail||'更新失败'); }
+    closeModal();
+    loadAccounts();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+async function deleteAccount(id) {
+  if (!confirm(`确定删除账号 ${id}？\n(取消勾选保留身份目录)`)) return;
+  const delIdent = confirm(`同时删除身份目录 (含Cookie/指纹)？\n确定点"确定"，保留点"取消"`);
+  try {
+    const r = await fetch(`${API}/api/matrix/accounts/${id}?delete_identity=${delIdent}`, { method: 'DELETE' });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail||'删除失败'); }
+    loadAccounts(); loadSystemInfo();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+async function startNurture(id) {
+  if (!confirm(`启动养号: ${id} (10轮)？`)) return;
+  try {
+    const r = await fetch(`${API}/api/matrix/nurture/start`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({accounts: [id], rounds: 10, daemon: false}),
+    });
+    const res = await r.json();
+    alert(`✅ 已启动\n日志: ${res.log||'N/A'}`);
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ════════════════════════════════════════════════════════
+// Blueprints
+// ════════════════════════════════════════════════════════
+
+async function loadBlueprints() {
+  const el = document.getElementById('blueprintList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await fetch(`${API}/api/matrix/blueprints`);
+    const data = await r.json();
+    const bps = data.blueprints || [];
+
+    if (!bps.length) {
+      el.innerHTML = '<div class="error" style="padding:20px">暂无蓝图</div>';
+      return;
+    }
+
+    el.innerHTML = `<table><thead><tr>
+      <th>名称</th><th>类型</th><th>步骤数</th><th>平台</th><th>说明</th><th>操作</th>
+    </tr></thead><tbody>${bps.map(b => `<tr>
+      <td><strong>${b.name}</strong></td>
+      <td>${b.type||'综合'}</td>
+      <td><span class="badge badge-blue">${b.step_count}</span></td>
+      <td>${b.platform||'douyin'}</td>
+      <td class="text-sm text-muted truncate">${b.description||''}</td>
+      <td>
+        <button class="btn btn-sm btn-outline" onclick="editBlueprint('${b.name}')">编排</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteBlueprint('${b.name}')">删除</button>
+      </td>
+    </tr>`).join('')}</tbody></table>`;
+  } catch(e) {
+    el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
+}
+
+let currentEditingBlueprint = null;
+function showCreateBlueprint() {
+  currentEditingBlueprint = null;
+  showModal(`
+    <div class="modal-header"><h2>+ 新建蓝图</h2></div>
+    <div class="form-row">
+      <div><label>蓝图名称 *</label><input id="fb-name" placeholder="my_blueprint"></div>
+      <div><label>平台</label>
+        <select id="fb-platform"><option value="douyin">抖音</option><option value="xiaohongshu">小红书</option></select>
+      </div>
+    </div>
+    <div><label>说明</label><input id="fb-desc" placeholder="可选说明"></div>
+    <div class="section-title mt-4 mb-2" style="font-weight:600;font-size:14px">选择原子操作</div>
+    <div id="fb-ops-list" class="ops-grid"><div class="loading">加载原子操作...</div></div>
+    <div class="mt-4">
+      <label>已选步骤</label>
+      <div id="fb-steps" class="step-list" style="min-height:40px;border:1px dashed var(--border);padding:8px;border-radius:6px">
+        <div style="color:var(--text2);font-size:12px;text-align:center">点击上方操作添加到步骤</div>
+      </div>
+    </div>
+    <div class="flex mt-4">
+      <button class="btn btn-primary" onclick="saveBlueprint()">保存蓝图</button>
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+    </div>
+  `);
+  // Load ops into the modal
+  loadOpsForBuilder();
+}
+
+let blueprintSteps = [];
+async function loadOpsForBuilder() {
+  const el = document.getElementById('fb-ops-list');
+  if (!el) return;
+  try {
+    const r = await fetch(`${API}/api/matrix/atom-ops`);
+    const data = await r.json();
+    const ops = data.ops || [];
+    el.innerHTML = ops.map((o, i) => `<div class="op-card" onclick="addStep(${i},'${o.name}','${(o.doc||'').replace(/'/g,"\\'")}','${o.type}')">
+      <div class="op-name">${o.name}</div>
+      <div class="op-type">${o.type}</div>
+      <div class="op-doc">${o.doc||''}</div>
+    </div>`).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="error">加载失败</div>`;
+  }
+}
+
+function addStep(idx, name, doc, type) {
+  blueprintSteps.push({name, doc, type});
+  renderBlueprintSteps();
+}
+
+function removeStep(idx) {
+  blueprintSteps.splice(idx, 1);
+  renderBlueprintSteps();
+}
+
+function renderBlueprintSteps() {
+  const el = document.getElementById('fb-steps');
+  if (!el) return;
+  if (!blueprintSteps.length) {
+    el.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center">点击上方操作添加到步骤</div>';
+    return;
+  }
+  el.innerHTML = blueprintSteps.map((s, i) => `<div class="step-item">
+    <div class="step-num">${i+1}</div>
+    <div class="step-name">${s.name} <span class="text-xs text-muted">(${s.type})</span></div>
+    <div class="text-xs text-muted" style="flex:1">${s.doc||''}</div>
+    <div class="step-del" onclick="removeStep(${i})">✕</div>
+  </div>`).join('');
+}
+
+async function saveBlueprint() {
+  const name = document.getElementById('fb-name').value;
+  if (!name) { alert('请输入蓝图名称'); return; }
+  if (!blueprintSteps.length) { alert('请添加至少一个步骤'); return; }
+  const steps = blueprintSteps.map(s => ({name: s.name, type: s.type, description: s.doc}));
+  try {
+    const r = await fetch(`${API}/api/matrix/blueprints`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name: name,
+        description: document.getElementById('fb-desc').value,
+        platform: document.getElementById('fb-platform').value,
+        steps: steps,
+      }),
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail||'保存失败'); }
+    closeModal();
+    loadBlueprints();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+function editBlueprint(name) {
+  fetch(`${API}/api/matrix/blueprints`).then(r=>r.json()).then(data => {
+    const bp = (data.blueprints||[]).find(b => b.name === name);
+    if (!bp) { alert('蓝图不存在'); return; }
+    blueprintSteps = (bp.steps||[]).map(s => ({name: s.name||s, doc: s.description||'', type: s.type||''}));
+    showModal(`
+      <div class="modal-header"><h2>编排蓝图: ${name}</h2></div>
+      <div class="form-row">
+        <div><label>蓝图名称</label><input id="fb-name" value="${name}" disabled style="opacity:.6"></div>
+        <div><label>平台</label><select id="fb-platform"><option value="douyin">抖音</option><option value="xiaohongshu">小红书</option></select></div>
+      </div>
+      <div><label>说明</label><input id="fb-desc" value="${(bp.description||'').replace(/"/g,'&quot;')}"></div>
+      <div class="mt-4 mb-2" style="font-weight:600;font-size:14px">📋 步骤列表</div>
+      <div id="fb-steps" class="step-list" style="min-height:40px;border:1px dashed var(--border);padding:8px;border-radius:6px"></div>
+      <div class="mt-4" style="font-weight:600;font-size:14px">可用操作</div>
+      <div id="fb-ops-list" class="ops-grid"><div class="loading">加载中...</div></div>
+      <div class="flex mt-4">
+        <button class="btn btn-primary" onclick="saveBlueprint()">保存</button>
+        <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      </div>
+    `);
+    renderBlueprintSteps();
+    loadOpsForBuilder();
+  }).catch(e => alert('❌ ' + e.message));
+}
+
+async function deleteBlueprint(name) {
+  if (!confirm(`确定删除蓝图 ${name}？`)) return;
+  try {
+    const r = await fetch(`${API}/api/matrix/blueprints/${name}`, { method: 'DELETE' });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail||'删除失败'); }
+    loadBlueprints();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ════════════════════════════════════════════════════════
+// Atom Ops
+// ════════════════════════════════════════════════════════
+
+async function loadAtomOps() {
+  const el = document.getElementById('atomOpList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await fetch(`${API}/api/matrix/atom-ops`);
+    const data = await r.json();
+    const ops = data.ops || [];
+    document.getElementById('atomOpCount').textContent = `共 ${ops.length} 个操作`;
+
+    if (!ops.length) {
+      el.innerHTML = '<div class="error" style="padding:20px">暂无原子操作</div>';
+      return;
+    }
+
+    // Group by type
+    const groups = {};
+    ops.forEach(o => {
+      const type = o.type || '通用';
+      if (!groups[type]) groups[type] = [];
+      groups[type].push(o);
+    });
+
+    el.innerHTML = Object.entries(groups).map(([type, items]) => `
+      <div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2)">${type === 'douyin' ? '🎵 抖音' : type === 'xhs' ? '📕 小红书' : '⚙️ ' + type} (${items.length})</div>
+        <div class="ops-grid">${items.map(o => `<div class="op-card" style="cursor:default">
+          <div class="op-name">${o.name}</div>
+          <div class="op-type">${o.source||o.type}</div>
+          <div class="op-doc">${o.doc||'-'}</div>
+        </div>`).join('')}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// Import/Export
+// ════════════════════════════════════════════════════════
+
+async function exportAccounts() {
+  const el = document.getElementById('exportResult');
+  el.innerHTML = '<div class="loading">导出中...</div>';
+  try {
+    const r = await fetch(`${API}/api/matrix/export`);
+    const res = await r.json();
+    el.innerHTML = `<div style="padding:10px;background:rgba(34,197,94,.1);border-radius:6px">
+      ✅ 导出成功<br>
+      <span class="text-sm">路径: ${res.path}</span><br>
+      <span class="text-sm">大小: ${res.size_kb} KB</span>
+    </div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
+}
+
+async function importAccounts() {
+  const path = document.getElementById('importPath').value;
+  if (!path) { alert('请输入ZIP文件路径'); return; }
+  const el = document.getElementById('importResult');
+  el.innerHTML = '<div class="loading">导入中...</div>';
+  const overwrite = document.getElementById('importOverwrite').checked;
+  try {
+    const r = await fetch(`${API}/api/matrix/import`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({path, overwrite}),
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail||'导入失败'); }
+    const res = await r.json();
+    el.innerHTML = `<div style="padding:10px;background:rgba(34,197,94,.1);border-radius:6px">
+      ✅ 导入完成<br>
+      <span class="text-sm">账号配置: ${res.accounts_imported}</span><br>
+      <span class="text-sm">身份目录: ${res.identities_imported}</span>
+      ${res.warnings.length ? '<br><span style="color:var(--amber)">⚠️ ' + res.warnings.join(', ') + '</span>' : ''}
+    </div>`;
+    loadAccounts(); loadSystemInfo();
+  } catch(e) {
+    el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// Modal utilities
+// ════════════════════════════════════════════════════════
+
+function showModal(html) {
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.add('hidden');
+  blueprintSteps = [];
+}
+</script>
+</body>
+</html>
