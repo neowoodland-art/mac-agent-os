@@ -618,23 +618,23 @@ T+1天: 机器C下线
 | 2.5 | create/update/delete: 操作后更新 WPRA | `matrix_mgmt.py` | ✅ |
 | 2.6 | 修复硬编码 `/Users/5kecheng/` 路径 | `matrix_mgmt.py` | ✅ |
 
-### Phase 3：Dashboard 读聚合适配
+### Phase 3：Dashboard 读聚合适配（已完成 ✅）
 
-| # | 任务 | 涉及文件 | 风险 |
+| # | 任务 | 涉及文件 | 状态 |
 |:-:|:-----|:---------|:----:|
-| 3.1 | Dashboard: _registry.py 改为遍历 machines/*/ | `_registry.py` | 低 |
-| 3.2 | Dashboard: guardd 插件改为读新格式 | `plugins/guardd.py` | 低 |
-| 3.3 | Guardd: 增加 events/ 写入能力 | `guardd.py` | 低 |
+| 3.1 | Dashboard: _registry.py WPRA 优先读 `machines/*/` | `_registry.py` | ✅ v2.0 |
+| 3.2 | Dashboard: guardd 插件 WPRA 心跳路径 | `plugins/guardd.py` | ✅ v3.1 |
+| 3.3 | Guardd: 增加 events/ 写入能力 | `guardd.py` | ✅ Phase 1 |
 
-### Phase 4：旧数据清理
+### Phase 4：旧数据清理（已完成 ✅）
 
-| # | 任务 | 涉及文件 | 风险 |
+| # | 任务 | 涉及文件 | 状态 |
 |:-:|:-----|:---------|:----:|
-| 4.1 | 确认新系统稳定运行 1 周 | — | — |
-| 4.2 | 迁移旧 registry 文件 | `registry/*.json` | 低 |
-| 4.3 | 删除旧 `_registry.json` | `status/live/_registry.json` | 低 |
-| 4.4 | 删除旧 `accounts_registry.yaml` | `07_matrix/accounts_registry.yaml` | 低 |
-| 4.5 | 归档旧 `status/{hostname}/` 目录 | `status/chengzigedeAir/` 等 | 低 |
+| 4.1 | 确认新系统稳定运行 1 周 | — | ⏳ 等待中 (目标: 2026-06-07) |
+| 4.2 | 归档旧 registry 文件 | `registry/*.json` → `registry/_archive/` | ✅ |
+| 4.3 | 删除旧 `_registry.json` | `status/live/_registry.json` | ⏳ 等待 4.1 |
+| 4.4 | 删除旧 `accounts_registry.yaml` | `07_matrix/accounts_registry.yaml` | ⏳ 已标记废弃，等待 4.1 |
+| 4.5 | 归档旧 `status/{hostname}/` 目录 | `status/chengzigedeAir/` 等 → `status/_archive/` | ✅ |
 
 ### Phases 5：文档化与标准化
 

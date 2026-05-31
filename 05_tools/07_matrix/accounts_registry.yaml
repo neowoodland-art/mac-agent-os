@@ -1,5 +1,13 @@
+# ═══════════════════════════════════════════════════════════════
+# ⚠️ 已废弃 (DEPRECATED) — WPRA v2.0 迁移到 machines/*/accounts.yaml
+#
+# 此文件不再作为数据源写入。新架构每台机器只写自己的
+# machines/{machine_uid}/accounts.yaml，Dashboard 读聚合。
+# 本文件保留作为回退读取 (fallback)，不删除。
+# 预计清理日期: 2026-06-07 (稳定运行 1 周后)
+# ═══════════════════════════════════════════════════════════════
 version: '1.0'
-last_updated: 2026-05-31 11:09
+last_updated: 2026-05-31 11:09 (已废弃)
 accounts:
 - id: douyin_01
   platform: douyin
