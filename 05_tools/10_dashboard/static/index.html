@@ -14,10 +14,20 @@
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
-.sidebar { width: 175px; background: var(--bg2); padding: 16px 10px;
-  border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
-.sidebar h1 { font-size: 15px; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; white-space:nowrap; }
+  background: #0f1117; color: #e1e4f0; min-height: 100vh; display: flex; }
+.sidebar { width: 175px; background: #1a1d2e; padding: 16px 10px;
+  border-right: 1px solid #2a2d3e; display: flex; flex-direction: column; flex-shrink: 0;
+  overflow-y: auto; max-height: 100vh; }
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 2px; }
+.sidebar.collapsed { width: 56px; }
+.sidebar.collapsed .nav-item span, .sidebar.collapsed .nav-group,
+.sidebar.collapsed .nav-sub, .sidebar.collapsed #identityBar { display: none; }
+.sidebar.collapsed h1 span { display: none; }
+.sidebar.collapsed .nav-item { justify-content: center; padding: 7px 0; font-size: 16px; }
+.sidebar.collapsed + .main { margin-left: 0; }
+.sidebar h1 { font-size: 15px; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; white-space:nowrap; cursor: pointer; }
+.sidebar h1:hover { opacity: .7; }
 .sidebar h1 span { background: var(--primary); padding: 1px 6px; border-radius: 4px; font-size: 10px; }
 .nav-item { padding: 7px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 2px;
   color: var(--text2); transition: .15s; display: flex; align-items: center; gap: 8px; font-size: 13px; }
@@ -28,7 +38,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .nav-sub { padding: 6px 12px 6px 32px; border-radius: 6px; cursor: pointer; margin-bottom: 2px;
   color: var(--text2); transition: .15s; display: flex; align-items: center; gap: 8px; font-size: 12px; }
 .nav-sub:hover { background: var(--bg3); color: var(--text); }
-.nav-sub.active { background: rgba(99,102,241,.12); color: var(--primary); }
+.nav-sub.active { background: rgba(99,102,241,.12); color: #6366f1; }
+
+/* Collapsible groups */
+.nav-group-header { font-size: 10px; color: #8b8fa3; text-transform: uppercase; letter-spacing: .6px;
+  padding: 12px 12px 4px; font-weight: 600; opacity: .6; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  transition: .15s; user-select: none; }
+.nav-group-header:hover { opacity: 1; color: #e1e4f0; }
+.nav-group-body { overflow: hidden; transition: max-height .2s ease; max-height: 800px; }
+.nav-group-body.collapsed { max-height: 0; }
 .main { flex: 1; padding: 24px 32px; overflow-y: auto; max-height: 100vh; }
 
 /* Stats */
@@ -112,8 +130,8 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 </style>
 </head>
 <body>
-<nav class="sidebar">
-  <h1>🖥 AgentOS <span style="font-size:10px;margin-left:4px">v4</span></h1>
+<nav class="sidebar" id="sidebar">
+  <h1 onclick="toggleSidebar()">🖥 AgentOS <span style="font-size:10px;margin-left:4px">v4</span></h1>
   <div id="identityBar" style="margin-bottom:12px;padding:6px 10px;background:var(--bg3);border-radius:8px;font-size:10px;color:var(--text2);line-height:1.6">
     <div id="identityHostname"></div>
     <div id="identityMeta" style="opacity:.7"></div>
@@ -223,6 +241,54 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     <span id="matrixAtomOpCount" style="font-size:13px;color:var(--text2)"></span>
   </div>
   <div id="matrixAtomOpsContent"><div class="loading">加载中...</div></div>
+</div>
+
+<!-- Matrix C2 remote control view -->
+<div id="view-matrix-c2" class="hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:18px">🎮 远程控制</h2>
+    <button class="btn btn-outline btn-sm" onclick="loadC2Machines()" style="background:#1a1d2e;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 12px;border-radius:6px;cursor:pointer">⟳ 刷新</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div style="background:#1a1d2e;border-radius:10px;padding:20px;border:1px solid #2a2d3e">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px">🎮 发送命令</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div><label style="font-size:11px;color:#8b8fa3;display:block;margin-bottom:2px">目标机器</label>
+          <select id="c2Target" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100%"><option>加载中...</option></select></div>
+        <div><label style="font-size:11px;color:#8b8fa3;display:block;margin-bottom:2px">命令类型</label>
+          <select id="c2Type" onchange="toggleC2Params()" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100%">
+            <option value="check_environment">环境检查</option>
+            <option value="nurture_run">启动养号</option>
+            <option value="nurture_stop">停止养号</option>
+            <option value="refresh_profiles">刷新资料</option>
+            <option value="sync_only">Git同步</option>
+          </select></div>
+        <div><label style="font-size:11px;color:#8b8fa3;display:block;margin-bottom:2px">定时</label>
+          <input id="c2Schedule" type="datetime-local" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
+      </div>
+      <div id="c2NurtureParams" class="hidden">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div><label style="font-size:11px;color:#8b8fa3;display:block;margin-bottom:2px">账号 (逗号分隔)</label>
+            <input id="c2Accounts" placeholder="douyin_01,xhs_01" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
+          <div><label style="font-size:11px;color:#8b8fa3;display:block;margin-bottom:2px">轮次</label>
+            <input id="c2Rounds" type="number" value="10" min="1" max="50" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="sendC2Command()" style="background:#6366f1;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">➡ 发送</button>
+        <button onclick="loadC2Machines()" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">⟳ 刷新状态</button>
+      </div>
+      <div id="c2Result" class="mt-4"></div>
+    </div>
+    <div style="background:#1a1d2e;border-radius:10px;padding:20px;border:1px solid #2a2d3e">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px">💻 机器状态</div>
+      <div id="c2MachineStatus"><div style="text-align:center;padding:20px;color:#8b8fa3;font-size:13px">加载中...</div></div>
+    </div>
+  </div>
+  <div style="background:#1a1d2e;border-radius:10px;padding:20px;border:1px solid #2a2d3e">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px">📋 命令执行历史</div>
+    <div id="c2CommandHistory"><div style="text-align:center;padding:20px;color:#8b8fa3;font-size:13px">暂无历史</div></div>
+  </div>
 </div>
 
 <!-- Matrix backup view -->
@@ -372,6 +438,19 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 // ── State ──
 const API = '';
 let currentView = 'productions';
+
+// ── Sidebar ──
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+}
+function toggleGroup(el) {
+  const body = el.nextElementSibling;
+  if (!body || !body.classList) return;
+  const isCollapsed = body.classList.toggle('collapsed');
+  el.dataset.collapsed = isCollapsed ? 'true' : 'false';
+  el.querySelector('span:last-child').textContent = isCollapsed ? '▶' : '▼';
+}
 let currentPage = 0;
 const PAGE_SIZE = 30;
 let searchTimer;
@@ -403,7 +482,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-summary','matrix-accounts','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export'];
+  const matrixSubViews = ['matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -434,7 +513,7 @@ function switchView(view) {
 
   // 视图显隐
   const viewIds = ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-                   'matrix-summary','matrix-accounts','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export'];
+                   'matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export'];
   viewIds.forEach(v => {
     document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
   });
@@ -740,51 +819,59 @@ async function loadPlugins() {
     const plugins = res.plugins || [];
     // 旧兼容: 忽略不存在的 pluginBadge/pluginCount
 
-    // 构建分组侧边栏
+    // 构建分组侧边栏 (可折叠)
     let html = '';
+    const groups = {
+      '通用': { icon: '📊', items: [
+        {view:'summary', label:'概览'},
+        {view:'machines', label:'机器状态'},
+        {view:'alerts', label:'告警中心'},
+      ]},
+      '生产': { icon: '🎬', items: [
+        {view:'productions', label:'生产列表'},
+        {view:'plugin-ave', label:'视频工厂', sub:[
+          {view:'characters', label:'角色管理'},
+          {view:'char-gen', label:'角色生成'},
+          {view:'capabilities', label:'原子能力'},
+          {view:'workflow', label:'工作流'},
+        ]},
+        ...plugins.filter(p => p.name !== 'guardd' && p.name !== 'ave' && p.name !== 'matrix')
+          .map(p => ({view:'plugin-'+p.name, label: (p.icon||'📦')+' '+p.label})),
+      ]},
+      '矩阵': { icon: '📱', items: [
+        {view:'matrix-summary', label:'多机总览'},
+        {view:'matrix-accounts', label:'账号管理'},
+        {view:'matrix-c2', label:'远程控制'},
+        {view:'matrix-blueprints', label:'蓝图编排'},
+        {view:'matrix-atom-ops', label:'原子操作'},
+        {view:'matrix-backup', label:'备份恢复'},
+        {view:'matrix-export', label:'导入导出'},
+      ]},
+      '知识': { icon: '📚', items: [
+        {view:'plugin-knowledge', label:'知识库'},
+        {view:'plugin-skills', label:'技能树'},
+      ]},
+      '系统': { icon: '⚙️', items: [
+        {view:'plugin-tools', label:'工具集'},
+        {view:'plugin-system', label:'系统核心'},
+      ]},
+    };
 
-    // ── 通用组 ──
-    html += `<div class="nav-group">📊 通用</div>`;
-    html += `<div class="nav-item" data-view="summary" onclick="switchView('summary')">📊 概览</div>`;
-    html += `<div class="nav-item" data-view="machines" onclick="switchView('machines')">🖥 机器状态</div>`;
-    html += `<div class="nav-item" data-view="alerts" onclick="switchView('alerts')">🔔 告警</div>`;
-
-    // ── 生产组 ──
-    html += `<div class="nav-group">🎬 生产</div>`;
-    html += `<div class="nav-item" data-view="productions" onclick="switchView('productions')">📋 生产列表</div>`;
-
-    // 视频工厂（带动画展开子项）
-    html += `<div class="nav-item" data-view="plugin-ave" onclick="switchView('plugin-ave')">🎬 视频工厂</div>`;
-    html += `<div class="nav-sub" data-group="ave" data-view="characters" onclick="switchView('characters')" style="display:none">🧑 角色管理</div>`;
-    html += `<div class="nav-sub" data-group="ave" data-view="char-gen" onclick="switchView('char-gen')" style="display:none">🎭 角色生成</div>`;
-    html += `<div class="nav-sub" data-group="ave" data-view="capabilities" onclick="switchView('capabilities')" style="display:none">⚡ 原子能力</div>`;
-    html += `<div class="nav-sub" data-group="ave" data-view="workflow" onclick="switchView('workflow')" style="display:none">🔀 工作流编辑器</div>`;
-
-    // 其他生产插件
-    plugins.forEach(p => {
-      if (p.name === 'guardd' || p.name === 'ave' || p.name === 'matrix') return;
-      const icon = p.icon || '📦';
-      html += `<div class="nav-item" data-view="plugin-${p.name}" onclick="switchView('plugin-${p.name}')">${icon} ${p.label}</div>`;
-    });
-
-    // ── 矩阵养号（带动画展开子项）──
-    html += `<div class="nav-item" data-view="plugin-matrix" onclick="switchView('plugin-matrix')">📱 矩阵养号</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-summary" onclick="switchView('matrix-summary')" style="display:none">📊 多机总览</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-accounts" onclick="switchView('matrix-accounts')" style="display:none">👤 账号管理</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-blueprints" onclick="switchView('matrix-blueprints')" style="display:none">📋 蓝图编排</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-atom-ops" onclick="switchView('matrix-atom-ops')" style="display:none">⚡ 原子操作库</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-backup" onclick="switchView('matrix-backup')" style="display:none">💾 备份恢复</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-export" onclick="switchView('matrix-export')" style="display:none">📦 导入导出</div>`;
-
-    // ── 知识组 ──
-    html += `<div class="nav-group">📚 知识</div>`;
-    html += `<div class="nav-item" data-view="plugin-knowledge" onclick="switchView('plugin-knowledge')">📚 知识库</div>`;
-    html += `<div class="nav-item" data-view="plugin-skills" onclick="switchView('plugin-skills')">🧩 技能树</div>`;
-
-    // ── 系统组 ──
-    html += `<div class="nav-group">⚙️ 系统</div>`;
-    html += `<div class="nav-item" data-view="plugin-tools" onclick="switchView('plugin-tools')">🔧 工具集</div>`;
-    html += `<div class="nav-item" data-view="plugin-system" onclick="switchView('plugin-system')">⚙️ 系统核心</div>`;
+    for (const [gname, g] of Object.entries(groups)) {
+      html += `<div class="nav-group-header" onclick="toggleGroup(this)" data-collapsed="false">${g.icon} ${gname} <span style="float:right;font-size:10px;opacity:.5">▼</span></div>`;
+      html += `<div class="nav-group-body">`;
+      for (const item of g.items) {
+        if (item.sub) {
+          html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
+          for (const sub of item.sub) {
+            html += `<div class="nav-sub" data-group="${item.view.replace('plugin-','')}" data-view="${sub.view}" onclick="switchView('${sub.view}')" style="display:none">${sub.label}</div>`;
+          }
+        } else {
+          html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
+        }
+      }
+      html += `</div>`;
+    }
 
     html += `<div class="nav-item" data-view="timeline" onclick="switchView('timeline')" style="display:none">📈 时间线</div>`;
 
@@ -894,20 +981,29 @@ async function loadMatrixAccounts() {
     const accts = d.accounts || [];
     if (!accts.length) { el.innerHTML = '<div class="error">暂无账号</div>'; return; }
     el.innerHTML = `<table><thead><tr>
-      <th>ID</th><th>平台</th><th>手机</th><th>状态</th><th>身份目录</th><th>归属</th><th>操作</th>
+      <th>ID</th><th>平台</th><th>手机</th><th>归属机器</th><th>状态</th><th>昵称</th><th>身份目录</th><th>操作</th>
     </tr></thead><tbody>${accts.map(a => {
-      const s = a._status === 'logged_in' ? '<span class="badge badge-green">✅ 已登录</span>'
-        : a._status === 'remote' ? '<span class="badge badge-gray">📡 远程</span>'
-        : a._status === 'disabled' ? '<span class="badge badge-gray">⏸ 停用</span>'
-        : `<span class="badge badge-amber">⚠️ ${a._status}</span>`;
+      const s = a._status === 'logged_in' ? '<span class="badge badge-green" style="background:rgba(34,197,94,.15);color:#22c55e;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">✅ 已登录</span>'
+        : a._status === 'remote' ? '<span class="badge badge-gray" style="background:rgba(139,143,163,.15);color:#8b8fa3;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">📡 远程</span>'
+        : a._status === 'disabled' ? '<span class="badge badge-gray" style="background:rgba(139,143,163,.15);color:#8b8fa3;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⏸ 停用</span>'
+        : `<span class="badge badge-amber" style="background:rgba(245,158,11,.15);color:#f59e0b;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⚠️ ${a._status}</span>`;
+      const platformIcon = a.platform === 'douyin' ? '🎵' : (a.platform === 'xiaohongshu' ? '📕' : '🌐');
+      const machineLabel = a.is_local
+        ? '<span style="color:#6366f1;font-size:12px">💻 本机</span>'
+        : '<span style="color:#8b8fa3;font-size:12px">📡 '+(a.owner_machine||'远程')+'</span>';
       return `<tr>
         <td><strong>${a.id}</strong></td>
-        <td>${a.platform==='douyin'?'🎵':'📕'} ${a.platform}</td>
-        <td>${(a.phone||a.phone_mask||'-').slice(0,11)}</td>
+        <td>${platformIcon} ${a.platform}</td>
+        <td style="font-family:monospace;font-size:12px">${(a.phone||a.phone_mask||'-').slice(0,11)}</td>
+        <td>${machineLabel}</td>
         <td>${s}</td>
-        <td class="text-xs text-muted">${a.identity_dir||'-'}</td>
-        <td style="font-size:11px">${a.is_local ? '🟢 本机' : '📡 '+(a.owner_machine||'远程')}</td>
-        <td>${a.is_local ? `<button class="btn btn-sm btn-outline" onclick="editDialog('${a.id}')">编辑</button>` : '<span class="text-xs text-muted">-</span>'}</td>
+        <td style="font-size:12px;color:#8b8fa3;max-width:120px;overflow:hidden;text-overflow:ellipsis">${a.display_name || '-'}</td>
+        <td style="font-size:11px;color:#8b8fa3">${a.identity_dir ? a.identity_dir.split('/').pop() : '-'}</td>
+        <td>${a.is_local
+          ? `<button class="btn btn-sm" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px" onclick="alert('编辑: ${a.id}')">编辑</button>
+             <button class="btn btn-sm" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;margin-left:4px" onclick="c2Nurture('${a.id}')">养号</button>`
+          : '<span style="font-size:11px;color:#8b8fa3">-</span>'}
+        </td>
       </tr>`;
     }).join('')}</tbody></table>`;
   } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
@@ -2820,6 +2916,110 @@ async function loadPluginView(name) {
   } catch(e) {
     el.innerHTML = '<div class="error">加载失败: ' + e.message + '</div>';
   }
+}
+
+// ════════════════════════════════════════════════════════
+// C2 Remote Control
+// ════════════════════════════════════════════════════════
+
+function toggleC2Params() {
+  const type = document.getElementById('c2Type')?.value;
+  const el = document.getElementById('c2NurtureParams');
+  if (el) el.style.display = type === 'nurture_run' ? 'block' : 'none';
+}
+
+async function loadC2Machines() {
+  const targetEl = document.getElementById('c2Target');
+  const statusEl = document.getElementById('c2MachineStatus');
+  if (!statusEl) return;
+  statusEl.innerHTML = '<div style="text-align:center;padding:20px;color:#8b8fa3">加载中...</div>';
+  try {
+    const r = await fetch('/api/c2/machines');
+    const d = await r.json();
+    if (targetEl) targetEl.innerHTML = '<option value="">选择机器...</option>' +
+      d.machines.map(m => '<option value="'+m+'">'+m+(m==='chengzigedeAir'?' (本机)':'')+'</option>').join('');
+
+    let html = '';
+    for (const m of d.machines) {
+      try {
+        const sr = await fetch('/api/c2/environment/'+encodeURIComponent(m));
+        const st = await sr.json();
+        if (st.output) {
+          const o = st.output;
+          html += '<div style="padding:8px 0;border-bottom:1px solid #2a2d3e;font-size:12px;display:flex;justify-content:space-between">' +
+            '<strong>'+m+'</strong>' +
+            '<span>'+(o.guardd_running ? '✅ guardd运行' : '❌ guardd停')+' · 💾'+ (o.disk_avail_gb||'?')+'G' +' · 📱'+(o.matrix_accounts||'?')+'账号</span></div>';
+        } else {
+          html += '<div style="padding:8px 0;border-bottom:1px solid #2a2d3e;font-size:12px">'+m+' · '+ (st.status||'未知') +'</div>';
+        }
+      } catch(e) {
+        html += '<div style="padding:8px 0;border-bottom:1px solid #2a2d3e;font-size:12px;color:#f59e0b">'+m+' · ⏳ 查询超时</div>';
+      }
+    }
+    statusEl.innerHTML = html || '<div style="text-align:center;padding:20px;color:#8b8fa3">无机器数据</div>';
+  } catch(e) {
+    statusEl.innerHTML = '<div style="padding:20px;color:#ef4444">'+e.message+'</div>';
+  }
+}
+
+async function sendC2Command() {
+  const target = document.getElementById('c2Target')?.value;
+  const type = document.getElementById('c2Type')?.value;
+  const schedule = document.getElementById('c2Schedule')?.value;
+  const resultEl = document.getElementById('c2Result');
+  if (!resultEl) return;
+  if (!target || !type) { resultEl.innerHTML = '<div style="color:#ef4444;font-size:13px;padding:8px">请选择目标和命令类型</div>'; return; }
+
+  const params = {};
+  if (type === 'nurture_run') {
+    params.accounts = (document.getElementById('c2Accounts')?.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    params.rounds = parseInt(document.getElementById('c2Rounds')?.value) || 10;
+  }
+
+  resultEl.innerHTML = '<div style="text-align:center;padding:10px;color:#8b8fa3">发送中...</div>';
+  try {
+    const r = await fetch('/api/c2/send', {method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({target,type,params,schedule_at:schedule||null})});
+    const res = await r.json();
+    const ch = res._channel || 'git';
+    resultEl.innerHTML = '<div style="padding:8px;background:rgba(34,197,94,.1);border-radius:6px;font-size:13px;color:#22c55e">' +
+      (ch==='http'?'⚡':'📤')+' 命令已发送 通道:'+ch+' 状态:'+(res.status||'?')+'<br>'+
+      (res.message||'')+(res.command_id?'<br>ID:'+res.command_id:'')+'</div>';
+    loadC2History();
+  } catch(e) {
+    resultEl.innerHTML = '<div style="color:#ef4444;font-size:13px;padding:8px">'+e.message+'</div>';
+  }
+}
+
+async function loadC2History() {
+  const el = document.getElementById('c2CommandHistory');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/c2/commands');
+    const d = await r.json();
+    const cmds = d.recent || [];
+    if (!cmds.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:#8b8fa3;font-size:13px">暂无执行历史</div>'; return; }
+    el.innerHTML = '<table><thead><tr><th>类型</th><th>目标</th><th>状态</th><th>时间</th><th>结果</th></tr></thead><tbody>' +
+      cmds.slice(0,20).map(c => {
+        const st = c.status||'?';
+        const cl = st==='completed' ? '#22c55e' : (st==='failed'?'#ef4444':'#f59e0b');
+        const out = c.output ? (c.output.accounts?c.output.accounts.join(','):Object.keys(c.output).slice(0,3).join('|')) : (c.error||'-');
+        const ts = (c.completed_at||c.created_at||'').slice(0,19).replace('T',' ');
+        return '<tr><td style="font-weight:600">'+c.type+'</td><td>'+(c.target_machine||'-')+'</td>' +
+          '<td><span style="color:'+cl+'">●</span> '+st+'</td><td style="font-size:11px;color:#8b8fa3">'+ts+'</td>' +
+          '<td style="font-size:11px;color:#8b8fa3;max-width:150px;overflow:hidden;text-overflow:ellipsis">'+String(out).slice(0,40)+'</td></tr>';
+      }).join('') + '</tbody></table>';
+  } catch(e) {
+    el.innerHTML = '<div style="padding:20px;color:#ef4444">'+e.message+'</div>';
+  }
+}
+
+function c2Nurture(accountId) {
+  document.getElementById('c2Target').value = 'chengzigedeAir';
+  document.getElementById('c2Type').value = 'nurture_run';
+  document.getElementById('c2Accounts').value = accountId;
+  document.getElementById('c2NurtureParams').style.display = 'block';
+  switchView('matrix-c2');
 }
 </script>
 </body>
