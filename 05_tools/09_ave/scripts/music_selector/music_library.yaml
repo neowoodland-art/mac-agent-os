@@ -1,0 +1,81 @@
+# BGM 音乐库 — 漫剧视频工厂 v1.0
+# 分类管理所有可用 BGM
+
+categories:
+  trending:        # 🔥 当前热门（可自动更新）
+    - id: "枪火"
+      name: "枪火"
+      artist: "宝石Gem"
+      style: "燃系"
+      duration: 180
+      source: "local"
+      file: "assets/bgm/枪火.mp3"
+      tags: ["燃", "流行", "说唱", "抖音热歌"]
+      bpm: 140
+      copyright: "注意使用"
+
+    - id: "向云端"
+      name: "向云端"
+      artist: "黄绮珊"
+      style: "治愈"
+      duration: 240
+      source: "local"
+      file: "assets/bgm/向云端.mp3"
+      tags: ["治愈", "流行", "温暖"]
+      bpm: 80
+      copyright: "注意使用"
+
+  # --- 经典分类 ---
+
+  upbeats:           # 轻快/欢快
+    - id: "summer"
+      name: "Summer"
+      artist: "久石让"
+      style: "治愈"
+      duration: 210
+      source: "local"
+      file: "assets/bgm/summer.mp3"
+      tags: ["治愈", "经典", "轻快"]
+      bpm: 96
+      copyright: "free"
+
+  cinematic:         # 电影感/宏大
+    - id: "time"
+      name: "Time"
+      artist: "Hans Zimmer"
+      style: "宏大"
+      duration: 120
+      source: "local"
+      file: "assets/bgm/time.mp3"
+      tags: ["宏大", "经典", "电影"]
+      bpm: 60
+      copyright: "free"
+
+  chill:             # 舒缓/放松
+    - id: "gymnopedie"
+      name: "Gymnopédie No.1"
+      artist: "Erik Satie"
+      style: "舒缓"
+      duration: 180
+      source: "local"
+      file: "assets/bgm/gymnopedie.mp3"
+      tags: ["舒缓", "经典", "钢琴"]
+      bpm: 70
+      copyright: "free"
+
+    - id: "river_flows"
+      name: "River Flows in You"
+      artist: "Yiruma"
+      style: "舒缓"
+      duration: 240
+      source: "local"
+      file: "assets/bgm/river_flows.mp3"
+      tags: ["舒缓", "经典", "钢琴"]
+      bpm: 72
+      copyright: "free"
+
+  custom:             # 自定义 BGM（手动上传）
+    # - id: "custom_01"
+    #   name: "我的BGM"
+    #   artist: "自定义"
+    #   file: "assets/bgm/custom_01.mp3"

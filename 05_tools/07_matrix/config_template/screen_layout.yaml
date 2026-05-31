@@ -1,0 +1,39 @@
+# screen_layout.yaml — UI 布局参数（可感知的基准配置）
+#
+# 用途：存储基于真人操作的 UI 布局参数，替代硬编码坐标
+# 位置：config/ 目录（不随账号变化）
+# 优先级：账号 config.yaml中的 ui_layout > 本文件 > ui_layout.py 默认值
+#
+# 调整方法：
+# 1. 打开评论区（KeyX）
+# 2. 手动点击输入框，记住大概的 X/Y
+# 3. 如果点击不准，调整 from_right_margin（越大越靠左）
+#    原理：X = 窗口宽度 - from_right_margin
+# 4. 如果 Y 不准，调整 from_top_fallback
+#
+# 窗口默认尺寸: 702×783
+
+douyin_comment:
+  input_box:
+    # 从窗口右边缘往左偏移量（避开 Emoji / @ / 发送按钮）
+    # 窗口宽度从右往左算：X = window_width - from_right_margin
+    # windows_width=702时 → X ≈ 702-140 = 562
+    from_right_margin: 140
+
+    # Y坐标兜底（DOM 检测不到时的 fallback）
+    # 窗口高度=783，输入框在底部
+    from_top_fallback: 720
+
+  buttons:
+    send_width: 60       # 发送按钮宽度
+    icon_width: 30       # emoji/@图标宽度
+    button_count: 3      # 按钮总数 (emoji + @ + 发送)
+    margin: 10           # 按钮间距
+
+  send_key:
+    method: dom          # 发送方式: dom (找"发送"按钮) / alt_enter
+    alt_enter_fallback: true
+
+verify_code:
+  input_placeholder: "验证码"
+  confirm_button_texts: ["确认", "提交", "验证"]

@@ -1,0 +1,63 @@
+# AgentOS 配置清单 —— 声明哪些文件由 agentos config 管理
+# 类别说明:
+#   A: 内核身份 — 自动覆盖（用户不应在 WorkBuddy 中修改）
+#   B: 服务配置 — 对比后选择（两边都可能被用户修改）
+#   C: 本机个性化 — 不同步，仅报告
+
+version: 1.0.0
+last_updated: 2026-05-02
+
+configs:
+  - file: SOUL.md
+    category: A
+    source: 01_core/SOUL.md
+    target: ~/.workbuddy/SOUL.md
+    description: 核心约束（自动覆盖，不会修改）
+
+  - file: IDENTITY.md
+    category: A
+    source: 01_core/IDENTITY.md
+    target: ~/.workbuddy/IDENTITY.md
+    description: 身份档案（自动覆盖，含设备信息）
+
+  - file: USER.md
+    category: A
+    source: 01_core/USER.md
+    target: ~/.workbuddy/USER.md
+    description: 用户画像（自动覆盖，手动维护）
+
+  - file: HOST_ID.md
+    category: A
+    source: 01_core/HOST_ID.md
+    target: ~/.workbuddy/HOST_ID.md
+    description: 本机标识（每机独立，需手动维护）
+
+  - file: MAINTENANCE_GUIDE.md
+    category: A
+    source: 01_core/MAINTENANCE_GUIDE.md
+    target: ~/.workbuddy/MAINTENANCE_GUIDE.md
+    description: 维护指南（自动覆盖）
+
+  - file: CHANGELOG.md
+    category: A
+    source: 01_core/CHANGELOG.md
+    target: ~/.workbuddy/CHANGELOG.md
+    description: 变更日志（自动覆盖）
+
+  - file: mcp.json
+    category: B
+    source: 01_core/mcp.json
+    target: ~/.workbuddy/mcp.json
+    description: MCP 服务配置（对比后选择版本）
+
+  - file: models.json
+    category: C
+    source: null
+    target: ~/.workbuddy/models.json
+    description: 大模型配置（本机个性化，不同步）
+
+  - file: settings.json
+    category: C
+    source: null
+    target: ~/.workbuddy/settings.json
+    description: 应用设置（本机个性化，不同步）
