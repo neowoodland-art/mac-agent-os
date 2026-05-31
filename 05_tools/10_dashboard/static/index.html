@@ -303,8 +303,12 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 <div id="view-matrix-backup" class="hidden">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <h2 style="font-size:18px">💾 备份恢复</h2>
-    <button class="btn btn-primary btn-sm" onclick="createBackup()">+ 创建备份</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="backupLabelHeader" placeholder="标签" style="width:120px;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px" value="manual">
+      <button class="btn btn-primary btn-sm" onclick="createBackup()">+ 创建备份</button>
+    </div>
   </div>
+  <div id="backupResultHeader" style="margin-bottom:10px;font-size:13px"></div>
   <div id="matrixBackupContent"><div class="loading">加载中...</div></div>
 </div>
 
@@ -440,6 +444,11 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 
 <!-- Production detail modal -->
 <div id="detailModal" class="hidden"></div>
+
+<!-- Blueprint Execute Modal -->
+<div id="bpExecModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.7);align-items:center;justify-content:center" onclick="if(event.target===this)closeBpModal()">
+  <div style="background:#1a1d2e;border-radius:12px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto" id="bpExecContent" onclick="event.stopPropagation()"></div>
+</div>
 
 </main>
 <script>
@@ -997,41 +1006,71 @@ async function loadMatrixSummary() {
 // Matrix Sub-Views (inline, no new tab)
 // ════════════════════════════════════════════════════════
 
+let _accountsData = [];
+let _accountsSort = {col:'id', asc:true};
+
 async function loadMatrixAccounts() {
   const el = document.getElementById('matrixAccountsContent');
   el.innerHTML = '<div class="loading">加载中...</div>';
   try {
     const r = await fetch('/api/matrix/accounts');
     const d = await r.json();
-    const accts = d.accounts || [];
-    if (!accts.length) { el.innerHTML = '<div class="error">暂无账号</div>'; return; }
-    el.innerHTML = `<table><thead><tr>
-      <th>ID</th><th>平台</th><th>手机</th><th>归属机器</th><th>状态</th><th>昵称</th><th>身份目录</th><th>操作</th>
-    </tr></thead><tbody>${accts.map(a => {
-      const s = a._status === 'logged_in' ? '<span class="badge badge-green" style="background:rgba(34,197,94,.15);color:#22c55e;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">✅ 已登录</span>'
-        : a._status === 'remote' ? '<span class="badge badge-gray" style="background:rgba(139,143,163,.15);color:#8b8fa3;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">📡 远程</span>'
-        : a._status === 'disabled' ? '<span class="badge badge-gray" style="background:rgba(139,143,163,.15);color:#8b8fa3;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⏸ 停用</span>'
-        : `<span class="badge badge-amber" style="background:rgba(245,158,11,.15);color:#f59e0b;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⚠️ ${a._status}</span>`;
-      const platformIcon = a.platform === 'douyin' ? '🎵' : (a.platform === 'xiaohongshu' ? '📕' : '🌐');
-      const machineLabel = a.is_local
-        ? '<span style="color:#6366f1;font-size:12px">💻 本机</span>'
-        : '<span style="color:#8b8fa3;font-size:12px">📡 '+(a.owner_machine||'远程')+'</span>';
-      return `<tr>
-        <td><strong>${a.id}</strong></td>
-        <td>${platformIcon} ${a.platform}</td>
-        <td style="font-family:monospace;font-size:12px">${(a.phone||a.phone_mask||'-').slice(0,11)}</td>
-        <td>${machineLabel}</td>
-        <td>${s}</td>
-        <td style="font-size:12px;color:#8b8fa3;max-width:120px;overflow:hidden;text-overflow:ellipsis">${a.display_name || '-'}</td>
-        <td style="font-size:11px;color:#8b8fa3">${a.identity_dir ? a.identity_dir.split('/').pop() : '-'}</td>
-        <td>${a.is_local
-          ? `<button class="btn btn-sm" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px" onclick="alert('编辑: ${a.id}')">编辑</button>
-             <button class="btn btn-sm" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;margin-left:4px" onclick="c2Nurture('${a.id}')">养号</button>`
-          : '<span style="font-size:11px;color:#8b8fa3">-</span>'}
-        </td>
-      </tr>`;
-    }).join('')}</tbody></table>`;
+    _accountsData = d.accounts || [];
+    if (!_accountsData.length) { el.innerHTML = '<div class="error">暂无账号</div>'; return; }
+    renderAccountsTable();
   } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
+}
+
+function sortAccounts(col) {
+  if (_accountsSort.col === col) _accountsSort.asc = !_accountsSort.asc;
+  else { _accountsSort.col = col; _accountsSort.asc = true; }
+  renderAccountsTable();
+}
+
+function renderAccountsTable() {
+  const el = document.getElementById('matrixAccountsContent');
+  const sorted = [..._accountsData].sort((a, b) => {
+    let va = '', vb = '';
+    const c = _accountsSort.col;
+    if (c === 'id') { va = a.id; vb = b.id; }
+    else if (c === 'platform') { va = a.platform||''; vb = b.platform||''; }
+    else if (c === 'phone') { va = (a.phone||a.phone_mask||''); vb = (b.phone||b.phone_mask||''); }
+    else if (c === 'machine') { va = a.is_local ? '本机' : (a.owner_machine||'远程'); vb = b.is_local ? '本机' : (b.owner_machine||'远程'); }
+    else if (c === 'status') { va = a._status||''; vb = b._status||''; }
+    else if (c === 'display_name') { va = a.display_name||''; vb = b.display_name||''; }
+    return _accountsSort.asc ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+  const arrow = (col) => _accountsSort.col === col ? (_accountsSort.asc ? ' ▲' : ' ▼') : '';
+  const th = (col, label) => `<th style="cursor:pointer;user-select:none" onclick="sortAccounts('${col}')">${label}${arrow(col)}</th>`;
+
+  el.innerHTML = `<table><thead><tr>
+    ${th('id','ID')}${th('platform','平台')}${th('phone','手机')}${th('machine','归属机器')}${th('status','状态')}${th('display_name','昵称')}
+    <th>身份目录</th><th>操作</th>
+  </tr></thead><tbody>${sorted.map(a => {
+    const s = a._status === 'logged_in' ? '<span class="badge badge-green" style="background:rgba(34,197,94,.15);color:#22c55e;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">✅ 已登录</span>'
+      : a._status === 'remote' ? '<span class="badge badge-gray" style="background:rgba(139,143,163,.15);color:#8b8fa3;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">📡 远程</span>'
+      : a._status === 'disabled' ? '<span class="badge badge-gray" style="background:rgba(139,143,163,.15);color:#8b8fa3;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⏸ 停用</span>'
+      : `<span class="badge badge-amber" style="background:rgba(245,158,11,.15);color:#f59e0b;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⚠️ ${a._status}</span>`;
+    const platformIcon = a.platform === 'douyin' ? '🎵' : (a.platform === 'xiaohongshu' ? '📕' : '🌐');
+    const machineLabel = a.is_local
+      ? '<span style="color:#6366f1;font-size:12px">💻 本机</span>'
+      : '<span style="color:#8b8fa3;font-size:12px">📡 '+(a.owner_machine||'远程')+'</span>';
+    return `<tr>
+      <td><strong>${a.id}</strong></td>
+      <td>${platformIcon} ${a.platform}</td>
+      <td style="font-family:monospace;font-size:12px">${(a.phone||a.phone_mask||'-').slice(0,11)}</td>
+      <td>${machineLabel}</td>
+      <td>${s}</td>
+      <td style="font-size:12px;color:#8b8fa3;max-width:120px;overflow:hidden;text-overflow:ellipsis">${a.display_name || '-'}</td>
+      <td style="font-size:11px;color:#8b8fa3">${a.identity_dir ? a.identity_dir.split('/').pop() : '-'}</td>
+      <td>${a.is_local
+        ? `<button class="btn btn-sm" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px" onclick="alert('编辑: ${a.id}')">编辑</button>
+           <button class="btn btn-sm" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;margin-left:4px" onclick="c2Nurture('${a.id}')">养号</button>`
+        : '<span style="font-size:11px;color:#8b8fa3">-</span>'}
+      </td>
+    </tr>`;
+  }).join('')}</tbody></table>
+  <div style="font-size:11px;color:#8b8fa3;margin-top:6px">共 ${_accountsData.length} 个账号 · 点击表头排序</div>`;
 }
 
 async function loadMatrixBlueprints() {
@@ -1052,26 +1091,28 @@ async function loadMatrixBlueprints() {
 
     let html = '';
 
-    // ── 可折叠蓝图列表 ──
-    html += `<div style="margin-bottom:10px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden">`;
+    // ── 可折叠蓝图列表 (默认折叠) ──
+    html += `<div style="margin-bottom:10px;background:#1a1d2e;border-radius:10px;border:1px solid #2a2d3e;overflow:hidden">`;
     html += `<div onclick="bpToggleList()" style="padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span style="font-weight:600;font-size:13px">📋 蓝图库 <span class="badge badge-blue" style="font-size:10px">${bps.length}</span></span>
-      <span id="bp-list-arrow" style="color:var(--text2);font-size:12px">▶ 展开</span>
+      <span style="font-weight:600;font-size:13px">📋 蓝图库 <span class="badge badge-blue" style="font-size:10px;background:rgba(59,130,246,.15);color:#3b82f6;padding:2px 6px;border-radius:6px">${bps.length}</span></span>
+      <span id="bp-list-arrow" style="color:#8b8fa3;font-size:12px">▶ 展开</span>
     </div>`;
     html += `<div id="bp-list-body" style="display:none;padding:0 14px 10px">`;
     if (!bps.length) {
-      html += '<div class="text-muted text-sm" style="padding:6px 0">暂无蓝图</div>';
+      html += '<div style="padding:6px 0;color:#8b8fa3;font-size:13px">暂无蓝图</div>';
     } else {
-      html += `<div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0">`;
       bps.forEach(b => {
-        html += `<span style="background:var(--bg3);border-radius:5px;padding:4px 10px;font-size:12px;display:flex;align-items:center;gap:6px;border:1px solid var(--border)">
-          <strong>${b.name}</strong>
-          <span class="badge badge-blue" style="font-size:9px">${b.step_count}步</span>
-          <span style="cursor:pointer;color:var(--blue);font-size:11px" onclick="event.stopPropagation();showBpEditor('${b.name}')">✏️</span>
-          <span style="cursor:pointer;color:var(--red);font-size:11px" onclick="event.stopPropagation();delBp('${b.name}')">🗑</span>
-        </span>`;
+        const stepsPreview = (b.steps||[]).slice(0,3).map(s => window._matrixOps?.[s.name]?.label||s.name).join(' → ');
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #2a2d3e;font-size:13px">
+          <span style="flex:1"><strong>${b.name}</strong> <span style="color:#8b8fa3;font-size:11px">${b.step_count}步 · ${b.platform||'douyin'}</span>
+            ${stepsPreview ? `<br><span style="color:#8b8fa3;font-size:11px">${stepsPreview}</span>` : ''}</span>
+          <span style="display:flex;gap:4px;flex-shrink:0">
+            <button class="btn btn-sm" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();bpExecute('${b.name}')">▶ 执行</button>
+            <button class="btn btn-sm" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();showBpEditor('${b.name}')">✏️</button>
+            <button class="btn btn-sm" style="background:transparent;color:#ef4444;border:1px solid rgba(239,68,68,.3);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();delBp('${b.name}')">🗑</button>
+          </span>
+        </div>`;
       });
-      html += `</div>`;
     }
     html += `</div></div>`;
 
@@ -1388,6 +1429,63 @@ window.delBp = async function(name) {
   } catch(e) { alert('❌ '+e.message); }
 };
 
+// Blueprint execute modal
+let _bpExecName = '';
+function bpExecute(name) {
+  _bpExecName = name;
+  fetch('/api/matrix/accounts').then(r=>r.json()).then(d => {
+    const accts = (d.accounts||[]).filter(a => a.is_local && a._status === 'logged_in');
+    const modal = document.getElementById('bpExecModal');
+    const content = document.getElementById('bpExecContent');
+    if (!modal || !content) return;
+    content.innerHTML = `
+      <div style="margin-bottom:12px"><strong style="font-size:15px">▶ 执行蓝图: ${name}</strong></div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:12px;color:#8b8fa3;margin-bottom:4px">选择身份</label>
+        <select id="bpExecIdentity" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 10px;border-radius:6px;font-size:13px">
+          ${accts.map(a => `<option value="${a.id}">${a.id} (${a.platform})</option>`).join('')}
+          ${accts.length ? '' : '<option value="">暂无已登录账号</option>'}
+        </select>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b8fa3;cursor:pointer">
+          <input type="checkbox" id="bpExecProxy" checked> 使用代理
+        </label>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="bpDoExec()" style="background:#6366f1;color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:13px">▶ 执行</button>
+        <button onclick="closeBpModal()" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:13px">取消</button>
+      </div>
+      <div id="bpExecResult" style="margin-top:10px;font-size:13px"></div>`;
+    modal.style.display = 'flex';
+  }).catch(e => alert('❌ '+e.message));
+}
+
+async function bpDoExec() {
+  const sel = document.getElementById('bpExecIdentity');
+  const proxy = document.getElementById('bpExecProxy')?.checked;
+  const resultEl = document.getElementById('bpExecResult');
+  if (!sel || !sel.value) { resultEl.innerHTML = '<span style="color:#ef4444">请选择身份</span>'; return; }
+  resultEl.innerHTML = '<span style="color:#8b8fa3">⏳ 执行中...</span>';
+  try {
+    const r = await fetch('/api/matrix/blueprints/'+encodeURIComponent(_bpExecName)+'/execute', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({account: sel.value, use_proxy: proxy})
+    });
+    const res = await r.json();
+    resultEl.innerHTML = r.ok
+      ? '<span style="color:#22c55e">✅ 已启动 · 日志: '+(res.log||'N/A')+'</span>'
+      : '<span style="color:#ef4444">❌ '+(res.detail||'执行失败')+'</span>';
+  } catch(e) {
+    resultEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
+  }
+}
+
+function closeBpModal() {
+  const modal = document.getElementById('bpExecModal');
+  if (modal) modal.style.display = 'none';
+}
+
 async function loadMatrixAtomOps() {
   const el = document.getElementById('matrixAtomOpsContent');
   el.innerHTML = '<div class="loading">加载中...</div>';
@@ -1472,15 +1570,17 @@ async function loadMatrixExport() {
 
 // Helper functions for inline sub-views
 async function createBackup() {
-  const label = (document.getElementById('backupLabelInline')?.value || 'inline') + '_' + Date.now();
-  const el = document.getElementById('backupResultInline');
-  if (el) el.innerHTML = '<div class="loading" style="padding:6px">备份中...</div>';
+  const label = (document.getElementById('backupLabelHeader')?.value || document.getElementById('backupLabelInline')?.value || 'manual') + '_' + Date.now();
+  // Try header result area first, fallback to inline
+  let el = document.getElementById('backupResultHeader');
+  if (!el) el = document.getElementById('backupResultInline');
+  if (el) el.innerHTML = '<span style="color:#8b8fa3">⏳ 备份中...</span>';
   try {
     const r = await fetch('/api/matrix/backup', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({label})});
     const res = await r.json();
-    if (el) el.innerHTML = `<div style="color:var(--green);font-size:13px">✅ ${res.backup_count||0} 个身份已备份</div>`;
+    if (el) el.innerHTML = `<span style="color:#22c55e">✅ ${res.backup_count||0} 个身份已备份 (${label})</span>`;
     loadMatrixBackup();
-  } catch(e) { if (el) el.innerHTML = `<div class="error">${e.message}</div>`; }
+  } catch(e) { if (el) el.innerHTML = `<span style="color:#ef4444">${e.message}</span>`; }
 }
 
 async function restoreBackup(identity, path) {
