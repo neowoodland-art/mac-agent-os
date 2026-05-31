@@ -96,6 +96,13 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 .error { text-align: center; padding: 20px; color: var(--red); }
 .hidden { display: none; }
 
+/* Blueprint editor */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+.form-row label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 2px; }
+.form-row input, .form-row select { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 5px; font-size: 12px; width: 100%; }
+.op-card { transition: .15s; }
+.op-card:hover { border-color: var(--primary) !important; }
+
 @media (max-width: 768px) {
   .sidebar { width: 60px; padding: 16px 8px; }
   .sidebar h1 span, .nav-item span { display: none; }
@@ -206,10 +213,6 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 
 <!-- Matrix blueprints view -->
 <div id="view-matrix-blueprints" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">📋 蓝图编排</h2>
-    <button class="btn btn-primary btn-sm" onclick="showCreateBlueprint()">+ 新建蓝图</button>
-  </div>
   <div id="matrixBlueprintsContent"><div class="loading">加载中...</div></div>
 </div>
 
@@ -399,8 +402,12 @@ function switchView(view) {
     e.style.display = isAve ? 'block' : 'none';
   });
 
-  // 本机管理视图列表
+  // 矩阵养号：点击父级或子项时展开子菜单
   const matrixSubViews = ['matrix-summary','matrix-accounts','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export'];
+  const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
+  document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
+    e.style.display = isMatrix ? 'block' : 'none';
+  });
 
   // 点击「视频工厂」时自动跳转到工作流编辑器
   if (view === 'plugin-ave') {
@@ -410,12 +417,19 @@ function switchView(view) {
     return;
   }
 
+  // 点击「矩阵养号」时自动跳转到多机总览
+  if (view === 'plugin-matrix') {
+    document.querySelector('.nav-item[data-view="plugin-matrix"]')?.classList.add('active');
+    switchView('matrix-summary');
+    return;
+  }
+
   // 如果点了子项，高亮父级
   if (aveSubViews.includes(view)) {
     document.querySelector('.nav-item[data-view="plugin-ave"]')?.classList.add('active');
   }
   if (matrixSubViews.includes(view)) {
-    document.querySelector('.nav-item[data-view="matrix-summary"]')?.classList.add('active');
+    document.querySelector('.nav-item[data-view="plugin-matrix"]')?.classList.add('active');
   }
 
   // 视图显隐
@@ -753,17 +767,14 @@ async function loadPlugins() {
       html += `<div class="nav-item" data-view="plugin-${p.name}" onclick="switchView('plugin-${p.name}')">${icon} ${p.label}</div>`;
     });
 
-    // ── 联邦矩阵 ──
-    html += `<div class="nav-group">🌐 联邦矩阵</div>`;
-    html += `<div class="nav-item" data-view="matrix-summary" onclick="switchView('matrix-summary')">📊 多机总览</div>`;
-
-    // ── 本机管理 ──
-    html += `<div class="nav-group">📱 本机管理</div>`;
-    html += `<div class="nav-item" data-view="matrix-accounts" onclick="switchView('matrix-accounts')">👤 账号管理</div>`;
-    html += `<div class="nav-item" data-view="matrix-blueprints" onclick="switchView('matrix-blueprints')">📋 蓝图编排</div>`;
-    html += `<div class="nav-item" data-view="matrix-atom-ops" onclick="switchView('matrix-atom-ops')">⚡ 原子操作库</div>`;
-    html += `<div class="nav-item" data-view="matrix-backup" onclick="switchView('matrix-backup')">💾 备份恢复</div>`;
-    html += `<div class="nav-item" data-view="matrix-export" onclick="switchView('matrix-export')">📦 导入导出</div>`;
+    // ── 矩阵养号（带动画展开子项）──
+    html += `<div class="nav-item" data-view="plugin-matrix" onclick="switchView('plugin-matrix')">📱 矩阵养号</div>`;
+    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-summary" onclick="switchView('matrix-summary')" style="display:none">📊 多机总览</div>`;
+    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-accounts" onclick="switchView('matrix-accounts')" style="display:none">👤 账号管理</div>`;
+    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-blueprints" onclick="switchView('matrix-blueprints')" style="display:none">📋 蓝图编排</div>`;
+    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-atom-ops" onclick="switchView('matrix-atom-ops')" style="display:none">⚡ 原子操作库</div>`;
+    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-backup" onclick="switchView('matrix-backup')" style="display:none">💾 备份恢复</div>`;
+    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-export" onclick="switchView('matrix-export')" style="display:none">📦 导入导出</div>`;
 
     // ── 知识组 ──
     html += `<div class="nav-group">📚 知识</div>`;
@@ -905,22 +916,206 @@ async function loadMatrixAccounts() {
 async function loadMatrixBlueprints() {
   const el = document.getElementById('matrixBlueprintsContent');
   el.innerHTML = '<div class="loading">加载中...</div>';
+  // 加载蓝图列表 + 原子操作（用于编辑器）
+  try {
+    const [br, or] = await Promise.all([
+      fetch('/api/matrix/blueprints'),
+      fetch('/api/matrix/atom-ops'),
+    ]);
+    const bd = await br.json();
+    const od = await or.json();
+    const bps = bd.blueprints || [];
+    const allOps = od.ops || [];
+    window._matrixOps = {};
+    allOps.forEach(o => { window._matrixOps[o.name] = o; });
+
+    let html = '<div style="display:flex;gap:16px;flex-wrap:wrap">';
+
+    // ── 左侧: 蓝图列表 ──
+    html += '<div style="flex:1;min-width:300px">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+    html += `<span style="font-weight:600;font-size:14px">蓝图列表 (${bps.length})</span>`;
+    html += '<button class="btn btn-primary btn-sm" onclick="showBpEditor(null)">+ 新建蓝图</button></div>';
+
+    if (!bps.length) {
+      html += '<div class="text-muted text-sm">暂无蓝图，点击上方新建</div>';
+    } else {
+      html += '<table><thead><tr><th>名称</th><th>步骤</th><th>操作</th></tr></thead><tbody>';
+      bps.forEach(b => {
+        html += `<tr>
+          <td><strong>${b.name}</strong></td>
+          <td><span class="badge badge-blue">${b.step_count}步</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline" onclick="showBpEditor('${b.name}')">编辑</button>
+            <button class="btn btn-sm btn-danger" onclick="delBp('${b.name}')">删</button>
+          </td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+
+    // ── 右侧: 蓝图编辑器 ──
+    html += '<div style="flex:2;min-width:400px;background:var(--bg2);border-radius:var(--radius);padding:16px;border:1px solid var(--border)">';
+    html += `
+      <div id="bp-editor">
+        <div style="font-weight:600;font-size:14px;margin-bottom:12px">📋 蓝图编辑器</div>
+        <div class="form-row">
+          <div><label>蓝图名称</label><input id="bp-name" placeholder="my_blueprint"></div>
+          <div><label>平台</label>
+            <select id="bp-platform"><option value="douyin">抖音</option><option value="xiaohongshu">小红书</option></select>
+          </div>
+        </div>
+        <div><label>说明</label><input id="bp-desc" placeholder="可选"></div>
+
+        <div style="margin-top:12px;font-weight:600;font-size:13px;color:var(--text2)">⚡ 原子操作（点击添加到步骤末尾）</div>
+        <div id="bp-op-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;margin:8px 0;max-height:300px;overflow-y:auto">
+          ${allOps.map(o => {
+            let deps = '';
+            if (o.requires && o.requires.length && o.requires[0] !== '*') {
+              deps = `<span style="font-size:9px;color:var(--blue)">← ${o.requires.join(',')}</span>`;
+            } else if (o.can_be_first) {
+              deps = `<span style="font-size:9px;color:var(--green)">✅ 首步</span>`;
+            }
+            return `<div class="op-card" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);cursor:pointer" onclick="bpAddStep('${o.name}')">
+              <div style="font-size:12px;font-weight:600">${o.label||o.name}</div>
+              <div style="font-size:10px;color:var(--text2)">${o.desc||''}</div>
+              <div style="margin-top:2px">${deps}</div>
+            </div>`;
+          }).join('')}
+        </div>
+
+        <div style="margin-top:12px;font-weight:600;font-size:13px;color:var(--text2)">📋 已编排步骤</div>
+        <div id="bp-steps" style="min-height:40px;border:1px dashed var(--border);border-radius:6px;padding:8px;margin:4px 0">
+          <div style="color:var(--text2);font-size:12px;text-align:center;padding:10px">点击上方原子操作添加步骤</div>
+        </div>
+        <div id="bp-validate" style="margin-top:6px"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-primary" onclick="bpSave()">💾 保存蓝图</button>
+          <button class="btn btn-outline" onclick="bpClear()">🗑 清空</button>
+        </div>
+      </div>`;
+    html += '</div></div>';
+
+    el.innerHTML = html;
+    // 初始化编辑器状态
+    window._bpSteps = [];
+    window._editingBp = null;
+  } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
+}
+
+// Blueprint editor helper functions
+window.bpAddStep = function(name) {
+  const op = window._matrixOps?.[name];
+  if (!op) return;
+  window._bpSteps = window._bpSteps || [];
+  window._bpSteps.push({name, label: op.label||name, requires: op.requires||[], allows: op.allows||[]});
+  bpRenderSteps();
+};
+
+window.bpRemoveStep = function(idx) {
+  window._bpSteps = window._bpSteps || [];
+  window._bpSteps.splice(idx, 1);
+  bpRenderSteps();
+};
+
+function bpRenderSteps() {
+  const el = document.getElementById('bp-steps');
+  const ve = document.getElementById('bp-validate');
+  const steps = window._bpSteps || [];
+  if (!el) return;
+  if (!steps.length) {
+    el.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center;padding:10px">点击上方原子操作添加步骤</div>';
+    if (ve) ve.innerHTML = '';
+    return;
+  }
+  el.innerHTML = steps.map((s, i) => {
+    // 检查与前一步的依赖
+    let warn = '';
+    if (i > 0) {
+      const prev = steps[i-1];
+      const prevOp = window._matrixOps?.[prev.name];
+      if (prevOp && prevOp.allows && prevOp.allows[0] !== '*' && !prevOp.allows.includes(s.name)) {
+        warn = '<span style="color:var(--red);font-size:10px;margin-left:4px">⚠ 依赖冲突</span>';
+      }
+    }
+    if (i === 0) {
+      const op = window._matrixOps?.[s.name];
+      if (op && !op.can_be_first) {
+        warn = '<span style="color:var(--red);font-size:10px;margin-left:4px">⚠ 不能作为首步</span>';
+      }
+    }
+    return `<div style="display:flex;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);gap:6px">
+      <span style="width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">${i+1}</span>
+      <span style="flex:1;font-size:12px"><strong>${s.label}</strong> ${warn}</span>
+      <span style="cursor:pointer;color:var(--red);font-size:14px;opacity:.6" onclick="bpRemoveStep(${i})">✕</span>
+    </div>`;
+  }).join('');
+
+  // 验证
+  if (ve) {
+    fetch('/api/matrix/blueprints/validate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({steps: steps.map(s => ({name: s.name}))})
+    }).then(r=>r.json()).then(res => {
+      ve.innerHTML = res.valid
+        ? '<span style="color:var(--green);font-size:12px">✅ 编排合法</span>'
+        : '<span style="color:var(--red);font-size:12px">❌ '+(res.errors||[]).map(e=>e.msg).join('; ')+'</span>';
+    }).catch(() => {});
+  }
+}
+
+window.bpSave = async function() {
+  const name = document.getElementById('bp-name')?.value;
+  if (!name) { alert('请输入蓝图名称'); return; }
+  const steps = (window._bpSteps||[]).map(s => ({name: s.name, description: (window._matrixOps?.[s.name]?.desc)||''}));
+  if (!steps.length) { alert('请添加至少一个步骤'); return; }
+  try {
+    const r = await fetch('/api/matrix/blueprints', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name, description: document.getElementById('bp-desc')?.value||'', platform: document.getElementById('bp-platform')?.value||'douyin', steps})
+    });
+    if (!r.ok) throw new Error((await r.json()).detail);
+    bpClear();
+    loadMatrixBlueprints();
+  } catch(e) { alert('❌ '+e.message); }
+};
+
+window.bpClear = function() {
+  window._bpSteps = [];
+  const ne = document.getElementById('bp-name');
+  if (ne) ne.value = '';
+  window._editingBp = null;
+  bpRenderSteps();
+};
+
+window.showBpEditor = async function(name) {
+  if (!name) { bpClear(); return; }
   try {
     const r = await fetch('/api/matrix/blueprints');
     const d = await r.json();
-    const bps = d.blueprints || [];
-    if (!bps.length) { el.innerHTML = '<div class="error">暂无蓝图</div>'; return; }
-    el.innerHTML = `<table><thead><tr>
-      <th>名称</th><th>步骤</th><th>平台</th><th>说明</th>
-    </tr></thead><tbody>${bps.map(b => `<tr>
-      <td><strong>${b.name}</strong></td>
-      <td><span class="badge badge-blue">${b.step_count}步</span></td>
-      <td>${b.platform||'douyin'}</td>
-      <td class="text-sm text-muted">${(b.description||'').slice(0,30)}</td>
-    </tr>`).join('')}</tbody></table>
-    <div style="font-size:11px;color:var(--text2);margin-top:8px">📱 完整蓝图编排功能请在独立管理页操作</div>`;
-  } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
-}
+    const bp = (d.blueprints||[]).find(b => b.name === name);
+    if (!bp) return;
+    window._editingBp = name;
+    document.getElementById('bp-name').value = name;
+    document.getElementById('bp-desc').value = bp.description||'';
+    document.getElementById('bp-platform').value = bp.platform||'douyin';
+    window._bpSteps = (bp.steps||[]).map(s => {
+      const op = window._matrixOps?.[(s.name||s)];
+      return {name: s.name||s, label: op?.label||s.name||s, requires: op?.requires||[], allows: op?.allows||[]};
+    });
+    bpRenderSteps();
+  } catch(e) { alert('❌ '+e.message); }
+};
+
+window.delBp = async function(name) {
+  if (!confirm(`删除蓝图 ${name}?`)) return;
+  try {
+    const r = await fetch(`/api/matrix/blueprints/${name}`, {method:'DELETE'});
+    if (!r.ok) throw new Error((await r.json()).detail);
+    loadMatrixBlueprints();
+  } catch(e) { alert('❌ '+e.message); }
+};
 
 async function loadMatrixAtomOps() {
   const el = document.getElementById('matrixAtomOpsContent');
