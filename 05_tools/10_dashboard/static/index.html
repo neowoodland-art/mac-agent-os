@@ -223,6 +223,12 @@ loadProductions();
 
 // ── Navigation ──
 function switchView(view) {
+  // Plugin views → open dedicated pages
+  if (view === 'plugin-matrix') {
+    window.open('/matrix-mgmt', '_blank');
+    document.querySelectorAll('.nav-item').forEach(e => e.classList.toggle('active', e.dataset.view === view));
+    return;
+  }
   currentView = view;
   document.querySelectorAll('.nav-item').forEach(e => e.classList.toggle('active', e.dataset.view === view));
   ['productions','assets','costs','machines','characters','capabilities'].forEach(v => {
