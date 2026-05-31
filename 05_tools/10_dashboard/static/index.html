@@ -967,6 +967,10 @@ async function loadMatrixBlueprints() {
           </div>
         </div>
         <div><label>说明</label><input id="bp-desc" placeholder="可选"></div>
+        <div style="display:flex;gap:8px;margin:10px 0">
+          <button class="btn btn-primary" onclick="bpSave()">💾 保存蓝图</button>
+          <button class="btn btn-outline" onclick="bpClear()">🗑 清空</button>
+        </div>
 
         <div style="margin-top:12px;font-weight:600;font-size:13px;color:var(--text2)">⚡ 原子操作（点击添加到步骤末尾）</div>
         <div id="bp-op-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;margin:8px 0;max-height:300px;overflow-y:auto">
@@ -990,10 +994,6 @@ async function loadMatrixBlueprints() {
           <div style="color:var(--text2);font-size:12px;text-align:center;padding:10px">点击上方原子操作添加步骤</div>
         </div>
         <div id="bp-validate" style="margin-top:6px"></div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn btn-primary" onclick="bpSave()">💾 保存蓝图</button>
-          <button class="btn btn-outline" onclick="bpClear()">🗑 清空</button>
-        </div>
       </div>`;
     html += '</div></div>';
 
