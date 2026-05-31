@@ -1175,8 +1175,122 @@ def api_workflow_run_status(run_id: str):
     runner = get_runner()
     run = runner.get_run(run_id)
     if not run:
-        raise HTTPException(404, detail="运行不存在")
+            raise HTTPException(404, detail="运行不存在")
     return run
+
+
+# ═══════════════════════════════════════════════
+# C2 联邦命令与控制 API (v1.0)
+# ═══════════════════════════════════════════════
+
+_C2_BUS = None
+
+def _get_c2_bus():
+    global _C2_BUS
+    if _C2_BUS is None:
+        c2_path = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "c2"
+        if c2_path.exists():
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("command_bus",
+                c2_path / "command_bus.py")
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            _C2_BUS = mod.CommandBus()
+    return _C2_BUS
+
+
+@app.get("/api/c2/ping")
+def api_c2_ping():
+    """远程健康检查"""
+    bus = _get_c2_bus()
+    if not bus:
+        raise HTTPException(503, detail="C2 模块不可用")
+    return bus.ping()
+
+
+@app.post("/api/c2/command")
+async def api_c2_receive_command(data: dict):
+    """接收远程命令并执行"""
+    bus = _get_c2_bus()
+    if not bus:
+        raise HTTPException(503, detail="C2 模块不可用")
+    result = bus.receive_and_execute(data)
+    return result
+
+
+@app.get("/api/c2/commands")
+def api_c2_commands(limit: int = 20):
+    """查询命令历史"""
+    bus = _get_c2_bus()
+    if not bus:
+        raise HTTPException(503, detail="C2 模块不可用")
+    return {
+        "recent": bus.list_recent_commands(limit),
+        "pending": bus.list_pending_commands(),
+    }
+
+
+@app.get("/api/c2/status/{command_id}")
+def api_c2_status(command_id: str):
+    """查询单条命令状态"""
+    bus = _get_c2_bus()
+    if not bus:
+        raise HTTPException(503, detail="C2 模块不可用")
+    result = bus.check_status(command_id)
+    if not result:
+        raise HTTPException(404, detail="命令不存在")
+    return result
+
+
+@app.post("/api/c2/send")
+async def api_c2_send(data: dict):
+    """从本机 Dashboard 发送命令到远程机器"""
+    bus = _get_c2_bus()
+    if not bus:
+        raise HTTPException(503, detail="C2 模块不可用")
+    target = data.get("target", "")
+    cmd_type = data.get("type", "")
+    params = data.get("params", {})
+    schedule_at = data.get("schedule_at", None)
+    if not target or not cmd_type:
+        raise HTTPException(400, detail="需要 target 和 type")
+    result = bus.send(target, cmd_type, params, schedule_at)
+    return result
+
+
+@app.get("/api/c2/machines")
+def api_c2_machines():
+    """返回所有已知机器的实时状态"""
+    from plugins._registry import get_machine_list
+    # 从 command_bus 加载机器端点映射
+    try:
+        c2_path = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "c2" / "command_bus.py"
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cb_endpoints", c2_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        endpoints = mod.MACHINE_ENDPOINTS
+    except:
+        endpoints = {}
+    return {
+        "machines": get_machine_list(),
+        "endpoints": endpoints,
+    }
+
+
+@app.get("/api/c2/environment/{machine}")
+def api_c2_remote_environment(machine: str):
+    """远程环境检查快捷接口"""
+    bus = _get_c2_bus()
+    if not bus:
+        raise HTTPException(503, detail="C2 模块不可用")
+    if machine == HOSTNAME:
+        result = bus.send(machine, "check_environment")
+        if result.get("status") == "completed":
+            return result.get("output", {})
+        return result
+    result = bus.send(machine, "check_environment")
+    return result
 
 
 if __name__ == "__main__":

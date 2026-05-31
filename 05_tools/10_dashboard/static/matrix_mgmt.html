@@ -134,11 +134,12 @@ label { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: block
   <div class="stats" id="statsBar"></div>
 
   <div class="tabs">
-    <div class="tab active" onclick="switchTab('accounts',this)">👤 账号管理</div>
-    <div class="tab" onclick="switchTab('blueprints',this)">📋 蓝图编排</div>
-    <div class="tab" onclick="switchTab('atomops',this)">⚡ 原子操作</div>
-    <div class="tab" onclick="switchTab('backup',this)">💾 备份恢复</div>
-    <div class="tab" onclick="switchTab('importexport',this)">📦 导入导出</div>
+    <div class="tab active" onclick="switchTab('accounts',this)">&#x1F464; 账号管理</div>
+    <div class="tab" onclick="switchTab('c2',this)">&#x1F3AE; 远程控制</div>
+    <div class="tab" onclick="switchTab('blueprints',this)">&#x1F4CB; 蓝图编排</div>
+    <div class="tab" onclick="switchTab('atomops',this)">&#x26A1; 原子操作</div>
+    <div class="tab" onclick="switchTab('backup',this)">&#x1F4BE; 备份恢复</div>
+    <div class="tab" onclick="switchTab('importexport',this)">&#x1F4E6; 导入导出</div>
   </div>
 
   <!-- ═══════════════════ Accounts Panel ═══════════════════ -->
@@ -225,6 +226,47 @@ label { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: block
       </div>
     </div>
   </div>
+
+  <!-- C2 Remote Control Panel -->
+  <div id="panel-c2" class="hidden">
+    <div class="stats" id="c2StatsBar"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card">
+        <div class="card-title"><span>&#x1F916; 远程命令</span></div>
+        <div class="form-row-3">
+          <div><label>目标机器</label><select id="c2Target"><option value="">选择机器...</option></select></div>
+          <div><label>命令类型</label><select id="c2Type" onchange="toggleC2Params()">
+            <option value="check_environment">环境检查</option>
+            <option value="nurture_run">启动养号</option>
+            <option value="nurture_stop">停止养号</option>
+            <option value="refresh_profiles">刷新资料</option>
+            <option value="sync_only">Git同步</option>
+          </select></div>
+          <div><label>定时</label><input id="c2Schedule" type="datetime-local"></div>
+        </div>
+        <div id="c2NurtureParams" class="hidden">
+          <div class="form-row">
+            <div><label>账号 (逗号分隔)</label><input id="c2Accounts" placeholder="douyin_01,xhs_01"></div>
+            <div><label>轮次</label><input id="c2Rounds" type="number" value="10" min="1" max="50"></div>
+          </div>
+        </div>
+        <div class="flex" style="gap:8px">
+          <button class="btn btn-primary" onclick="sendC2Command()">&#x27A1; 发送</button>
+          <button class="btn btn-outline" onclick="loadC2Machines()">&#x1F504; 刷新状态</button>
+        </div>
+        <div id="c2Result" class="mt-4"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>&#x1F4CA; 机器状态</span></div>
+        <div id="c2MachineStatus"><div class="text-muted text-sm">点击刷新加载状态</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span>&#x1F4DD; 命令执行历史</span></div>
+      <div id="c2CommandHistory"><div class="text-muted text-sm">暂无历史</div></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Modal -->
@@ -809,6 +851,164 @@ function closeModal() {
   document.getElementById('modalOverlay').classList.add('hidden');
   blueprintSteps = [];
 }
+
+// ════════════════════════════════════════════════════════
+// C2 REMOTE CONTROL
+// ════════════════════════════════════════════════════════
+
+async function loadC2Machines() {
+  const targetEl = document.getElementById('c2Target');
+  const statusEl = document.getElementById('c2MachineStatus');
+  statusEl.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await fetch('/api/c2/machines');
+    const data = await r.json();
+    targetEl.innerHTML = '<option value="">选择机器...</option>' +
+      data.machines.map(m => `<option value="${m}">${m} ${m==='chengzigedeAir'?'(本机)':''}</option>`).join('');
+
+    // Load machine status
+    let html = '';
+    for (const m of data.machines) {
+      try {
+        const sr = await fetch(`/api/c2/environment/${m}`);
+        const st = await sr.json();
+        if (st.output) {
+          html += '<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px">' +
+            `<strong>${m}</strong> ` +
+            (st.output.guardd_running ? '&#x2705; guardd运行中' : '&#x274C; guardd未运行') +
+            ' | &#x1F4BF; 磁盘:' + (st.output.disk_avail_gb||'?') + 'G' +
+            ' | &#x1F4F1; 账号:' + (st.output.matrix_accounts||'?') +
+            '</div>';
+        } else {
+          html += '<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px">' +
+            `<strong>${m}</strong> &#x1F4AD; ${st.status||'未知'}</div>`;
+        }
+      } catch(e) {
+        html += '<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px;color:var(--amber)">' +
+          `<strong>${m}</strong> &#x23F3; 查询超时</div>`;
+      }
+    }
+    statusEl.innerHTML = html || '<div class="text-muted text-sm">无机器数据</div>';
+  } catch(e) {
+    statusEl.innerHTML = `<div class="error">${e.message}</div>`;
+  }
+}
+
+function toggleC2Params() {
+  const type = document.getElementById('c2Type').value;
+  document.getElementById('c2NurtureParams').classList.toggle('hidden', type !== 'nurture_run');
+}
+
+async function sendC2Command() {
+  const target = document.getElementById('c2Target').value;
+  const type = document.getElementById('c2Type').value;
+  const schedule = document.getElementById('c2Schedule').value;
+  const resultEl = document.getElementById('c2Result');
+  if (!target || !type) { resultEl.innerHTML = '<div class="error">请选择目标和命令类型</div>'; return; }
+
+  const params = {};
+  if (type === 'nurture_run') {
+    params.accounts = document.getElementById('c2Accounts').value.split(',').map(s=>s.trim()).filter(Boolean);
+    params.rounds = parseInt(document.getElementById('c2Rounds').value) || 10;
+  }
+
+  resultEl.innerHTML = '<div class="loading">发送中...</div>';
+  try {
+    const r = await fetch('/api/c2/send', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({target, type, params, schedule_at: schedule || null})
+    });
+    const res = await r.json();
+    const channel = res._channel || 'git';
+    const icon = channel === 'http' ? '&#x26A1;' : '&#x1F4E4;';
+    resultEl.innerHTML = '<div style="padding:8px;background:rgba(34,197,94,.1);border-radius:6px;font-size:13px">' +
+      icon + ' 命令已发送<br>' +
+      '通道: ' + channel + '<br>' +
+      '状态: ' + (res.status||'?') + '<br>' +
+      (res.message ? '消息: ' + res.message : '') +
+      (res.command_id ? '<br>ID: ' + res.command_id : '') +
+      '</div>';
+    loadC2History();
+  } catch(e) {
+    resultEl.innerHTML = `<div class="error">${e.message}</div>`;
+  }
+}
+
+async function loadC2History() {
+  const el = document.getElementById('c2CommandHistory');
+  try {
+    const r = await fetch('/api/c2/commands');
+    const data = await r.json();
+    const cmds = data.recent || [];
+    if (!cmds.length) { el.innerHTML = '<div class="text-muted text-sm">暂无执行历史</div>'; return; }
+    el.innerHTML = '<table><thead><tr>' +
+      '<th>类型</th><th>目标</th><th>状态</th><th>时间</th><th>结果</th>' +
+      '</tr></thead><tbody>' + cmds.slice(0,30).map(c => {
+        const st = c.status||'?';
+        const stCls = st === 'completed' ? 'badge-green' : (st === 'failed' ? 'badge-red' : 'badge-amber');
+        const stTxt = st === 'completed' ? '&#x2705; 完成' : (st === 'failed' ? '&#x274C; 失败' : '&#x23F3; ' + st);
+        const out = c.output ? (c.output.accounts ? c.output.accounts.join(',') : Object.keys(c.output).slice(0,3).join('|')) : (c.error||'-');
+        const ts = (c.completed_at||c.created_at||'').slice(0,19).replace('T',' ');
+        return `<tr><td><strong>${c.type}</strong></td>` +
+          `<td>${c.target_machine||'-'}</td>` +
+          `<td><span class="badge ${stCls}">${stTxt}</span></td>` +
+          `<td class="text-xs text-muted">${ts}</td>` +
+          `<td class="text-xs text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${String(out).slice(0,40)}</td></tr>`;
+      }).join('') + '</tbody></table>';
+  } catch(e) {
+    el.innerHTML = `<div class="error">${e.message}</div>`;
+  }
+}
+
+// Patch switchTab to include c2
+const origSwitchTab = switchTab;
+switchTab = function(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  ['accounts','c2','blueprints','atomops','backup','importexport'].forEach(p => {
+    const panel = document.getElementById('panel-' + p);
+    if (panel) panel.classList.toggle('hidden', p !== name);
+  });
+  if (name === 'c2') { loadC2Machines(); loadC2History(); }
+  if (name === 'backup') loadBackups();
+};
+
+// Enhance loadAccounts to show richer data
+const origLoadAccounts = loadAccounts;
+loadAccounts = async function() {
+  const el = document.getElementById('accountList');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await fetch('/api/matrix/accounts');
+    const data = await r.json();
+    const accts = data.accounts || [];
+    if (!accts.length) { el.innerHTML = '<div class="error">暂无账号</div>'; return; }
+
+    el.innerHTML = '<table><thead><tr>' +
+      '<th>ID</th><th>平台</th><th>手机</th><th>机器</th><th>登录</th>' +
+      '<th>昵称</th><th>身份目录</th><th>启用</th><th>操作</th>' +
+      '</tr></thead><tbody>' + accts.map(a => {
+      const sb = statusBadge(a._status);
+      const dirExists = a._identity_dir_exists ? '&#x2705;' : '&#x274C;';
+      const isLocal = a.is_local;
+      const platformIcon = a.platform === 'douyin' ? '&#x1F3B5;' : (a.platform === 'xiaohongshu' ? '&#x1F4D5;' : '&#x1F310;');
+      return '<tr>' +
+        '<td><strong>' + a.id + '</strong></td>' +
+        '<td>' + platformIcon + ' ' + a.platform + '</td>' +
+        '<td>' + (a.phone||a.phone_mask||'-').slice(0,11) + '</td>' +
+        '<td class="text-xs">' + (isLocal ? '<span style="color:var(--blue)">&#x1F4BB; 本机</span>' : '<span style="color:var(--text2)">&#x1F310; '+(a.owner_machine||'远程')+'</span>') + '</td>' +
+        '<td><span class="badge ' + sb.cls + '">' + sb.txt + '</span></td>' +
+        '<td class="text-xs text-muted" style="max-width:100px;overflow:hidden;text-overflow:ellipsis">' + (a.display_name || '-') + '</td>' +
+        '<td class="text-xs"><span title="'+(a.identity_dir||'')+'">' + dirExists + ' ' + ((a.identity_dir||'').split('/').pop()||'-') + '</span></td>' +
+        '<td>' + (a.enabled ? '&#x2705;' : '&#x23F8;') + '</td>' +
+        '<td>' +
+          '<button class="btn btn-sm btn-outline" onclick="showEditAccount(\''+a.id+'\')">编辑</button>' +
+          (a.enabled && isLocal ? '<button class="btn btn-sm btn-primary" onclick="startNurture(\''+a.id+'\')" style="margin-left:4px">养号</button>' : '') +
+          '<button class="btn btn-sm btn-danger" onclick="deleteAccount(\''+a.id+'\')" style="margin-left:4px">删</button>' +
+        '</td></tr>';
+    }).join('') + '</tbody></table>';
+  } catch(e) { el.innerHTML = '<div class="error">'+e.message+'</div>'; }
+};
 </script>
 </body>
 </html>
