@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.14
+    "load_1m": 1.55
   },
   "memory": {
     "total_gb": 0,
@@ -17,115 +17,14 @@
     "used_gb": 84.4,
     "available_gb": 160.7
   },
-  "last_seen": "2026-05-31T15:57:52.677282+00:00",
+  "last_seen": "2026-05-31T16:02:55.934488+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-05-31T15:57:52.728612+00:00",
+  "_received_at": "2026-05-31T16:02:55.985508+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
-  "_events": [
-    {
-      "id": "79de29da-24d2-4d72-a8b8-5155c3f95fee",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-05-31T10:39:24.990392+00:00",
-      "payload": {
-        "summary": "Merge made by the 'ort' strategy.\n .../automation/4cf443bc-ff14-4ed9-885b-b04c5326304d.json |  2 +-\n .../data/ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .../collector/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../guardd/4cf443bc-ff14-4ed9-885b-b04c5326304d.json     |  2 +-\n .../knowledge/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../matrix/4cf443bc-ff14-4ed9-885b-b04c5326304d.json     | 16 ++++++++--------\n .../skills/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   ",
-        "hostname": "5kechengdeAir"
-      }
-    },
-    {
-      "id": "7b7d4ff0-dda3-4b4b-863e-e1d6e98500da",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-05-31T11:19:50.587107+00:00",
-      "payload": {
-        "summary": "Merge made by the 'ort' strategy.\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json",
-        "hostname": "5kechengdeAir"
-      }
-    },
-    {
-      "id": "7fa94700-b6cd-4647-a118-8a23a68363b9",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-05-31T10:19:12.519965+00:00",
-      "payload": {
-        "summary": "Merge made by the 'ort' strategy.\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      | 79 ++++++++++++++++------\n .../accounts.yaml                                  |  2 +-\n .../events/2026-05-31.jsonl                        |  1 +\n .../heartbeat.json                                 |  6 +-\n 04_memory/cross_machine/registry/5kecheng.json     |  7 --\n 04_memory/cross_machine/registry/7kecheng.json     |  7 --\n 04_memory/cross_machine/registry/chengzige.json    |  8 ---\n .../status/chengzigedeAir",
-        "hostname": "5kechengdeAir"
-      }
-    },
-    {
-      "id": "8e3450f1-c47b-403c-999b-c4372a11e618",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-05-31T10:12:05.666718+00:00",
-      "payload": {
-        "summary": "Merge made by the 'ort' strategy.\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |  2 +-\n .../ave/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json  |  2 +-\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |  2 +-\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      | 16 ++---\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |  2 +-\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      | 79 ++++++----------------\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |  2 +-\n .../d19759cf-2159-4fe7",
-        "hostname": "5kechengdeAir"
-      }
-    },
-    {
-      "id": "aac0a331-ac0f-4a30-a051-c0ba049a9950",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-05-31T10:44:28.236866+00:00",
-      "payload": {
-        "summary": "Merge made by the 'ort' strategy.\n .../automation/4cf443bc-ff14-4ed9-885b-b04c5326304d.json |  2 +-\n .../data/ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .../collector/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../guardd/4cf443bc-ff14-4ed9-885b-b04c5326304d.json     |  2 +-\n .../knowledge/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../matrix/4cf443bc-ff14-4ed9-885b-b04c5326304d.json     | 16 ++++++++--------\n .../skills/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   ",
-        "hostname": "5kechengdeAir"
-      }
-    },
-    {
-      "id": "ab40df86-db4f-4c87-820b-8dce7fdd6e7c",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-05-31T10:54:34.561300+00:00",
-      "payload": {
-        "summary": "Merge made by the 'ort' strategy.\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |   2 +-\n .../ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |   2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |   2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |   2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |   2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  16 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |   2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c532630",
-        "hostname": "5kechengdeAir"
-      }
-    },
-    {
-      "id": "adcf6c79-d500-45c5-81cc-f247a3c1f63f",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-05-31T10:29:18.810133+00:00",
-      "payload": {
-        "summary": "Merge made by the 'ort' strategy.\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  6 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      | 94 +++++++---------------\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-88",
-        "hostname": "5kechengdeAir"
-      }
-    },
-    {
-      "id": "b60f4c72-4b6d-4775-b2b3-5bad17d85841",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-05-31T11:14:47.639331+00:00",
-      "payload": {
-        "summary": "Merge made by the 'ort' strategy.\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json          |  2 +-\n .../data/ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json          |  2 +-\n .../guardd/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json          |  2 +-\n .../matrix/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   | 18 +++++++++---------\n .../skills/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .",
-        "hostname": "5kechengdeAir"
-      }
-    },
-    {
-      "id": "ba763606-cb03-4645-b587-dd9c8eb811b5",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-05-31T10:49:31.573979+00:00",
-      "payload": {
-        "summary": "Merge made by the 'ort' strategy.\n .../automation/4cf443bc-ff14-4ed9-885b-b04c5326304d.json |  2 +-\n .../data/ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .../collector/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../guardd/4cf443bc-ff14-4ed9-885b-b04c5326304d.json     |  2 +-\n .../knowledge/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../matrix/4cf443bc-ff14-4ed9-885b-b04c5326304d.json     | 16 ++++++++--------\n .../skills/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   ",
-        "hostname": "5kechengdeAir"
-      }
-    },
-    {
-      "id": "bc8a28fb-40cf-4121-a9a3-df827475e2da",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-05-31T11:24:53.660572+00:00",
-      "payload": {
-        "summary": "Merge made by the 'ort' strategy.\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      | 94 +++++++---------------\n .../4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../4cf443bc-ff14-4ed9-88",
-        "hostname": "5kechengdeAir"
-      }
-    }
-  ],
+  "_events": [],
   "_uptime": 0
 }
