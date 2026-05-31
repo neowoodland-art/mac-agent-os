@@ -399,12 +399,8 @@ function switchView(view) {
     e.style.display = isAve ? 'block' : 'none';
   });
 
-  // 养号子项显隐
+  // 本机管理视图列表
   const matrixSubViews = ['matrix-summary','matrix-accounts','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export'];
-  const isMatrix = view === 'matrix-summary' || view === 'plugin-matrix' || matrixSubViews.includes(view);
-  document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
-    e.style.display = isMatrix ? 'block' : 'none';
-  });
 
   // 点击「视频工厂」时自动跳转到工作流编辑器
   if (view === 'plugin-ave') {
@@ -757,14 +753,17 @@ async function loadPlugins() {
       html += `<div class="nav-item" data-view="plugin-${p.name}" onclick="switchView('plugin-${p.name}')">${icon} ${p.label}</div>`;
     });
 
-    // ── 养号组 ──
-    html += `<div class="nav-group">📱 养号</div>`;
-    html += `<div class="nav-item" data-view="matrix-summary" onclick="switchView('matrix-summary')">📊 矩阵总览</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-accounts" onclick="switchView('matrix-accounts')" style="display:none">👤 账号管理</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-blueprints" onclick="switchView('matrix-blueprints')" style="display:none">📋 蓝图编排</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-atom-ops" onclick="switchView('matrix-atom-ops')" style="display:none">⚡ 原子操作库</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-backup" onclick="switchView('matrix-backup')" style="display:none">💾 备份恢复</div>`;
-    html += `<div class="nav-sub" data-group="matrix" data-view="matrix-export" onclick="switchView('matrix-export')" style="display:none">📦 导入导出</div>`;
+    // ── 联邦矩阵 ──
+    html += `<div class="nav-group">🌐 联邦矩阵</div>`;
+    html += `<div class="nav-item" data-view="matrix-summary" onclick="switchView('matrix-summary')">📊 多机总览</div>`;
+
+    // ── 本机管理 ──
+    html += `<div class="nav-group">📱 本机管理</div>`;
+    html += `<div class="nav-item" data-view="matrix-accounts" onclick="switchView('matrix-accounts')">👤 账号管理</div>`;
+    html += `<div class="nav-item" data-view="matrix-blueprints" onclick="switchView('matrix-blueprints')">📋 蓝图编排</div>`;
+    html += `<div class="nav-item" data-view="matrix-atom-ops" onclick="switchView('matrix-atom-ops')">⚡ 原子操作库</div>`;
+    html += `<div class="nav-item" data-view="matrix-backup" onclick="switchView('matrix-backup')">💾 备份恢复</div>`;
+    html += `<div class="nav-item" data-view="matrix-export" onclick="switchView('matrix-export')">📦 导入导出</div>`;
 
     // ── 知识组 ──
     html += `<div class="nav-group">📚 知识</div>`;
@@ -935,14 +934,26 @@ async function loadMatrixAtomOps() {
     const groups = {};
     ops.forEach(o => { const g = o.category||'其他'; if(!groups[g]) groups[g]=[]; groups[g].push(o); });
     const catLabels = {navigation:'🏠 导航', browse:'📱 浏览', interact:'💡 交互', xhs:'📕 小红书', utility:'⏳ 工具'};
-    el.innerHTML = Object.entries(groups).map(([g,items]) => `<div style="margin-bottom:12px">
-      <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text2)">${catLabels[g]||g} (${items.length})</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px">${items.map(o =>
-        `<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">
-          <div style="font-size:12px;font-weight:600">${o.label||o.name}</div>
-          <div style="font-size:10px;color:var(--text2);margin-top:2px">${o.desc||''}</div>
-        </div>`
-      ).join('')}</div></div>`).join('');
+    el.innerHTML = Object.entries(groups).map(([g,items]) => `<div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2)">${catLabels[g]||g} (${items.length})</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${items.map(o => {
+        // 依赖标签
+        let reqHtml = '';
+        if (o.requires && o.requires.length > 0 && o.requires[0] !== '*') {
+          reqHtml = `<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:var(--blue);margin-top:4px">← 需前序: ${o.requires.map(r => r).join(', ')}</span>`;
+        } else if (o.can_be_first) {
+          reqHtml = `<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--green);margin-top:4px">✅ 可为首步</span>`;
+        }
+        let nextHtml = '';
+        if (o.allows && o.allows.length > 0 && o.allows[0] !== '*') {
+          nextHtml = `<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(139,143,163,.15);color:var(--text2);margin-top:2px">→ 后继: ${o.allows.slice(0,4).join(', ')}${o.allows.length>4?'…':''}</span>`;
+        }
+        return `<div style="background:var(--bg3);border-radius:6px;padding:10px;border:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600">${o.label||o.name}</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:2px">${o.desc||o.doc||''}</div>
+          ${reqHtml}${nextHtml}
+        </div>`;
+      }).join('')}</div></div>`).join('');
   } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
 }
 
