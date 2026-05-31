@@ -29,7 +29,7 @@ MATRIX_BLUEPRINTS = MATRIX_CODE / "blueprints"
 MATRIX_CONFIG_TEMPLATE = MATRIX_CODE / "config_template"
 MATRIX_ACCOUNT_WORKSPACES = MATRIX_LOCAL / "accounts"
 
-PYTHON = "/Users/5kecheng/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+PYTHON = "/Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/python3"
 MATRIX_CLI = str(MATRIX_SCRIPTS / "matrix.py")
 
 
@@ -89,6 +89,9 @@ class MatrixManager:
         accounts.append(new_acct)
         self._write_accounts_yaml(accounts)
 
+        # ── WPRA v2.0: 同步写入 machines/{uid}/accounts.yaml ──
+        self._write_self_accounts()
+
         # 创建身份目录
         identity_dir_name = new_acct["identity_dir"].replace("identities/", "")
         identity_path = MATRIX_IDENTITIES / identity_dir_name
@@ -116,6 +119,10 @@ class MatrixManager:
                 found[key] = data[key]
 
         self._write_accounts_yaml(accounts)
+
+        # ── WPRA v2.0: 同步写入 machines/{uid}/accounts.yaml ──
+        self._write_self_accounts()
+
         return {"status": "ok", "account": found}
 
     def delete_account(self, account_id: str, delete_identity: bool = False) -> dict:
@@ -132,6 +139,9 @@ class MatrixManager:
         # 从配置中移除
         accounts.remove(found)
         self._write_accounts_yaml(accounts)
+
+        # ── WPRA v2.0: 同步写入 machines/{uid}/accounts.yaml ──
+        self._write_self_accounts()
 
         # 可选删除身份目录（谨慎操作）
         result = {"status": "ok", "removed_from_config": True, "identity_deleted": False}
@@ -631,6 +641,103 @@ class MatrixManager:
     LEGACY_PATH = MATRIX_LOCAL / "config" / "accounts.yaml"
     CROSS_MACHINE_DIR = AGENT_SYNC / "04_memory" / "cross_machine" / "data" / "matrix"
 
+    # ── WPRA v2.0: 写分区·读聚合路径 ──
+    MACHINES_DIR = AGENT_SYNC / "04_memory" / "cross_machine" / "machines"
+
+    def _local_uid(self) -> str:
+        """读取本机 machine_uid"""
+        uid_file = AGENT_LOCAL / "identity" / "machine_uid"
+        if uid_file.exists():
+            return uid_file.read_text().strip()
+        return self._local_hostname()  # 降级
+
+    def _my_machine_dir(self) -> Path:
+        """本机 WPRA 命名空间目录"""
+        d = self.MACHINES_DIR / self._local_uid()
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def _read_all_machines_accounts(self) -> list[dict]:
+        """WPRA: 遍历所有机器的 accounts.yaml，聚合完整账号注册表
+
+        替代旧的 accounts_registry.yaml 单文件。
+        每台机器只写自己的 accounts.yaml，不存在则跳过。
+        """
+        all_accounts = []
+        if not self.MACHINES_DIR.exists():
+            return all_accounts
+
+        for machine_dir in sorted(self.MACHINES_DIR.iterdir()):
+            if not machine_dir.is_dir():
+                continue
+            acct_file = machine_dir / "accounts.yaml"
+            if not acct_file.exists():
+                continue
+            try:
+                data = yaml.safe_load(acct_file.read_text()) or {}
+                accounts = data.get("accounts", [])
+                source_uid = data.get("machine_uid", machine_dir.name)
+                source_name = data.get("machine_name", source_uid[:8])
+                for acct in accounts:
+                    acct["_source_machine_uid"] = source_uid
+                    acct["_source_machine_name"] = source_name
+                    acct["_source_machine_host"] = data.get("machine_name", source_uid[:8])
+                    # 兼容旧字段名
+                    if "assigned_machine" not in acct:
+                        acct["assigned_machine"] = source_name
+                    all_accounts.append(acct)
+            except Exception as e:
+                print(f"  跳过 {machine_dir.name}/accounts.yaml: {e}")
+                continue
+
+        return all_accounts
+
+    def _write_self_accounts(self):
+        """WPRA: 将本机管理的账号写入 machines/{uid}/accounts.yaml
+
+        只写 assigned_machine == 本机 的账号，不碰其他机器的。
+        每台机器只写自己的文件，永不冲突。
+        """
+        # 从 override 读取本机账号
+        hostname, override = self._read_override()
+        override_map = {a["id"]: a for a in override}
+        local_hostname = self._local_hostname()
+
+        # 从 registry 获取完整账号列表，筛选属于本机的
+        registry = self._read_registry()
+        my_accounts = []
+        for acct in registry:
+            am = acct.get("assigned_machine", "")
+            is_local = (am == local_hostname) or (acct["id"] in override_map)
+            if not is_local:
+                continue
+            ovr = override_map.get(acct["id"], {})
+            merged = {
+                "id": acct["id"],
+                "platform": acct.get("platform", ""),
+                "phone_mask": ovr.get("phone", acct.get("phone_mask", "")),
+                "assigned_machine": local_hostname,
+                "identity_hint": ovr.get("identity_hint", acct.get("identity_hint", acct["id"])),
+                "enabled": ovr.get("enabled", acct.get("enabled", True)),
+                "notes": ovr.get("notes", acct.get("notes", "")),
+            }
+            my_accounts.append(merged)
+
+        # WPRA 格式写入
+        output = {
+            "schema_version": "2.0",
+            "file_schema": "accounts-v2",
+            "machine_uid": self._local_uid(),
+            "machine_name": local_hostname,
+            "updated_at": datetime.now().isoformat(),
+            "accounts": my_accounts,
+        }
+        target = self._my_machine_dir() / "accounts.yaml"
+        target.write_text(
+            yaml.dump(output, default_flow_style=False, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+        )
+
     def _read_registry(self) -> list:
         """读取 L0 注册表 (Gitee 同步, 所有账号定义)"""
         if not self.REGISTRY_PATH.exists():
@@ -664,9 +771,18 @@ class MatrixManager:
 
     def list_accounts(self) -> list[dict]:
         """合并 Registry + Override 输出完整账号列表
+
+        WPRA v2.0: 优先读取 machines/*/accounts.yaml (写分区数据)
+        如果不存在，降级到旧的 accounts_registry.yaml (向后兼容)
         同时检查本机身份目录和登录状态
         """
-        registry = self._read_registry()
+        # ── WPRA v2.0: 优先读取所有机器的 accounts.yaml ──
+        wpra_accounts = self._read_all_machines_accounts()
+        if wpra_accounts:
+            registry = wpra_accounts
+        else:
+            # 降级: 旧 accounts_registry.yaml
+            registry = self._read_registry()
         hostname, override = self._read_override()
         override_map = {a["id"]: a for a in override}
         local_hostname = self._local_hostname()
@@ -820,6 +936,10 @@ class MatrixManager:
         (self.CROSS_MACHINE_DIR / f"{uid}.json").write_text(
             json.dumps(status, indent=2, ensure_ascii=False), encoding="utf-8"
         )
+
+        # ── WPRA v2.0: 同步写入 machines/{uid}/accounts.yaml ──
+        self._write_self_accounts()
+
         return status
 
     # ═══════════════════════════════════════════════════════════

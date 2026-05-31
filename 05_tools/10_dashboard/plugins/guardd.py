@@ -1,7 +1,7 @@
 """
-plugins/guardd.py — 联邦状态监控插件 (v3)
-单一数据源: status/live/ + 补充 registry/ + data/
-版本: 3.0.0 | 更新: 2026-05-19
+plugins/guardd.py — 联邦状态监控插件 (v3.1)
+WPRA v2.0: 优先 machines/*/heartbeat.json, 降级 status/live/
+版本: 3.1.0 | 更新: 2026-05-31
 """
 import json, os
 from datetime import datetime, timezone
@@ -10,10 +10,10 @@ from pathlib import Path
 from plugins.base import DashboardPlugin, CROSS_MACHINE, MACHINE_UID, HOSTNAME
 from plugins._registry import get_machine_list
 
-# ── 人工维护的 IP→hostname 映射 ───────────────────────────
-# 旧版 guardd(v1.0/v1.1) 未写 UID，心跳被存为 IP/hostname/hostname.local 多种命名。
-# 这些映射将 IP 或 .local 变体归并到规范 hostname。
-# 如果新增机器发现重复，在此追加。
+# ── WPRA v2.0 路径 ────────────────────────────────
+MACHINES_DIR = CROSS_MACHINE / "machines"
+
+# ── 人工维护的 IP→hostname 映射（旧版兼容）───────────
 _MACHINE_ALIASES: dict[str, str] = {
     "192.168.31.95":               "7kecheng",
     "7kechengdeAir":               "7kecheng",
@@ -22,16 +22,90 @@ _MACHINE_ALIASES: dict[str, str] = {
     "192.168.31.96":               "chengzigedeAir",
 }
 
+
 class GuarddPlugin(DashboardPlugin):
     name = "guardd"
     label = "联邦机器"
     icon = "🖥"
-    version = "3.0.0"
-    description = "跨机器联邦状态监控：心跳/注册/插件数据三源合一"
+    version = "3.1.0"
+    description = "跨机器联邦状态监控：WPRA v2.0 心跳聚合"
     order = 10
 
+    # ═══════════════════════════════════════════════════════
+    # WPRA v2.0: machines/*/heartbeat.json (主数据源)
+    # ═══════════════════════════════════════════════════════
+
+    def _read_wpra_heartbeats(self):
+        """主数据源: machines/*/heartbeat.json
+
+        WPRA v2.0: 每台机器只写自己的 machines/{uid}/heartbeat.json
+        统一字段名映射到旧格式，保持 _build_machine_detail 兼容。
+        """
+        data = {}
+        if not MACHINES_DIR.exists():
+            return data
+        for md in sorted(MACHINES_DIR.iterdir()):
+            if not md.is_dir():
+                continue
+            uid = md.name
+            hb_file = md / "heartbeat.json"
+            if not hb_file.exists():
+                continue
+            try:
+                hb = json.loads(hb_file.read_text())
+
+                # 统一字段名映射 (新→旧格式兼容)
+                machine_name = hb.get("machine_name", uid[:8])
+                updated_at = hb.get("updated_at", "")
+                mapped = {
+                    "_hostname": machine_name,
+                    "_uid": uid,
+                    "hostname": machine_name,
+                    "_received_at": updated_at,
+                    "status": hb.get("status", "offline"),
+                    "guardd_version": hb.get("guardd_version", ""),
+                    "current_task": hb.get("current_task", None),
+                    # 从 WPRA 扁平字段转为旧版嵌套格式
+                    "cpu": {"load_1m": hb.get("cpu_load", 0)},
+                    "disk": {
+                        "available_gb": hb.get("disk_avail_gb", 0),
+                        "total_gb": hb.get("disk_total_gb", 0),
+                        "used_gb": hb.get("disk_used_gb", 0),
+                    },
+                    "memory": {"percent": hb.get("memory_pct", 0)},
+                    "os": "",
+                    "_live": bool(updated_at),
+                    "_last_push_sec": 0,
+                    "_source": "wpra_heartbeat",
+                }
+
+                # 计算 _last_push_sec
+                if updated_at:
+                    try:
+                        delta = (datetime.now(timezone.utc) -
+                                 datetime.fromisoformat(updated_at.replace("Z", "+00:00"))).total_seconds()
+                        mapped["_last_push_sec"] = round(delta)
+                        mapped["_live"] = delta < 120
+                    except:
+                        pass
+
+                data[uid] = mapped
+            except Exception:
+                continue
+        return data
+
+    # ═══════════════════════════════════════════════════════
+    # 旧版: status/live/{uid}.json (降级)
+    # ═══════════════════════════════════════════════════════
+
     def _read_live_data(self):
-        """主数据源: status/live/{uid}.json"""
+        """WPRA v2.0: 优先 machines/*/, 降级 status/live/"""
+        # WPRA 优先
+        wpra = self._read_wpra_heartbeats()
+        if wpra:
+            return wpra
+
+        # 降级: 旧 status/live/{uid}.json
         live_dir = CROSS_MACHINE / "status" / "live"
         data = {}
         if not live_dir.exists():
@@ -47,7 +121,7 @@ class GuarddPlugin(DashboardPlugin):
         return data
 
     def _read_registry(self):
-        """补充数据源1: cross_machine/registry/{name}.json"""
+        """补充数据源: cross_machine/registry/{name}.json"""
         reg_dir = CROSS_MACHINE / "registry"
         machines = []
         if reg_dir.exists():
@@ -66,7 +140,7 @@ class GuarddPlugin(DashboardPlugin):
         return machines
 
     def _read_plugin_data(self):
-        """补充数据源2: cross_machine/data/*/{uid}.json 扫描所有机器UID"""
+        """补充数据源: cross_machine/data/*/{uid}.json"""
         data_dir = CROSS_MACHINE / "data"
         machines = {}
         if data_dir.exists():
@@ -86,13 +160,15 @@ class GuarddPlugin(DashboardPlugin):
                             pass
         return list(machines.values())
 
+    # ═══════════════════════════════════════════════════════
+    # 概览 / 详情
+    # ═══════════════════════════════════════════════════════
+
     def summary(self, machines: list[str]) -> dict:
         live = self._read_live_data()
         now = datetime.now(timezone.utc)
 
-        all_uids = set(live.keys())
         by_machine = {}
-
         for uid, l in live.items():
             hn = l.get("_hostname", uid[:8])
             received = l.get("_received_at", "")
@@ -100,7 +176,8 @@ class GuarddPlugin(DashboardPlugin):
             realtime = False
             if received:
                 try:
-                    delta = (now - datetime.fromisoformat(received)).total_seconds()
+                    delta = (now - datetime.fromisoformat(
+                        received.replace("Z", "+00:00"))).total_seconds()
                     online = delta < 300
                     realtime = delta < 120
                 except:
@@ -140,7 +217,6 @@ class GuarddPlugin(DashboardPlugin):
 
     def _build_machine_detail(self, hostname, uid, live, now):
         received = live.get("_received_at", "")
-        delta = 999
         entry = {
             "hostname": hostname,
             "_uid": uid[:8]+"..." if uid else "",
@@ -159,7 +235,8 @@ class GuarddPlugin(DashboardPlugin):
         }
         if received:
             try:
-                delta = (now - datetime.fromisoformat(received)).total_seconds()
+                delta = (now - datetime.fromisoformat(
+                    received.replace("Z", "+00:00"))).total_seconds()
                 entry["_live"] = delta < 120
                 entry["_last_push_sec"] = round(delta)
                 entry["minutes_ago"] = round(delta / 60)
@@ -172,7 +249,6 @@ class GuarddPlugin(DashboardPlugin):
         entry["disk_used_gb"] = disk.get("used_gb", 0)
         entry["disk_total_gb"] = disk.get("total_gb", 0)
         entry["disk_avail_gb"] = disk.get("available_gb", 0)
-        entry["guardd_version"] = live.get("guardd_version", "")
         return entry
 
     def actions(self) -> list[dict]:

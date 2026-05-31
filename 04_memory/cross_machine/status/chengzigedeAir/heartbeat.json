@@ -1,11 +1,11 @@
 {
   "hostname": "chengzigedeAir",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "role": "workstation",
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 2.65
+    "load_1m": 1.51
   },
   "memory": {
     "total_gb": 0,
@@ -14,11 +14,11 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 225.4,
-    "available_gb": 19.7
+    "used_gb": 225.5,
+    "available_gb": 19.6
   },
-  "last_seen": "2026-05-31T09:50:16.984823+00:00",
+  "last_seen": "2026-05-31T10:05:57.465115+00:00",
   "status": "online",
-  "guardd_version": "2.2.0",
+  "guardd_version": "2.3.0",
   "current_task": null
 }
