@@ -972,25 +972,19 @@ async function loadMatrixBlueprints() {
           <button class="btn btn-outline" onclick="bpClear()">🗑 清空</button>
         </div>
 
-        <div style="margin-top:12px;font-weight:600;font-size:13px;color:var(--text2)">⚡ 原子操作（点击添加到步骤末尾）</div>
-        <div id="bp-op-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;margin:8px 0;max-height:300px;overflow-y:auto">
-          ${allOps.map(o => {
-            let deps = '';
-            if (o.requires && o.requires.length && o.requires[0] !== '*') {
-              deps = `<span style="font-size:9px;color:var(--blue)">← ${o.requires.join(',')}</span>`;
-            } else if (o.can_be_first) {
-              deps = `<span style="font-size:9px;color:var(--green)">✅ 首步</span>`;
-            }
-            return `<div class="op-card" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);cursor:pointer" onclick="bpAddStep('${o.name}')">
-              <div style="font-size:12px;font-weight:600">${o.label||o.name}</div>
-              <div style="font-size:10px;color:var(--text2)">${o.desc||''}</div>
-              <div style="margin-top:2px">${deps}</div>
-            </div>`;
-          }).join('')}
+        <div style="margin-top:12px;font-weight:600;font-size:13px;color:var(--text2)">⚡ 原子操作 — 按平台筛选</div>
+        <div style="display:flex;gap:4px;margin:6px 0" id="bp-op-tabs">
+          <span class="badge badge-blue" style="cursor:pointer;padding:4px 10px;font-size:11px" data-ft="all" onclick="bpFilterOps('all')">📋 全部</span>
+          <span class="badge badge-gray" style="cursor:pointer;padding:4px 10px;font-size:11px" data-ft="navigation" onclick="bpFilterOps('navigation')">🏠 导航</span>
+          <span class="badge badge-gray" style="cursor:pointer;padding:4px 10px;font-size:11px" data-ft="browse" onclick="bpFilterOps('browse')">📱 浏览</span>
+          <span class="badge badge-gray" style="cursor:pointer;padding:4px 10px;font-size:11px" data-ft="interact" onclick="bpFilterOps('interact')">💡 交互</span>
+          <span class="badge badge-gray" style="cursor:pointer;padding:4px 10px;font-size:11px" data-ft="xhs" onclick="bpFilterOps('xhs')">📕 小红书</span>
+          <span class="badge badge-gray" style="cursor:pointer;padding:4px 10px;font-size:11px" data-ft="utility" onclick="bpFilterOps('utility')">⏳ 工具</span>
         </div>
+        <div id="bp-op-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;margin:6px 0"></div>
 
-        <div style="margin-top:12px;font-weight:600;font-size:13px;color:var(--text2)">📋 已编排步骤</div>
-        <div id="bp-steps" style="min-height:40px;border:1px dashed var(--border);border-radius:6px;padding:8px;margin:4px 0">
+        <div style="margin-top:16px;font-weight:600;font-size:13px;color:var(--text2)">📋 已编排步骤</div>
+        <div id="bp-steps" style="min-height:60px;border:1px dashed var(--border);border-radius:6px;padding:10px;margin:4px 0">
           <div style="color:var(--text2);font-size:12px;text-align:center;padding:10px">点击上方原子操作添加步骤</div>
         </div>
         <div id="bp-validate" style="margin-top:6px"></div>
@@ -1001,6 +995,8 @@ async function loadMatrixBlueprints() {
     // 初始化编辑器状态
     window._bpSteps = [];
     window._editingBp = null;
+    window._bpFilter = 'all';
+    bpRenderOps();
   } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
 }
 
@@ -1088,6 +1084,43 @@ window.bpClear = function() {
   window._editingBp = null;
   bpRenderSteps();
 };
+
+// Atomic op filter & render for blueprint editor
+window._bpFilter = 'all';
+
+window.bpFilterOps = function(filter) {
+  window._bpFilter = filter;
+  // Update tab styles
+  document.querySelectorAll('#bp-op-tabs span').forEach(t => {
+    t.className = t.dataset.ft === filter ? 'badge badge-blue' : 'badge badge-gray';
+    t.style.cssText = 'cursor:pointer;padding:4px 10px;font-size:11px';
+  });
+  bpRenderOps();
+};
+
+function bpRenderOps() {
+  const el = document.getElementById('bp-op-list');
+  if (!el) return;
+  const allOps = Object.values(window._matrixOps || {});
+  const filter = window._bpFilter || 'all';
+  const filtered = filter === 'all' ? allOps : allOps.filter(o => (o.category||'') === filter);
+  el.innerHTML = filtered.map(o => {
+    let deps = '';
+    if (o.requires && o.requires.length && o.requires[0] !== '*') {
+      deps = `<span style="font-size:9px;color:var(--blue)">← ${o.requires.join(',')}</span>`;
+    } else if (o.can_be_first) {
+      deps = `<span style="font-size:9px;color:var(--green)">✅ 首步</span>`;
+    }
+    return `<div class="op-card" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);cursor:pointer" onclick="bpAddStep('${o.name}')">
+      <div style="font-size:12px;font-weight:600">${o.label||o.name}</div>
+      <div style="font-size:10px;color:var(--text2)">${o.desc||''}</div>
+      <div style="margin-top:2px">${deps}</div>
+    </div>`;
+  }).join('');
+  if (!filtered.length) {
+    el.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:10px;grid-column:1/-1">当前分类无操作</div>';
+  }
+}
 
 window.showBpEditor = async function(name) {
   if (!name) { bpClear(); return; }
