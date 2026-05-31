@@ -1,7 +1,32 @@
-# guardd v2.0.0 — 联邦守护进程部署指南
+# guardd v2.3.0 — 联邦守护进程 (WPRA v2.0)
 
-> 适用: Redmi-12C / 5kecheng / 7kechengdeAir / 任何新加入的机器
-> 所有机器使用同一版本, 数据通过 Git 同步, 无需机器间直连
+> **架构**: WPRA v2.0 — 每台机器只写自己的命名空间，永不冲突
+> **版本**: 2.3.0 | **更新**: 2026-05-31
+> 适用: 所有 AgentOS 联邦机器
+
+---
+
+## 架构变化 (v2.3.0 关键升级)
+
+v2.3.0 从 `git add -A` 切换到 **WPRA (Write Partitioned, Read Aggregated)** 模型：
+
+| 旧架构 (≤2.2.x) | 新架构 (≥2.3.0) |
+|:-----------------|:-----------------|
+| `git add -A` 全量提交 → 冲突 | `git add <本机文件>` → 精确提交 |
+| 全员写 `_registry.json` → 覆盖冲突 | guardd 不写聚合文件，只写自己的命名空间 |
+| 单文件 `accounts_registry.yaml` | 每台机器 `machines/{uid}/accounts.yaml` |
+| 心跳写到 `status/live/` | 同时写到 `machines/{uid}/heartbeat.json` |
+
+**每台机器只操作自己的命名空间：**
+```
+machines/{MACHINE_UID}/
+├── MACHINE.yaml               ← 身份声明（首次写入，终身只读）
+├── heartbeat.json              ← 心跳（含 file_version + updated_at）
+└── events/{date}.jsonl         ← 事件日志（append-only）
+```
+
+**不再由 guardd 写入的文件**（已移交给 Dashboard 单实例管理）：
+- `status/live/_registry.json` — 安全删除，无冲突风险
 
 ---
 
@@ -42,8 +67,10 @@ python3 guardd.py --once
 如果输出 `心跳已上报` 表示成功。此时:
 - 本机 UID 已生成 → `agent-local/identity/machine_uid`
 - 本机 hostname 已缓存 → `agent-local/identity/cached_hostname`
-- 心跳已写入 → `cross_machine/status/live/{UID}.json`
-- 数据已推送到 Git
+- 心跳已写入 (旧) → `cross_machine/status/live/{UID}.json`
+- 心跳已写入 (新) → `cross_machine/machines/{UID}/heartbeat.json` ✅ WPRA v2.0
+- 身份声明已创建 → `cross_machine/machines/{UID}/MACHINE.yaml`
+- 数据已推送到 Git (精确 add，非 `-A`)
 
 ### 4. 验证 Dashboard
 
