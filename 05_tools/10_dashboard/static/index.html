@@ -965,7 +965,7 @@ async function loadMatrixBlueprints() {
           </div>
           <div style="flex:1;min-width:120px">
             <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">平台</label>
-            <select id="bp-platform" style="font-size:13px">
+            <select id="bp-platform" onchange="bpUpdatePlatform()" style="font-size:13px">
               <option value="douyin">🎵 抖音</option>
               <option value="xiaohongshu">📕 小红书</option>
             </select>
@@ -1011,7 +1011,7 @@ async function loadMatrixBlueprints() {
     window._editingBp = null;
     window._bpFilter = 'all';
     window._bpListOpen = false;
-    bpRenderOps();
+    bpUpdatePlatform();
   } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
 }
 
@@ -1128,22 +1128,76 @@ window.bpClear = function() {
 // Atomic op filter & render for blueprint editor
 window._bpFilter = 'all';
 
+// Platform → available categories mapping
+const BP_PLATFORM_CATEGORIES = {
+  douyin: ['navigation', 'browse', 'interact', 'utility'],
+  xiaohongshu: ['navigation', 'xhs', 'utility'],
+};
+
+// Tab definitions
+const BP_CATEGORY_TABS = {
+  all: '📋 全部',
+  navigation: '🏠 导航',
+  browse: '📱 浏览',
+  interact: '💡 交互',
+  xhs: '📕 小红书',
+  utility: '⏳ 工具',
+};
+
 window.bpFilterOps = function(filter) {
   window._bpFilter = filter;
   // Update tab styles
   document.querySelectorAll('#bp-op-tabs span').forEach(t => {
+    if (t.style.display === 'none') return;
     t.className = t.dataset.ft === filter ? 'badge badge-blue' : 'badge badge-gray';
-    t.style.cssText = 'cursor:pointer;padding:4px 10px;font-size:11px';
+    t.style.cssText = 'cursor:pointer;padding:3px 8px;font-size:10px';
   });
   bpRenderOps();
 };
 
+function bpGetPlatform() {
+  const sel = document.getElementById('bp-platform');
+  return sel ? sel.value : 'douyin';
+}
+
+function bpUpdatePlatform() {
+  // Get allowed categories for this platform
+  const platform = bpGetPlatform();
+  const cats = BP_PLATFORM_CATEGORIES[platform] || ['navigation', 'browse', 'interact', 'utility'];
+
+  // Update filter tab visibility
+  document.querySelectorAll('#bp-op-tabs span').forEach(t => {
+    const ft = t.dataset.ft;
+    // "all" always visible, others only if in this platform's categories
+    const visible = ft === 'all' || cats.includes(ft);
+    t.style.display = visible ? 'inline-block' : 'none';
+  });
+
+  // If current filter is not available for this platform, reset to 'all'
+  if (window._bpFilter !== 'all' && !cats.includes(window._bpFilter)) {
+    window._bpFilter = 'all';
+  }
+
+  bpRenderOps();
+
+  // Save the platform choice to registry for future (optional)
+}
+
 function bpRenderOps() {
   const el = document.getElementById('bp-op-list');
   if (!el) return;
+
   const allOps = Object.values(window._matrixOps || {});
+  const platform = bpGetPlatform();
+  const cats = BP_PLATFORM_CATEGORIES[platform] || ['navigation', 'browse', 'interact', 'utility'];
   const filter = window._bpFilter || 'all';
-  const filtered = filter === 'all' ? allOps : allOps.filter(o => (o.category||'') === filter);
+
+  // First filter by platform (only show ops from allowed categories)
+  const platformOps = allOps.filter(o => cats.includes(o.category || ''));
+
+  // Then apply category filter
+  const filtered = filter === 'all' ? platformOps : platformOps.filter(o => (o.category || '') === filter);
+
   el.innerHTML = filtered.map(o => {
     let deps = '';
     if (o.requires && o.requires.length && o.requires[0] !== '*') {
@@ -1158,7 +1212,7 @@ function bpRenderOps() {
     </div>`;
   }).join('');
   if (!filtered.length) {
-    el.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:10px;grid-column:1/-1">当前分类无操作</div>';
+    el.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:10px;grid-column:1/-1">当前平台/分类无可用操作</div>';
   }
 }
 
