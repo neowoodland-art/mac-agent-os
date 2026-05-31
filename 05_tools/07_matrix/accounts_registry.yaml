@@ -1,10 +1,10 @@
 version: '1.0'
-last_updated: 2026-05-31 11:07
+last_updated: 2026-05-31 11:09
 accounts:
 - id: douyin_01
   platform: douyin
   phone_mask: 185****8610
-  assigned_machine: 192.168.31.53
+  assigned_machine: 5kechengdeAir
   identity_hint: douyin_01_camo
   window:
   - 702
@@ -16,7 +16,7 @@ accounts:
 - id: douyin_02
   platform: douyin
   phone_mask: 185****3366
-  assigned_machine: 192.168.31.53
+  assigned_machine: 5kechengdeAir
   identity_hint: douyin_02_camo
   window:
   - 702
@@ -28,7 +28,7 @@ accounts:
 - id: douyin_camo01
   platform: douyin
   phone_mask: 153****8283
-  assigned_machine: 192.168.31.53
+  assigned_machine: 5kechengdeAir
   identity_hint: douyin_camo01
   window:
   - 702
@@ -40,7 +40,7 @@ accounts:
 - id: xhs_01
   platform: xiaohongshu
   phone_mask: 185****8610
-  assigned_machine: 192.168.31.53
+  assigned_machine: 5kechengdeAir
   identity_hint: douyin_01_camo
   window:
   - 702
@@ -52,7 +52,7 @@ accounts:
 - id: xhs_02
   platform: xiaohongshu
   phone_mask: 185****3366
-  assigned_machine: 192.168.31.53
+  assigned_machine: 5kechengdeAir
   identity_hint: douyin_02_camo
   window:
   - 702
@@ -64,7 +64,7 @@ accounts:
 - id: xhs_03
   platform: xiaohongshu
   phone_mask: 153****8283
-  assigned_machine: 192.168.31.53
+  assigned_machine: 5kechengdeAir
   identity_hint: douyin_camo01
   window:
   - 702
@@ -76,7 +76,7 @@ accounts:
 - id: zhihu_01
   platform: zhihu
   phone_mask: ''
-  assigned_machine: 192.168.31.53
+  assigned_machine: 5kechengdeAir
   identity_hint: ''
   window:
   - 702

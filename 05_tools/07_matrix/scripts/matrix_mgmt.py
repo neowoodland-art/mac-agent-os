@@ -655,6 +655,13 @@ class MatrixManager:
         except:
             return ("", [])
 
+    def _local_hostname(self) -> str:
+        """优先读取缓存的 hostname, fallback os.uname"""
+        hn_file = AGENT_LOCAL / "identity" / "cached_hostname"
+        if hn_file.exists():
+            return hn_file.read_text().strip()
+        return os.uname().nodename
+
     def list_accounts(self) -> list[dict]:
         """合并 Registry + Override 输出完整账号列表
         同时检查本机身份目录和登录状态
@@ -662,7 +669,7 @@ class MatrixManager:
         registry = self._read_registry()
         hostname, override = self._read_override()
         override_map = {a["id"]: a for a in override}
-        local_hostname = os.uname().nodename
+        local_hostname = self._local_hostname()
 
         # 是否为当前机器: registry 指定 + override 有配置
         def is_local(acct: dict) -> bool:
@@ -750,7 +757,7 @@ class MatrixManager:
         if self.OVERRIDE_PATH.exists():
             existing = yaml.safe_load(self.OVERRIDE_PATH.read_text()) or {}
         else:
-            existing = {"version": "1.0", "hostname": os.uname().nodename}
+            existing = {"version": "1.0", "hostname": self._local_hostname()}
         existing["accounts"] = accounts
         self.OVERRIDE_PATH.parent.mkdir(parents=True, exist_ok=True)
         self.OVERRIDE_PATH.write_text(
@@ -789,7 +796,7 @@ class MatrixManager:
         local = [a for a in accounts if a.get("is_local")]
 
         status = {
-            "hostname": os.uname().nodename,
+            "hostname": self._local_hostname(),
             "timestamp": datetime.now().isoformat(),
             "total_accounts": len(accounts),
             "total_local": len(local),

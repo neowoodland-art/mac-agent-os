@@ -16,7 +16,8 @@ from datetime import datetime
 HOME = Path.home()
 AGENT_SYNC = HOME / "workbuddy-agent-os" / "agent-sync"
 AGENT_LOCAL = HOME / "workbuddy-agent-os" / "agent-local"
-HOSTNAME = os.uname().nodename
+HOSTNAME_FILE = AGENT_LOCAL / "identity" / "cached_hostname"
+HOSTNAME = HOSTNAME_FILE.read_text().strip() if HOSTNAME_FILE.exists() else os.uname().nodename
 
 SRC = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.yaml"
 REGISTRY = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
