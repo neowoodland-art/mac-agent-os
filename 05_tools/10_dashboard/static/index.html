@@ -1183,6 +1183,19 @@ function bpUpdatePlatform() {
   // Save the platform choice to registry for future (optional)
 }
 
+function bpCanFollow(lastStepName, opName) {
+  // If no steps yet: only ops that can_be_first or have no requires
+  if (!lastStepName) {
+    const op = window._matrixOps?.[opName];
+    return op ? !!op.can_be_first : true;
+  }
+  // Check the last step's allows list
+  const lastOp = window._matrixOps?.[lastStepName];
+  if (!lastOp) return true;
+  if (lastOp.allows && lastOp.allows[0] === '*') return true;
+  return lastOp.allows ? lastOp.allows.includes(opName) : true;
+}
+
 function bpRenderOps() {
   const el = document.getElementById('bp-op-list');
   if (!el) return;
@@ -1192,6 +1205,11 @@ function bpRenderOps() {
   const cats = BP_PLATFORM_CATEGORIES[platform] || ['navigation', 'browse', 'interact', 'utility'];
   const filter = window._bpFilter || 'all';
 
+  // Get the last step to determine compatibility
+  const steps = window._bpSteps || [];
+  const lastStep = steps.length > 0 ? steps[steps.length - 1] : null;
+  const lastName = lastStep ? lastStep.name : null;
+
   // First filter by platform (only show ops from allowed categories)
   const platformOps = allOps.filter(o => cats.includes(o.category || ''));
 
@@ -1199,15 +1217,20 @@ function bpRenderOps() {
   const filtered = filter === 'all' ? platformOps : platformOps.filter(o => (o.category || '') === filter);
 
   el.innerHTML = filtered.map(o => {
+    const canFollow = bpCanFollow(lastName, o.name);
     let deps = '';
     if (o.requires && o.requires.length && o.requires[0] !== '*') {
       deps = `<span style="font-size:9px;color:var(--blue)">← ${o.requires.join(',')}</span>`;
-    } else if (o.can_be_first) {
+    } else if (o.can_be_first && !lastName) {
       deps = `<span style="font-size:9px;color:var(--green)">✅ 首步</span>`;
     }
-    return `<div class="op-card" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);cursor:pointer" onclick="bpAddStep('${o.name}')">
-      <div style="font-size:12px;font-weight:600">${o.label||o.name}</div>
-      <div style="font-size:10px;color:var(--text2)">${o.desc||''}</div>
+    const opacity = canFollow ? '1' : '.35';
+    const cursor = canFollow ? 'pointer' : 'not-allowed';
+    const clickHandler = canFollow ? `bpAddStep('${o.name}')` : '';
+    const disabledLabel = canFollow ? '' : '<span style="font-size:9px;color:var(--red);margin-left:4px">🚫</span>';
+    return `<div class="op-card" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);cursor:${cursor};opacity:${opacity}" onclick="${clickHandler}">
+      <div style="font-size:12px;font-weight:600">${o.label||o.name}${disabledLabel}</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:2px">${o.desc||''}</div>
       <div style="margin-top:2px">${deps}</div>
     </div>`;
   }).join('');
