@@ -1,0 +1,169 @@
+active_character: 阿远
+characters:
+  小漫:
+    description: 活泼可爱的少女漫画家，短发，大眼睛，总是带着画板和笔
+    appearance:
+    - 短发，齐刘海
+    - 大眼睛，瞳孔呈深棕色
+    - 常穿白色连衣裙配红色蝴蝶结
+    - 身高约160cm，偏瘦
+    personality: 开朗、好奇、偶尔冒失
+    voice_style: 活泼少女音
+    art_style: 日系漫画风格，明亮色调，线条简洁
+    default_bgm_style: 治愈
+    preferred_bgm_tags:
+    - 治愈
+    - 温暖
+    - 轻快
+    reference_images:
+      full_body: ''
+      portrait: ''
+      expressions:
+        happy: ''
+        sad: ''
+        angry: ''
+    prompt_template:
+      manhua: 日系漫画风格，{character_desc}，{scene_desc}，表情{expression}，{camera_angle}
+      realistic: '{character_desc}，{scene_desc}，表情{expression}，电影级摄影，{camera_angle}'
+    name: 小漫
+  阿远:
+    name: 阿远
+    description: 一位25岁的城市程序员，黑短发，戴细框金属眼镜，身高178cm偏瘦，常穿浅灰色卫衣和深蓝色牛仔裤，性格温和内敛有点宅，但在熟悉的人面前也会露出温暖的笑容
+    appearance:
+    - 黑短发，三七分
+    - 细框金属眼镜，单眼皮
+    - 身高约178cm，偏瘦体型
+    - 常穿浅灰色连帽卫衣
+    - 戴一块简约的黑色电子手表
+    personality: 温和、内敛、偶尔倔强、专注、在熟悉的人面前温暖
+    voice_style: 温柔青年音
+    art_style: 日系清新漫画风格，柔和色调，线条干净
+    default_bgm_style: 温暖
+    preferred_bgm_tags:
+    - 温暖
+    - 安静
+    - 治愈
+    - 轻快
+    prompt_template:
+      manhua: 日系清新漫画风格，{character_desc}，{scene_desc}，表情{expression}，{camera_angle}
+      realistic: '{character_desc}，{scene_desc}，表情{expression}，电影级摄影风格，柔和自然光线，{camera_angle}'
+    reference_images:
+      grid: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/阿远/阿远_grid.png
+      portrait: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/阿远/阿远_grid_face_neutral.png
+      expressions:
+        neutral: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/阿远/阿远_grid_face_neutral.png
+        smile: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/阿远/阿远_grid_face_smile.png
+        angry: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/阿远/阿远_grid_face_angry.png
+  ghai_sports:
+    name: ghai_sports
+    base: 一位中国男性，约42岁，体型健壮肩宽，黑色短发利落，国字脸，单眼皮眼尾微垂，鼻梁挺直鼻翼略宽，嘴唇厚度中等嘴角微收，神态沉稳内敛，肤色健康自然
+    description: 一位中国男性，约42岁，体型健壮肩宽，黑色短发利落，国字脸单眼皮，神态沉稳内敛，肤色健康自然，身穿深灰色运动夹克配白色速干内衬，右耳戴着蓝色无线运动耳机。
+    appearance:
+    - 黑色短发，略长顶部，两侧收短，整洁干练
+    - 圆润饱满的国字脸，单眼皮
+    - 体型健壮，肩宽，稳重感强
+    - 深灰色拉链运动夹克，白色圆领速干内衬
+    - 右耳蓝色无线运动耳机
+    personality: 沉稳、专注、坚韧
+    voice_style: 成熟稳重男声
+    art_style: 写实摄影风格，运动场景，自然光线
+    default_bgm_style: 激励
+    preferred_bgm_tags:
+    - 激励
+    - 热血
+    - 节奏感
+    - 运动
+    sheet_mode: sport
+    seed: 42
+    reference_images:
+      real_photo_portrait: /Users/7kecheng/workbuddy-agent-os/agent-sync/05_tools/09_ave/scripts/character_registry/assets/ghai_sports/reference_portrait.jpg
+      real_photo_fullbody: /Users/7kecheng/workbuddy-agent-os/agent-sync/05_tools/09_ave/scripts/character_registry/assets/ghai_sports/reference_fullbody.png
+      face_anchor: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/face_anchor.png
+      grid: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid.png
+      portrait: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_front.png
+      expressions:
+        front: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_front.png
+        3qL: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_3qL.png
+        profile: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_profile.png
+        3qR: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_3qR.png
+        focus: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_focus.png
+        intense: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_face_intense.png
+      body:
+        front: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_body_front.png
+        side: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_sheet/ghai_sports/ghai_sports_grid_body_side.png
+      seed: null
+    outfit_presets:
+      running:
+        outfit: 透气速干T恤和跑步短裤
+        accessories: 右耳戴着蓝色无线运动耳机
+        prompt_suffix: 晨跑场景，动态模糊，清晨自然光线
+      gym:
+        outfit: 深色运动背心和训练短裤
+        accessories: ''
+        prompt_suffix: 健身房场景，力量训练，金属器械背景，侧光
+      basketball:
+        outfit: 篮球运动背心和短裤
+        accessories: 运动护腕
+        prompt_suffix: 街头篮球场，水泥地，傍晚光线
+      outdoor_fitness:
+        outfit: 白色健身T恤和运动长裤
+        accessories: ''
+        prompt_suffix: 户外健身，单杠器械，城市公园，午后阳光
+    prompt_template:
+      realistic: '{base}，{outfit}，{scene_desc}，{camera_angle}，写实摄影风格，自然光线'
+      sport: '{base}，{outfit}，{scene_desc}，运动摄影风格，高速快门，{camera_angle}'
+  裔年轻:
+    name: 裔年轻
+    description: 中景镜头，一位气质干净清澈的亚裔年轻男性，长相温润正派，五官端正立体，眼神真诚温暖带笑。身着燕麦色羊绒衫（袖口微微挽起）外搭深藏蓝亚麻外套，直身微侧，姿态挺拔舒展。背景是雨后湿润的江南古巷，斑驳青砖墙，脚下石板路反着水光。他一手拎着一袋用褐色纸袋包着、微微冒着热气的桂花糕，低头看向纸袋，嘴角带着温柔的笑意。
+      高清细节，暖色调，湿漉漉的地面映照天色，整体呈现胶片般柔和细腻的质感。
+    base: 中景镜头，一位气质干净清澈的亚裔年轻男性，长相温润正派，五官端正立体，眼神真诚温暖带笑。身着燕麦色羊绒衫外搭深藏蓝亚麻外套，直身微侧，姿态挺拔舒展。背景是雨后湿润的江南古巷，斑驳青砖墙，脚下石板路反着水光。他一手拎着一袋用褐色纸袋包着、微微冒着热气的桂花糕，低头看向纸袋，嘴角带着温柔的笑意。
+      高清细节，暖色调，湿漉漉的地面映照天色，整体呈现胶片般柔和细腻的质感
+    personality: 气质干净清澈的亚裔年轻男性
+    voice_style: 默认
+    art_style: 写实摄影风格
+    appearance:
+    - 中景镜头
+    - 一位气质干净清澈的亚裔年轻男性
+    - 长相温润正派
+    - 五官端正立体
+    - 眼神真诚温暖带笑
+    face:
+      shape: ''
+      eyes: ''
+      nose: ''
+      lips: 嘴角
+      hair: ''
+      skin: ''
+      facial_hair: ''
+      glasses: ''
+      distinctive: ''
+    body:
+      build: ''
+      height: ''
+      posture: 挺拔
+      age_group: ''
+    clothing:
+      top: 身着燕麦色羊绒衫（袖口微微挽起）外搭深藏蓝亚麻外套
+      inner: 背景是雨后湿润的江南古巷
+      bottom: ''
+      shoes: ''
+      style: ''
+    prompt_template:
+      realistic: '{base}，{scene_desc}，{camera_angle}，写实摄影风格，自然光线'
+    preferred_bgm_tags:
+    - 温暖
+    reference_images:
+      face_anchor: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/front_face.png
+      baseline: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/front_face.png
+      body:
+        front: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/multi_angle_front.png
+        side: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/multi_angle_side.png
+        right_three_quarter: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/multi_angle_right_three_quarter.png
+        right_side: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/multi_angle_right_side.png
+        back: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/multi_angle_back.png
+      expressions:
+        neutral: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_neutral.png
+        smile: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_smile.png
+        focused: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_focused.png
+        laugh: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_laugh.png
+        serious: /Users/7kecheng/workbuddy-agent-os/agent-local/tools/ave/cache/character_portrait/裔年轻/expression_serious.png

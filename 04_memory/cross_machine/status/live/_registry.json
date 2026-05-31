@@ -1,0 +1,16 @@
+{
+  "4cf443bc-ff14-4ed9-885b-b04c5326304d": {
+    "hostname": "chengzigedeAir",
+    "system_hostname": "192.168.31.225",
+    "uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
+    "role": "workstation",
+    "status": "online",
+    "last_seen": "2026-05-17T04:36:19+00:00"
+  },
+  "f13b03d1-7310-433c-ba35-368c51edb1d0": {
+    "uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
+    "hostname": "5kechengdeAir",
+    "first_seen": "2026-05-31T04:20:40.003468+00:00",
+    "last_seen": "2026-05-31T04:20:40.003468+00:00"
+  }
+}
