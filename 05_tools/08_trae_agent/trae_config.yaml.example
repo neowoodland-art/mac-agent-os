@@ -1,0 +1,54 @@
+# trae-agent 配置文件模板
+# 复制为 trae_config.yaml 并修改
+# AgentOS 工具: 05_tools/08_trae_agent/
+# 最后更新：2026-05-02
+
+agents:
+    trae_agent:
+        enable_lakeview: false
+        model: trae_agent_model
+        max_steps: 100
+        tools:
+            - bash
+            - str_replace_based_edit_tool
+            - sequentialthinking
+            - task_done
+
+model_providers:
+    # oMLX OpenAI-compatible API
+    omix:
+        api_key: omlx
+        base_url: http://localhost:8000/v1
+        provider: openai
+    # Ollama
+    ollama:
+        api_key: ollama
+        base_url: http://localhost:11434/v1
+        provider: ollama
+    # 远程 API 示例 (OpenAI)
+    openai:
+        api_key: your_openai_api_key
+        base_url: https://api.openai.com/v1
+        provider: openai
+    # 远程 API 示例 (Anthropic)
+    anthropic:
+        api_key: your_anthropic_api_key
+        base_url: https://api.anthropic.com
+        provider: anthropic
+
+models:
+    trae_agent_model:
+        model_provider: omix
+        model: Qwen3-8B-MLX-4bit
+        max_tokens: 4096
+        temperature: 0.3
+        top_p: 1
+        max_retries: 3
+        parallel_tool_calls: false
+
+    # 远程模型示例:
+    # remote_model:
+    #     model_provider: openai
+    #     model: gpt-4o
+    #     max_tokens: 128000
+    #     temperature: 0.3
