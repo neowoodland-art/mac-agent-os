@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.68
+    "load_1m": 1.25
   },
   "memory": {
     "total_gb": 0,
@@ -17,11 +17,25 @@
     "used_gb": 84.3,
     "available_gb": 160.8
   },
-  "last_seen": "2026-05-31T10:12:02.845079+00:00",
+  "last_seen": "2026-05-31T10:14:02.999413+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
+  "_source": "push",
+  "_received_at": "2026-05-31T10:14:03.051653+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
-  "_received_at": "2026-05-31T10:12:02.845527+00:00"
+  "_events": [
+    {
+      "id": "8e3450f1-c47b-403c-999b-c4372a11e618",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-05-31T10:12:05.666718+00:00",
+      "payload": {
+        "summary": "Merge made by the 'ort' strategy.\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |  2 +-\n .../ave/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json  |  2 +-\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |  2 +-\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      | 16 ++---\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |  2 +-\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      | 79 ++++++----------------\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |  2 +-\n .../d19759cf-2159-4fe7",
+        "hostname": "5kechengdeAir"
+      }
+    }
+  ],
+  "_uptime": 0
 }
