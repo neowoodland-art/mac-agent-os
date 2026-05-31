@@ -8,7 +8,7 @@ guardd — AgentOS 联邦式协同守护进程
 
 所有模块使用规则引擎，不调用 LLM，0 token 消耗。
 """
-version = "2.0.0"
+version = "2.2.0"
 
 import json
 import logging
