@@ -1151,6 +1151,71 @@ async def api_matrix_corpus_add(data: dict):
         raise HTTPException(500, detail=str(e))
 
 
+@app.get("/api/matrix/corpus/detail")
+def api_matrix_corpus_detail(platform: str = "douyin", category: str = ""):
+    """获取某个分类下所有评论"""
+    try:
+        from pathlib import Path
+        CORPUS_DIR = Path(__file__).resolve().parent.parent.parent / "05_tools" / "07_matrix" / "corpus"
+        import yaml
+        file_path = CORPUS_DIR / f"{platform}.yaml"
+        if not file_path.exists():
+            return {"comments": [], "templates": []}
+        data = yaml.safe_load(file_path.read_text())
+        cats = data.get("categories", {})
+        cat = cats.get(category, {})
+        return {
+            "comments": cat.get("comments", []),
+            "templates": cat.get("templates", []),
+            "weight": cat.get("weight", 10),
+            "enabled": cat.get("enabled", True),
+            "label": cat.get("label", category),
+        }
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.post("/api/matrix/corpus/delete")
+async def api_matrix_corpus_delete(data: dict):
+    """删除一条评论"""
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        platform = data.get("platform", "douyin")
+        category = data.get("category", "")
+        index = data.get("index", -1)
+        if not category or index < 0:
+            raise HTTPException(400, detail="category 和 index 必填")
+        cm.delete_comment(category, index, platform)
+        return {"status": "ok"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.get("/api/matrix/nurture/run")
+def api_matrix_nurture_run(accounts: str = "", blueprints: str = "", rounds: int = 5, mix: bool = False):
+    """通过 CLI 执行批量养号"""
+    try:
+        import subprocess, json, os
+        mc_path = str(Path(__file__).resolve().parent.parent.parent / "05_tools" / "07_matrix" / "mc")
+        acct_list = accounts.split(",") if accounts else []
+        bp_list = blueprints.split(",") if blueprints else []
+        if not acct_list or not bp_list:
+            raise HTTPException(400, detail="accounts 和 blueprints 必填")
+        cmd = [mc_path, "run", f"--accounts={accounts}", f"--blueprints={blueprints}",
+               f"--rounds={rounds}"]
+        if mix:
+            cmd.append("--mix")
+        # Run in background
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, cwd=str(Path(mc_path).parent))
+        return {"status": "started", "pid": proc.pid, "cmd": " ".join(cmd)}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
 # ═══════════════════════════════════════════
 # 工作流引擎 API
 # ═══════════════════════════════════════════
