@@ -5,12 +5,12 @@ categories:
     enabled: true
     label: 赞美评论
     comments:
-    - 讲得太好了，受益匪浅！
     - 这个观点很新颖，学习了
     - 说得真是振聋发聩
     - 干货满满，感谢分享
     - 条理清晰，逻辑严密
     - 每一句话都说到了心坎里
+    - 测试评论
     templates:
     - 关于{keyword}的观点很到位
     - 感谢分享{keyword}的心得
