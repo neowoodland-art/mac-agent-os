@@ -223,127 +223,170 @@ class MatrixManager:
     # ═══════════════════════════════════════════════════════════
 
     # ═══════════════════════════════════════════════════════════
-    # 原子操作依赖模型（防止错误编排）
+    # 原子操作依赖模型 v2.0 — 严格按平台隔离
     # ═══════════════════════════════════════════════════════════
     # 每个操作定义:
-    #   category:  操作类别 (navigation/browse/interact/utility/xhs)
-    #   requires:  前置操作（必须至少一个在此列表中 或 [] 表示无要求）
+    #   platform:  所属平台 (douyin / xiaohongshu / 通用)
+    #   category:  操作类别 (navigation/browse/interact/utility)
+    #   requires:  前置操作（必须至少一个在此列表中）
     #   allows:    可选的后继操作（"*" 表示任意）
     #   can_be_first: 是否可作为第一个步骤
-    #   desc:      简短描述
+    #
+    # 核心规则:
+    #   - requires/allows 只引用同平台或"通用"的操作
+    #   - 跨平台编排=不合法（蓝图验证会拦截）
+    #   - 每个操作只能属于一个平台
+    #
+    # 新增操作:
+    #   account_check_status — 检查账号登录状态
+    #   account_read_info    — 读取账号信息（粉丝数/作品数等）
     # ═══════════════════════════════════════════════════════════
 
     OP_GRAPH = {
-        # ── 导航类 (entry points) ──
+        # ═══════════════════════════════════════════════════
+        # 🎵 抖音专用
+        # ═══════════════════════════════════════════════════
+
         "goto_home": {
-            "category": "navigation", "label": "🏠 回到推荐页",
-            "requires": [], "allows": ["browse_feed", "enter_video", "scroll_feed", "search_keyword", "xhs_browse", "rest", "go_back", "like", "collect"],
+            "platform": "douyin", "category": "navigation", "label": "🏠 回到推荐页",
+            "requires": [], "allows": ["browse_feed", "dy_enter_video", "dy_scroll_feed", "dy_search", "rest", "go_back", "dy_like", "dy_collect"],
             "can_be_first": True, "desc": "回到抖音推荐页，固定起点"
         },
-        "goto_url": {
-            "category": "navigation", "label": "🔗 导航到URL",
-            "requires": [], "allows": ["enter_video", "like", "collect", "follow", "comment_video_b", "scroll_feed", "rest", "go_back"],
-            "can_be_first": True, "desc": "直接打开指定视频/用户URL"
-        },
-        "go_back": {
-            "category": "navigation", "label": "⬅ 返回",
-            "requires": ["*"], "allows": ["browse_feed", "enter_video", "search_keyword", "scroll_feed", "xhs_browse", "xhs_click_note", "rest", "go_back"],
-            "can_be_first": False, "desc": "浏览器后退，回到上一页"
-        },
-
-        # ── 浏览类 (创建上下文) ──
         "browse_feed": {
-            "category": "browse", "label": "📱 浏览推荐流",
-            "requires": ["goto_home", "go_back", "rest"], "allows": ["enter_video", "scroll_feed", "search_keyword", "like", "collect", "rest", "go_back"],
+            "platform": "douyin", "category": "browse", "label": "📱 浏览推荐流",
+            "requires": ["goto_home", "go_back", "rest"], "allows": ["dy_enter_video", "dy_scroll_feed", "dy_search", "dy_like", "dy_collect", "rest", "go_back"],
             "can_be_first": True, "desc": "浏览推荐页视频流，自动滑视频"
         },
-        "scroll_feed": {
-            "category": "browse", "label": "⬇ 下滑加载",
-            "requires": ["browse_feed", "enter_video", "goto_home", "xhs_browse", "go_back", "rest"],
-            "allows": ["enter_video", "scroll_feed", "like", "collect", "rest", "go_back", "xhs_click_note"],
-            "can_be_first": False, "desc": "瀑布流/视频流下滑加载更多内容"
+        "dy_scroll_feed": {
+            "platform": "douyin", "category": "browse", "label": "⬇ 下滑加载",
+            "requires": ["browse_feed", "dy_enter_video", "goto_home", "go_back", "rest"],
+            "allows": ["dy_enter_video", "dy_scroll_feed", "dy_like", "dy_collect", "rest", "go_back"],
+            "can_be_first": False, "desc": "抖音瀑布流下滑加载更多"
         },
-        "enter_video": {
-            "category": "browse", "label": "▶ 进入播放页",
-            "requires": ["browse_feed", "scroll_feed", "goto_url", "search_keyword", "rest"],
-            "allows": ["like", "collect", "follow", "comment_video_a", "comment_video_b", "scroll_feed", "next_video", "prev_video", "rest", "go_back"],
+        "dy_enter_video": {
+            "platform": "douyin", "category": "browse", "label": "▶ 进入播放页",
+            "requires": ["browse_feed", "dy_scroll_feed", "dy_search", "rest"],
+            "allows": ["dy_like", "dy_collect", "dy_follow", "dy_comment_a", "dy_comment_b", "dy_scroll_feed", "dy_next_video", "dy_prev_video", "rest", "go_back"],
             "can_be_first": False, "desc": "从推荐页点击卡片进入视频播放页"
         },
-
-        # ── 交互类 (需视频上下文) ──
-        "like": {
-            "category": "interact", "label": "👍 点赞",
-            "requires": ["enter_video", "xhs_click_note", "browse_feed"], "allows": ["collect", "follow", "comment_video_a", "comment_video_b", "scroll_feed", "next_video", "prev_video", "rest", "go_back"],
-            "can_be_first": False, "desc": "点赞当前视频（KeyZ或点击选择器）"
+        "dy_like": {
+            "platform": "douyin", "category": "interact", "label": "👍 点赞",
+            "requires": ["dy_enter_video", "browse_feed"], "allows": ["dy_collect", "dy_follow", "dy_comment_a", "dy_comment_b", "dy_scroll_feed", "dy_next_video", "dy_prev_video", "rest", "go_back"],
+            "can_be_first": False, "desc": "点赞当前视频（KeyZ）"
         },
-        "collect": {
-            "category": "interact", "label": "⭐ 收藏",
-            "requires": ["enter_video", "xhs_click_note"], "allows": ["like", "follow", "comment_video_a", "comment_video_b", "scroll_feed", "next_video", "prev_video", "rest", "go_back"],
+        "dy_collect": {
+            "platform": "douyin", "category": "interact", "label": "⭐ 收藏",
+            "requires": ["dy_enter_video"], "allows": ["dy_like", "dy_follow", "dy_comment_a", "dy_comment_b", "dy_scroll_feed", "dy_next_video", "dy_prev_video", "rest", "go_back"],
             "can_be_first": False, "desc": "收藏当前视频到收藏夹"
         },
-        "follow": {
-            "category": "interact", "label": "➕ 关注",
-            "requires": ["enter_video", "xhs_click_note"], "allows": ["like", "collect", "comment_video_a", "comment_video_b", "scroll_feed", "next_video", "prev_video", "rest", "go_back"],
+        "dy_follow": {
+            "platform": "douyin", "category": "interact", "label": "➕ 关注",
+            "requires": ["dy_enter_video"], "allows": ["dy_like", "dy_collect", "dy_comment_a", "dy_comment_b", "dy_scroll_feed", "dy_next_video", "dy_prev_video", "rest", "go_back"],
             "can_be_first": False, "desc": "关注当前视频作者"
         },
-        "comment_video_a": {
-            "category": "interact", "label": "💬 评论(Path A)",
-            "requires": ["enter_video"], "allows": ["like", "collect", "follow", "scroll_feed", "next_video", "prev_video", "rest", "go_back"],
+        "dy_comment_a": {
+            "platform": "douyin", "category": "interact", "label": "💬 评论(Path A)",
+            "requires": ["dy_enter_video"], "allows": ["dy_like", "dy_collect", "dy_follow", "dy_scroll_feed", "dy_next_video", "dy_prev_video", "rest", "go_back"],
             "can_be_first": False, "desc": "弹窗覆盖层评论 (KeyX→pbcopy→Enter)"
         },
-        "comment_video_b": {
-            "category": "interact", "label": "💬 评论(Path B)",
-            "requires": ["enter_video", "goto_url"], "allows": ["like", "collect", "follow", "scroll_feed", "rest", "go_back"],
+        "dy_comment_b": {
+            "platform": "douyin", "category": "interact", "label": "💬 评论(Path B)",
+            "requires": ["dy_enter_video"], "allows": ["dy_like", "dy_collect", "dy_follow", "dy_scroll_feed", "rest", "go_back"],
             "can_be_first": False, "desc": "全屏视频页评论 (scroll→click→Enter)"
         },
-        "next_video": {
-            "category": "interact", "label": "⏭ 下一个视频",
-            "requires": ["enter_video", "like", "collect", "follow", "comment_video_a"], "allows": ["like", "collect", "follow", "comment_video_a", "comment_video_b", "scroll_feed", "rest", "go_back"],
+        "dy_next_video": {
+            "platform": "douyin", "category": "interact", "label": "⏭ 下一个视频",
+            "requires": ["dy_enter_video", "dy_like", "dy_collect", "dy_follow", "dy_comment_a"],
+            "allows": ["dy_like", "dy_collect", "dy_follow", "dy_comment_a", "dy_comment_b", "dy_scroll_feed", "rest", "go_back"],
             "can_be_first": False, "desc": "切换到下一个视频"
         },
-        "prev_video": {
-            "category": "interact", "label": "⏮ 上一个视频",
-            "requires": ["enter_video"], "allows": ["like", "collect", "follow", "comment_video_a", "comment_video_b", "rest", "go_back"],
+        "dy_prev_video": {
+            "platform": "douyin", "category": "interact", "label": "⏮ 上一个视频",
+            "requires": ["dy_enter_video"], "allows": ["dy_like", "dy_collect", "dy_follow", "dy_comment_a", "dy_comment_b", "rest", "go_back"],
             "can_be_first": False, "desc": "切换到上一个视频"
         },
-        "search_keyword": {
-            "category": "interact", "label": "🔍 搜索",
-            "requires": ["goto_home", "browse_feed", "rest", "go_back"], "allows": ["enter_video", "scroll_feed", "rest", "go_back"],
-            "can_be_first": True, "desc": "搜索关键词并打开搜索结果页"
+        "dy_search": {
+            "platform": "douyin", "category": "interact", "label": "🔍 抖音搜索",
+            "requires": ["goto_home", "browse_feed", "rest", "go_back"], "allows": ["dy_enter_video", "dy_scroll_feed", "rest", "go_back"],
+            "can_be_first": True, "desc": "在抖音搜索关键词并打开搜索结果页"
         },
 
-        # ── 小红书专用 ──
+        # ═══════════════════════════════════════════════════
+        # 📕 小红书专用
+        # ═══════════════════════════════════════════════════
+
+        "xhs_goto_home": {
+            "platform": "xiaohongshu", "category": "navigation", "label": "🏠 回到首页",
+            "requires": [], "allows": ["xhs_browse", "xhs_scroll_feed", "xhs_search", "rest", "go_back"],
+            "can_be_first": True, "desc": "回到小红书首页，固定起点"
+        },
         "xhs_browse": {
-            "category": "xhs", "label": "📕 瀑布流浏览",
-            "requires": ["goto_home", "rest", "go_back"], "allows": ["xhs_click_note", "scroll_feed", "xhs_search", "xhs_like", "rest", "go_back"],
-            "can_be_first": True, "desc": "小红书首页瀑布流浏览"
+            "platform": "xiaohongshu", "category": "browse", "label": "📕 瀑布流浏览",
+            "requires": ["xhs_goto_home", "rest", "go_back"], "allows": ["xhs_click_note", "xhs_scroll_feed", "xhs_search", "xhs_like", "rest", "go_back"],
+            "can_be_first": True, "desc": "小红书首页瀑布流浏览推荐笔记"
+        },
+        "xhs_scroll_feed": {
+            "platform": "xiaohongshu", "category": "browse", "label": "⬇ 下滑加载",
+            "requires": ["xhs_browse", "xhs_goto_home", "go_back", "rest"],
+            "allows": ["xhs_click_note", "xhs_scroll_feed", "xhs_like", "rest", "go_back"],
+            "can_be_first": False, "desc": "小红书瀑布流下滑加载更多笔记"
         },
         "xhs_click_note": {
-            "category": "xhs", "label": "📕 点击笔记",
-            "requires": ["xhs_browse", "scroll_feed", "rest"], "allows": ["xhs_like", "xhs_comment", "rest", "go_back", "scroll_feed"],
+            "platform": "xiaohongshu", "category": "browse", "label": "📕 点击笔记",
+            "requires": ["xhs_browse", "xhs_scroll_feed", "rest"], "allows": ["xhs_like", "xhs_comment", "rest", "go_back", "xhs_scroll_feed"],
             "can_be_first": False, "desc": "小红书点击笔记卡片进入详情页"
         },
         "xhs_like": {
-            "category": "xhs", "label": "📕 点赞",
-            "requires": ["xhs_click_note", "enter_video"], "allows": ["xhs_comment", "rest", "go_back", "scroll_feed"],
+            "platform": "xiaohongshu", "category": "interact", "label": "📕 点赞",
+            "requires": ["xhs_click_note"], "allows": ["xhs_comment", "rest", "go_back", "xhs_scroll_feed"],
             "can_be_first": False, "desc": "小红书点赞当前笔记"
         },
         "xhs_comment": {
-            "category": "xhs", "label": "📕 评论",
-            "requires": ["xhs_click_note", "xhs_like"], "allows": ["rest", "go_back", "scroll_feed"],
+            "platform": "xiaohongshu", "category": "interact", "label": "📕 评论",
+            "requires": ["xhs_click_note", "xhs_like"], "allows": ["rest", "go_back", "xhs_scroll_feed"],
             "can_be_first": False, "desc": "小红书评论当前笔记"
         },
         "xhs_search": {
-            "category": "xhs", "label": "📕 搜索",
-            "requires": ["xhs_browse", "goto_home", "rest", "go_back"], "allows": ["xhs_click_note", "scroll_feed", "rest", "go_back"],
-            "can_be_first": True, "desc": "小红书搜索关键词"
+            "platform": "xiaohongshu", "category": "interact", "label": "📕 小红书搜索",
+            "requires": ["xhs_goto_home", "xhs_browse", "rest", "go_back"], "allows": ["xhs_click_note", "xhs_scroll_feed", "rest", "go_back"],
+            "can_be_first": True, "desc": "在小红书搜索关键词"
+        },
+        "xhs_follow": {
+            "platform": "xiaohongshu", "category": "interact", "label": "📕 关注",
+            "requires": ["xhs_click_note"], "allows": ["xhs_like", "xhs_comment", "rest", "go_back"],
+            "can_be_first": False, "desc": "小红书关注当前笔记作者"
+        },
+        "xhs_collect": {
+            "platform": "xiaohongshu", "category": "interact", "label": "📕 收藏",
+            "requires": ["xhs_click_note"], "allows": ["xhs_like", "xhs_comment", "rest", "go_back"],
+            "can_be_first": False, "desc": "小红书收藏当前笔记"
         },
 
-        # ── 通用工具 ──
+        # ═══════════════════════════════════════════════════
+        # ⚙️ 通用工具（所有平台可用）
+        # ═══════════════════════════════════════════════════
+
+        "go_back": {
+            "platform": "通用", "category": "utility", "label": "⬅ 返回",
+            "requires": ["*"], "allows": ["*"],
+            "can_be_first": False, "desc": "浏览器后退，回到上一页"
+        },
         "rest": {
-            "category": "utility", "label": "⏳ 休息",
+            "platform": "通用", "category": "utility", "label": "⏳ 休息",
             "requires": [], "allows": ["*"],
             "can_be_first": True, "desc": "随机休息 5~20秒，模拟真人操作间隔"
+        },
+        "account_check_status": {
+            "platform": "通用", "category": "utility", "label": "📊 检查登录状态",
+            "requires": ["goto_home", "xhs_goto_home", "rest"],
+            "allows": ["goto_home", "xhs_goto_home", "browse_feed", "xhs_browse", "rest", "go_back"],
+            "can_be_first": True, "desc": "检测当前账号登录状态是否正确（页面级验证）"
+        },
+        "account_read_info": {
+            "platform": "通用", "category": "utility", "label": "📋 读取账号信息",
+            "requires": ["goto_home", "xhs_goto_home", "account_check_status"],
+            "allows": ["goto_home", "xhs_goto_home", "rest", "go_back"],
+            "can_be_first": False, "desc": "读取账号基础信息（昵称/粉丝数/作品数等），输出到日志"
         },
     }
 
@@ -367,6 +410,7 @@ class MatrixManager:
                                 "doc": doc.split("\n")[0] if doc else "",
                                 "source": "douyin_ops.py",
                                 "category": "auto",
+                                "platform": "douyin",  # douyin_ops.py 都是抖音操作
                                 "requires": [],
                                 "allows": ["*"],
                                 "can_be_first": True,
@@ -384,6 +428,7 @@ class MatrixManager:
                 "type": info["category"],
                 "doc": info["desc"],
                 "source": "graph",
+                "platform": info.get("platform", "通用"),
                 "category": info["category"],
                 "label": info["label"],
                 "desc": info["desc"],
@@ -396,41 +441,45 @@ class MatrixManager:
 
     def validate_blueprint_steps(self, steps: list[dict]) -> dict:
         """校验蓝图的步骤编排合法性
-        返回: {"valid": bool, "errors": [{"step": idx, "msg": str}, ...], "warnings": [...]}
+        新增平台一致性检查：抖音操作不能和小红书操作混排
         """
         errors = []
         warnings = []
+        detected_platform = None
+
         for i, step in enumerate(steps):
             name = step.get("name", "")
             info = self.OP_GRAPH.get(name)
             if not info:
                 continue
 
-            # 检查第一个步骤能否作为起点
+            step_platform = info.get("platform", "通用")
+
+            # 平台一致性
+            if step_platform != "通用":
+                if detected_platform is None:
+                    detected_platform = step_platform
+                elif detected_platform != step_platform:
+                    errors.append({
+                        "step": i + 1, "op": name,
+                        "msg": f'跨平台操作: 蓝图已用"{detected_platform}"，步骤{i+1}"{info["label"]}"属于"{step_platform}"'
+                    })
+
+            # 首步检查
             if i == 0 and not info["can_be_first"]:
-                errors.append({"step": i + 1, "op": name, "msg": f'"{info["label"]}" 不能作为第一个步骤，前置需要: {info["requires"]}'})
+                errors.append({"step": i + 1, "op": name, "msg": f'"{info["label"]}" 不能作为首步'})
 
-            # 检查前置约束
-            if i > 0 and info["requires"]:
-                prev_name = steps[i - 1].get("name", "")
-                # requires=["*"] 表示任意前置皆可
-                if info["requires"] != ["*"]:
-                    # requires 列表中的操作必须出现在前面的步骤中（不一定是紧邻）
-                    prev_names = [s.get("name", "") for s in steps[:i]]
-                    if not any(r in prev_names for r in info["requires"] if r != "*"):
-                        errors.append({
-                            "step": i + 1, "op": name,
-                            "msg": f'"{info["label"]}" 的前置操作未满足。需要: {info["requires"]}，当前已有: {prev_names}'})
+            # 前置约束
+            if i > 0 and info["requires"] and info["requires"] != ["*"]:
+                prev_names = [s.get("name", "") for s in steps[:i]]
+                if not any(r in prev_names for r in info["requires"] if r != "*"):
+                    errors.append({"step": i + 1, "op": name, "msg": f'"{info["label"]}" 前置未满足: {info["requires"]}'})
 
-            # 检查前一步骤能否接当前步骤
+            # 后继允许
             if i > 0:
-                prev_name = steps[i - 1].get("name", "")
-                prev_info = self.OP_GRAPH.get(prev_name)
-                if prev_info and prev_info["allows"] != ["*"]:
-                    if name not in prev_info["allows"]:
-                        errors.append({
-                            "step": i + 1, "op": name,
-                            "msg": f'上一步骤 "{prev_info["label"]}" 不能接 "{info["label"]}"。{prev_info["label"]} 的后继可选: {prev_info["allows"]}'})
+                prev_info = self.OP_GRAPH.get(steps[i - 1].get("name", ""))
+                if prev_info and prev_info["allows"] != ["*"] and name not in prev_info["allows"]:
+                    errors.append({"step": i + 1, "op": name, "msg": f'上一步"{prev_info["label"]}"不能接"{info["label"]}"'})
 
         return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 

@@ -1581,7 +1581,6 @@ async function loadMatrixBlueprints() {
             <span class="badge badge-gray" style="cursor:pointer;padding:3px 8px;font-size:10px" data-ft="navigation" onclick="bpFilterOps('navigation')">🏠 导航</span>
             <span class="badge badge-gray" style="cursor:pointer;padding:3px 8px;font-size:10px" data-ft="browse" onclick="bpFilterOps('browse')">📱 浏览</span>
             <span class="badge badge-gray" style="cursor:pointer;padding:3px 8px;font-size:10px" data-ft="interact" onclick="bpFilterOps('interact')">💡 交互</span>
-            <span class="badge badge-gray" style="cursor:pointer;padding:3px 8px;font-size:10px" data-ft="xhs" onclick="bpFilterOps('xhs')">📕 小红书</span>
             <span class="badge badge-gray" style="cursor:pointer;padding:3px 8px;font-size:10px" data-ft="utility" onclick="bpFilterOps('utility')">⏳ 工具</span>
           </div>
         </div>
@@ -1722,18 +1721,17 @@ window.bpClear = function() {
 window._bpFilter = 'all';
 
 // Platform → available categories mapping
+// Platform → available categories mapping (for tab visibility)
 const BP_PLATFORM_CATEGORIES = {
   douyin: ['navigation', 'browse', 'interact', 'utility'],
-  xiaohongshu: ['navigation', 'xhs', 'utility'],
+  xiaohongshu: ['navigation', 'browse', 'interact', 'utility'],
 };
 
-// Tab definitions
 const BP_CATEGORY_TABS = {
   all: '📋 全部',
   navigation: '🏠 导航',
   browse: '📱 浏览',
   interact: '💡 交互',
-  xhs: '📕 小红书',
   utility: '⏳ 工具',
 };
 
@@ -1795,16 +1793,17 @@ function bpRenderOps() {
 
   const allOps = Object.values(window._matrixOps || {});
   const platform = bpGetPlatform();
-  const cats = BP_PLATFORM_CATEGORIES[platform] || ['navigation', 'browse', 'interact', 'utility'];
   const filter = window._bpFilter || 'all';
 
-  // Get the last step to determine compatibility
   const steps = window._bpSteps || [];
   const lastStep = steps.length > 0 ? steps[steps.length - 1] : null;
   const lastName = lastStep ? lastStep.name : null;
 
-  // First filter by platform (only show ops from allowed categories)
-  const platformOps = allOps.filter(o => cats.includes(o.category || ''));
+  // Filter by: platform field matches OR is "通用"
+  const platformOps = allOps.filter(o => {
+    const opPlatform = o.platform || '通用';
+    return opPlatform === platform || opPlatform === '通用';
+  });
 
   // Then apply category filter
   const filtered = filter === 'all' ? platformOps : platformOps.filter(o => (o.category || '') === filter);
@@ -2028,35 +2027,44 @@ async function loadMatrixAtomOps() {
     if (!ops.length) { el.innerHTML = '<div class="error">暂无操作</div>'; return; }
     const groups = {};
     ops.forEach(o => {
-      const g = o.category||'其他';
-      if(!groups[g]) groups[g]=[]; groups[g].push(o);
+      const p = o.platform || '通用';
+      if(!groups[p]) groups[p]=[];
+      groups[p].push(o);
     });
-    const catLabels = {navigation:'🏠 导航', browse:'📱 浏览', interact:'💡 交互', xhs:'📕 小红书', utility:'⏳ 工具'};
-    const platformMap = {navigation:'🎵抖音', browse:'🎵抖音', interact:'🎵抖音', xhs:'📕小红书', utility:'⚙️通用'};
-    el.innerHTML = Object.entries(groups).map(([g,items]) => `<div style="margin-bottom:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2)">${platformMap[g]||'❓'} ${catLabels[g]||g} (${items.length})</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px">${items.map(o => {
-        const platformTag = platformMap[g] || '⚙️通用';
-        let reqHtml = '';
-        if (o.requires && o.requires.length > 0 && o.requires[0] !== '*') {
-          reqHtml = `<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:var(--blue);margin-top:4px">← 需前序: ${o.requires.slice(0,3).join(', ')}${o.requires.length>3?'…':''}</span>`;
-        } else if (o.can_be_first) {
-          reqHtml = `<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--green);margin-top:4px">✅ 可为首步</span>`;
-        }
-        let nextHtml = '';
-        if (o.allows && o.allows.length > 0 && o.allows[0] !== '*') {
-          nextHtml = `<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(139,143,163,.15);color:var(--text2);margin-top:2px">→ 后继: ${o.allows.slice(0,4).join(', ')}${o.allows.length>4?'…':''}</span>`;
-        }
-        const catIcon = platformTag.split('')[0];
-        return `<div style="background:var(--bg3);border-radius:6px;padding:10px;border:1px solid var(--border)">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-            <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,.15);color:#818cf8">${platformTag}</span>
-            <span style="font-size:13px;font-weight:600">${o.label||o.name}</span>
-          </div>
-          <div style="font-size:10px;color:var(--text2);margin-top:2px">${o.desc||o.doc||''}</div>
-          <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:2px">${reqHtml}${nextHtml}</div>
-        </div>`;
-      }).join('')}</div></div>`).join('');
+    const platformLabels = {douyin:'🎵 抖音', xiaohongshu:'📕 小红书', '通用':'⚙️ 通用'};
+    el.innerHTML = Object.entries(groups).map(([p, items]) => {
+      const subGroups = {};
+      items.forEach(o => {
+        const g = o.category||'其他';
+        if(!subGroups[g]) subGroups[g]=[];
+        subGroups[g].push(o);
+      });
+      const catLabels = {navigation:'🏠 导航', browse:'📱 浏览', interact:'💡 交互', utility:'⏳ 工具'};
+      return `<div style="margin-bottom:16px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;padding:6px 10px;border-radius:6px;background:var(--bg3)">${platformLabels[p]||p} <span style="font-weight:400;font-size:11px;color:var(--text2)">(${items.length})</span></div>
+        ${Object.entries(subGroups).map(([g, sub]) => `
+          <div style="font-size:12px;font-weight:600;margin:8px 0 6px;color:var(--text2)">${catLabels[g]||g} (${sub.length})</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;margin-bottom:6px">${sub.map(o => {
+            let reqHtml = '';
+            if (o.requires && o.requires.length && o.requires[0] !== '*') {
+              reqHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:var(--blue);margin-top:4px">← 需前序: '+o.requires.slice(0,3).join(',')+(o.requires.length>3?'…':'')+'</span>';
+            } else if (o.can_be_first) {
+              reqHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--green);margin-top:4px">✅ 可为首步</span>';
+            }
+            let nextHtml = '';
+            if (o.allows && o.allows.length && o.allows[0] !== '*') {
+              nextHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(139,143,163,.15);color:var(--text2);margin-top:2px">→ 后继: '+o.allows.slice(0,4).join(',')+(o.allows.length>4?'…':'')+'</span>';
+            }
+            const pt = o.platform==='通用'?'⚙️通用':(o.platform==='douyin'?'🎵抖音':'📕小红书');
+            return '<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">'
+              +'<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">'
+              +'<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;background:rgba(99,102,241,.15);color:#818cf8">'+pt+'</span>'
+              +'<span style="font-size:12px;font-weight:600">'+(o.label||o.name)+'</span></div>'
+              +'<div style="font-size:10px;color:var(--text2);margin-top:1px">'+(o.desc||o.doc||'')+'</div>'
+              +'<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:2px">'+reqHtml+nextHtml+'</div></div>';
+          }).join('')}</div>`
+        ).join('')}</div>`;
+    }).join('');
   } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
 }
 
