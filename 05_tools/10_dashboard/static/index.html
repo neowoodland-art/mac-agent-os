@@ -1124,6 +1124,15 @@ async function loadMatrixSummary() {
     const d = await r.json();
     meta.textContent = `${d.total_machines} 机器 · ${d.total_accounts} 账号`;
 
+    // 获取身份目录统计
+    let identityCount = 0;
+    try {
+      const ir = await fetch('/api/matrix/system-info');
+      const id = await ir.json();
+      identityCount = id.identity_dirs || 0;
+    } catch(e) {}
+    meta.textContent += ` · 🪪 ${identityCount} 身份目录`;
+
     // 检测重复：同一账号出现在不同机器
     const allIds = {};
     const duplicates = [];
