@@ -422,6 +422,9 @@ def module_heartbeat():
     # ── Git 同步: 将本机数据推送到远程, 拉取其他机器的数据 ──
     _git_sync()
 
+    # ── Override 同步: 检查本机新账号并自动补全 ──
+    _sync_account_override()
+
     # ── 版本检查: 对比 required-version, 落后则自动升级 ──
     _check_version()
 
@@ -478,6 +481,64 @@ def _git_sync():
                           text=True, timeout=30, cwd=repo_str)
     except Exception as e:
         logger.warning(f"  Git sync 异常: {e}")
+
+
+def _sync_account_override():
+    """自动同步 registry → override: 检测本机新账号并自动补全
+
+    流程:
+      1. 读取 accounts_registry.yaml（Gitee 同步）
+      2. 读取 accounts.override.yaml（本机私有）
+      3. 找到 registry 中 assigned_machine=本机 但 override 中不存在的账号
+      4. 自动添加到 override（phone 用 phone_mask 占位，用户后续可改）
+
+    这样新机器加入后不需要手动配置 override，guardd 自动补全。
+    """
+    import yaml
+
+    REGISTRY_PATH = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
+    OVERRIDE_PATH = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.override.yaml"
+
+    if not REGISTRY_PATH.exists():
+        logger.warning("  accounts_registry.yaml 不存在，跳过 override 同步")
+        return
+
+    try:
+        reg = yaml.safe_load(REGISTRY_PATH.read_text()) or {"accounts": []}
+        ovr = yaml.safe_load(OVERRIDE_PATH.read_text()) if OVERRIDE_PATH.exists() else {"version": "1.0", "hostname": HOSTNAME, "accounts": []}
+
+        ovr_ids = {a["id"] for a in ovr.get("accounts", [])}
+        new_accounts = []
+
+        for acct in reg.get("accounts", []):
+            # 只处理本机归属的账号
+            if acct.get("assigned_machine", "") != HOSTNAME:
+                continue
+            aid = acct["id"]
+            if aid in ovr_ids:
+                continue  # 已在 override 中
+
+            # 自动补全
+            new_entry = {
+                "id": aid,
+                "phone": acct.get("phone_mask", ""),
+                "enabled": True,
+            }
+            ovr.setdefault("accounts", []).append(new_entry)
+            new_accounts.append(aid)
+            logger.info(f"  📝 自动补全 override: {aid} (phone={new_entry['phone']})")
+
+        if new_accounts:
+            OVERRIDE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            OVERRIDE_PATH.write_text(
+                yaml.dump(ovr, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            )
+            logger.info(f"  ✅ override 已更新: 新增 {len(new_accounts)} 个账号: {', '.join(new_accounts)}")
+        else:
+            logger.info("  ✅ override 同步检查: 无新账号")
+
+    except Exception as e:
+        logger.warning(f"  Override 同步异常: {e}")
 
 
 def _check_version():
