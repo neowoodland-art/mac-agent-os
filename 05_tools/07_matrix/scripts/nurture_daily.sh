@@ -3,12 +3,15 @@
 # 替代旧的 nurture_master.sh（依赖智能体）
 #
 # 执行序列:
-#   Batch 1: 3个抖音 (douyin_01/02/camo01)
-#   Batch 2: 3个小���书 (xhs_01/02/03)
-#   Batch 3: 3个抖音 (douyin_04/05/06)
-#   Batch 4: 3个小红书 (xhs_04/05/06)
+#   1. 读取主页信息 (douyin_01/02/camo01)
+#   2. 3个抖音养号 (douyin_01/02/camo01)
+#   3. 3个小红书养号 (xhs_01/02/03)
+#   4. 读取主页信息 (douyin_04/05/06)
+#   5. 3个抖音养号 (douyin_04/05/06)
+#   6. 3个小红书养号 (xhs_04/05/06)
 #
 # 每个账号跑3轮，每轮随机执行蓝图，间隔45-90秒
+# 每天开头先读取主页信息，记录账号数据变化
 #
 # 用法:
 #   bash nurture_daily.sh          # 完整执行
@@ -38,7 +41,9 @@ log() {
 run_batch() {
     local label="$1"
     local accounts="$2"
-    local cmd="$MC run --accounts $accounts --blueprints $BLUEPRINT --rounds $ROUNDS --mix --interval $INTERVAL"
+    local bp="${3:-$BLUEPRINT}"
+    local rnds="${4:-$ROUNDS}"
+    local cmd="$MC run --accounts $accounts --blueprints $bp --rounds $rnds --mix --interval $INTERVAL"
 
     log "=== $label ==="
     log "命令: $cmd"
@@ -67,6 +72,9 @@ log "============================================"
 log " 每日养号开始 ($(date '+%Y-%m-%d %H:%M'))"
 log "============================================"
 
+# 读取主页信息（先读数据，再养号）
+run_batch "Profile: 抖音前三" "douyin_01,douyin_02,douyin_camo01" "douyin_read_profile" 1
+
 if [ "$GROUP" = "all" ] || [ "$GROUP" = "1" ]; then
     run_batch "Batch 1: 抖音前三" "douyin_01,douyin_02,douyin_camo01"
 fi
@@ -74,6 +82,9 @@ fi
 if [ "$GROUP" = "all" ] || [ "$GROUP" = "2" ]; then
     run_batch "Batch 2: 小红书前三" "xhs_01,xhs_02,xhs_03"
 fi
+
+# 读取主页信息（第二组）
+run_batch "Profile: 抖音后三" "douyin_04,douyin_05,douyin_06" "douyin_read_profile" 1
 
 if [ "$GROUP" = "all" ] || [ "$GROUP" = "3" ]; then
     run_batch "Batch 3: 抖音后三" "douyin_04,douyin_05,douyin_06"
