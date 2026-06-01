@@ -257,6 +257,15 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div id="matrixBlueprintsContent"><div class="loading">加载中...</div></div>
 </div>
 
+<!-- Matrix registration view -->
+<div id="view-matrix-register" class="hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:18px">📝 登记注册</h2>
+    <span id="registerMeta" style="font-size:12px;color:var(--text2)"></span>
+  </div>
+  <div id="matrixRegisterContent"></div>
+</div>
+
 <!-- Matrix atom ops view -->
 <div id="view-matrix-atom-ops" class="hidden">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -708,7 +717,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy'];
+  const matrixSubViews = ['matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-register','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -785,6 +794,7 @@ function switchView(view) {
   if (view === 'matrix-run') loadMatrixRun();
   if (view === 'matrix-accounts') loadMatrixAccounts();
   if (view === 'matrix-blueprints') loadMatrixBlueprints();
+  if (view === 'matrix-register') loadRegisterForm();
   if (view === 'matrix-atom-ops') loadMatrixAtomOps();
   if (view === 'matrix-backup') loadMatrixBackup();
   if (view === 'matrix-corpus') loadCorpus();
@@ -1092,6 +1102,7 @@ async function loadPlugins() {
         {view:'matrix-accounts', label:'账号管理'},
         {view:'matrix-c2', label:'远程控制'},
         {view:'matrix-blueprints', label:'蓝图编排'},
+        {view:'matrix-register', label:'登记注册'},
         {view:'matrix-atom-ops', label:'原子操作'},
         {view:'matrix-backup', label:'备份恢复'},
         {view:'matrix-export', label:'导入导出'},
@@ -1271,9 +1282,11 @@ async function loadMatrixRun() {
       <div style="display:flex;flex-wrap:wrap;gap:6px" id="batchAcctList">`;
     accounts.forEach(a => {
       const s = a._status === 'logged_in' ? '🟢' : '⏸';
-      html += `<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px">
+      const pIcon = a.platform === 'xiaohongshu' ? '📕' : a.platform === 'douyin' ? '🎵' : '❓';
+      const phone = (a.phone || a.phone_mask || '??').slice(0, 11);
+      html += `<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px;white-space:nowrap">
         <input type="checkbox" class="batch-acct" value="${a.id}" checked>
-        ${s} ${a.id}
+        ${s} ${pIcon} <strong>${a.id}</strong> <span style="color:var(--text2);font-size:10px">${phone}</span>
       </label>`;
     });
     html += `</div></div>`;
@@ -1307,10 +1320,13 @@ async function loadMatrixRun() {
       </div>
       <div style="margin-top:8px">
         <label style="font-size:11px;color:var(--text2)">📚 语料分类</label>
-        <div id="corpusPills" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">`;
+        <div id="corpusPills" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+        <label style="background:var(--bg3);padding:3px 8px;border-radius:4px;border:1px solid var(--border);cursor:pointer;font-size:11px">
+          <input type="checkbox" id="bpCorpusRandom" onchange="corpusToggleRandom()"> 🎲 随机
+        </label>`;
     corpusCats.forEach(c => {
       if (!c.enabled) return;
-      html += `<label style="background:var(--bg3);padding:3px 8px;border-radius:4px;border:1px solid var(--border);cursor:pointer;font-size:11px">
+      html += `<label style="background:var(--bg3);padding:3px 8px;border-radius:4px;border:1px solid var(--border);cursor:pointer;font-size:11px" class="corpus-cat-label">
         <input type="checkbox" class="batch-corpus" value="${c.name}"> ${c.name}
       </label>`;
     });
@@ -1347,13 +1363,23 @@ async function loadMatrixRun() {
 }
 
 // Batch execution helpers
+function corpusToggleRandom() {
+  const isRandom = document.getElementById('bpCorpusRandom')?.checked;
+  document.querySelectorAll('.corpus-cat-label input').forEach(cb => {
+    cb.disabled = isRandom;
+    cb.closest('label').style.opacity = isRandom ? '0.4' : '1';
+  });
+  batchPreview();
+}
+
 function batchPreview() {
   const accts = [...document.querySelectorAll('.batch-acct:checked')].map(e => e.value);
   const bps = [...document.querySelectorAll('.batch-bp:checked')].map(e => e.value);
   const rounds = document.getElementById('bpRounds')?.value || '5';
   const interval = document.getElementById('bpInterval')?.value || '30-60';
   const mix = document.getElementById('bpMix')?.checked;
-  const corpus = [...document.querySelectorAll('.batch-corpus:checked')].map(e => e.value);
+  const isRandom = document.getElementById('bpCorpusRandom')?.checked;
+  const corpus = isRandom ? ['random'] : [...document.querySelectorAll('.batch-corpus:checked')].map(e => e.value);
   const proxy = document.getElementById('bpProxy')?.value || 'auto';
 
   if (!accts.length || !bps.length) {
@@ -1378,26 +1404,28 @@ async function batchExecute() {
   const preview = document.getElementById('batchCmdPreview');
   if (!output || !content) return;
 
-  // Get the command
   const cmd = preview.textContent;
   if (!cmd.startsWith('mc run')) { alert('请先选择账号和蓝图'); return; }
 
   output.style.display = 'block';
-  content.textContent = '⏳ 执行中...\n';
+  content.textContent = '⏳ 后台执行中...\n';
+
+  const accts = [...document.querySelectorAll('.batch-acct:checked')].map(e => e.value);
+  const bps = [...document.querySelectorAll('.batch-bp:checked')].map(e => e.value);
+  const rounds = parseInt(document.getElementById('bpRounds')?.value) || 5;
+  const mix = document.getElementById('bpMix')?.checked;
 
   try {
-    // Actually call the backend API to run
-    const accts = [...document.querySelectorAll('.batch-acct:checked')].map(e => e.value);
-    const bps = [...document.querySelectorAll('.batch-bp:checked')].map(e => e.value);
-    const rounds = document.getElementById('bpRounds')?.value || '5';
-    const mix = document.getElementById('bpMix')?.checked;
-
     const r = await fetch('/api/matrix/nurture/start', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({accounts: accts, blueprints: bps, rounds: parseInt(rounds), mix})
+      body: JSON.stringify({accounts: accts, blueprints: bps, rounds, mix})
     });
     const d = await r.json();
-    content.textContent = d.error ? `❌ ${d.error}\n${JSON.stringify(d,null,2)}` : JSON.stringify(d, null, 2);
+    if (d.status === 'started') {
+      content.textContent = `✅ 已启动 (PID: ${d.pid})\n\n命令:\n  ${d.cmd}\n\n查看执行日志:\n  tail -f /tmp/mc_run.log`;
+    } else {
+      content.textContent = `❌ 启动失败\n${JSON.stringify(d, null, 2)}`;
+    }
   } catch(e) {
     content.textContent = `❌ ${e.message}`;
   }
@@ -1440,7 +1468,7 @@ function renderAccountsTable() {
 
   el.innerHTML = `<table><thead><tr>
     ${th('id','ID')}${th('platform','平台')}${th('phone','手机')}${th('machine','归属机器')}${th('status','状态')}${th('display_name','昵称')}
-    ${th('identity_dir','身份目录')}<th>操作</th>
+    ${th('identity_dir','身份目录')}<th>备注</th><th>操作</th>
   </tr></thead><tbody>${sorted.map(a => {
     const s = a._status === 'logged_in' ? '<span class="badge badge-green" style="background:rgba(34,197,94,.15);color:#22c55e;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">✅ 已登录</span>'
       : a._status === 'remote' ? '<span class="badge badge-gray" style="background:rgba(139,143,163,.15);color:#8b8fa3;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">📡 远程</span>'
@@ -1458,6 +1486,14 @@ function renderAccountsTable() {
       <td>${s}</td>
       <td style="font-size:12px;color:#8b8fa3;max-width:120px;overflow:hidden;text-overflow:ellipsis">${a.display_name || '-'}</td>
       <td style="font-size:11px;color:#8b8fa3">${a.identity_dir ? a.identity_dir.split('/').pop() : '-'}</td>
+      <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        <span class="notes-display" data-account="${a.id}">${(a.notes||'-').slice(0,10)}</span>
+        <span class="notes-edit" style="display:none">
+          <input class="notes-input" data-account="${a.id}" value="${a.notes||''}" style="width:70px;font-size:10px;padding:2px 4px;background:#1a1d2e;border:1px solid #6366f1;border-radius:4px;color:#e1e4f0">
+          <span style="cursor:pointer;color:#22c55e;font-size:12px" onclick="saveNote('${a.id}')">✓</span>
+        </span>
+        <span style="cursor:pointer;color:#8b8fa3;font-size:10px;margin-left:2px" onclick="editNote('${a.id}')">✏️</span>
+      </td>
       <td>${a.is_local
         ? `<button class="btn btn-sm" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px" onclick="alert('编辑: ${a.id}')">编辑</button>
            <button class="btn btn-sm" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;margin-left:4px" onclick="c2Nurture('${a.id}')">养号</button>`
@@ -1881,6 +1917,102 @@ function closeBpModal() {
   if (modal) modal.style.display = 'none';
 }
 
+// ════════════════════════════════════════════════════════
+// Registration Form
+// ════════════════════════════════════════════════════════
+
+async function loadRegisterForm() {
+  const el = document.getElementById('matrixRegisterContent');
+  const meta = document.getElementById('registerMeta');
+  if (!el) return;
+
+  let existingIdentities = [];
+  try {
+    const r = await fetch('/api/matrix/accounts');
+    const d = await r.json();
+    existingIdentities = [...new Set((d.accounts||[]).filter(a => a.identity_dir).map(a => a.identity_dir.split('/').pop()))];
+  } catch(e) {}
+
+  meta.textContent = `${existingIdentities.length} 个可用身份`;
+
+  el.innerHTML = `<div style="max-width:600px">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
+      <div style="font-weight:600;font-size:15px;margin-bottom:16px">📝 账号注册表单</div>
+      <div style="display:grid;gap:10px">
+        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">📱 手机号 *</label>
+          <input id="regPhone" placeholder="13800138000" style="width:100%;font-size:14px"></div>
+        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">🌐 平台</label>
+          <select id="regPlatform" style="width:100%;font-size:13px">
+            <option value="douyin">🎵 抖音</option>
+            <option value="xiaohongshu">📕 小红书</option>
+          </select></div>
+        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">🏷️ 显示名称 (选填)</label>
+          <input id="regDisplayName" placeholder="我的新号" style="width:100%"></div>
+        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">🪪 身份</label>
+          <div style="display:flex;gap:10px;align-items:center">
+            <label style="font-size:12px;cursor:pointer"><input type="radio" name="regIdentity" value="new" checked> 新建身份</label>
+            <label style="font-size:12px;cursor:pointer"><input type="radio" name="regIdentity" value="existing" onchange="regToggleExisting()"> 使用已有</label>
+          </div>
+          <select id="regExistingIdentity" style="width:100%;margin-top:4px;display:none">
+            ${existingIdentities.map(id => '<option value="'+id+'">'+id+'</option>').join('')}
+          </select></div>
+        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">🌐 代理 (选填)</label>
+          <input id="regProxy" placeholder="socks5://127.0.0.1:7890" style="width:100%"></div>
+        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">📝 备注</label>
+          <input id="regNotes" placeholder="抖音七号" style="width:100%"></div>
+      </div>
+      <div id="regPreview" style="margin-top:16px;background:var(--bg3);border-radius:6px;padding:12px;font-size:12px;font-family:monospace;white-space:pre-wrap"></div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn-primary" onclick="regSubmit()" style="flex:1;padding:10px">✅ 确认注册</button>
+        <button class="btn btn-outline" onclick="loadRegisterForm()" style="padding:10px">🔄 清空</button>
+      </div>
+      <div id="regResult" style="margin-top:12px"></div>
+    </div>
+  </div>`;
+  regPreview();
+}
+
+function regToggleExisting() {
+  const sel = document.getElementById('regExistingIdentity');
+  if (sel) sel.style.display = document.querySelector('input[name="regIdentity"]:checked')?.value === 'existing' ? 'block' : 'none';
+  regPreview();
+}
+
+function regPreview() {
+  const el = document.getElementById('regPreview');
+  if (!el) return;
+  const phone = document.getElementById('regPhone')?.value || '13800138000';
+  const platform = document.getElementById('regPlatform')?.value || 'douyin';
+  const notes = document.getElementById('regNotes')?.value || '-';
+  el.textContent = `📋 注册预览:\n账号ID: ${platform.slice(0,4)}_xx\n手机: ${phone.slice(0,3)}****${phone.slice(-4)}\n备注: ${notes}`;
+}
+
+async function regSubmit() {
+  const phone = document.getElementById('regPhone')?.value.trim();
+  if (!phone) { alert('请输入手机号'); return; }
+  const platform = document.getElementById('regPlatform')?.value || 'douyin';
+  const proxy = document.getElementById('regProxy')?.value || '';
+  const identityMode = document.querySelector('input[name="regIdentity"]:checked')?.value || 'new';
+  const existingIdentity = identityMode === 'existing' ? document.getElementById('regExistingIdentity')?.value : '';
+  const notes = document.getElementById('regNotes')?.value || '';
+  const result = document.getElementById('regResult');
+  result.innerHTML = '<span style="font-size:13px">⏳ 注册中...</span>';
+  try {
+    const r = await fetch('/api/matrix/register', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({phone, platform, proxy, identity_mode: identityMode, existing_identity: existingIdentity, notes})
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      result.innerHTML = '<div style="padding:10px;background:rgba(34,197,94,.15);border-radius:6px;font-size:13px">✅ 注册成功！<br><br><strong>'+d.account_id+'</strong> ('+d.phone+')<br>身份: '+d.identity_hint+'<br><br>下一步: 在「账号管理」中确认</div>';
+    } else {
+      result.innerHTML = '<div style="color:var(--red);font-size:13px">❌ '+(d.detail||'注册失败')+'</div>';
+    }
+  } catch(e) {
+    result.innerHTML = '<div style="color:var(--red);font-size:13px">❌ '+e.message+'</div>';
+  }
+}
+
 async function loadMatrixAtomOps() {
   const el = document.getElementById('matrixAtomOpsContent');
   el.innerHTML = '<div class="loading">加载中...</div>';
@@ -1891,15 +2023,19 @@ async function loadMatrixAtomOps() {
     document.getElementById('matrixAtomOpCount').textContent = `共 ${ops.length} 个操作`;
     if (!ops.length) { el.innerHTML = '<div class="error">暂无操作</div>'; return; }
     const groups = {};
-    ops.forEach(o => { const g = o.category||'其他'; if(!groups[g]) groups[g]=[]; groups[g].push(o); });
+    ops.forEach(o => {
+      const g = o.category||'其他';
+      if(!groups[g]) groups[g]=[]; groups[g].push(o);
+    });
     const catLabels = {navigation:'🏠 导航', browse:'📱 浏览', interact:'💡 交互', xhs:'📕 小红书', utility:'⏳ 工具'};
+    const platformMap = {navigation:'🎵抖音', browse:'🎵抖音', interact:'🎵抖音', xhs:'📕小红书', utility:'⚙️通用'};
     el.innerHTML = Object.entries(groups).map(([g,items]) => `<div style="margin-bottom:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2)">${catLabels[g]||g} (${items.length})</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${items.map(o => {
-        // 依赖标签
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text2)">${platformMap[g]||'❓'} ${catLabels[g]||g} (${items.length})</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px">${items.map(o => {
+        const platformTag = platformMap[g] || '⚙️通用';
         let reqHtml = '';
         if (o.requires && o.requires.length > 0 && o.requires[0] !== '*') {
-          reqHtml = `<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:var(--blue);margin-top:4px">← 需前序: ${o.requires.map(r => r).join(', ')}</span>`;
+          reqHtml = `<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:var(--blue);margin-top:4px">← 需前序: ${o.requires.slice(0,3).join(', ')}${o.requires.length>3?'…':''}</span>`;
         } else if (o.can_be_first) {
           reqHtml = `<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--green);margin-top:4px">✅ 可为首步</span>`;
         }
@@ -1907,10 +2043,14 @@ async function loadMatrixAtomOps() {
         if (o.allows && o.allows.length > 0 && o.allows[0] !== '*') {
           nextHtml = `<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(139,143,163,.15);color:var(--text2);margin-top:2px">→ 后继: ${o.allows.slice(0,4).join(', ')}${o.allows.length>4?'…':''}</span>`;
         }
+        const catIcon = platformTag.split('')[0];
         return `<div style="background:var(--bg3);border-radius:6px;padding:10px;border:1px solid var(--border)">
-          <div style="font-size:13px;font-weight:600">${o.label||o.name}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:rgba(99,102,241,.15);color:#818cf8">${platformTag}</span>
+            <span style="font-size:13px;font-weight:600">${o.label||o.name}</span>
+          </div>
           <div style="font-size:10px;color:var(--text2);margin-top:2px">${o.desc||o.doc||''}</div>
-          ${reqHtml}${nextHtml}
+          <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:2px">${reqHtml}${nextHtml}</div>
         </div>`;
       }).join('')}</div></div>`).join('');
   } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
@@ -2155,6 +2295,31 @@ async function testAccountProxy(account) {
       else el.innerHTML = '❌ '+d2.error;
     }
   } catch(e) { if (el) el.innerHTML = '❌ '+e.message; }
+}
+
+// ── Notes editing ──
+function editNote(id) {
+  const row = document.querySelector(`.notes-display[data-account="${id}"]`);
+  const edit = document.querySelector(`.notes-edit[style*="display:none"]`);
+  if (row) row.style.display = 'none';
+  if (edit) edit.style.display = 'inline';
+}
+
+async function saveNote(id) {
+  const input = document.querySelector(`.notes-input[data-account="${id}"]`);
+  if (!input) return;
+  const notes = input.value.trim();
+  try {
+    const r = await fetch(`/api/matrix/accounts/${id}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({notes})
+    });
+    if (!r.ok) throw new Error((await r.json()).detail);
+    // Toggle back
+    const display = document.querySelector(`.notes-display[data-account="${id}"]`);
+    if (display) { display.textContent = notes.slice(0,10) || '-'; display.style.display = 'inline'; }
+    input.closest('span.notes-edit').style.display = 'none';
+  } catch(e) { alert('❌ '+e.message); }
 }
 
 function editDialog(id) {

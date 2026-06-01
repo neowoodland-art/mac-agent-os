@@ -105,25 +105,56 @@ class MatrixManager:
 
     def update_account(self, account_id: str, data: dict) -> dict:
         """更新账号配置"""
-        accounts = self._read_accounts_yaml()
-        found = None
-        for acct in accounts:
+        # 写入 Registry (notes 等元数据)
+        reg = self._read_registry()
+        reg_found = None
+        for acct in reg:
             if acct["id"] == account_id:
-                found = acct
+                reg_found = acct
                 break
-        if not found:
-            raise ValueError(f"账号 {account_id} 不存在")
+        if not reg_found:
+            # fallback: 旧版 accounts.yaml
+            accounts = self._read_accounts_yaml()
+            found = None
+            for acct in accounts:
+                if acct["id"] == account_id:
+                    found = acct
+                    break
+            if not found:
+                raise ValueError(f"账号 {account_id} 不存在")
+            for key in ["phone", "window", "window_position", "proxy", "enabled", "notes", "platform"]:
+                if key in data:
+                    found[key] = data[key]
+            self._write_accounts_yaml(accounts)
+        else:
+            for key in ["notes", "window", "window_position", "platform"]:
+                if key in data:
+                    reg_found[key] = data[key]
+            self.REGISTRY_PATH.write_text(
+                yaml.dump({"version": "1.0", "accounts": reg}, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            )
 
-        for key in ["phone", "window", "window_position", "proxy", "enabled", "notes", "platform", "identity_dir"]:
+        # 写入 Override (phone, proxy, enabled 等敏感字段)
+        hostname, override = self._read_override()
+        ovr_found = None
+        for acct in override:
+            if acct["id"] == account_id:
+                ovr_found = acct
+                break
+        if ovr_found is None:
+            override.append({"id": account_id})
+            ovr_found = override[-1]
+
+        for key in ["phone", "proxy", "enabled"]:
             if key in data:
-                found[key] = data[key]
+                ovr_found[key] = data[key]
 
-        self._write_accounts_yaml(accounts)
+        ovr_data = {"version": "1.0", "hostname": hostname or self._local_hostname(), "accounts": override}
+        self.OVERRIDE_PATH.write_text(
+            yaml.dump(ovr_data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        )
 
-        # ── WPRA v2.0: 同步写入 machines/{uid}/accounts.yaml ──
-        self._write_self_accounts()
-
-        return {"status": "ok", "account": found}
+        return {"status": "ok", "account_id": account_id}
 
     def delete_account(self, account_id: str, delete_identity: bool = False) -> dict:
         """删除账号配置，可选同时删除身份目录"""

@@ -905,14 +905,31 @@ def api_matrix_login_status(account_id: str):
 
 @app.post("/api/matrix/nurture/start")
 async def api_matrix_nurture_start(data: dict):
-    """启动养号"""
+    """启动批量养号（通过 mc CLI 执行）"""
     try:
-        mgr = _get_matrix_mgr()
         accounts = data.get("accounts", [])
-        rounds = data.get("rounds", 10)
+        blueprints = data.get("blueprints", [])
+        rounds = data.get("rounds", 5)
+        mix = data.get("mix", False)
         daemon = data.get("daemon", False)
-        logger.info(f"Matrix: 启动养号 {accounts} rounds={rounds}")
-        return mgr.run_nurture(accounts, rounds, daemon)
+
+        if not accounts or not blueprints:
+            raise HTTPException(400, detail="accounts 和 blueprints 必填")
+
+        import subprocess
+        mc_path = str(Path(__file__).resolve().parent.parent.parent / "05_tools" / "07_matrix" / "mc")
+        cmd = [mc_path, "run", f"--accounts={','.join(accounts)}", f"--blueprints={','.join(blueprints)}", f"--rounds={rounds}"]
+        if mix:
+            cmd.append("--mix")
+        if daemon:
+            cmd.append("--daemon")
+
+        logger.info(f"Matrix: 启动批量养号 {' '.join(cmd)}")
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, cwd=str(Path(mc_path).parent))
+        return {"status": "started", "pid": proc.pid, "cmd": " ".join(cmd)}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, detail=str(e))
 
@@ -1194,24 +1211,84 @@ async def api_matrix_corpus_delete(data: dict):
         raise HTTPException(500, detail=str(e))
 
 
-@app.get("/api/matrix/nurture/run")
-def api_matrix_nurture_run(accounts: str = "", blueprints: str = "", rounds: int = 5, mix: bool = False):
-    """通过 CLI 执行批量养号"""
+# ── 登记注册 API ──
+
+@app.post("/api/matrix/register")
+async def api_matrix_register(data: dict):
+    """登记注册新账号"""
     try:
-        import subprocess, json, os
-        mc_path = str(Path(__file__).resolve().parent.parent.parent / "05_tools" / "07_matrix" / "mc")
-        acct_list = accounts.split(",") if accounts else []
-        bp_list = blueprints.split(",") if blueprints else []
-        if not acct_list or not bp_list:
-            raise HTTPException(400, detail="accounts 和 blueprints 必填")
-        cmd = [mc_path, "run", f"--accounts={accounts}", f"--blueprints={blueprints}",
-               f"--rounds={rounds}"]
-        if mix:
-            cmd.append("--mix")
-        # Run in background
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, cwd=str(Path(mc_path).parent))
-        return {"status": "started", "pid": proc.pid, "cmd": " ".join(cmd)}
+        phone = data.get("phone", "").strip()
+        platform = data.get("platform", "douyin")
+        display_name = data.get("display_name", "")
+        proxy = data.get("proxy", "")
+        identity_mode = data.get("identity_mode", "new")  # "new" or "existing"
+        existing_identity = data.get("existing_identity", "")
+        notes = data.get("notes", "")
+
+        if not phone:
+            raise HTTPException(400, detail="手机号必填")
+
+        # 生成账号ID
+        import yaml
+        from pathlib import Path
+        AGENT_SYNC = Path(__file__).resolve().parent.parent.parent
+        REGISTRY_PATH = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
+
+        reg = yaml.safe_load(REGISTRY_PATH.read_text()) if REGISTRY_PATH.exists() else {"accounts": []}
+        existing_ids = [a["id"] for a in reg.get("accounts", [])]
+
+        # 自动编号 — 使用平台完整前缀
+        pid_prefix = {"douyin": "douyin", "xiaohongshu": "xhs"}
+        prefix = pid_prefix.get(platform, platform[:4])
+        num = 1
+        while f"{prefix}_{num:02d}" in existing_ids:
+            num += 1
+        new_id = f"{prefix}_{num:02d}"
+
+        # 身份目录名
+        identity_hint = existing_identity if identity_mode == "existing" and existing_identity else new_id
+
+        # phone_mask
+        phone_mask = phone[:3] + "****" + phone[-4:] if len(phone) >= 7 else phone
+
+        # 写入 registry
+        new_acct = {
+            "id": new_id,
+            "platform": platform,
+            "phone_mask": phone_mask,
+            "assigned_machine": HOSTNAME,
+            "identity_hint": identity_hint,
+            "window": [702, 783],
+            "window_position": [0, 0],
+            "notes": notes or f"{platform} {phone_mask}",
+        }
+        reg["accounts"].append(new_acct)
+        REGISTRY_PATH.write_text(yaml.dump(reg, default_flow_style=False, allow_unicode=True, sort_keys=False))
+
+        # 写入 override
+        AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
+        OVR_PATH = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.override.yaml"
+        ovr = yaml.safe_load(OVR_PATH.read_text()) if OVR_PATH.exists() else {"version": "1.0", "hostname": HOSTNAME, "accounts": []}
+        ovr_acct = {"id": new_id, "phone": phone, "enabled": True}
+        if proxy:
+            ovr_acct["proxy"] = proxy
+        ovr["accounts"].append(ovr_acct)
+        OVR_PATH.write_text(yaml.dump(ovr, default_flow_style=False, allow_unicode=True, sort_keys=False))
+
+        logger.info(f"Matrix: 新账号注册 {new_id} ({phone})")
+
+        return {
+            "status": "ok",
+            "account_id": new_id,
+            "platform": platform,
+            "phone": phone_mask,
+            "identity_hint": identity_hint,
+            "notes": notes,
+            "registry_updated": True,
+            "override_updated": True,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, detail=str(e))
 
