@@ -51,14 +51,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .nav-group-header:hover { opacity: 1; color: #e1e4f0; }
 .nav-group-body { overflow: hidden; transition: max-height .2s ease; max-height: 800px; }
 .nav-group-body.collapsed { max-height: 0; }
+
+/* KB tabs */
+.kb-tab { padding: 6px 14px; border-radius: 6px; cursor: pointer; background: #1a1d2e; color: #8b8fa3; border: 1px solid #2a2d3e; font-size: 12px; transition: .15s; }
+.kb-tab:hover { background: #232740; color: #e1e4f0; }
+.kb-tab.active { background: #6366f1; color: #fff; border-color: #6366f1; }
+.kb-tab-body { min-height: 200px; }
 .main { flex: 1; padding: 24px 32px; overflow-y: auto; max-height: 100vh; }
 
 /* Stats */
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
-.stat-card { background: var(--bg2); border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); }
-.stat-card .label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
-.stat-card .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
-.stat-card .sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.stat-card { background: var(--bg2); border-radius: var(--radius); padding: 10px 14px; border: 1px solid var(--border); }
+.stat-card .label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
+.stat-card .value { font-size: 18px; font-weight: 700; margin-top: 2px; }
+.stat-card .sub { font-size: 10px; color: var(--text2); margin-top: 2px; }
 
 /* Table */
 table { width: 100%; border-collapse: collapse; }
@@ -249,6 +255,129 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     <span id="matrixAtomOpCount" style="font-size:13px;color:var(--text2)"></span>
   </div>
   <div id="matrixAtomOpsContent"><div class="loading">加载中...</div></div>
+</div>
+
+<!-- ═══════════════════ System Knowledge Center ═══════════════════ -->
+<div id="view-kb" class="hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="font-size:18px">📚 系统知识中心</h2>
+    <div style="display:flex;gap:6px">
+      <button onclick="kbRefresh()" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
+      <button onclick="kbLoadLogs()" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">📋 日志</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
+    <div class="kb-tab active" data-tab="kb-knowledge" onclick="kbSwitchTab('kb-knowledge',this)">📖 知识库</div>
+    <div class="kb-tab" data-tab="kb-memory" onclick="kbSwitchTab('kb-memory',this)">🧠 记忆库</div>
+    <div class="kb-tab" data-tab="kb-system" onclick="kbSwitchTab('kb-system',this)">🤖 联邦系统说明</div>
+    <div class="kb-tab" data-tab="kb-skills" onclick="kbSwitchTab('kb-skills',this)">🧩 技能与工具</div>
+  </div>
+
+  <!-- Tab 1: 知识库 -->
+  <div id="kb-tab-knowledge" class="kb-tab-body">
+    <div id="kbStats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:12px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">⚡ 操作面板</div>
+        <div style="display:grid;gap:6px">
+          <button onclick="kbShowRefine()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">🧹 提纯收件箱</button>
+          <button onclick="kbShowCollect()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">📥 汇聚到收件箱</button>
+          <button onclick="kbShowIngest()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">📝 导入知识</button>
+          <button onclick="kbShowSearch()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔍 搜索</button>
+          <button onclick="kbShowBackup()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">💾 备份</button>
+          <button onclick="kbGitSync()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 Git同步</button>
+        </div>
+      </div>
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 参数 / 结果</div>
+        <div id="kbResultPanel" style="font-size:12px;color:#8b8fa3">点击操作设置参数</div>
+      </div>
+    </div>
+    <div id="kbLogs" style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e"></div>
+  </div>
+
+  <!-- Tab 2: 记忆库 -->
+  <div id="kb-tab-memory" class="kb-tab-body" style="display:none">
+    <div id="memStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">🧠 记忆层级</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+          <button onclick="memShowL1()" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">🔑 L1 关键词</button>
+          <button onclick="memShowL2()" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">📋 L2 事实</button>
+          <button onclick="memShowL3()" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">📄 L3 原文</button>
+        </div>
+        <div id="memContent" style="font-size:12px;color:#8b8fa3">点击按钮查看各层详情</div>
+      </div>
+      <div id="memDetailPanel" style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;overflow-y:auto;max-height:400px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 详情</div>
+        <div id="memDetailContent" style="font-size:12px;color:#8b8fa3">选择左侧查看</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: 联邦系统 -->
+  <div id="kb-tab-system" class="kb-tab-body" style="display:none">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">🤖 联邦系统文档</div>
+      <div id="sysDocsList" style="font-size:12px;color:#8b8fa3">加载中...</div>
+    </div>
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 文档内容预览</div>
+      <div id="sysDocPreview" style="font-size:12px;color:#8b8fa3;max-height:400px;overflow-y:auto;white-space:pre-wrap;font-family:monospace">选择左侧文档查看</div>
+    </div>
+  </div>
+
+  <!-- Tab 4: 技能与工具 -->
+  <div id="kb-tab-skills" class="kb-tab-body" style="display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">🧩 已安装技能</div>
+        <div id="skillsList" style="font-size:12px">加载中...</div>
+      </div>
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔧 工具目录</div>
+        <div id="toolsList" style="font-size:12px">加载中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 5: Automation -->
+  <div id="kb-tab-automation" class="kb-tab-body" style="display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">⏰ 跨机自动化任务</div>
+        <div id="autoTaskList" style="font-size:12px">加载中...</div>
+      </div>
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">➕ 新建任务</div>
+        <div style="margin-bottom:6px">
+          <select id="autoTarget" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+            <option value="">目标机器...</option>
+          </select>
+          <select id="autoType" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+            <option value="nurture_run">启动养号</option>
+            <option value="check_environment">环境检查</option>
+            <option value="refresh_profiles">刷新资料</option>
+            <option value="sync_only">Git同步</option>
+            <option value="run_script">执行脚本</option>
+          </select>
+          <input id="autoParams" placeholder='参数JSON (可选)' style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+          <input id="autoSchedule" type="datetime-local" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+          <div style="display:flex;gap:6px">
+            <button onclick="autoCreateTask()" style="flex:1;background:#6366f1;color:#fff;border:none;padding:6px;border-radius:6px;cursor:pointer;font-size:12px">➕ 创建</button>
+            <button onclick="autoCreateLocal()" style="flex:1;background:#22c55e;color:#fff;border:none;padding:6px;border-radius:6px;cursor:pointer;font-size:12px">📝 创建本地自动化</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 执行历史</div>
+      <div id="autoHistory" style="font-size:12px">加载中...</div>
+    </div>
+  </div>
 </div>
 
 <!-- Matrix C2 remote control view -->
@@ -467,6 +596,18 @@ function toggleSidebar() {
 function toggleGroup(el) {
   const body = el.nextElementSibling;
   if (!body || !body.classList) return;
+  // 手风琴: 关闭其他所有分组
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    if (h === el) return;
+    const b = h.nextElementSibling;
+    if (b && b.classList && !b.classList.contains('collapsed')) {
+      b.classList.add('collapsed');
+      h.dataset.collapsed = 'true';
+      const arrow = h.querySelector('span:last-child');
+      if (arrow) arrow.textContent = '▶';
+    }
+  });
+  // 切换当前分组
   const isCollapsed = body.classList.toggle('collapsed');
   el.dataset.collapsed = isCollapsed ? 'true' : 'false';
   el.querySelector('span:last-child').textContent = isCollapsed ? '▶' : '▼';
@@ -534,6 +675,27 @@ function switchView(view) {
     return;
   }
 
+  // KB tab views → route to kb view with tab switch
+  const kbViewToTab = {'kb-knowledge':'kb-knowledge','kb-memory':'kb-memory','kb-system':'kb-system','kb-skills-int':'kb-skills'};
+  if (kbViewToTab[view]) {
+    const tabName = kbViewToTab[view];
+    document.querySelectorAll('.nav-item').forEach(e => {
+      e.classList.toggle('active', e.dataset.view === view);
+    });
+    // Hide ALL other views first
+    ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
+     'matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export'].forEach(v => {
+      document.getElementById('view-' + v)?.classList.add('hidden');
+    });
+    document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.classList.add('hidden'));
+    // Show KB view
+    document.getElementById('view-kb')?.classList.remove('hidden');
+    currentView = 'kb';
+    const tab = document.querySelector('.kb-tab[data-tab="'+tabName+'"]');
+    if (tab) kbSwitchTab(tabName, tab);
+    return;
+  }
+
   // 如果点了子项，高亮父级
   if (aveSubViews.includes(view)) {
     document.querySelector('.nav-item[data-view="plugin-ave"]')?.classList.add('active');
@@ -544,7 +706,7 @@ function switchView(view) {
 
   // 视图显隐
   const viewIds = ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-                   'matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export'];
+                   'matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','kb'];
   viewIds.forEach(v => {
     document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
   });
@@ -592,11 +754,10 @@ async function loadStats() {
     });
     
     document.getElementById('statsBar').innerHTML = `
-      <div class="stat-card"><div class="label">总产量</div><div class="value">${totalProd}</div><div class="sub">管线 ${aveData['总管线']||0}</div></div>
-      <div class="stat-card"><div class="label">累计费用</div><div class="value">¥${totalCost.toFixed(2)}</div><div class="sub">今日 ${todayProd} 条</div></div>
-      <div class="stat-card"><div class="label">机器数</div><div class="value" style="color:var(--green)">${Object.keys(machines).length}</div></div>
-      <div class="stat-card"><div class="label">模块</div><div class="value" style="color:var(--blue)">${Object.keys(d.plugins||{}).length}</div></div>
+      <div class="stat-card"><div class="label">机器数</div><div class="value" style="color:var(--green)">${Object.keys(machines).length}</div><div class="sub">在线 ${aveData['在线']||0}</div></div>
+      <div class="stat-card"><div class="label">模块</div><div class="value" style="color:var(--blue)">${Object.keys(d.plugins||{}).length}</div><div class="sub">已加载</div></div>
       <div class="stat-card"><div class="label">主机</div><div class="value" style="color:var(--amber)">${d.source_hostname||'-'}</div></div>
+      <div class="stat-card"><div class="label">知识库</div><div class="value" style="color:var(--primary)">${d.kb_stats?.total||'?'}</div><div class="sub">篇</div></div>
     `;
   } catch(e) { document.getElementById('statsBar').innerHTML = `<div class="error">❌ 连接失败</div>`; }
 }
@@ -877,17 +1038,14 @@ async function loadPlugins() {
         {view:'matrix-backup', label:'备份恢复'},
         {view:'matrix-export', label:'导入导出'},
       ]},
-      '技能树': { icon: '🧩', items: [
-        {view:'plugin-skills', label:'自定义技能'},
-      ]},
-      '知识库': { icon: '📚', items: [
-        {view:'plugin-knowledge', label:'知识库管理'},
+      '智能系统设置': { icon: '⚙️', items: [
+        {view:'kb-knowledge', label:'知识库'},
+        {view:'kb-memory', label:'记忆库'},
+        {view:'kb-system', label:'联邦系统说明'},
+        {view:'kb-skills-int', label:'技能与工具'},
       ]},
       '自动化任务': { icon: '⏰', items: [
         {view:'plugin-automation', label:'任务管理'},
-      ]},
-      '工具集': { icon: '🔧', items: [
-        {view:'plugin-tools', label:'本机工具'},
       ]},
     };
 
@@ -1038,6 +1196,7 @@ function renderAccountsTable() {
     else if (c === 'machine') { va = a.is_local ? '本机' : (a.owner_machine||'远程'); vb = b.is_local ? '本机' : (b.owner_machine||'远程'); }
     else if (c === 'status') { va = a._status||''; vb = b._status||''; }
     else if (c === 'display_name') { va = a.display_name||''; vb = b.display_name||''; }
+    else if (c === 'identity_dir') { va = a.identity_dir||''; vb = b.identity_dir||''; }
     return _accountsSort.asc ? va.localeCompare(vb) : vb.localeCompare(va);
   });
   const arrow = (col) => _accountsSort.col === col ? (_accountsSort.asc ? ' ▲' : ' ▼') : '';
@@ -1045,7 +1204,7 @@ function renderAccountsTable() {
 
   el.innerHTML = `<table><thead><tr>
     ${th('id','ID')}${th('platform','平台')}${th('phone','手机')}${th('machine','归属机器')}${th('status','状态')}${th('display_name','昵称')}
-    <th>身份目录</th><th>操作</th>
+    ${th('identity_dir','身份目录')}<th>操作</th>
   </tr></thead><tbody>${sorted.map(a => {
     const s = a._status === 'logged_in' ? '<span class="badge badge-green" style="background:rgba(34,197,94,.15);color:#22c55e;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">✅ 已登录</span>'
       : a._status === 'remote' ? '<span class="badge badge-gray" style="background:rgba(139,143,163,.15);color:#8b8fa3;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">📡 远程</span>'
@@ -3146,6 +3305,393 @@ function c2Nurture(accountId) {
   document.getElementById('c2NurtureParams').style.display = 'block';
   switchView('matrix-c2');
 }
+
+// ════════════════════════════════════════════════════════
+// Knowledge Base Management
+// ════════════════════════════════════════════════════════
+
+function kbRefresh() { kbLoadStats(); memLoadStats(); sysLoadDocs(); skillsLoad(); toolsLoad(); }
+
+function kbSwitchTab(name, el) {
+  document.querySelectorAll('.kb-tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.kb-tab-body').forEach(b => b.style.display = 'none');
+  const tab = document.getElementById(name.replace('kb-', 'kb-tab-'));
+  if (tab) {
+    tab.style.display = 'block';
+    if (name === 'kb-knowledge') kbLoadStats();
+    if (name === 'kb-memory') memLoadStats();
+    if (name === 'kb-system') sysLoadDocs();
+    if (name === 'kb-skills') { skillsLoad(); toolsLoad(); }
+  }
+}
+
+// ── Tab 1: Knowledge Base ──
+async function kbLoadStats() {
+  const el = document.getElementById('kbStats');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/kb/stats');
+    const d = await r.json();
+    const cats = d.categories || {};
+    let html = ''; let total = 0;
+    const colors = ['#6366f1','#22c55e','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#14b8a6','#f97316','#06b6d4','#84cc16','#a855f7'];
+    for (const [key, info] of Object.entries(cats)) {
+      total += info.count;
+      html += `<div style="background:#232740;border-radius:8px;padding:8px;border:1px solid #2a2d3e;text-align:center">
+        <div style="font-size:9px;color:#8b8fa3">${info.label}</div>
+        <div style="font-size:18px;font-weight:600;color:${colors[Object.keys(cats).indexOf(key)%colors.length]}">${info.count}</div>
+        <div style="font-size:9px;color:#8b8fa3">${key}</div></div>`;
+    }
+    html += `<div style="background:#6366f1;border-radius:8px;padding:8px;text-align:center">
+      <div style="font-size:9px;color:rgba(255,255,255,.7)">总计</div>
+      <div style="font-size:18px;font-weight:600;color:#fff">${total}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.5)">篇</div></div>`;
+    el.innerHTML = html;
+    kbLoadLogs();
+  } catch(e) { if (el) el.innerHTML = `<div style="color:#ef4444">${e.message}</div>`; }
+}
+
+function kbShowRefine() {
+  document.getElementById('kbResultPanel').innerHTML =
+    `<div style="font-weight:600;margin-bottom:8px">🧹 提纯收件箱</div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b8fa3;cursor:pointer;margin-bottom:8px">
+      <input type="checkbox" id="kbRefineAuto" checked> 自动分类</label>
+    <div style="display:flex;gap:8px">
+      <button onclick="kbDoRefine()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">▶ 执行</button>
+      <span id="kbRefineResult" style="font-size:12px;display:flex;align-items:center"></span></div>`;
+}
+function kbShowCollect() { /* same as before */ document.getElementById('kbResultPanel').innerHTML =
+  `<div style="font-weight:600;margin-bottom:8px">📥 汇聚到收件箱</div>
+  <div style="margin-bottom:8px"><input id="kbCollectDirs" placeholder="20_methods,40_references" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 8px;border-radius:5px;font-size:12px"></div>
+  <div style="display:flex;gap:8px">
+    <button onclick="kbDoCollect()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">▶ 执行</button>
+    <span id="kbCollectResult"></span></div>`;
+}
+function kbShowIngest() {
+  document.getElementById('kbResultPanel').innerHTML =
+    `<div style="font-weight:600;margin-bottom:8px">📝 导入知识</div>
+    <textarea id="kbIngestSource" rows="2" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;resize:vertical" placeholder="URL 或文本"></textarea>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0">
+      <select id="kbIngestCat" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px">
+        ${['00_inbox','10_concepts','20_methods','30_facts','40_references','50_resources'].map(c => `<option value="${c}">${c}</option>`).join('')}
+      </select>
+      <input id="kbIngestTags" placeholder="标签" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px"></div>
+    <div style="display:flex;gap:8px"><button onclick="kbDoIngest()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">▶ 导入</button><span id="kbIngestResult"></span></div>`;
+}
+function kbShowSearch() {
+  document.getElementById('kbResultPanel').innerHTML =
+    `<div style="font-weight:600;margin-bottom:8px">🔍 搜索</div>
+    <input id="kbSearchQuery" placeholder="关键词..." style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px" onkeydown="if(event.key==='Enter')kbDoSearch()">
+    <button onclick="kbDoSearch()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;margin-top:6px">搜索</button>
+    <div id="kbSearchResult" style="margin-top:6px;max-height:250px;overflow-y:auto;font-size:12px"></div>`;
+}
+function kbShowBackup() {
+  document.getElementById('kbResultPanel').innerHTML =
+    `<div style="font-weight:600;margin-bottom:8px">💾 备份</div>
+    <input id="kbBackupLabel" value="manual_${Date.now()}" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px">
+    <button onclick="kbDoBackup()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;margin-top:6px">▶ 开始备份</button>
+    <span id="kbBackupResult" style="font-size:12px;margin-left:8px"></span>`;
+}
+
+// Execute functions (same as before, simplified)
+async function kbDoRefine() {
+  const auto = document.getElementById('kbRefineAuto')?.checked;
+  const el = document.getElementById('kbRefineResult'); if (el) el.innerHTML = '⏳';
+  try {
+    const r = await fetch('/api/kb/refine', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auto_classify:auto||true})});
+    const res = await r.json();
+    if (el) el.innerHTML = res.status==='ok' ? '<span style="color:#22c55e">✅</span>' : '<span style="color:#ef4444">❌ '+res.error+'</span>';
+    kbLoadLogs();
+  } catch(e) { if (el) el.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
+}
+async function kbDoCollect() {
+  const dirs = document.getElementById('kbCollectDirs')?.value;
+  const el = document.getElementById('kbCollectResult'); if (el) el.innerHTML = '⏳';
+  try {
+    const r = await fetch('/api/kb/collect', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_dirs:dirs?dirs.split(',').map(s=>s.trim()).filter(Boolean):[]})});
+    const res = await r.json();
+    if (el) el.innerHTML = res.status==='ok' ? '✅' : '❌ '+res.error;
+    kbLoadLogs();
+  } catch(e) { if (el) el.innerHTML = '❌ '+e.message; }
+}
+async function kbDoIngest() {
+  const s = document.getElementById('kbIngestSource')?.value; if (!s) return alert('请输入内容');
+  const el = document.getElementById('kbIngestResult'); if (el) el.innerHTML = '⏳';
+  try {
+    const r = await fetch('/api/kb/ingest', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:s,category:document.getElementById('kbIngestCat')?.value||'00_inbox',tags:document.getElementById('kbIngestTags')?.value||''})});
+    const res = await r.json();
+    if (el) el.innerHTML = res.status==='ok' ? '✅ 已入库' : '❌ '+res.error;
+    kbLoadStats(); kbLoadLogs();
+  } catch(e) { if (el) el.innerHTML = '❌ '+e.message; }
+}
+async function kbDoSearch() {
+  const q = document.getElementById('kbSearchQuery')?.value; if (!q) return;
+  const el = document.getElementById('kbSearchResult'); if (el) el.innerHTML = '⏳';
+  try {
+    const r = await fetch('/api/kb/search', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,limit:20})});
+    const res = await r.json();
+    if (!el) return;
+    if (!res.results||!res.results.length) { el.innerHTML = '<div style="color:#8b8fa3;padding:6px">无结果</div>'; return; }
+    el.innerHTML = '<div style="color:#8b8fa3;margin-bottom:4px;font-size:11px">'+res.total+' 个结果</div>' +
+      res.results.map(r2 => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
+        <span style="color:#6366f1">${r2.category}</span>/<strong>${r2.file.split('/').pop()}</strong>
+        <div style="color:#8b8fa3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${(r2.context||'').slice(0,80)}</div></div>`).join('');
+  } catch(e) { if (el) el.innerHTML = '❌ '+e.message; }
+}
+async function kbDoBackup() {
+  const el = document.getElementById('kbBackupResult'); if (el) el.innerHTML = '⏳';
+  try {
+    const r = await fetch('/api/kb/backup', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label:document.getElementById('kbBackupLabel')?.value||'manual'})});
+    const res = await r.json();
+    if (el) el.innerHTML = res.status==='ok' ? '✅ '+res.files+'篇' : '❌ '+res.error;
+    kbLoadLogs();
+  } catch(e) { if (el) el.innerHTML = '❌ '+e.message; }
+}
+async function kbGitSync() {
+  const panel = document.getElementById('kbResultPanel');
+  panel.innerHTML = '<div style="color:#8b8fa3;font-size:12px">⏳ 同步中...</div>';
+  try {
+    const r = await fetch('/api/kb/git-sync', {method:'POST',headers:{'Content-Type':'application/json'}});
+    const res = await r.json();
+    panel.innerHTML = '<div style="font-weight:600;margin-bottom:6px;font-size:12px">🔄 完成</div><pre style="font-size:11px;color:#22c55e;background:#232740;padding:8px;border-radius:4px;overflow:auto">'+(res.outputs||['ok']).join('\\n').slice(0,500)+'</pre>';
+    kbLoadLogs();
+  } catch(e) { panel.innerHTML = '<div style="color:#ef4444;font-size:12px">'+e.message+'</div>'; }
+}
+async function kbLoadLogs() {
+  const el = document.getElementById('kbLogs'); if (!el) return;
+  try {
+    const r = await fetch('/api/kb/logs?limit=10');
+    const d = await r.json(); const logs = d.logs||[];
+    if (!logs.length) { el.innerHTML = '<div style="padding:10px;color:#8b8fa3;font-size:12px">暂无操作记录</div>'; return; }
+    const names = {refine:'提纯',collect_to_inbox:'汇聚',ingest:'入库',search:'搜索',backup:'备份',git_sync:'Git同步'};
+    el.innerHTML = '<div style="font-size:12px;font-weight:600;margin-bottom:6px">📜 最近操作</div>' +
+      logs.reverse().slice(0,10).map(l => {
+        const ts = (l.timestamp||'').slice(11,19);
+        return `<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
+          <span>${l.status==='ok'?'✅':'❌'}</span>
+          <span style="color:#8b8fa3;width:50px">${names[l.op]||l.op}</span>
+          <span style="color:#8b8fa3;font-size:10px">${ts}</span>
+          <span style="color:#8b8fa3;margin-left:auto;font-size:10px">${l.result?l.result.files||l.result.returncode||'' : l.status}</span>
+        </div>`;
+      }).join('');
+  } catch(e) { if (el) el.innerHTML = '<div style="color:#ef4444">'+e.message+'</div>'; }
+}
+
+// ── Tab 2: Memory ──
+async function memLoadStats() {
+  const el = document.getElementById('memStats'); if (!el) return;
+  try {
+    const r = await fetch('/api/kb/memory/stats');
+    const d = await r.json();
+    el.innerHTML =
+      `<div style="background:#232740;border-radius:8px;padding:10px;text-align:center;border:1px solid #2a2d3e">
+        <div style="font-size:10px;color:#8b8fa3">L1 关键词</div><div style="font-size:22px;font-weight:600;color:#8b5cf6">${d.l1_keywords}</div></div>
+      <div style="background:#232740;border-radius:8px;padding:10px;text-align:center;border:1px solid #2a2d3e">
+        <div style="font-size:10px;color:#8b8fa3">L2 事实</div><div style="font-size:22px;font-weight:600;color:#3b82f6">${d.l2_facts}</div></div>
+      <div style="background:#232740;border-radius:8px;padding:10px;text-align:center;border:1px solid #2a2d3e">
+        <div style="font-size:10px;color:#8b8fa3">L3 原文</div><div style="font-size:22px;font-weight:600;color:#22c55e">${d.l3_files}</div></div>
+      <div style="background:#232740;border-radius:8px;padding:10px;text-align:center;border:1px solid #2a2d3e">
+        <div style="font-size:10px;color:#8b8fa3">向量</div><div style="font-size:22px;font-weight:600;color:#f59e0b">${d.vector_count}</div></div>`;
+  } catch(e) { el.innerHTML = '<div style="color:#ef4444">'+e.message+'</div>'; }
+}
+async function memShowL1() {
+  const el = document.getElementById('memDetailContent'); if (!el) return;
+  el.innerHTML = '⏳';
+  try {
+    const r = await fetch('/api/kb/memory/l1');
+    const d = await r.json(); const kws = d.keywords||[];
+    if (!kws.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无关键词</div>'; return; }
+    el.innerHTML = '<table style="width:100%;font-size:11px;border-collapse:collapse"><tr style="background:#232740"><th style="padding:4px 8px;text-align:left">关键词</th><th style="padding:4px 8px;text-align:left">频次</th></tr>' +
+      kws.map(k => `<tr><td style="padding:4px 8px;border-bottom:1px solid #2a2d3e">${k.word||k}</td><td style="padding:4px 8px;border-bottom:1px solid #2a2d3e">${k.freq||'-'}</td></tr>`).join('') + '</table>';
+  } catch(e) { el.innerHTML = '❌ '+e.message; }
+}
+async function memShowL2() {
+  const el = document.getElementById('memDetailContent'); if (!el) return;
+  el.innerHTML = '⏳';
+  try {
+    const r = await fetch('/api/kb/memory/l2?limit=50');
+    const d = await r.json();
+    if (!d.facts||!d.facts.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无事实</div>'; return; }
+    el.innerHTML = '<div style="color:#8b8fa3;font-size:11px;margin-bottom:4px">共 '+d.total+' 条</div>' +
+      d.facts.map(f => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
+        <span style="color:#6366f1">#${f.rowid}</span>
+        <span style="color:#8b8fa3;margin-left:4px">${(f.content||'').slice(0,120)}</span>
+        ${f.category ? '<span style="color:#f59e0b;margin-left:4px">['+f.category+']</span>' : ''}
+      </div>`).join('');
+  } catch(e) { el.innerHTML = '❌ '+e.message; }
+}
+async function memShowL3() {
+  const el = document.getElementById('memDetailContent'); if (!el) return;
+  el.innerHTML = '⏳';
+  try {
+    const r = await fetch('/api/kb/memory/l3');
+    const d = await r.json(); const files = d.files||[];
+    if (!files.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无原文文件</div>'; return; }
+    el.innerHTML = files.map(f => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px;cursor:pointer" onclick="memShowL3File('${f.name}')">
+      <span style="color:#22c55e">📄</span> <strong>${f.name}</strong>
+      <span style="color:#8b8fa3;margin-left:8px">${f.size_kb}KB</span>
+      <span style="color:#8b8fa3;font-size:10px">${(f.updated||'').slice(0,10)}</span>
+    </div>`).join('');
+  } catch(e) { el.innerHTML = '❌ '+e.message; }
+}
+async function memShowL3File(name) {
+  const el = document.getElementById('memDetailContent'); if (!el) return;
+  el.innerHTML = '⏳';
+  try {
+    const r = await fetch('/api/kb/memory/l3/'+encodeURIComponent(name));
+    const d = await r.json();
+    if (d.status !== 'ok') { el.innerHTML = '❌ '+d.error; return; }
+    el.innerHTML = '<div style="font-weight:600;font-size:12px;margin-bottom:6px">📄 '+d.name+'</div>' +
+      '<pre style="font-size:11px;color:#e1e4f0;background:#232740;padding:8px;border-radius:4px;overflow:auto;max-height:350px;white-space:pre-wrap">'+d.content.slice(0,2000)+'</pre>';
+  } catch(e) { el.innerHTML = '❌ '+e.message; }
+}
+
+// ── Tab 3: System Docs ──
+async function sysLoadDocs() {
+  const el = document.getElementById('sysDocsList'); if (!el) return;
+  try {
+    const r = await fetch('/api/kb/system/docs');
+    const d = await r.json(); const docs = d.docs||[];
+    if (!docs.length) { el.innerHTML = '<div style="color:#8b8fa3">无文档</div>'; return; }
+    el.innerHTML = docs.map(doc => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px;cursor:pointer" onclick="sysShowDoc('${doc.name}')">
+      <span style="color:#6366f1">📄</span> <strong>${doc.title||doc.name}</strong>
+      <span style="color:#8b8fa3;margin-left:8px">${doc.size_kb}KB</span>
+    </div>`).join('');
+  } catch(e) { el.innerHTML = '❌ '+e.message; }
+}
+async function sysShowDoc(name) {
+  const el = document.getElementById('sysDocPreview'); if (!el) return;
+  el.textContent = '⏳ 加载中...';
+  try {
+    const r = await fetch('/api/kb/system/docs/'+encodeURIComponent(name));
+    const d = await r.json();
+    el.textContent = d.content || '❌ '+(d.error||'读取失败');
+  } catch(e) { el.textContent = '❌ '+e.message; }
+}
+
+// ── Tab 4: Skills & Tools ──
+async function skillsLoad() {
+  const el = document.getElementById('skillsList'); if (!el) return;
+  try {
+    const r = await fetch('/api/kb/skills');
+    const d = await r.json(); const skills = d.skills||[];
+    if (!skills.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无自定义技能</div>'; return; }
+    el.innerHTML = skills.map(s => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
+      <strong style="color:#6366f1">${s.name}</strong>
+      <div style="color:#8b8fa3;font-size:10px">${s.description||''}</div>
+      ${s.triggers&&s.triggers.length ? '<div style="color:#f59e0b;font-size:10px">触发: '+s.triggers.slice(0,3).join(', ')+'</div>' : ''}
+    </div>`).join('');
+  } catch(e) { el.innerHTML = '❌ '+e.message; }
+}
+async function toolsLoad() {
+  const el = document.getElementById('toolsList'); if (!el) return;
+  try {
+    const r = await fetch('/api/kb/tools');
+    const d = await r.json(); const tools = d.tools||[];
+    if (!tools.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无工具目录</div>'; return; }
+    el.innerHTML = tools.map(t => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
+      <strong style="color:#22c55e">${t.name}</strong>
+      <span style="color:#8b8fa3;margin-left:6px;font-size:10px">${t.items} 文件</span>
+      <div style="color:#8b8fa3;font-size:10px">${t.path}</div>
+    </div>`).join('');
+  } catch(e) { el.innerHTML = '❌ '+e.message; }
+}
+
+// ── Tab 5: Automation ──
+async function autoLoadTasks() {
+  const listEl = document.getElementById('autoTaskList');
+  const targetEl = document.getElementById('autoTarget');
+  const historyEl = document.getElementById('autoHistory');
+  if (!listEl) return;
+  try {
+    const r = await fetch('/api/kb/automations');
+    const d = await r.json();
+    const machines = d.machines || {};
+    const history = d.history || [];
+    let html = '';
+    for (const [machine, tasks] of Object.entries(machines)) {
+      const isLocal = machine === 'chengzigedeAir';
+      html += '<div style="margin-bottom:8px"><div style="font-weight:600;font-size:12px;color:'+(isLocal?'#6366f1':'#8b8fa3')+';margin-bottom:4px">'+(isLocal?'💻':'📡')+' '+machine+'</div>';
+      tasks.forEach(t => {
+        if (t.source_type === 'workbuddy') {
+          html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:#232740;border-radius:4px;margin-bottom:3px;font-size:11px">'+
+            '<span style="color:#22c55e">'+(t.status==='ACTIVE'?'▶':'⏸')+'</span>'+
+            '<span style="flex:1">'+(t.name||t.prompt||'').slice(0,30)+'</span>'+
+            '<span style="color:#8b8fa3;font-size:10px">'+(t.rrule||t.scheduleType||'')+'</span>'+
+            (isLocal ? '<span onclick="autoDeleteTask(\''+t.id+'\')" style="cursor:pointer;color:#ef4444;font-size:12px">✕</span>' : '')+
+          '</div>';
+        }
+      });
+      if (!tasks.length) html += '<div style="color:#8b8fa3;font-size:11px;padding:4px 0">无任务</div>';
+      html += '</div>';
+    }
+    if (!Object.keys(machines).length) html = '<div style="color:#8b8fa3;font-size:12px">暂无自动化任务</div>';
+    listEl.innerHTML = html;
+    if (targetEl) {
+      const all = ['chengzigedeAir','5kechengdeAir','7kecheng'].concat(Object.keys(machines));
+      targetEl.innerHTML = '<option value="">选择目标...</option>'+all.filter((v,i,a)=>a.indexOf(v)===i).map(m=>'<option value="'+m+'">'+m+'</option>').join('');
+    }
+    if (historyEl) {
+      if (!history.length) { historyEl.innerHTML = '<div style="color:#8b8fa3;font-size:12px">暂无执行历史</div>'; return; }
+      historyEl.innerHTML = history.map(h => {
+        const cl = h.status==='completed'?'#22c55e':(h.status==='failed'?'#ef4444':'#f59e0b');
+        return '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #2a2d3e;font-size:11px">'+
+          '<span style="color:'+cl+'">●</span>'+
+          '<span style="width:60px">'+(h.type||'-')+'</span>'+
+          '<span style="color:#8b8fa3;width:80px">'+(h.target||'-')+'</span>'+
+          '<span style="color:#8b8fa3;font-size:10px">'+(h.time||'-')+'</span>'+
+          '<span style="color:#8b8fa3;font-size:10px;margin-left:auto">'+(h.output||'').slice(0,30)+'</span></div>';
+      }).join('');
+    }
+  } catch(e) { if (listEl) listEl.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
+}
+async function autoCreateTask() {
+  const target = document.getElementById('autoTarget')?.value;
+  const type = document.getElementById('autoType')?.value;
+  const p = document.getElementById('autoParams')?.value;
+  const sched = document.getElementById('autoSchedule')?.value;
+  if (!target||!type) { alert('请选择目标和命令'); return; }
+  try {
+    const r = await fetch('/api/kb/automations', {method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({target,type,params:p,schedule_at:sched||null})});
+    const res = await r.json();
+    if (res.status==='ok') { alert('✅ 已创建'); autoLoadTasks(); }
+    else alert('❌ '+res.error);
+  } catch(e) { alert('❌ '+e.message); }
+}
+async function autoCreateLocal() {
+  const p = prompt('任务描述:'); if (!p) return;
+  const rr = prompt('定时规则(RFC 5545):\nFREQ=DAILY;BYHOUR=8\n留空=立即')||'';
+  try {
+    const r = await fetch('/api/kb/automations', {method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({target:'chengzigedeAir',prompt:p,rrule:rr})});
+    const res = await r.json();
+    if (res.status==='ok') alert('✅ 已创建 ID:'+res.id);
+    else alert('❌ '+res.error);
+    autoLoadTasks();
+  } catch(e) { alert('❌ '+e.message); }
+}
+async function autoDeleteTask(id) { alert('删除需通过 WorkBuddy 管理'); }
+const __origKbSwitch = kbSwitchTab;
+kbSwitchTab = function(name, el) {
+  __origKbSwitch(name, el);
+  if (name === 'kb-automation') autoLoadTasks();
+};
+
+// Patch switchView for KB
+const __origSwitchView = switchView;
+switchView = function(view) {
+  // Redirect kb-skills and kb-tools to 'kb' for sidebar backward compat
+  if (view === 'kb-skills') {
+    __origSwitchView('kb');
+    kbSwitchTab('kb-skills', document.querySelector('.kb-tab[data-tab="kb-skills"]'));
+    if (typeof skillsLoad === 'function') { skillsLoad(); toolsLoad(); }
+    return;
+  }
+  __origSwitchView(view);
+  if (view === 'kb') { kbLoadStats(); memLoadStats(); sysLoadDocs(); }
+};
 </script>
 </body>
 </html>

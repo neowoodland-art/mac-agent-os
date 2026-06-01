@@ -1293,6 +1293,18 @@ def api_c2_remote_environment(machine: str):
     return result
 
 
+# ═══════════════════════════════════════════════
+# 知识库管理 API (可选 - 需要 fastapi)
+# ═══════════════════════════════════════════════
+
+try:
+    from plugins.kb_api import router as kb_router
+    app.include_router(kb_router)
+    print("  ✅ 知识库管理 API 已加载")
+except Exception as e:
+    print(f"  ⏸ 知识库管理 API 未加载: {e}")
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9988
