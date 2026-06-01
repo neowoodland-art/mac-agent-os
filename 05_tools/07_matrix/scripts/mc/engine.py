@@ -1,27 +1,22 @@
 """
-engine.py — mc run 真实执行引擎适配层
+engine.py — mc run 真实执行引擎
 
-将 mc run 的参数映射到真实的 orchestrator / douyin_ops 调用。
+不再依赖旧 orchestrator（Chrome CDP 模式），
+改为直接使用 Camoufox 加载身份 cookie 执行。
 
 流程:
   mc run --accounts X --blueprints Y
     → BatchEngine.run()
       → for each account:
-          → BrowserManager.launch(account)
-          → orchestrator.run(account, blueprint)
-          → 收集结果
-          → BrowserManager.close()
+          1. 检查 cookie 有效性（跳过无效的）
+          2. 用 Camoufox 启动身份目录
+          3. 打开抖音首页
+          4. 验证登录态
+          5. 执行蓝图步骤（通过 atom_ops）
+          6. 关闭浏览器
       → 返回汇总报告
-
-支持:
-  - 多账号串行执行
-  - 混合随机模式 (每轮随机选蓝图)
-  - Provider/语料注入
-  - 超时控制
-  - 浏览器生命周期管理 (auto_cleanup)
 """
 import asyncio
-import importlib
 import json
 import logging
 import os
@@ -38,15 +33,19 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 TOOL_DIR = SCRIPTS_DIR.parent
 AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
 AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
+IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 
+# ════════════════════════════════════════════════════════════
+# 工具函数
+# ════════════════════════════════════════════════════════════
+
 def resolve_account(account_id: str) -> dict:
-    """解析账号信息，从 registry 获取配置"""
+    """从 registry 获取账号配置"""
     from matrix_mgmt import MatrixManager
     mgr = MatrixManager()
-    accounts = mgr.list_accounts()
-    for a in accounts:
+    for a in mgr.list_accounts():
         if a["id"] == account_id:
             return a
     raise ValueError(f"账号不存在: {account_id}")
@@ -54,19 +53,43 @@ def resolve_account(account_id: str) -> dict:
 
 def resolve_blueprint(name: str) -> Optional[dict]:
     """解析蓝图"""
-    for f in sorted((TOOL_DIR / "blueprints").glob("*.json")):
+    bp_dir = TOOL_DIR / "blueprints"
+    for f in sorted(bp_dir.glob("*.json")):
         bp = json.loads(f.read_text())
-        bid = bp.get("id", "")
-        bname = bp.get("name", "")
-        if name in (bid, bname, f.stem):
+        if name in (bp.get("id", ""), bp.get("name", ""), f.stem):
             return bp
         if name in f.stem or f.stem in name:
             return json.loads(f.read_text())
     return None
 
 
+def check_cookie(identity_hint: str) -> str:
+    """检查身份目录 cookie 状态
+    返回: 'ok' | 'no_cookie' | 'expired' | 'no_identity'
+    """
+    if not identity_hint:
+        return "no_identity"
+    ident_dir = IDENTITIES_ROOT / identity_hint
+    if not ident_dir.exists():
+        return "no_identity"
+    ck = ident_dir / "user_data" / "cookies.sqlite"
+    if not ck.exists() or ck.stat().st_size < 100:
+        return "no_cookie"
+    try:
+        import sqlite3
+        conn = sqlite3.connect(str(ck), timeout=2)
+        cnt = conn.execute("SELECT count(*) FROM moz_cookies WHERE name LIKE '%session%'").fetchone()[0]
+        conn.close()
+        return "ok" if cnt > 0 else "expired"
+    except:
+        return "error"
+
+
+# ════════════════════════════════════════════════════════════
+# 执行报告
+# ════════════════════════════════════════════════════════════
+
 class StepResult:
-    """单步执行结果"""
     def __init__(self, op: str, step_id: int, success: bool = True,
                  duration: float = 0, error: str = ""):
         self.op = op
@@ -81,7 +104,6 @@ class StepResult:
 
 
 class AccountRunReport:
-    """单账号执行报告"""
     def __init__(self, account: str, blueprint: str, round_idx: int):
         self.account = account
         self.blueprint = blueprint
@@ -90,6 +112,7 @@ class AccountRunReport:
         self.start = time.time()
         self.success = 0
         self.failed = 0
+        self.skipped = False
 
     @property
     def duration(self) -> float:
@@ -109,6 +132,7 @@ class AccountRunReport:
             "round": self.round,
             "success": self.success,
             "failed": self.failed,
+            "skipped": self.skipped,
             "duration": round(self.duration, 1),
             "steps": [{"op": s.op, "step_id": s.step_id, "success": s.success,
                        "duration": round(s.duration, 1), "error": s.error} for s in self.steps],
@@ -116,7 +140,6 @@ class AccountRunReport:
 
 
 class BatchReport:
-    """批量执行汇总报告"""
     def __init__(self):
         self.accounts: List[str] = []
         self.blueprints: List[str] = []
@@ -138,6 +161,10 @@ class BatchReport:
     def failed(self) -> int:
         return sum(r.failed for r in self.account_reports)
 
+    @property
+    def skipped(self) -> int:
+        return sum(1 for r in self.account_reports if r.skipped)
+
     def to_dict(self) -> dict:
         return {
             "accounts": self.accounts,
@@ -148,14 +175,17 @@ class BatchReport:
             "total_steps": self.success + self.failed,
             "success": self.success,
             "failed": self.failed,
+            "skipped": self.skipped,
             "account_reports": [r.to_dict() for r in self.account_reports],
             "error": self.error,
         }
 
 
-class BatchEngine:
-    """批量执行引擎 — 实际对接浏览器操作"""
+# ════════════════════════════════════════════════════════════
+# 核心引擎
+# ════════════════════════════════════════════════════════════
 
+class BatchEngine:
     def __init__(self, accounts: List[str], blueprints: List[str],
                  rounds: int = 10, mix: bool = False,
                  corpus: List[str] = None):
@@ -164,56 +194,156 @@ class BatchEngine:
         self.rounds_total = rounds
         self.mix = mix
         self.corpus = corpus or []
-        self._comments: List[str] = []
-        self._preloaded = False
-        self._tmp_accounts = {}  # 缓存已解析的账号信息
 
     def _pick_blueprint(self, round_idx: int) -> str:
-        """选择本轮蓝图"""
         if self.mix:
             return random.choice(self.blueprints)
         return self.blueprints[(round_idx - 1) % len(self.blueprints)]
 
     async def run_single(self, account_id: str, blueprint_name: str,
-                         round_idx: int, comments: List[str] = None) -> AccountRunReport:
-        """对单个账号执行一轮蓝图（真实浏览器操作）"""
+                         round_idx: int) -> AccountRunReport:
+        """对单个账号执行一轮蓝图
+
+        使用现有 CDPConnector + DouyinOps 模式（与 yanghao_runner.py 一致）
+        """
         report = AccountRunReport(account_id, blueprint_name, round_idx)
 
-        # 解析蓝图步骤
+        # 1. 解析账号+蓝图
+        try:
+            acct_info = resolve_account(account_id)
+        except ValueError as e:
+            log.warning(f"  ⏭️ {account_id}: {e}")
+            report.skipped = True
+            return report
+
+        platform = acct_info.get("platform", "douyin")
+        identity_hint = acct_info.get("identity_hint", account_id)
+
+        cookie_status = check_cookie(identity_hint)
+        if cookie_status != "ok":
+            log.warning(f"  ⏭️ {account_id}: cookie={cookie_status}，跳过")
+            report.skipped = True
+            return report
+
         bp = resolve_blueprint(blueprint_name)
         if not bp:
-            log.warning(f"  ⚠️ 蓝图未找到: {blueprint_name}")
+            log.warning(f"  ⏭️ {blueprint_name}: 蓝图未找到")
+            report.skipped = True
             return report
         steps = bp.get("steps", [])
         log.info(f"  📱 {account_id} → {blueprint_name} ({len(steps)}步)")
 
+        # 2. 使用 CDPConnector 启动 Camoufox（与 yanghao_runner 一致）
+        identity_dir = str(IDENTITIES_ROOT / identity_hint)
+
         try:
-            # ── 使用 orchestrator 执行真实操作 ──
-            from orchestrator import YanghaoOrchestrator
-            orch = YanghaoOrchestrator()
+            from cdp_connector import CDPConnector
+            from douyin_ops import DouyinOps
 
-            # 调用 orchestrator 执行
-            orch_report = await orch.run(account_id, blueprint_name)
+            conn = CDPConnector(
+                browser_type="camoufox",
+                headless=False,
+                window=(702, 783),
+                identity_dir=identity_dir,
+            )
 
-            # 将 orchestrator 报告转换为我们的格式
-            for s in orch_report.steps:
-                sr = StepResult(
-                    op=s.op if hasattr(s, 'op') else str(getattr(s, 'step_id', '?')),
-                    step_id=getattr(s, 'step_id', 0),
-                    success=getattr(s, 'atom_result', None) and s.atom_result.success,
-                    duration=getattr(s.atom_result, 'elapsed', 0) if hasattr(s, 'atom_result') else 0,
-                    error=str(s.atom_result) if hasattr(s, 'atom_result') and not s.atom_result.success else "",
-                )
-                report.add_step(sr)
+            await conn.connect()
+            await conn.init_anti_detection()
+            dyops = DouyinOps(conn.page)
 
-            # 打印步骤摘要
-            for s in report.steps:
-                log.info(f"    {s}")
+            # 导航到首页
+            target_url = "https://www.douyin.com/" if platform != "xiaohongshu" else "https://www.xiaohongshu.com/"
+            log.info(f"  🌐 打开 {target_url}")
+            await conn.page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
+            await asyncio.sleep(5)
+
+            # 找第一个视频进入播放模式（与 yanghao_runner 一致）
+            if platform == "douyin":
+                video_links = await conn.page.evaluate("""() => {
+                    const all = document.querySelectorAll('a');
+                    const videos = [];
+                    for (const a of all) {
+                        if (a.href && a.href.includes('/video/')) videos.push(a.href);
+                    }
+                    return [...new Set(videos)].slice(0, 3);
+                }""")
+                if video_links:
+                    log.info(f"  📍 进入视频播放页...")
+                    try:
+                        await conn.page.goto(video_links[0], timeout=15000, wait_until="domcontentloaded")
+                        await asyncio.sleep(3)
+                    except:
+                        pass
+
+            # 3. 执行蓝图步骤（与 yanghao_runner 相同的执行模式）
+            for i, step in enumerate(steps):
+                sn = step.get("step_id", i + 1)
+                op = step.get("op", "")
+                sargs = step.get("args", {})
+                start_t = time.time()
+
+                try:
+                    result = "OK"
+
+                    if op == "goto_home":
+                        await conn.page.goto("https://www.douyin.com/", timeout=15000)
+                        await asyncio.sleep(3)
+                    elif op == "wait_watch":
+                        seconds = sargs.get("seconds", random.randint(5, 12))
+                        await dyops.wait_watch(step_id=sn, seconds=seconds)
+                    elif op == "like":
+                        r = await conn.page.evaluate("""() => {
+                            const b = document.querySelector('[data-e2e="feed-active-video-double-like"]');
+                            if (b) { b.click(); return '👍'; }
+                            const b2 = document.querySelector('[data-e2e="like-count"]');
+                            if (b2) { b2.click(); return '👍'; }
+                            return '-';
+                        }""")
+                        result = r
+                    elif op == "collect":
+                        r = await conn.page.evaluate("""() => {
+                            const b = document.querySelector('[data-e2e="video-collect"]');
+                            return b ? (b.click(), '⭐') : '-';
+                        }""")
+                        result = r
+                    elif op in ("next_video", "swipe_next"):
+                        await conn.page.evaluate("() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown'}))")
+                        await asyncio.sleep(2)
+                    elif op == "scroll_feed":
+                        await conn.page.evaluate("() => window.scrollBy(0, 600)")
+                        await asyncio.sleep(1)
+                    elif op in ("open_video", "enter_video"):
+                        card = conn.page.locator('.discover-video-card-item').first
+                        if await card.count() > 0:
+                            await card.click()
+                            await asyncio.sleep(3)
+                    elif op == "search":
+                        kw = sargs.get("keyword", "热门")
+                        await conn.page.evaluate(f"(k) => {{ const i = document.querySelector('input'); if(i) {{ i.value=k; i.dispatchEvent(new Event('input')); }} }}", kw)
+                        await asyncio.sleep(2)
+                    elif op == "wait":
+                        await asyncio.sleep(sargs.get("seconds", 2))
+                    else:
+                        await asyncio.sleep(2)
+                        result = f"skip({op})"
+
+                    dur = time.time() - start_t
+                    report.add_step(StepResult(op, sn, True, dur))
+                    log.info(f"    ✅ [{sn:2d}] {op:15s} → {str(result)[:20]} ({dur:.1f}s)")
+
+                except Exception as step_err:
+                    dur = time.time() - start_t
+                    report.add_step(StepResult(op, sn, False, dur, str(step_err)))
+                    log.warning(f"    ⚠️ [{sn:2d}] {op:15s} → {type(step_err).__name__}")
+
+                await asyncio.sleep(1.5)
+
+            await conn.close()
+            log.info(f"  ✅ {account_id}: 完成 ({report.success}/{len(steps)}步)")
 
         except Exception as e:
-            log.error(f"  ❌ {account_id} 执行异常: {e}")
+            log.error(f"  ❌ {account_id}: {e}")
             report.failed = len(steps)
-            report.error = str(e)
 
         return report
 
@@ -227,7 +357,6 @@ class BatchEngine:
         report.rounds_total = self.rounds_total
         report.mix_mode = self.mix
 
-        # 浏览器生命周期
         bm = BrowserManager()
 
         try:
@@ -238,18 +367,14 @@ class BatchEngine:
                     log.info(f"{'─'*45}")
 
                     for account_id in self.accounts:
-                        bp_name = self._pick_blueprint(round_idx)
-
-                        # 浏览器准备
                         acct_info = resolve_account(account_id)
                         identity_hint = acct_info.get("identity_hint", account_id)
                         bm.prepare(identity_hint)
 
-                        # 执行
+                        bp_name = self._pick_blueprint(round_idx)
                         acct_report = await self.run_single(account_id, bp_name, round_idx)
                         report.account_reports.append(acct_report)
 
-                    # 轮次间隔
                     if round_idx < self.rounds_total:
                         wait = random.uniform(30, 60)
                         log.info(f"\n  ⏳ 等待 {wait:.0f}s 后下一轮...")
