@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 6.62
+    "load_1m": 2.72
   },
   "memory": {
     "total_gb": 0,
@@ -17,15 +17,35 @@
     "used_gb": 86.6,
     "available_gb": 158.5
   },
-  "last_seen": "2026-06-01T02:28:28.993376+00:00",
+  "last_seen": "2026-06-01T02:34:47.353195+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-01T02:28:29.069336+00:00",
+  "_received_at": "2026-06-01T02:34:47.415451+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
   "_events": [
+    {
+      "id": "03af4809-6ff5-4147-809b-36b1c9efa554",
+      "type": "knowledge_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-06-01T02:29:45.482586+00:00",
+      "payload": {
+        "latest_date": "2026-06-01",
+        "previous_date": "2026-05-29"
+      }
+    },
+    {
+      "id": "19143f3c-9653-490e-a238-d6a103e25dd0",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-06-01T02:29:47.177764+00:00",
+      "payload": {
+        "summary": "Merge made by the 'ort' strategy.\n .../events/2026-06-01.jsonl                        |  1 +\n .../heartbeat.json                                 |  8 ++++----\n .../live/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json | 23 ++++++++++++++++------\n 3 files changed, 22 insertions(+), 10 deletions(-)\n create mode 100644 04_memory/cross_machine/machines/d19759cf-2159-4fe7-b6ff-db14ccf379f5/events/2026-06-01.jsonl",
+        "hostname": "5kechengdeAir"
+      }
+    },
     {
       "id": "ed7dd340-4da2-46d7-80dc-037122362af0",
       "type": "sync_updated",
