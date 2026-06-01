@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 6.01
+    "load_1m": 6.62
   },
   "memory": {
     "total_gb": 0,
@@ -17,14 +17,25 @@
     "used_gb": 86.6,
     "available_gb": 158.5
   },
-  "last_seen": "2026-06-01T02:22:08.929479+00:00",
+  "last_seen": "2026-06-01T02:28:28.993376+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-01T02:22:09.005127+00:00",
+  "_received_at": "2026-06-01T02:28:29.069336+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
-  "_events": [],
+  "_events": [
+    {
+      "id": "ed7dd340-4da2-46d7-80dc-037122362af0",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-06-01T02:23:28.754402+00:00",
+      "payload": {
+        "summary": "Merge made by the 'ort' strategy.\n .../2026-06-01_2026-04-25.md}                      | 24 ++++++---\n .../2026-06-01_2026-04-26.md}                      | 24 ++++++---\n .../2026-06-01_2026-04-27.md}                      | 24 ++++++---\n .../2026-06-01_2026-04-28.md}                      | 24 ++++++---\n .../2026-06-01_2026-04-29.md}                      | 25 ++++++----\n .../2026-06-01_2026-04-29_1778863247.md}           | 24 ++++++---\n .../2026-06-01_2026-05-01.md}                      | 24 ++++++",
+        "hostname": "5kechengdeAir"
+      }
+    }
+  ],
   "_uptime": 0
 }
