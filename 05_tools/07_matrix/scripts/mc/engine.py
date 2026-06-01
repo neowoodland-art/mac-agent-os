@@ -339,13 +339,21 @@ class BatchEngine:
                         }""")
                         result = r
                     elif op == "xhs_goto_profile":
-                        # 点击底部导航"我"（第5个）
-                        await conn.page.evaluate("""() => {
-                            const items = document.querySelectorAll('[class*=\"bottom\"] a, [class*=\"tab\"] a, nav a');
-                            for (const a of items) {
-                                if (a.textContent.trim() === '我') { a.click(); return; }
+                        # 从底部导航"我"链接获取用户ID，然后URL导航（比DOM点击更可靠）
+                        profile_url = await conn.page.evaluate("""() => {
+                            const links = document.querySelectorAll('a');
+                            for (const a of links) {
+                                const href = a.href || '';
+                                if (href.includes('/user/profile/') && (a.textContent.trim() === '我' || a.className.includes('bottom'))) {
+                                    return href;
+                                }
                             }
+                            return '';
                         }""")
+                        if profile_url:
+                            await conn.page.goto(profile_url, timeout=20000, wait_until="domcontentloaded")
+                        else:
+                            await conn.page.goto("https://www.xiaohongshu.com/user/profile", timeout=20000, wait_until="domcontentloaded")
                         await asyncio.sleep(4)
                         result = "profile_loaded"
                     elif op == "xhs_read_nickname":
