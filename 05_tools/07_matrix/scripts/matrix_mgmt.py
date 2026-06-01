@@ -249,7 +249,7 @@ class MatrixManager:
 
         "goto_home": {
             "platform": "douyin", "category": "navigation", "label": "🏠 回到推荐页",
-            "requires": [], "allows": ["browse_feed", "dy_enter_video", "dy_scroll_feed", "dy_search", "rest", "go_back", "dy_like", "dy_collect"],
+            "requires": [], "allows": ["browse_feed", "dy_enter_video", "dy_scroll_feed", "dy_search", "dy_goto_profile", "rest", "go_back", "dy_like", "dy_collect"],
             "can_be_first": True, "desc": "回到抖音推荐页，固定起点"
         },
         "browse_feed": {
@@ -309,6 +309,49 @@ class MatrixManager:
             "platform": "douyin", "category": "interact", "label": "🔍 抖音搜索",
             "requires": ["goto_home", "browse_feed", "rest", "go_back"], "allows": ["dy_enter_video", "dy_scroll_feed", "rest", "go_back"],
             "can_be_first": True, "desc": "在抖音搜索关键词并打开搜索结果页"
+        },
+
+        # ── 主页信息读取类（导航+读取7项）──
+        "dy_goto_profile": {
+            "platform": "douyin", "category": "browse", "label": "👤 进入个人主页",
+            "requires": ["goto_home", "rest", "go_back"],
+            "allows": ["dy_read_nickname", "dy_read_douyin_id", "dy_read_following", "dy_read_fans", "dy_read_likes", "dy_read_posts", "dy_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "导航到当前账号的个人主页 /user/self"
+        },
+        "dy_read_nickname": {
+            "platform": "douyin", "category": "interact", "label": "📝 读取昵称",
+            "requires": ["dy_goto_profile"], "allows": ["dy_read_douyin_id", "dy_read_following", "dy_read_fans", "dy_read_likes", "dy_read_posts", "dy_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取账号昵称"
+        },
+        "dy_read_douyin_id": {
+            "platform": "douyin", "category": "interact", "label": "🔢 读取抖音号",
+            "requires": ["dy_goto_profile"], "allows": ["dy_read_nickname", "dy_read_following", "dy_read_fans", "dy_read_likes", "dy_read_posts", "dy_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取抖音号（数字ID）"
+        },
+        "dy_read_following": {
+            "platform": "douyin", "category": "interact", "label": "👥 读取关注数",
+            "requires": ["dy_goto_profile"], "allows": ["dy_read_nickname", "dy_read_douyin_id", "dy_read_fans", "dy_read_likes", "dy_read_posts", "dy_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取关注人数"
+        },
+        "dy_read_fans": {
+            "platform": "douyin", "category": "interact", "label": "👥 读取粉丝数",
+            "requires": ["dy_goto_profile"], "allows": ["dy_read_nickname", "dy_read_douyin_id", "dy_read_following", "dy_read_likes", "dy_read_posts", "dy_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取粉丝数"
+        },
+        "dy_read_likes": {
+            "platform": "douyin", "category": "interact", "label": "👍 读取获赞数",
+            "requires": ["dy_goto_profile"], "allows": ["dy_read_nickname", "dy_read_douyin_id", "dy_read_following", "dy_read_fans", "dy_read_posts", "dy_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取获赞总数"
+        },
+        "dy_read_posts": {
+            "platform": "douyin", "category": "interact", "label": "📹 读取作品数",
+            "requires": ["dy_goto_profile"], "allows": ["dy_read_nickname", "dy_read_douyin_id", "dy_read_following", "dy_read_fans", "dy_read_likes", "dy_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取作品（视频）数量"
+        },
+        "dy_read_bio": {
+            "platform": "douyin", "category": "interact", "label": "📄 读取简介",
+            "requires": ["dy_goto_profile"], "allows": ["dy_read_nickname", "dy_read_douyin_id", "dy_read_following", "dy_read_fans", "dy_read_likes", "dy_read_posts", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取个人简介"
         },
 
         # ═══════════════════════════════════════════════════

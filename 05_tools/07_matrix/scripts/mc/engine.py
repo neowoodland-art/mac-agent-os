@@ -288,6 +288,38 @@ class BatchEngine:
                     if op == "goto_home":
                         await conn.page.goto("https://www.douyin.com/", timeout=15000)
                         await asyncio.sleep(3)
+                    elif op == "dy_goto_profile":
+                        await conn.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
+                        await asyncio.sleep(4)
+                        result = "profile_loaded"
+                    elif op == "dy_read_nickname":
+                        nick = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-info"]'); if(!el) return '?'; const t=el.textContent.trim(); const m=t.match(/^([^\\d]+?)(?=关注\\d)/); return m?m[1].trim():t.slice(0,20); }""")
+                        log.info(f"      📝 昵称: {nick}")
+                        result = "nickname=" + nick
+                    elif op == "dy_read_douyin_id":
+                        dyid = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-info"]'); if(!el) return '?'; const t=el.textContent.trim(); const m=t.match(/抖音号[：:]\\s*(\\S+)/); return m?m[1]:'?'; }""")
+                        log.info(f"      🔢 抖音号: {dyid}")
+                        result = "douyin_id=" + dyid
+                    elif op == "dy_read_following":
+                        v = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-info-follow"]'); return el?el.textContent.trim():'?'; }""")
+                        log.info(f"      👥 关注: {v}")
+                        result = "following=" + v
+                    elif op == "dy_read_fans":
+                        v = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-info-fans"]'); return el?el.textContent.trim():'?'; }""")
+                        log.info(f"      👥 粉丝: {v}")
+                        result = "fans=" + v
+                    elif op == "dy_read_likes":
+                        v = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-info-like"]'); return el?el.textContent.trim():'?'; }""")
+                        log.info(f"      👍 获赞: {v}")
+                        result = "likes=" + v
+                    elif op == "dy_read_posts":
+                        v = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-tab-count"]'); return el?el.textContent.trim():'?'; }""")
+                        log.info(f"      📹 作品: {v}")
+                        result = "posts=" + v
+                    elif op == "dy_read_bio":
+                        v = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-bio"]'); return el?el.textContent.trim().slice(0,50):'?'; }""")
+                        log.info(f"      📄 简介: {v}")
+                        result = "bio=" + v
                     elif op == "wait_watch":
                         seconds = sargs.get("seconds", random.randint(5, 12))
                         await dyops.wait_watch(step_id=sn, seconds=seconds)
