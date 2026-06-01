@@ -6,9 +6,13 @@
   "cpu": {
     "arch": "arm64",
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     "load_1m": 2.91
 =======
     "load_1m": 1.52
+>>>>>>> Stashed changes
+=======
+    "load_1m": 1.49
 >>>>>>> Stashed changes
   },
   "memory": {
@@ -22,12 +26,16 @@
     "used_gb": 81.0,
     "available_gb": 164.1
   },
+<<<<<<< Updated upstream
   "last_seen": "2026-06-01T12:01:33.634694+00:00",
 =======
     "used_gb": 226.4,
     "available_gb": 18.7
   },
   "last_seen": "2026-06-01T06:23:58.518810+00:00",
+>>>>>>> Stashed changes
+=======
+  "last_seen": "2026-06-01T12:06:39.813567+00:00",
 >>>>>>> Stashed changes
   "status": "online",
   "guardd_version": "2.3.0",
