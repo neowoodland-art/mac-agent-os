@@ -747,7 +747,7 @@ function switchView(view) {
     });
     // Hide ALL other views first
     ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-     'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy'].forEach(v => {
+     'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-register','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy'].forEach(v => {
       document.getElementById('view-' + v)?.classList.add('hidden');
     });
     document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.classList.add('hidden'));
@@ -769,7 +769,7 @@ function switchView(view) {
 
   // 视图显隐
   const viewIds = ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-                   'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','kb'];
+                   'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-register','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','kb'];
   viewIds.forEach(v => {
     document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
   });
@@ -1283,7 +1283,7 @@ async function loadMatrixRun() {
     accounts.forEach(a => {
       const s = a._status === 'logged_in' ? '🟢' : '⏸';
       const pIcon = a.platform === 'xiaohongshu' ? '📕' : a.platform === 'douyin' ? '🎵' : '❓';
-      const phone = (a.phone || a.phone_mask || '??').slice(0, 11);
+      const phone = String(a.phone || a.phone_mask || '??').slice(0, 11);
       html += `<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px;white-space:nowrap">
         <input type="checkbox" class="batch-acct" value="${a.id}" checked>
         ${s} ${pIcon} <strong>${a.id}</strong> <span style="color:var(--text2);font-size:10px">${phone}</span>
@@ -1930,7 +1930,11 @@ async function loadRegisterForm() {
   try {
     const r = await fetch('/api/matrix/accounts');
     const d = await r.json();
-    existingIdentities = [...new Set((d.accounts||[]).filter(a => a.identity_dir).map(a => a.identity_dir.split('/').pop()))];
+    existingIdentities = [...new Set((d.accounts||[]).map(a => {
+      if (!a.identity_dir) return null;
+      const parts = a.identity_dir.split('/');
+      return parts[parts.length - 1] || null;
+    }).filter(Boolean))];
   } catch(e) {}
 
   meta.textContent = `${existingIdentities.length} 个可用身份`;
