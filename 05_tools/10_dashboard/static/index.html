@@ -1230,7 +1230,7 @@ function renderAccountsTable() {
     const c = _accountsSort.col;
     if (c === 'id') { va = a.id; vb = b.id; }
     else if (c === 'platform') { va = a.platform||''; vb = b.platform||''; }
-    else if (c === 'phone') { va = (a.phone||a.phone_mask||''); vb = (b.phone||b.phone_mask||''); }
+    else if (c === 'phone') { va = String(a.phone||a.phone_mask||''); vb = String(b.phone||b.phone_mask||''); }
     else if (c === 'machine') { va = a.is_local ? '本机' : (a.owner_machine||'远程'); vb = b.is_local ? '本机' : (b.owner_machine||'远程'); }
     else if (c === 'status') { va = a._status||''; vb = b._status||''; }
     else if (c === 'display_name') { va = a.display_name||''; vb = b.display_name||''; }
@@ -1255,7 +1255,7 @@ function renderAccountsTable() {
     return `<tr>
       <td><strong>${a.id}</strong></td>
       <td>${platformIcon} ${a.platform}</td>
-      <td style="font-family:monospace;font-size:12px">${(a.phone||a.phone_mask||'-').slice(0,11)}</td>
+      <td style="font-family:monospace;font-size:12px">${String(a.phone||a.phone_mask||'-').slice(0,11)}</td>
       <td>${machineLabel}</td>
       <td>${s}</td>
       <td style="font-size:12px;color:#8b8fa3;max-width:120px;overflow:hidden;text-overflow:ellipsis">${a.display_name || '-'}</td>
