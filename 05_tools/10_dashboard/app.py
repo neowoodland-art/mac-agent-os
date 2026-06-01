@@ -606,10 +606,6 @@ def api_push_heartbeat(data: dict):
     (live_dir / f"{uid}.json").write_text(
         json.dumps(hb, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    # 持久化 UID 注册表
-    reg_path = live_dir / "_registry.json"
-    reg_path.write_text(json.dumps(_REGISTERED_UIDS, indent=2, ensure_ascii=False), encoding="utf-8")
-
     # 按 UID 记录心跳历史
     hist = _HEARTBEAT_HISTORY.setdefault(uid, [])
     hist.append({

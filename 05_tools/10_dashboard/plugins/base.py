@@ -17,7 +17,6 @@ DASHBOARD_LOCAL = AGENT_LOCAL / "runtime" / "dashboard"
 # ── 本机身份 ───────────────────────────────────────────────
 HOSTNAME_FILE = AGENT_LOCAL / "identity" / "cached_hostname"
 UID_FILE = AGENT_LOCAL / "identity" / "machine_uid"
-REGISTRY_FILE = CROSS_MACHINE / "status" / "live" / "_registry.json"
 
 def resolve_hostname() -> str:
     if HOSTNAME_FILE.exists():
