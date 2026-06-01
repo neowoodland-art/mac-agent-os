@@ -1,0 +1,93 @@
+# Matrix 账号配置
+# profile_dir: 相对于 ~/matrix/profiles/
+# port: CDP 调试端口（每个账号独立端口，支持同时运行）
+# viewport: 窗口尺寸，桌面端固定 1024x768（测试验证最稳定）
+# proxy: 代理地址（可选，静态住宅IP）
+
+viewport:
+  width: 702
+  height: 783
+  mobile: false   # 桌面端模式，保持 Cookie 兼容
+  # 2026-04-27 ghai 手动调整确认：两个窗口均为 702x783（外窗尺寸）
+
+# Camoufox 全局配置
+camoufox:
+  # 可执行文件路径
+  executable: ~/Library/Caches/camoufox/Camoufox.app/Contents/MacOS/camoufox
+  # 默认视口（与 Chrome 一致）
+  screen:
+    width: 702
+    height: 783
+  # 默认地理设置
+  geo:
+    timezone: Asia/Shanghai
+    locale: zh-CN
+
+accounts:
+  # ── 抖音账号 ──
+  - id: douyin_01
+    platform: douyin
+    phone: "18513308610"
+    port: 9222
+    profile_dir: account_01   # 最早创建的 Profile，已登录
+    enabled: true
+    notes: 抖音主号
+
+  - id: douyin_02
+    platform: douyin
+    phone: ""
+    port: 9223
+    profile_dir: douyin_02
+    enabled: false
+    notes: 抖音副号（待登录）
+
+  # ── 小红书账号 ──
+  - id: xhs_01
+    platform: xiaohongshu
+    phone: ""
+    port: 9224
+    profile_dir: xhs_01
+    enabled: false
+    notes: 小红书待注册
+
+  # ── 知乎账号 ──
+  - id: zhihu_01
+    platform: zhihu
+    phone: ""
+    port: 9225
+    profile_dir: zhihu_01
+    enabled: false
+    notes: 知乎待注册
+
+  # ── Camoufox 测试账号 ──
+  - id: douyin_camo01
+    platform: douyin
+    phone: ""
+    port: 9301
+    browser_type: camoufox
+    profile_dir: camoufox_01   # 自动创建目录
+    proxy: null                # 可选，如 socks5://127.0.0.1:7890
+    screen:   # 可覆盖全局
+      width: 702
+      height: 783
+    geo:
+      timezone: Asia/Shanghai
+      locale: zh-CN
+    enabled: true
+    notes: Camoufox 测试账号1
+
+  - id: douyin_camo02
+    platform: douyin
+    phone: ""
+    port: 9302
+    browser_type: camoufox
+    profile_dir: camoufox_02
+    proxy: null
+    screen:
+      width: 702
+      height: 783
+    geo:
+      timezone: Asia/Shanghai
+      locale: zh-CN
+    enabled: true
+    notes: Camoufox 测试账号2

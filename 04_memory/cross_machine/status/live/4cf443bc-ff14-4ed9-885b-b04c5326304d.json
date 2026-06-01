@@ -1,11 +1,11 @@
 {
-  "hostname": "7kecheng",
+  "hostname": "chengzigedeAir",
   "version": "2.3.0",
   "role": "workstation",
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 2.0
+    "load_1m": 2.16
   },
   "memory": {
     "total_gb": 0,
@@ -14,23 +14,23 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 80.9,
-    "available_gb": 164.2
+    "used_gb": 226.4,
+    "available_gb": 18.7
   },
-  "last_seen": "2026-06-01T06:08:33.540675+00:00",
+  "last_seen": "2026-06-01T06:03:02.650490+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-01T06:08:33.589314+00:00",
-  "_uid": "d19759cf-2159-4fe7-b6ff-db14ccf379f5",
-  "_hostname": "7kecheng",
+  "_received_at": "2026-06-01T06:03:02.676143+00:00",
+  "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
+  "_hostname": "chengzigedeAir",
   "_events": [
     {
-      "id": "ef8508cd-dfd2-4279-9219-90fd3b0c2598",
+      "id": "68e6eb71-3695-4173-a24b-9e6b4f052185",
       "type": "knowledge_updated",
-      "hostname": "7kecheng",
-      "timestamp": "2026-05-31T19:35:37.221446+00:00",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-01T03:35:34.709047+00:00",
       "payload": {
         "latest_date": "2026-06-01",
         "previous_date": "2026-05-29"
