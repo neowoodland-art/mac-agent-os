@@ -457,25 +457,31 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-    <!-- SMS 配置 + 测试合并 -->
+    <!-- 📱 SMS -->
     <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">📱 短信接收</div>
       <div id="smsConfigPanel" style="font-size:12px">加载中...</div>
       <hr style="border-color:#2a2d3e;margin:8px 0">
-      <div style="font-size:12px;font-weight:600;margin-bottom:6px">📨 测试/切换号码</div>
+      <div style="font-size:11px;color:#8b8fa3;margin-bottom:4px">手机号（可选预设）</div>
       <div style="display:flex;gap:4px;margin-bottom:4px">
-        <input id="smsNewPhone" placeholder="手机号" style="flex:1;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px">
-        <button onclick="smsUpdateAndTest()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">切换并测试</button>
+        <input id="smsNewPhone" placeholder="输入手机号" list="smsPhoneList" style="flex:1;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px">
+        <datalist id="smsPhoneList"></datalist>
+        <button onclick="smsUpdateAndTest()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">切换并接收</button>
       </div>
       <span id="smsTestResult" style="font-size:11px"></span>
       <div id="smsMessages" style="font-size:11px;color:#8b8fa3;max-height:180px;overflow-y:auto;margin-top:6px"></div>
     </div>
-  </div>
 
-  <!-- 代理管理 -->
-  <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
-    <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔌 代理管理</div>
-    <div id="proxyList" style="font-size:12px">加载中...</div>
+    <!-- 🔌 代理管理 -->
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔌 代理管理</div>
+      <div style="margin-bottom:8px;font-size:12px">
+        <input id="proxyTestInput" placeholder="代理地址 (如 http://127.0.0.1:7890)" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+        <button onclick="proxyTest()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🔍 测试代理</button>
+        <span id="proxyTestResult" style="font-size:11px;margin-left:6px"></span>
+      </div>
+      <div id="proxyList" style="font-size:12px">加载中...</div>
+    </div>
   </div>
 </div>
 
@@ -1810,6 +1816,22 @@ async function doImport() {
 async function loadSmsProxy() {
   loadSmsConfig();
   loadProxyList();
+  loadPhonePresets();
+}
+
+async function loadPhonePresets() {
+  const list = document.getElementById('smsPhoneList');
+  if (!list) return;
+  try {
+    const r = await fetch('/api/matrix/accounts');
+    const d = await r.json();
+    const phones = new Set();
+    Object.values(d).forEach(arr => (arr||[]).forEach(a => {
+      const p = a.phone || a.phone_mask || '';
+      if (p && p.length >= 11) phones.add(p);
+    }));
+    list.innerHTML = [...phones].map(p => `<option value="${p}">`).join('');
+  } catch(e) { /* ignore */ }
 }
 
 async function loadSmsConfig() {
@@ -1821,7 +1843,6 @@ async function loadSmsConfig() {
     el.innerHTML = `<div style="margin-bottom:4px"><span style="color:#8b8fa3">API:</span> <code>${(d.base_url||'').slice(0,35)}</code></div>
       <div style="margin-bottom:4px"><span style="color:#8b8fa3">当前手机号:</span> <strong style="color:#22c55e">${d.phone||'-'}</strong></div>
       <div><span style="color:#8b8fa3">Key:</span> <code>${d.api_key||'-'}</code> | 轮询 ${d.poll_interval||3}s</div>`;
-    // 加载最新5条消息
     if (d.phone) smsQuery(d.phone);
   } catch(e) { el.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
 }
@@ -1831,19 +1852,15 @@ async function smsUpdateAndTest() {
   if (!phone) { alert('输入手机号'); return; }
   const el = document.getElementById('smsTestResult');
   const msgEl = document.getElementById('smsMessages');
-  if (el) el.innerHTML = '⏳ 切换手机号...';
+  if (el) el.innerHTML = '⏳ 切换...';
   if (msgEl) msgEl.innerHTML = '';
-
-  // 1. 更新配置
   try {
     const r = await fetch('/api/matrix/sms/config', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone})});
     const res = await r.json();
     if (res.status !== 'ok') { if (el) el.innerHTML = '❌ '+res.error; return; }
   } catch(e) { if (el) el.innerHTML = '❌ '+e.message; return; }
-
-  // 2. 重新加载配置 + 查短信
   loadSmsConfig();
-  if (msgEl) msgEl.innerHTML = '<span style="color:#8b8fa3">⏳ 查询短信...</span>';
+  if (msgEl) msgEl.innerHTML = '<span style="color:#8b8fa3">⏳ 查询...';
   try {
     const r2 = await fetch('/api/matrix/sms/test/'+encodeURIComponent(phone));
     const d2 = await r2.json();
@@ -1872,6 +1889,22 @@ async function smsQuery(phone) {
   } catch(e) { /* silent */ }
 }
 
+// ── Proxy ──
+async function proxyTest() {
+  const proxy = document.getElementById('proxyTestInput')?.value;
+  const el = document.getElementById('proxyTestResult');
+  if (!proxy) { alert('输入代理地址'); return; }
+  if (el) el.innerHTML = '<span style="color:#8b8fa3">⏳ 测试中...</span>';
+  try {
+    const r = await fetch('/api/matrix/proxies/test', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proxy})});
+    const d = await r.json();
+    if (el) {
+      if (d.status === 'ok') el.innerHTML = `<span style="color:#22c55e">✅ ${d.ip||'?'} | ${d.type||'HTTP'} | ${d.elapsed||'?'}</span>`;
+      else el.innerHTML = `<span style="color:#ef4444">❌ ${d.error}</span>`;
+    }
+  } catch(e) { if (el) el.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>'; }
+}
+
 async function loadProxyList() {
   const el = document.getElementById('proxyList');
   if (!el) return;
@@ -1880,20 +1913,20 @@ async function loadProxyList() {
     const d = await r.json();
     const proxies = d.proxies||[];
     if (!proxies.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无本地账号</div>'; return; }
-    el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px">' +
-      proxies.map(p => `<div style="background:#232740;border-radius:6px;padding:8px;border:1px solid #2a2d3e;font-size:11px">
+    el.innerHTML = proxies.map(p => `<div style="background:#232740;border-radius:6px;padding:8px;border:1px solid #2a2d3e;margin-bottom:6px;font-size:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
         <div><strong>${p.account}</strong> <span style="color:#8b8fa3;font-size:10px">${p.platform}</span>
-          <span style="float:right;font-size:10px">${p.login_status}</span></div>
-        <div style="margin-top:4px;display:flex;gap:4px;align-items:center">
-          <span style="color:#8b8fa3">代理:</span>
-          <span style="color:${p.has_proxy?'#22c55e':'#8b8fa3'}">${p.proxy||'无'}</span>
+          <span style="font-size:10px;margin-left:6px;color:${p.login_status==='logged_in'?'#22c55e':(p.login_status==='remote'?'#8b8fa3':'#f59e0b')}">${p.login_status}</span>
         </div>
-        <div style="margin-top:4px">
-          <input placeholder="新代理地址" style="width:160px;background:#1a1d2e;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 6px;border-radius:4px;font-size:10px" id="proxy_${p.account}">
-          <button onclick="setProxy('${p.account}')" style="background:#6366f1;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px">设置</button>
-          <span id="proxyResult_${p.account}" style="font-size:10px"></span>
-        </div>
-      </div>`).join('') + '</div>';
+        <div><span style="color:${p.has_proxy?'#22c55e':'#8b8fa3'};font-size:10px">${p.proxy||'无代理'}</span></div>
+      </div>
+      <div style="margin-top:4px;display:flex;gap:4px;align-items:center">
+        <input placeholder="绑定代理地址" style="flex:1;background:#1a1d2e;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 6px;border-radius:4px;font-size:11px" id="proxy_${p.account}">
+        <button onclick="setProxy('${p.account}')" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">绑定</button>
+        <button onclick="testAccountProxy('${p.account}')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">测试</button>
+        <span id="proxyResult_${p.account}" style="font-size:10px"></span>
+      </div>
+    </div>`).join('');
   } catch(e) { el.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
 }
 
@@ -1904,18 +1937,25 @@ async function setProxy(account) {
   try {
     const r = await fetch('/api/matrix/proxies/'+encodeURIComponent(account), {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({proxy: proxy||''})});
     const res = await r.json();
-    if (el) el.innerHTML = res.status==='ok' ? '✅' : '❌';
+    if (el) el.innerHTML = res.status==='ok' ? '✅ 已绑定' : '❌';
     loadProxyList();
   } catch(e) { if (el) el.innerHTML = '❌'; }
 }
 
-async function testProxy(proxy) {
-  const el = document.getElementById('proxyTestResult');
+async function testAccountProxy(account) {
+  const el = document.getElementById('proxyResult_'+account);
   if (el) el.innerHTML = '⏳';
   try {
-    const r = await fetch('/api/matrix/proxies/test', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proxy})});
+    const r = await fetch('/api/matrix/proxies');
     const d = await r.json();
-    if (el) el.innerHTML = d.status==='ok' ? '✅ IP: '+d.ip+' ('+d.elapsed+')' : '❌ '+d.error;
+    const p = (d.proxies||[]).find(x => x.account === account);
+    if (!p || !p.proxy) { if (el) el.innerHTML = '❌ 无代理'; return; }
+    const r2 = await fetch('/api/matrix/proxies/test', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proxy: p.proxy})});
+    const d2 = await r2.json();
+    if (el) {
+      if (d2.status === 'ok') el.innerHTML = `✅ ${d2.ip||'?'} | ${d2.elapsed||'?'}`;
+      else el.innerHTML = '❌ '+d2.error;
+    }
   } catch(e) { if (el) el.innerHTML = '❌ '+e.message; }
 }
 

@@ -160,7 +160,21 @@ class ProxyManager:
                 resp = opener.open("http://httpbin.org/ip", timeout=10)
                 data = json.loads(resp.read().decode())
                 elapsed = (datetime.now() - start).total_seconds()
-                return {"status": "ok", "ip": data.get("origin", ""), "elapsed": f"{elapsed:.1f}s"}
+                # 提取代理类型
+                proxy_type = "HTTP"
+                if proxy.startswith("socks5://") or proxy.startswith("socks://"):
+                    proxy_type = "SOCKS5"
+                elif proxy.startswith("socks4://"):
+                    proxy_type = "SOCKS4"
+                elif proxy.startswith("https://"):
+                    proxy_type = "HTTPS"
+                return {
+                    "status": "ok",
+                    "ip": data.get("origin", ""),
+                    "type": proxy_type,
+                    "elapsed": f"{elapsed:.1f}s",
+                    "speed": "快" if elapsed < 0.5 else ("中" if elapsed < 2 else "慢"),
+                }
             else:
                 # 直连测试
                 resp = urllib.request.urlopen("http://httpbin.org/ip", timeout=10)
