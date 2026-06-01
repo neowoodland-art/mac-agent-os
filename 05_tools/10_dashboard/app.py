@@ -1304,6 +1304,17 @@ try:
 except Exception as e:
     print(f"  ⏸ 知识库管理 API 未加载: {e}")
 
+# ═══════════════════════════════════════════════
+# SMS 短信/代理管理 API
+# ═══════════════════════════════════════════════
+
+try:
+    from plugins.sms_proxy_api import router as sms_proxy_router
+    app.include_router(sms_proxy_router)
+    print("  ✅ 短信/代理管理 API 已加载")
+except Exception as e:
+    print(f"  ⏸ 短信/代理管理 API 未加载: {e}")
+
 
 if __name__ == "__main__":
     import uvicorn
