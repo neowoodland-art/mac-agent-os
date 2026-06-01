@@ -1,11 +1,15 @@
 {
-  "hostname": "7kecheng",
+  "hostname": "chengzigedeAir",
   "version": "2.3.0",
   "role": "workstation",
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
+<<<<<<< Updated upstream
     "load_1m": 2.91
+=======
+    "load_1m": 1.52
+>>>>>>> Stashed changes
   },
   "memory": {
     "total_gb": 0,
@@ -14,10 +18,17 @@
   },
   "disk": {
     "total_gb": 245.1,
+<<<<<<< Updated upstream
     "used_gb": 81.0,
     "available_gb": 164.1
   },
   "last_seen": "2026-06-01T12:01:33.634694+00:00",
+=======
+    "used_gb": 226.4,
+    "available_gb": 18.7
+  },
+  "last_seen": "2026-06-01T06:23:58.518810+00:00",
+>>>>>>> Stashed changes
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null
