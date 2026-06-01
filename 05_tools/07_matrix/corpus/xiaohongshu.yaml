@@ -1,0 +1,63 @@
+version: '1.0'
+categories:
+  穿搭:
+    weight: 25
+    enabled: true
+    label: 穿搭评论
+    comments:
+    - 这套搭配好好看！
+    - 求链接！
+    - 色系搭配太舒服了
+    - 超有气质
+    - 这个风格很适合你
+    templates:
+    - '{keyword}这套太好看了'
+    - 求{keyword}的链接
+  美妆:
+    weight: 20
+    enabled: true
+    label: 美妆评论
+    comments:
+    - 这个妆面好干净
+    - 求粉底色号
+    - 口红颜色太美了
+    - 教程很详细，收藏了
+    templates:
+    - '{keyword}这个妆容好干净'
+    - '{keyword}是什么色号'
+  种草:
+    weight: 20
+    enabled: true
+    label: 种草评论
+    comments:
+    - 种草了！
+    - 我也买了同款，真的不错
+    - 已加购物车
+    - 求推荐更多好物
+    templates:
+    - 被{keyword}种草了
+    - '{keyword}已加入清单'
+  美食:
+    weight: 15
+    enabled: true
+    label: 美食评论
+    comments:
+    - 看着好好吃
+    - 求地址
+    - 收藏了，周末去试试
+    - 这个做法很简单，明天就试
+    templates:
+    - '{keyword}看着好好吃'
+    - 求{keyword}的店名
+  家居:
+    weight: 10
+    enabled: true
+    label: 家居评论
+    comments:
+    - 布置得好温馨
+    - 求家具链接
+    - 这个风格好喜欢
+    - 家的感觉真好
+    templates:
+    - '{keyword}的布置好温馨'
+    - 求{keyword}的链接

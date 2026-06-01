@@ -449,6 +449,15 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div id="matrixExportContent"><div class="loading">加载中...</div></div>
 </div>
 
+<!-- Corpus management view -->
+<div id="view-matrix-corpus" class="hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="font-size:18px">📚 语料库管理</h2>
+    <span id="corpusMeta" style="font-size:12px;color:var(--text2)"></span>
+  </div>
+  <div id="corpusContent"><div class="loading">加载语料库...</div></div>
+</div>
+
 <!-- SMS & Proxy view -->
 <div id="view-matrix-sms-proxy" class="hidden">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -690,7 +699,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-sms-proxy'];
+  const matrixSubViews = ['matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -720,7 +729,7 @@ function switchView(view) {
     });
     // Hide ALL other views first
     ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-     'matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-sms-proxy'].forEach(v => {
+     'matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy'].forEach(v => {
       document.getElementById('view-' + v)?.classList.add('hidden');
     });
     document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.classList.add('hidden'));
@@ -742,7 +751,7 @@ function switchView(view) {
 
   // 视图显隐
   const viewIds = ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-                   'matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-sms-proxy','kb'];
+                   'matrix-summary','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','kb'];
   viewIds.forEach(v => {
     document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
   });
@@ -768,6 +777,7 @@ function switchView(view) {
   if (view === 'matrix-blueprints') loadMatrixBlueprints();
   if (view === 'matrix-atom-ops') loadMatrixAtomOps();
   if (view === 'matrix-backup') loadMatrixBackup();
+  if (view === 'matrix-corpus') loadCorpus();
   if (view === 'matrix-export') loadMatrixExport();
   if (view === 'matrix-sms-proxy') loadSmsProxy();
 }
@@ -1074,6 +1084,7 @@ async function loadPlugins() {
         {view:'matrix-atom-ops', label:'原子操作'},
         {view:'matrix-backup', label:'备份恢复'},
         {view:'matrix-export', label:'导入导出'},
+        {view:'matrix-corpus', label:'语料库'},
         {view:'matrix-sms-proxy', label:'短信与代理'},
       ]},
       '智能系统设置': { icon: '⚙️', items: [
@@ -1970,6 +1981,51 @@ async function testAccountProxy(account) {
 
 function editDialog(id) {
   alert('完整编辑功能请在独立管理页操作: /matrix-mgmt');
+}
+
+// ════════════════════════════════════════════════════════
+// Corpus Management
+// ════════════════════════════════════════════════════════
+
+async function loadCorpus() {
+  const el = document.getElementById('corpusContent');
+  const meta = document.getElementById('corpusMeta');
+  if (!el) return;
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await fetch('/api/matrix/corpus');
+    const d = await r.json();
+    const cats = d.categories || [];
+    meta.textContent = `共 ${cats.length} 个分类 · ${d.total_comments||0} 条评论`;
+
+    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">';
+
+    // Group by platform
+    const groups = {};
+    cats.forEach(c => {
+      const p = c.platform === 'xiaohongshu' ? '📕 小红书' : '🎵 抖音';
+      if (!groups[p]) groups[p] = [];
+      groups[p].push(c);
+    });
+
+    Object.entries(groups).forEach(([platform, items]) => {
+      html += `<div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
+        <div style="font-weight:600;font-size:14px;margin-bottom:10px">${platform}</div>
+        <table><thead><tr><th>分类</th><th>权重</th><th>评论数</th><th>状态</th></tr></thead><tbody>
+        ${items.map(c => `<tr>
+          <td><strong>${c.name}</strong></td>
+          <td>${c.weight}</td>
+          <td>${c.count}</td>
+          <td>${c.enabled ? '<span class="badge badge-green">✅ 启用</span>' : '<span class="badge badge-gray">⏸ 停用</span>'}</td>
+        </tr>`).join('')}
+        </tbody></table>
+      </div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
 }
 
 // ── Git Sync ──

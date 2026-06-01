@@ -1117,6 +1117,21 @@ def api_matrix_cross_machines():
         raise HTTPException(500, detail=str(e))
 
 
+# ── 语料库 API ──
+
+@app.get("/api/matrix/corpus")
+def api_matrix_corpus():
+    """获取语料库分类和统计"""
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        categories = cm.list_categories()
+        total = sum(c.get("count", 0) for c in categories)
+        return {"categories": categories, "total_comments": total}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
 # ═══════════════════════════════════════════
 # 工作流引擎 API
 # ═══════════════════════════════════════════

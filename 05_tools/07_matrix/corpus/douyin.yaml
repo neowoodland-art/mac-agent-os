@@ -1,0 +1,65 @@
+version: '1.0'
+categories:
+  赞美:
+    weight: 30
+    enabled: true
+    label: 赞美评论
+    comments:
+    - 讲得太好了，受益匪浅！
+    - 这个观点很新颖，学习了
+    - 说得真是振聋发聩
+    - 干货满满，感谢分享
+    - 条理清晰，逻辑严密
+    - 每一句话都说到了心坎里
+    templates:
+    - 关于{keyword}的观点很到位
+    - 感谢分享{keyword}的心得
+    - 说得太好了，{keyword}这部分启发很大
+  搞笑:
+    weight: 20
+    enabled: true
+    label: 搞笑评论
+    comments:
+    - 哈哈哈哈哈笑死
+    - 有才，这评论比视频还精彩
+    - 笑不活了家人们
+    - 你要把我笑死
+    templates:
+    - '{keyword}这个梗笑死我了'
+    - 哈哈哈哈{keyword}太有才了
+  客观:
+    weight: 15
+    enabled: true
+    label: 客观评价
+    comments:
+    - 比较客观
+    - 抛开立场看，说得有道理
+    - 中肯的评价
+    - 理性分析，值得一读
+    templates:
+    - 关于{keyword}的分析很客观
+    - 理性的声音，{keyword}这部分说得好
+  提问:
+    weight: 10
+    enabled: true
+    label: 提问互动
+    comments:
+    - 请问这是在哪里？
+    - 能分享一下具体方法吗？
+    - 新手想问一下怎么入门
+    - 这个需要什么工具？
+    templates:
+    - '{keyword}具体怎么操作？'
+    - 能详细讲讲{keyword}吗？
+  感慨:
+    weight: 10
+    enabled: true
+    label: 生活感慨
+    comments:
+    - 生活不易，且行且珍惜
+    - 每个人都有自己的故事
+    - 看得我热泪盈眶
+    - 这就是生活啊
+    templates:
+    - 看到{keyword}想起了自己
+    - '{keyword}真的太真实了'
