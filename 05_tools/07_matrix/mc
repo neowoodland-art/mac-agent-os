@@ -1,0 +1,11 @@
+#!/bin/bash
+# mc — Matrix Console 快捷命令
+# 安装: chmod +x mc && sudo ln -s $(pwd)/mc /usr/local/bin/mc
+# 或: alias mc='$(pwd)/mc'
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON="/Users/5kecheng/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+
+# mc 包在 scripts/mc/ 下，需要先 cd 到 scripts/
+cd "$SCRIPT_DIR/scripts"
+exec "$PYTHON" -m mc "$@"

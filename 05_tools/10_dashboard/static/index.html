@@ -2011,21 +2011,65 @@ async function loadCorpus() {
     Object.entries(groups).forEach(([platform, items]) => {
       html += `<div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:14px;margin-bottom:10px">${platform}</div>
-        <table><thead><tr><th>分类</th><th>权重</th><th>评论数</th><th>状态</th></tr></thead><tbody>
+        <table><thead><tr><th>分类</th><th>权重</th><th>评论数</th><th>状态</th><th>操作</th></tr></thead><tbody>
         ${items.map(c => `<tr>
           <td><strong>${c.name}</strong></td>
           <td>${c.weight}</td>
           <td>${c.count}</td>
           <td>${c.enabled ? '<span class="badge badge-green">✅ 启用</span>' : '<span class="badge badge-gray">⏸ 停用</span>'}</td>
+          <td><button class="btn btn-sm btn-outline" onclick="corpusShowDetail('${c.platform}','${c.name}')">📝</button></td>
         </tr>`).join('')}
         </tbody></table>
       </div>`;
     });
     html += '</div>';
+
+    // Add comment form
+    html += `<div style="margin-top:12px;background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">✏️ 添加评论</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="corpusAddPlatform" style="width:120px">
+          <option value="douyin">🎵 抖音</option>
+          <option value="xiaohongshu">📕 小红书</option>
+        </select>
+        <input id="corpusAddCategory" placeholder="分类名" style="width:100px">
+        <input id="corpusAddText" placeholder="评论内容" style="flex:1;min-width:200px">
+        <button class="btn btn-primary btn-sm" onclick="corpusAdd()">+ 添加</button>
+        <span id="corpusAddResult" style="font-size:12px"></span>
+      </div>
+    </div>`;
+
     el.innerHTML = html;
   } catch(e) {
     el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
   }
+}
+
+async function corpusAdd() {
+  const platform = document.getElementById('corpusAddPlatform')?.value;
+  const category = document.getElementById('corpusAddCategory')?.value;
+  const text = document.getElementById('corpusAddText')?.value;
+  const result = document.getElementById('corpusAddResult');
+  if (!category || !text) { result.textContent = '❌ 请输入分类和评论'; return; }
+  try {
+    const r = await fetch('/api/matrix/corpus/add', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({platform, category, text})
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      result.textContent = '✅ 已添加';
+      document.getElementById('corpusAddText').value = '';
+      loadCorpus();
+    } else {
+      result.textContent = '❌ '+d.error;
+    }
+  } catch(e) { result.textContent = '❌ '+e.message; }
+}
+
+function corpusShowDetail(platform, category) {
+  // Simple alert for now; future: modal with all comments
+  alert(`📚 ${platform}/${category}\n\n详细评论管理功能请在 CLI 操作:\n\n  mc corpus list\n  mc corpus add --category ${category} --text "..."\n\n看板编辑功能后续迭代`);
 }
 
 // ── Git Sync ──

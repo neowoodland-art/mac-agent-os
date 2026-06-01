@@ -1132,6 +1132,25 @@ def api_matrix_corpus():
         raise HTTPException(500, detail=str(e))
 
 
+@app.post("/api/matrix/corpus/add")
+async def api_matrix_corpus_add(data: dict):
+    """添加评论到语料库"""
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        platform = data.get("platform", "douyin")
+        category = data.get("category", "")
+        text = data.get("text", "")
+        if not category or not text:
+            raise HTTPException(400, detail="category 和 text 必填")
+        cm.add_comment(category, text, platform)
+        return {"status": "ok", "platform": platform, "category": category}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
 # ═══════════════════════════════════════════
 # 工作流引擎 API
 # ═══════════════════════════════════════════
