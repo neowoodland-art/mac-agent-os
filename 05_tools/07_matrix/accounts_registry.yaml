@@ -1,5 +1,4 @@
 version: '1.0'
-last_updated: 2026-05-31 11:09 (已废弃)
 accounts:
 - id: douyin_01
   platform: douyin
@@ -12,7 +11,7 @@ accounts:
   window_position:
   - 0
   - 0
-  notes: 抖音主号
+  notes: 测试备注
 - id: douyin_02
   platform: douyin
   phone_mask: 185****3366

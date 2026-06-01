@@ -920,7 +920,8 @@ class MatrixManager:
 
             # 合并字段: Registry 为基础, Override 覆写
             merged = dict(acct)
-            merged["phone"] = ovr.get("phone", acct.get("phone_mask", ""))
+            merged["phone"] = str(ovr.get("phone", acct.get("phone_mask", "")) or "")
+            merged["phone_mask"] = str(acct.get("phone_mask", ""))
             merged["proxy"] = ovr.get("proxy", acct.get("proxy", None))
             merged["enabled"] = ovr.get("enabled", acct.get("enabled", True))
             merged["is_local"] = is_local(acct)
