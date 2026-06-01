@@ -440,7 +440,8 @@ def _git_sync():
         repo_str = str(repo)
 
         # 先 pull, 避免 push 冲突
-        subprocess.run(["git", "pull", "--rebase"], capture_output=True, text=True,
+        # --autostash: 自动 stash 脏工作区再 rebase，修复 heartbeat 等模块写文件后 pull 失败的问题
+        subprocess.run(["git", "pull", "--rebase", "--autostash"], capture_output=True, text=True,
                       timeout=30, cwd=repo_str)
 
         # 精确查找本机文件 → 精确 git add
@@ -476,7 +477,7 @@ def _git_sync():
             subprocess.run(["git", "push", remote, "main"], capture_output=True,
                           text=True, timeout=30, cwd=repo_str)
     except Exception as e:
-        logger.debug(f"  Git sync failed: {e}")
+        logger.warning(f"  Git sync 异常: {e}")
 
 
 def _check_version():
@@ -489,11 +490,11 @@ def _check_version():
         if version != required:
             logger.info(f"  版本落后: 当前={version}, 要求={required}, 正在升级...")
             # 拉取最新代码
-            subprocess.run(["git", "pull"], capture_output=True, text=True,
+            subprocess.run(["git", "pull", "--autostash"], capture_output=True, text=True,
                           timeout=30, cwd=str(AGENT_SYNC))
             logger.info(f"  升级完成, 请重启 guardd")
     except Exception as e:
-        logger.debug(f"  Version check failed: {e}")
+        logger.warning(f"  Version check 异常: {e}")
 
 
 # ════════════════════════════════════════════════════════════
@@ -979,7 +980,7 @@ def module_sync_checker():
     try:
         # 1. git pull 获取远程变更
         result = subprocess.run(
-            ["git", "pull"],
+            ["git", "pull", "--autostash"],
             capture_output=True, text=True, timeout=30,
             cwd=str(AGENT_SYNC),
         )
