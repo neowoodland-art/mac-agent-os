@@ -338,6 +338,65 @@ class BatchEngine:
                             return b ? (b.click(), '⭐') : '-';
                         }""")
                         result = r
+                    elif op == "xhs_goto_profile":
+                        # 点击底部导航"我"（第5个）
+                        await conn.page.evaluate("""() => {
+                            const items = document.querySelectorAll('[class*=\"bottom\"] a, [class*=\"tab\"] a, nav a');
+                            for (const a of items) {
+                                if (a.textContent.trim() === '我') { a.click(); return; }
+                            }
+                        }""")
+                        await asyncio.sleep(4)
+                        result = "profile_loaded"
+                    elif op == "xhs_read_nickname":
+                        nick = await conn.page.evaluate("""() => {
+                            const t = document.title;
+                            return t.replace(' - 小红书','').trim();
+                        }""")
+                        log.info(f"      📝 昵称: {nick}")
+                        result = "nickname=" + nick
+                    elif op == "xhs_read_user_id":
+                        uid = await conn.page.evaluate("""() => {
+                            const all = document.body.innerText;
+                            const m = all.match(/小红书号[：:]\s*(\d+)/);
+                            return m ? m[1] : '?';
+                        }""")
+                        log.info(f"      🔢 小红书号: {uid}")
+                        result = "user_id=" + uid
+                    elif op == "xhs_read_following":
+                        v = await conn.page.evaluate("""() => {
+                            const all = document.body.innerText;
+                            const m = all.match(/(\\d+)\\s*关注/);
+                            return m ? m[1] : '?';
+                        }""")
+                        log.info(f"      👥 关注: {v}")
+                        result = "following=" + v
+                    elif op == "xhs_read_fans":
+                        v = await conn.page.evaluate("""() => {
+                            const all = document.body.innerText;
+                            const m = all.match(/(\\d+)\\s*粉丝/);
+                            return m ? m[1] : '?';
+                        }""")
+                        log.info(f"      👥 粉丝: {v}")
+                        result = "fans=" + v
+                    elif op == "xhs_read_likes":
+                        v = await conn.page.evaluate("""() => {
+                            const all = document.body.innerText;
+                            const m = all.match(/获赞与收藏[\\s\\S]*?(\\d+)/);
+                            return m ? m[1] : '?';
+                        }""")
+                        log.info(f"      👍 获赞: {v}")
+                        result = "likes=" + v
+                    elif op == "xhs_read_bio":
+                        v = await conn.page.evaluate("""() => {
+                            const all = document.body.innerText;
+                            const m = all.match(/还没有简介|(.+?)(?=\\d+关注|$)/);
+                            if (all.includes('还没有简介')) return '(无)';
+                            const bioM = all.match(/属地[：:].+?(.+?)(?=\\d+关注)/);
+                            return bioM ? bioM[1].trim().slice(0,30) : '?';
+                        }""")
+                        log.info(f"      📄 简介: {v}")
+                        result = "bio=" + v
                     elif op in ("next_video", "swipe_next"):
                         await conn.page.evaluate("() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown'}))")
                         await asyncio.sleep(2)

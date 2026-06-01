@@ -79,6 +79,9 @@ if [ "$GROUP" = "all" ] || [ "$GROUP" = "1" ]; then
     run_batch "Batch 1: 抖音前三" "douyin_01,douyin_02,douyin_camo01"
 fi
 
+# 小红书主页信息
+run_batch "Profile: 小红书前三" "xhs_01,xhs_02,xhs_03" "xiaohongshu_read_profile" 1
+
 if [ "$GROUP" = "all" ] || [ "$GROUP" = "2" ]; then
     run_batch "Batch 2: 小红书前三" "xhs_01,xhs_02,xhs_03"
 fi
@@ -89,6 +92,9 @@ run_batch "Profile: 抖音后三" "douyin_04,douyin_05,douyin_06" "douyin_read_p
 if [ "$GROUP" = "all" ] || [ "$GROUP" = "3" ]; then
     run_batch "Batch 3: 抖音后三" "douyin_04,douyin_05,douyin_06"
 fi
+
+# 小红书主页信息（第二组）
+run_batch "Profile: 小红书后三" "xhs_04,xhs_05,xhs_06" "xiaohongshu_read_profile" 1
 
 if [ "$GROUP" = "all" ] || [ "$GROUP" = "4" ]; then
     run_batch "Batch 4: 小红书后三" "xhs_04,xhs_05,xhs_06"

@@ -360,7 +360,7 @@ class MatrixManager:
 
         "xhs_goto_home": {
             "platform": "xiaohongshu", "category": "navigation", "label": "🏠 回到首页",
-            "requires": [], "allows": ["xhs_browse", "xhs_scroll_feed", "xhs_search", "rest", "go_back"],
+            "requires": [], "allows": ["xhs_browse", "xhs_scroll_feed", "xhs_search", "xhs_goto_profile", "rest", "go_back"],
             "can_be_first": True, "desc": "回到小红书首页，固定起点"
         },
         "xhs_browse": {
@@ -404,6 +404,43 @@ class MatrixManager:
             "requires": ["xhs_click_note"], "allows": ["xhs_like", "xhs_comment", "rest", "go_back"],
             "can_be_first": False, "desc": "小红书收藏当前笔记"
         },
+
+        # ── 主页信息读取类 ──
+        "xhs_goto_profile": {
+            "platform": "xiaohongshu", "category": "browse", "label": "👤 进入个人主页",
+            "requires": ["xhs_goto_home", "rest", "go_back"],
+            "allows": ["xhs_read_nickname", "xhs_read_user_id", "xhs_read_following", "xhs_read_fans", "xhs_read_likes", "xhs_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "点击底部导航「我」进入小红书个人主页"
+        },
+        "xhs_read_nickname": {
+            "platform": "xiaohongshu", "category": "interact", "label": "📝 读取昵称",
+            "requires": ["xhs_goto_profile"], "allows": ["xhs_read_user_id", "xhs_read_following", "xhs_read_fans", "xhs_read_likes", "xhs_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取用户昵称"
+        },
+        "xhs_read_user_id": {
+            "platform": "xiaohongshu", "category": "interact", "label": "🔢 读取小红书号",
+            "requires": ["xhs_goto_profile"], "allows": ["xhs_read_nickname", "xhs_read_following", "xhs_read_fans", "xhs_read_likes", "xhs_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取小红书号（数字ID）"
+        },
+        "xhs_read_following": {
+            "platform": "xiaohongshu", "category": "interact", "label": "👥 读取关注数",
+            "requires": ["xhs_goto_profile"], "allows": ["xhs_read_nickname", "xhs_read_user_id", "xhs_read_fans", "xhs_read_likes", "xhs_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取关注人数"
+        },
+        "xhs_read_fans": {
+            "platform": "xiaohongshu", "category": "interact", "label": "👥 读取粉丝数",
+            "requires": ["xhs_goto_profile"], "allows": ["xhs_read_nickname", "xhs_read_user_id", "xhs_read_following", "xhs_read_likes", "xhs_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取粉丝数"
+        },
+        "xhs_read_likes": {
+            "platform": "xiaohongshu", "category": "interact", "label": "👍 读取获赞数",
+            "requires": ["xhs_goto_profile"], "allows": ["xhs_read_nickname", "xhs_read_user_id", "xhs_read_following", "xhs_read_fans", "xhs_read_bio", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取获赞与收藏总数"
+        },
+        "xhs_read_bio": {
+            "platform": "xiaohongshu", "category": "interact", "label": "📄 读取简介",
+            "requires": ["xhs_goto_profile"], "allows": ["xhs_read_nickname", "xhs_read_user_id", "xhs_read_following", "xhs_read_fans", "xhs_read_likes", "rest", "go_back"],
+            "can_be_first": False, "desc": "从个人主页读取个人简介"
 
         # ═══════════════════════════════════════════════════
         # ⚙️ 通用工具（所有平台可用）
