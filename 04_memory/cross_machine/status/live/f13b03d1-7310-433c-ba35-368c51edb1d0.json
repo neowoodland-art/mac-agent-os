@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.05
+    "load_1m": 1.82
   },
   "memory": {
     "total_gb": 0,
@@ -17,12 +17,12 @@
     "used_gb": 88.3,
     "available_gb": 156.8
   },
-  "last_seen": "2026-06-05T20:10:50.595505+00:00",
+  "last_seen": "2026-06-05T20:15:55.995112+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-05T20:10:50.619129+00:00",
+  "_received_at": "2026-06-05T20:15:56.019020+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
   "_events": [
@@ -33,6 +33,16 @@
       "timestamp": "2026-06-05T16:56:16.836768+00:00",
       "payload": {
         "summary": "Created autostash: 38ffd85a4\nMerge made by the 'ort' strategy.\n .../data/automation/4cf443bc-ff14-4ed9-885b-b04c5326304d.json       | 2 +-\n .../data/ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json              | 2 +-\n .../data/collector/4cf443bc-ff14-4ed9-885b-b04c5326304d.json        | 2 +-\n .../data/guardd/4cf443bc-ff14-4ed9-885b-b04c5326304d.json           | 6 +++---\n .../data/knowledge/4cf443bc-ff14-4ed9-885b-b04c5326304d.json        | 2 +-\n .../data/matrix/4cf443bc-ff14-4ed9-885b-b04c5326304d",
+        "hostname": "5kechengdeAir"
+      }
+    },
+    {
+      "id": "217e932c-af16-45cc-8eee-b229ccd12ccb",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-06-05T20:10:55.863153+00:00",
+      "payload": {
+        "summary": "Created autostash: c8986bc07\nMerge made by the 'ort' strategy.\n .../data/automation/4cf443bc-ff14-4ed9-885b-b04c5326304d.json       | 2 +-\n .../data/ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json              | 2 +-\n .../data/collector/4cf443bc-ff14-4ed9-885b-b04c5326304d.json        | 2 +-\n .../data/guardd/4cf443bc-ff14-4ed9-885b-b04c5326304d.json           | 6 +++---\n .../data/knowledge/4cf443bc-ff14-4ed9-885b-b04c5326304d.json        | 2 +-\n .../data/matrix/4cf443bc-ff14-4ed9-885b-b04c5326304d",
         "hostname": "5kechengdeAir"
       }
     }
