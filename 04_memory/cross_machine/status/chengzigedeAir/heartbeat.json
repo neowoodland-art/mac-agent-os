@@ -14,10 +14,10 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 227.7,
-    "available_gb": 17.4
+    "used_gb": 227.8,
+    "available_gb": 17.3
   },
-  "last_seen": "2026-06-05T15:04:58.476653+00:00",
+  "last_seen": "2026-06-05T15:10:14.932578+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null
