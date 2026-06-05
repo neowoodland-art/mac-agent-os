@@ -17,12 +17,12 @@
     "used_gb": 227.1,
     "available_gb": 18.0
   },
-  "last_seen": "2026-06-05T08:26:15.596676+00:00",
+  "last_seen": "2026-06-05T08:31:31.171435+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-05T08:26:15.621846+00:00",
+  "_received_at": "2026-06-05T08:31:31.195822+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "chengzigedeAir",
   "_events": [
