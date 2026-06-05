@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.43
+    "load_1m": 1.4
   },
   "memory": {
     "total_gb": 0,
@@ -17,12 +17,12 @@
     "used_gb": 227.2,
     "available_gb": 17.9
   },
-  "last_seen": "2026-06-05T09:40:37.499064+00:00",
+  "last_seen": "2026-06-05T09:45:53.781782+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-05T09:40:37.523865+00:00",
+  "_received_at": "2026-06-05T09:45:53.806415+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "chengzigedeAir",
   "_events": [
@@ -33,6 +33,16 @@
       "timestamp": "2026-06-04T19:27:43.298493+00:00",
       "payload": {
         "summary": "Updating 85ee48fcf..c1479eae4\nCreated autostash: a9c72b3d5\nFast-forward\n .../data/automation/f13b03d1-7310-433c-ba35-368c51edb1d0.json       | 2 +-\n .../data/ave/f13b03d1-7310-433c-ba35-368c51edb1d0.json              | 2 +-\n .../data/collector/f13b03d1-7310-433c-ba35-368c51edb1d0.json        | 2 +-\n .../data/guardd/f13b03d1-7310-433c-ba35-368c51edb1d0.json           | 2 +-\n .../data/knowledge/f13b03d1-7310-433c-ba35-368c51edb1d0.json        | 2 +-\n .../data/matrix/f13b03d1-7310-433c-ba35-368c51e",
+        "hostname": "chengzigedeAir"
+      }
+    },
+    {
+      "id": "a2741cf7-8d25-4a69-8f3f-cd788e58483c",
+      "type": "sync_updated",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-05T09:40:53.871157+00:00",
+      "payload": {
+        "summary": "Updating e421a751f..c5733c172\nCreated autostash: 8f77c13ac\nFast-forward\n .../data/automation/f13b03d1-7310-433c-ba35-368c51edb1d0.json       | 2 +-\n .../data/ave/f13b03d1-7310-433c-ba35-368c51edb1d0.json              | 2 +-\n .../data/collector/f13b03d1-7310-433c-ba35-368c51edb1d0.json        | 2 +-\n .../data/guardd/f13b03d1-7310-433c-ba35-368c51edb1d0.json           | 2 +-\n .../data/knowledge/f13b03d1-7310-433c-ba35-368c51edb1d0.json        | 2 +-\n .../data/matrix/f13b03d1-7310-433c-ba35-368c51e",
         "hostname": "chengzigedeAir"
       }
     }
