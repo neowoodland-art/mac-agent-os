@@ -17,12 +17,12 @@
     "used_gb": 89.4,
     "available_gb": 155.7
   },
-  "last_seen": "2026-06-08T06:48:49.442287+00:00",
+  "last_seen": "2026-06-08T06:53:58.094616+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-08T06:48:49.466059+00:00",
+  "_received_at": "2026-06-08T06:53:58.118205+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
   "_events": [
