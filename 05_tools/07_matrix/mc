@@ -4,7 +4,7 @@
 # 或: alias mc='$(pwd)/mc'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON="/Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+PYTHON="/Users/5kecheng/.workbuddy/binaries/python/envs/agent-os/bin/python3"
 
 # mc 包在 scripts/mc/ 下，需要先 cd 到 scripts/
 cd "$SCRIPT_DIR/scripts"

@@ -240,7 +240,8 @@ class BatchEngine:
         platform = acct_info.get("platform", "douyin")
         identity_hint = acct_info.get("identity_hint", account_id)
 
-        cookie_status = check_cookie(identity_hint)
+        # 复用连接时 cookie 已在 _run_account_all_rounds 中验证过，跳过（避免浏览器写锁冲突）
+        cookie_status = "ok" if not own_conn else check_cookie(identity_hint)
         if cookie_status != "ok":
             log.warning(f"  ⏭️ {account_id}: cookie={cookie_status}，跳过")
             report.skipped = True
@@ -270,7 +271,7 @@ class BatchEngine:
                 )
                 await conn.connect()
                 await conn.init_anti_detection()
-                dyops = DouyinOps(conn.page)
+            dyops = DouyinOps(conn.page)
 
             # 导航到首页（复用模式下也确保正确页面）
             target_url = "https://www.douyin.com/" if platform != "xiaohongshu" else "https://www.xiaohongshu.com/"
