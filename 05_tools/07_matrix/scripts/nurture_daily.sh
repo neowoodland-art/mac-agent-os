@@ -83,7 +83,7 @@ fi
 run_batch "Profile: 小红书前三" "xhs_01,xhs_02,xhs_03" "xiaohongshu_read_profile" 1
 
 if [ "$GROUP" = "all" ] || [ "$GROUP" = "2" ]; then
-    run_batch "Batch 2: 小红书前三" "xhs_01,xhs_02,xhs_03"
+    run_batch "Batch 2: 小红书前三" "xhs_01,xhs_02,xhs_03" "xiaohongshu_nurture_v1"
 fi
 
 # 读取主页信息（第二组）
@@ -97,7 +97,7 @@ fi
 run_batch "Profile: 小红书后三" "xhs_04,xhs_05,xhs_06" "xiaohongshu_read_profile" 1
 
 if [ "$GROUP" = "all" ] || [ "$GROUP" = "4" ]; then
-    run_batch "Batch 4: 小红书后三" "xhs_04,xhs_05,xhs_06"
+    run_batch "Batch 4: 小红书后三" "xhs_04,xhs_05,xhs_06" "xiaohongshu_nurture_v1"
 fi
 
 log ""

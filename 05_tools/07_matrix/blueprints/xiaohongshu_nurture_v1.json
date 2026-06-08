@@ -1,0 +1,19 @@
+{
+  "id": "xiaohongshu_nurture_v1",
+  "name": "小红书日常浏览",
+  "version": "1.0.0",
+  "platform": "xiaohongshu",
+  "description": "小红书养号：浏览推荐页→点击笔记→点赞/收藏→搜索→循环",
+  "steps": [
+    {"step_id": 1, "op": "xhs_goto_home", "args": {}, "wait_after": 3},
+    {"step_id": 2, "op": "xhs_browse", "args": {}, "wait_after": 2},
+    {"step_id": 3, "op": "xhs_scroll_feed", "args": {}, "wait_after": 2},
+    {"step_id": 4, "op": "xhs_click_note", "args": {}, "wait_after": 3},
+    {"step_id": 5, "op": "xhs_like", "args": {"probability": 0.4}, "wait_after": 2},
+    {"step_id": 6, "op": "xhs_scroll_feed", "args": {}, "wait_after": 2},
+    {"step_id": 7, "op": "xhs_goto_home", "args": {}, "wait_after": 2},
+    {"step_id": 8, "op": "xhs_search", "args": {"keyword": "热门推荐"}, "wait_after": 3},
+    {"step_id": 9, "op": "xhs_click_note", "args": {}, "wait_after": 3},
+    {"step_id": 10, "op": "xhs_like", "args": {"probability": 0.3}, "wait_after": 2}
+  ]
+}

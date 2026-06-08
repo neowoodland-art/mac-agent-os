@@ -1,0 +1,27 @@
+{
+  "id": "recorded_douyin_01_5steps",
+  "name": "录制蓝图 (5步)",
+  "version": "1.0.0",
+  "platform": "xiaohongshu",
+  "description": "由录制自动生成: douyin_01 5步操作",
+  "steps": [
+    {
+      "step_id": 1,
+      "op": "custom_view_profile",
+      "args": {},
+      "wait_after": 2
+    },
+    {
+      "step_id": 2,
+      "op": "custom_click",
+      "args": {},
+      "wait_after": 2
+    },
+    {
+      "step_id": 3,
+      "op": "custom_action",
+      "args": {},
+      "wait_after": 2
+    }
+  ]
+}

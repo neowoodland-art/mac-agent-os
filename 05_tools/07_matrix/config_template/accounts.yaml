@@ -1,93 +1,155 @@
-# Matrix 账号配置
-# profile_dir: 相对于 ~/matrix/profiles/
-# port: CDP 调试端口（每个账号独立端口，支持同时运行）
-# viewport: 窗口尺寸，桌面端固定 1024x768（测试验证最稳定）
-# proxy: 代理地址（可选，静态住宅IP）
+# Matrix 账号配置模板
+# ==========================================
+# 核心规则: 一手机号 = 一浏览器身份(identity_dir)
+# 同手机号的抖音+小红书必须共享 identity_dir!
+#
+# 本模板复制到 agent-local/tools/matrix/config/accounts.yaml 后使用。
+# 敏感字段（手机号）建议写在 accounts.override.yaml 中，而非本文件。
+# ==========================================
 
 viewport:
   width: 702
   height: 783
-  mobile: false   # 桌面端模式，保持 Cookie 兼容
-  # 2026-04-27 ghai 手动调整确认：两个窗口均为 702x783（外窗尺寸）
+  mobile: false
 
 # Camoufox 全局配置
 camoufox:
-  # 可执行文件路径
   executable: ~/Library/Caches/camoufox/Camoufox.app/Contents/MacOS/camoufox
-  # 默认视口（与 Chrome 一致）
   screen:
     width: 702
     height: 783
-  # 默认地理设置
   geo:
     timezone: Asia/Shanghai
     locale: zh-CN
 
 accounts:
-  # ── 抖音账号 ──
+  # ═══════════════════════════════════════════
+  # 账号列表 — 一手机号 = 一 identity_dir
+  # ═══════════════════════════════════════════
+  #
+  # 示例：手机号 185xxxx8610 同时拥有抖音和小红书账号，
+  # 两个账号的 identity_dir 指向同一个目录（douyin_01_camo）。
+  # 这样登录态（cookie/fingerprint）只存一份，切换平台时用
+  # CookieGuard 保护对方平台的 session（见 cookie_manager.py）。
+  #
+  # 数据分层：
+  #   代码 + 配置模板 → agent-sync/ （Gitee 同步）
+  #   本机敏感信息   → agent-local/tools/matrix/config/accounts.override.yaml（不同步）
+  #   完整配置       → agent-local/tools/matrix/config/accounts.yaml（不同步）
+  #
+  # 同手机号的 xhs 账号不需要写 identity_dir，MatrixManager 会自动复用
+  # douyin 账号的 identity_dir（通过手机号匹配）。
+  #
+  # ── 可用字段 ──
+  #   id:               账号标识，CLI 参数用这个
+  #   platform:         douyin | xiaohongshu | zhihu
+  #   phone:            手机号（必填，用于身份匹配和短信接收）
+  #   identity_dir:     identities/ 下的目录名（可选，不填则用 id 字段）
+  #   window:           [宽, 高] 窗口尺寸
+  #   window_position:  [X, Y] 多账号防重叠
+  #   proxy:            socks5://127.0.0.1:7890（可选）
+  #   enabled:          true | false
+  #   notes:            备注
+  # ═══════════════════════════════════════════
+
+  # ── 账号 1: 手机号 185xxxx8610 ──
   - id: douyin_01
     platform: douyin
     phone: "18513308610"
-    port: 9222
-    profile_dir: account_01   # 最早创建的 Profile，已登录
+    identity_dir: identities/douyin_01_camo
+    window: [702, 783]
+    window_position: [0, 0]
     enabled: true
-    notes: 抖音主号
+    notes: "抖音主号（identity 也用于 xhs_01）"
 
-  - id: douyin_02
-    platform: douyin
-    phone: ""
-    port: 9223
-    profile_dir: douyin_02
-    enabled: false
-    notes: 抖音副号（待登录）
-
-  # ── 小红书账号 ──
   - id: xhs_01
     platform: xiaohongshu
-    phone: ""
-    port: 9224
-    profile_dir: xhs_01
-    enabled: false
-    notes: 小红书待注册
+    phone: "18513308610"
+    window: [702, 783]
+    window_position: [0, 800]
+    enabled: true
+    notes: "小红书（共享 douyin_01_camo 身份，无需 identity_dir）"
 
-  # ── 知乎账号 ──
-  - id: zhihu_01
-    platform: zhihu
-    phone: ""
-    port: 9225
-    profile_dir: zhihu_01
-    enabled: false
-    notes: 知乎待注册
+  # ── 账号 2: 手机号 185xxxx3366 ──
+  - id: douyin_02
+    platform: douyin
+    phone: "18500003366"
+    identity_dir: identities/douyin_02_camo
+    window: [702, 783]
+    window_position: [400, 0]
+    enabled: true
+    notes: "抖音副号"
 
-  # ── Camoufox 测试账号 ──
+  - id: xhs_02
+    platform: xiaohongshu
+    phone: "18500003366"
+    window: [702, 783]
+    window_position: [400, 800]
+    enabled: true
+    notes: "小红书（共享 douyin_02_camo 身份）"
+
+  # ── 账号 3: 手机号 153xxxx8283 ──
   - id: douyin_camo01
     platform: douyin
-    phone: ""
-    port: 9301
-    browser_type: camoufox
-    profile_dir: camoufox_01   # 自动创建目录
-    proxy: null                # 可选，如 socks5://127.0.0.1:7890
-    screen:   # 可覆盖全局
-      width: 702
-      height: 783
-    geo:
-      timezone: Asia/Shanghai
-      locale: zh-CN
+    phone: "15370108283"
+    identity_dir: identities/douyin_camo01
+    window: [702, 783]
+    window_position: [750, 0]
     enabled: true
-    notes: Camoufox 测试账号1
+    notes: "抖音三号"
 
-  - id: douyin_camo02
-    platform: douyin
-    phone: ""
-    port: 9302
-    browser_type: camoufox
-    profile_dir: camoufox_02
-    proxy: null
-    screen:
-      width: 702
-      height: 783
-    geo:
-      timezone: Asia/Shanghai
-      locale: zh-CN
+  - id: xhs_03
+    platform: xiaohongshu
+    phone: "15370108283"
+    window: [702, 783]
+    window_position: [750, 800]
     enabled: true
-    notes: Camoufox 测试账号2
+    notes: "小红书（共享 douyin_camo01 身份）"
+
+  # ── 账号 4: 手机号 185xxxx9083 ──
+  - id: douyin_04
+    platform: douyin
+    phone: "18550099083"
+    identity_dir: identities/douyin_04
+    window: [702, 783]
+    enabled: true
+    notes: "抖音四号"
+
+  - id: xhs_04
+    platform: xiaohongshu
+    phone: "18550099083"
+    window: [702, 783]
+    enabled: true
+    notes: "小红书（共享 douyin_04 身份）"
+
+  # ── 账号 5: 手机号 185xxxx9224 ──
+  - id: douyin_05
+    platform: douyin
+    phone: "18550099224"
+    identity_dir: identities/douyin_05
+    window: [702, 783]
+    enabled: true
+    notes: "抖音五号"
+
+  - id: xhs_05
+    platform: xiaohongshu
+    phone: "18550099224"
+    window: [702, 783]
+    enabled: true
+    notes: "小红书（共享 douyin_05 身份）"
+
+  # ── 账号 6: 手机号 137xxxx6808 ──
+  - id: douyin_06
+    platform: douyin
+    phone: "13754826808"
+    identity_dir: identities/douyin_06
+    window: [702, 783]
+    enabled: true
+    notes: "抖音六号"
+
+  - id: xhs_06
+    platform: xiaohongshu
+    phone: "13754826808"
+    window: [702, 783]
+    enabled: true
+    notes: "小红书（共享 douyin_06 身份）"

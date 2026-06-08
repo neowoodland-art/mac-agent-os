@@ -134,7 +134,54 @@ else → 检查 hasCL
 
 ---
 
-## 窗口位置规则
+## 并行执行架构（v4.3 新增）
+
+`mc run` 使用 `mc/engine.py` 的 `BatchEngine` 执行批量任务。v4.3 改为并行模式：
+
+### 设计要点
+
+1. **单账号全轮复用浏览器** — 每个账号创建一个 Camoufox 连接，跑完全部轮次再关闭
+2. **多账号 `asyncio.gather`** — 所有账号的 `_run_account_all_rounds()` 同时启动
+3. **浏览器启停优化** — N 个账号 × R 轮 → 启停 N 次（而非 N×R 次）
+
+### 新旧对比
+
+```
+旧版 (v1.1):
+  轮1: A→B→C (串行) → 间隔 → 轮2: A→B→C → 间隔 → 轮3: A→B→C
+  # 每步开闭一次浏览器，后一个等前一个完成
+  # 3账号×3轮 ≈ 500-900s/批次
+
+新版 (v1.2):
+  A的全部3轮 ──┐
+  B的全部3轮 ──┼── asyncio.gather ── 同时完成
+  C的全部3轮 ──┘
+  # 每账号一个持久浏览器，互不等待
+  # 3账号×3轮 ≈ 150-350s/批次（约节省 60%）
+```
+
+### 代码入口
+
+| 方法 | 职责 |
+|:-----|:-----|
+| `BatchEngine.run()` | prepare 所有账号 → gather 子任务 → 汇总 |
+| `_run_account_all_rounds()` | 每账号：resolve → cookie 检查 → 启动浏览器 → 循环轮次 → 关闭 |
+| `run_single(conn=...)` | 单轮单账号：导航到首页 → 执行蓝图步骤 → 返回报告 |
+| `_pick_blueprint(round_idx)` | 混合随机/顺序选择本轮蓝图 |
+
+### 共享连接模式
+
+`run_single()` 新增 `conn` 参数：
+- `conn=None` → 自行创建并关闭浏览器（独立使用场景）
+- `conn=CDPConnector` → 复用已有连接（`_run_account_all_rounds` 内部调用）
+
+### 注意事项
+
+- 并行启动多个 Camoufox 实例时，不要同时调用 `connect()` 中的 `pkill -f camoufox`
+  （目前 connect() 中始终执行，但因同步调用在 async 之前完成，3 个并行的 connect() 的
+   pkill 都在任何 Camoufox 启动前执行完毕，因此不会跨进程误杀）
+- `BrowserManager.prepare()` 在 `run()` 中统一调用，不在子任务中重复执行
+
 
 2026-05-15 修改：窗口位置固定从 `accounts.yaml` 读取，不再保存回写。
 Camoufox 启动偏移会导致保存的坐标偏离预期（如 0→652, 400→2169）。

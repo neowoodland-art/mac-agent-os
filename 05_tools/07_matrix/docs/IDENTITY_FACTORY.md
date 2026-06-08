@@ -100,6 +100,44 @@ for c in cookies:
 └──────────────────────────────────────────────────────────┘
 ```
 
+### 2.2 核心规则：一手机号 = 一身份
+
+**同手机号的抖音和小红书账号必须共用同一个 identity_dir。**
+
+这是经过实践验证的结论：
+
+| ❌ 错误做法 | ✅ 正确做法 |
+|:-----------|:-----------|
+| douyin_01 → `identities/douyin_01_camo` | douyin_01 → `identities/douyin_01_camo` |
+| xhs_01 → `identities/xhs_01`（新建身份） | xhs_01 → `identities/douyin_01_camo`（**复用**） |
+| 结果：两个浏览器指纹，两个登录态 | 结果：一个浏览器指纹，一份登录态，抖音和小红书 cookie 共存 |
+
+**为什么必须相同？**
+- 一个手机号绑定一个实际的"人"，反检测的本质是让平台认为你是"同一个人在不同网站活动"
+- 抖音和小红书分别存储 session cookie，互不冲突
+- 只需用 `CookieGuard` 保护对方平台的 cookie（删除时别误删）
+
+**代码中如何配置（accounts.override.yaml）**：
+```yaml
+- id: douyin_04
+  phone: '18550099083'
+  enabled: true
+- id: xhs_04
+  phone: '18550099083'   # 同手机号
+  enabled: true
+```
+
+`MatrixManager` 的 `list_accounts()` 方法会自动为同手机号的 xhs 账号分配与 douyin 相同的 identity_dir。
+
+**验证方法**：
+```bash
+cd scripts && python -c "
+from mc.engine import resolve_account
+a = resolve_account('xhs_04')
+print(a.get('identity_hint'))  # 输出: douyin_04（与 douyin_04 相同）
+"
+```
+
 ### 2.2 目录结构
 
 ```

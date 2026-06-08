@@ -441,6 +441,7 @@ class MatrixManager:
             "platform": "xiaohongshu", "category": "interact", "label": "📄 读取简介",
             "requires": ["xhs_goto_profile"], "allows": ["xhs_read_nickname", "xhs_read_user_id", "xhs_read_following", "xhs_read_fans", "xhs_read_likes", "rest", "go_back"],
             "can_be_first": False, "desc": "从个人主页读取个人简介"
+        },
 
         # ═══════════════════════════════════════════════════
         # ⚙️ 通用工具（所有平台可用）
@@ -518,6 +519,81 @@ class MatrixManager:
             }
 
         return sorted(result.values(), key=lambda x: (x.get("category", "z"), x["name"]))
+
+    def register_atomic_op(self, entry: dict) -> dict:
+        """注册一个新的原子操作到 OP_GRAPH"""
+        name = entry.get("name", "")
+        if not name:
+            raise ValueError("操作名不能为空")
+        if name in self.OP_GRAPH:
+            raise ValueError(f"操作 {name} 已存在")
+        self.OP_GRAPH[name] = {
+            "platform": entry.get("platform", "通用"),
+            "category": entry.get("category", "custom"),
+            "label": entry.get("label", f"🎬 {name}"),
+            "requires": entry.get("requires", []),
+            "allows": entry.get("allows", ["rest", "go_back"]),
+            "can_be_first": entry.get("can_be_first", True),
+            "desc": entry.get("desc", ""),
+            "_source": entry.get("_source", "manual"),
+        }
+        # 持久化
+        self._save_op_graph()
+        return {"status": "ok", "name": name}
+
+    def delete_atomic_op(self, name: str) -> dict:
+        """删除一个原子操作"""
+        if name not in self.OP_GRAPH:
+            raise ValueError(f"操作 {name} 不存在")
+        # 保护预设操作不被删除
+        builtin = ["goto_home", "rest", "go_back", "wait", "scroll_feed",
+                   "like", "collect", "comment", "follow", "search",
+                   "next_video", "open_video", "xhs_goto_home"]
+        if name in builtin:
+            raise ValueError(f"内置操作 {name} 不能删除")
+        del self.OP_GRAPH[name]
+        self._save_op_graph()
+        return {"status": "ok", "name": name}
+
+    def _save_op_graph(self):
+        """将 OP_GRAPH 写回文件"""
+        # 找到 OP_GRAPH 在文件中的位置并更新
+        content = MATRIX_MGMT.read_text(encoding="utf-8")
+        start = content.find("OP_GRAPH = {")
+        if start < 0:
+            return
+        # 找到匹配的闭括号
+        depth = 0
+        end = start
+        for i in range(start, len(content)):
+            if content[i] == '{':
+                depth += 1
+            elif content[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    end = i + 1
+                    break
+        # 生成新的 OP_GRAPH 文本
+        import textwrap
+        lines = ["OP_GRAPH = {"]
+        for name, info in self.OP_GRAPH.items():
+            label = info.get("label", name)
+            desc = info.get("desc", "")
+            platform = info.get("platform", "通用")
+            cat = info.get("category", "custom")
+            req = info.get("requires", [])
+            allow = info.get("allows", ["*"])
+            first = str(info.get("can_be_first", True))
+            source = info.get("_source", "manual")
+            lines.append(f'    "{name}": {{')
+            lines.append(f'        "platform": "{platform}", "category": "{cat}", "label": "{label}",')
+            lines.append(f'        "requires": {req}, "allows": {allow},')
+            lines.append(f'        "can_be_first": {first}, "desc": "{desc}", "_source": "{source}"')
+            lines.append(f'    }},')
+        lines.append("}")
+        new_op_graph = "\n".join(lines)
+        content = content[:start] + new_op_graph + content[end:]
+        MATRIX_MGMT.write_text(content, encoding="utf-8")
 
     def validate_blueprint_steps(self, steps: list[dict]) -> dict:
         """校验蓝图的步骤编排合法性

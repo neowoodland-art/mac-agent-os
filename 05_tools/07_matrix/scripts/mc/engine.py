@@ -1,20 +1,33 @@
 """
-engine.py — mc run 真实执行引擎
+engine.py — mc run 真实执行引擎（v1.2 — 并行版）
 
 不再依赖旧 orchestrator（Chrome CDP 模式），
 改为直接使用 Camoufox 加载身份 cookie 执行。
 
-流程:
+<batch_run 流程>
   mc run --accounts X --blueprints Y
     → BatchEngine.run()
-      → for each account:
-          1. 检查 cookie 有效性（跳过无效的）
-          2. 用 Camoufox 启动身份目录
-          3. 打开抖音首页
-          4. 验证登录态
-          5. 执行蓝图步骤（通过 atom_ops）
-          6. 关闭浏览器
-      → 返回汇总报告
+      → prepare() 所有账号（清理残留锁/PID）
+      → asyncio.gather( _run_account_all_rounds(a) for a in accounts )
+        └── _run_account_all_rounds(a) —— 每账号一个浏览器，跑完全部轮次
+            1. 检查 cookie 有效性（跳过无效的）
+            2. 用 Camoufox 启动身份目录
+            3. 打开抖音/小红书首页
+            4. 执行蓝图步骤（通过 atom_ops）
+            5. 等待跨轮间隔
+            6. 回到 3 继续下一轮
+            7. 全部完成后关闭浏览器
+      → 汇总所有报告
+
+<并行设计>
+  旧版 (v1.1): for round → for account → run_single（每轮每账号开闭浏览器）
+  新版 (v1.2): asyncio.gather — 每个账号一个持久连接，跑完所有轮次
+               浏览器启停: N×R 次 → N 次（N=账号数, R=轮次数）
+               总耗时: sum(A,B,C,...) → max(A,B,C,...)
+
+<共享浏览器>
+  _run_account_all_rounds() 创建 CDPConnector 后传入 run_single(conn=...)，
+  run_single 检测 own_conn 标志决定是否创建/关闭浏览器。
 """
 import asyncio
 import json
@@ -201,12 +214,20 @@ class BatchEngine:
         return self.blueprints[(round_idx - 1) % len(self.blueprints)]
 
     async def run_single(self, account_id: str, blueprint_name: str,
-                         round_idx: int) -> AccountRunReport:
+                         round_idx: int, conn=None) -> AccountRunReport:
         """对单个账号执行一轮蓝图
+
+        Args:
+            conn: 可选的已有 CDPConnector 实例（跨轮复用浏览器时使用）。
+                  为 None 则自行启动并关闭浏览器。
 
         使用现有 CDPConnector + DouyinOps 模式（与 yanghao_runner.py 一致）
         """
         report = AccountRunReport(account_id, blueprint_name, round_idx)
+        own_conn = conn is None
+
+        # profile_cache: 在 goto_profile 时一次性提取全部字段，读字段步骤从缓存返回
+        profile_cache: dict = {}
 
         # 1. 解析账号+蓝图
         try:
@@ -231,33 +252,33 @@ class BatchEngine:
             report.skipped = True
             return report
         steps = bp.get("steps", [])
-        log.info(f"  📱 {account_id} → {blueprint_name} ({len(steps)}步)")
+        log.info(f"  📱 {account_id}{' [复用]' if not own_conn else ''} → {blueprint_name} ({len(steps)}步)")
 
-        # 2. 使用 CDPConnector 启动 Camoufox（与 yanghao_runner 一致）
+        # 2. 浏览器连接管理
         identity_dir = str(IDENTITIES_ROOT / identity_hint)
 
         try:
             from cdp_connector import CDPConnector
             from douyin_ops import DouyinOps
 
-            conn = CDPConnector(
-                browser_type="camoufox",
-                headless=False,
-                window=(702, 783),
-                identity_dir=identity_dir,
-            )
+            if own_conn:
+                conn = CDPConnector(
+                    browser_type="camoufox",
+                    headless=False,
+                    window=(702, 783),
+                    identity_dir=identity_dir,
+                )
+                await conn.connect()
+                await conn.init_anti_detection()
+                dyops = DouyinOps(conn.page)
 
-            await conn.connect()
-            await conn.init_anti_detection()
-            dyops = DouyinOps(conn.page)
-
-            # 导航到首页
+            # 导航到首页（复用模式下也确保正确页面）
             target_url = "https://www.douyin.com/" if platform != "xiaohongshu" else "https://www.xiaohongshu.com/"
             log.info(f"  🌐 打开 {target_url}")
             await conn.page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
             await asyncio.sleep(5)
 
-            # 找第一个视频进入播放模式（与 yanghao_runner 一致）
+            # 找第一个视频进入播放模式（仅第一轮/自建连接时）
             if platform == "douyin":
                 video_links = await conn.page.evaluate("""() => {
                     const all = document.querySelectorAll('a');
@@ -290,35 +311,99 @@ class BatchEngine:
                         await asyncio.sleep(3)
                     elif op == "dy_goto_profile":
                         await conn.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
-                        await asyncio.sleep(4)
+                        await asyncio.sleep(5)
+
+                        # 统一提取：一次 page.evaluate 获取全部字段
+                        profile_cache = await conn.page.evaluate("""() => {
+                            const text = (document.body.innerText || '').trim();
+                            const title = (document.title || '').replace(' - 抖音', '').replace('的抖音', '').trim();
+
+                            const uidM = text.match(/抖音号[：:]\\s*(\\S+)/);
+                            const folM = text.match(/(\\d+(?:\\.\\d+)?[万w]?)\\s*关注/);
+                            const fanM = text.match(/(\\d+(?:\\.\\d+)?[万w]?)\\s*粉丝/);
+                            const likM = text.match(/(\\d+(?:\\.\\d+)?[万w]?)\\s*获赞/);
+                            const posM = text.match(/作品\\s*(\\d+)/);
+
+                            function getE2e(s) {
+                                const el = document.querySelector('[data-e2e="'+s+'"]');
+                                return el ? (el.textContent||'').trim() : '';
+                            }
+                            const folE = getE2e('user-info-follow').replace(/[^0-9]/g,'');
+                            const fanE = getE2e('user-info-fans').replace(/[^0-9]/g,'');
+                            const likE = getE2e('user-info-like').replace(/[^0-9]/g,'');
+                            const cntE = getE2e('user-tab-count');
+
+                            const fol = folM ? folM[1] : (folE || '?');
+                            const fan = fanM ? fanM[1] : (fanE || '?');
+                            const lik = likM ? likM[1] : (likE || '?');
+                            const pos = posM ? posM[1] : (cntE || '?');
+
+                            let bio = '?';
+                            const bioE = getE2e('user-bio');
+                            if (bioE) bio = bioE.slice(0, 50);
+
+                            return { nickname: title, user_id: uidM ? uidM[1] : '?',
+                                     following: fol, fans: fan, likes: lik,
+                                     posts: pos, bio: bio };
+                        }""")
+                        p = profile_cache
+                        log.info(
+                            f"      📊 主页: {p.get('nickname','?')}"
+                            f" ID={p.get('user_id','?')}"
+                            f" 关注={p.get('following','?')}"
+                            f" 粉丝={p.get('fans','?')}"
+                            f" 获赞={p.get('likes','?')}"
+                            f" 作品={p.get('posts','?')}"
+                        )
+                        # 保存主页信息到 profiles.json
+                        try:
+                            pf = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+                            if pf.exists():
+                                all_p = json.loads(pf.read_text())
+                            else:
+                                all_p = {}
+                            pf.parent.mkdir(parents=True, exist_ok=True)
+                            all_p[account_id] = {
+                                "nickname": p.get("nickname","?"),
+                                "user_id": p.get("user_id","?"),
+                                "following": p.get("following","?"),
+                                "fans": p.get("fans","?"),
+                                "likes": p.get("likes","?"),
+                                "posts": p.get("posts","?"),
+                                "platform": "douyin",
+                                "updated": datetime.now().isoformat(),
+                            }
+                            pf.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
+                        except:
+                            pass
                         result = "profile_loaded"
                     elif op == "dy_read_nickname":
-                        nick = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-info"]'); if(!el) return '?'; const t=el.textContent.trim(); const m=t.match(/^([^\\d]+?)(?=关注\\d)/); return m?m[1].trim():t.slice(0,20); }""")
-                        log.info(f"      📝 昵称: {nick}")
-                        result = "nickname=" + nick
+                        v = profile_cache.get("nickname", "?")
+                        log.info(f"      📝 昵称: {v} (cached)")
+                        result = "nickname=" + v
                     elif op == "dy_read_douyin_id":
-                        dyid = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-info"]'); if(!el) return '?'; const t=el.textContent.trim(); const m=t.match(/抖音号[：:]\\s*(\\S+)/); return m?m[1]:'?'; }""")
-                        log.info(f"      🔢 抖音号: {dyid}")
-                        result = "douyin_id=" + dyid
+                        v = profile_cache.get("user_id", "?")
+                        log.info(f"      🔢 抖音号: {v} (cached)")
+                        result = "douyin_id=" + v
                     elif op == "dy_read_following":
-                        v = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-info-follow"]'); return el?el.textContent.trim():'?'; }""")
-                        log.info(f"      👥 关注: {v}")
+                        v = profile_cache.get("following", "?")
+                        log.info(f"      👥 关注: {v} (cached)")
                         result = "following=" + v
                     elif op == "dy_read_fans":
-                        v = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-info-fans"]'); return el?el.textContent.trim():'?'; }""")
-                        log.info(f"      👥 粉丝: {v}")
+                        v = profile_cache.get("fans", "?")
+                        log.info(f"      👥 粉丝: {v} (cached)")
                         result = "fans=" + v
                     elif op == "dy_read_likes":
-                        v = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-info-like"]'); return el?el.textContent.trim():'?'; }""")
-                        log.info(f"      👍 获赞: {v}")
+                        v = profile_cache.get("likes", "?")
+                        log.info(f"      👍 获赞: {v} (cached)")
                         result = "likes=" + v
                     elif op == "dy_read_posts":
-                        v = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-tab-count"]'); return el?el.textContent.trim():'?'; }""")
-                        log.info(f"      📹 作品: {v}")
+                        v = profile_cache.get("posts", "?")
+                        log.info(f"      📹 作品: {v} (cached)")
                         result = "posts=" + v
                     elif op == "dy_read_bio":
-                        v = await conn.page.evaluate("""() => { const el=document.querySelector('[data-e2e="user-bio"]'); return el?el.textContent.trim().slice(0,50):'?'; }""")
-                        log.info(f"      📄 简介: {v}")
+                        v = profile_cache.get("bio", "?")
+                        log.info(f"      📄 简介: {v} (cached)")
                         result = "bio=" + v
                     elif op == "wait_watch":
                         seconds = sargs.get("seconds", random.randint(5, 12))
@@ -338,73 +423,201 @@ class BatchEngine:
                             return b ? (b.click(), '⭐') : '-';
                         }""")
                         result = r
+                    elif op == "open_comments":
+                        # 抖音: KeyX 打开评论区
+                        await conn.page.keyboard.press("x")
+                        await asyncio.sleep(2)
+                        # 验证评论区是否打开
+                        r = await conn.page.evaluate("""() => {
+                            const panel = document.querySelector('[data-e2e="comment-panel"], [class*="comment-list"], [class*="CommentList"]');
+                            if (panel && panel.offsetParent !== null) return 'opened';
+                            const input = document.querySelector('[data-e2e="comment-input"], textarea[placeholder*="评论"]');
+                            return (input && input.offsetParent !== null) ? 'input_visible' : 'not_found';
+                        }""")
+                        result = f"comments_{r}"
+                    elif op == "post_comment":
+                        text = sargs.get("text", "拍得真好")
+                        # pbcopy 写入剪贴板（Draft.js 只认系统级粘贴）
+                        proc = await asyncio.create_subprocess_exec(
+                            "pbcopy", stdin=asyncio.subprocess.PIPE
+                        )
+                        await proc.communicate(input=text.encode())
+                        await asyncio.sleep(0.5)
+                        # 聚焦评论输入框
+                        r = await conn.page.evaluate("""() => {
+                            const sel = '[data-e2e="comment-input"], textarea[placeholder*="评论"], .comment-input, [contenteditable="true"]';
+                            const el = document.querySelector(sel);
+                            if (el && el.offsetParent !== null) { el.focus(); return 'focused'; }
+                            const tas = document.querySelectorAll('textarea');
+                            for (const ta of tas) { if (ta.offsetParent !== null) { ta.focus(); return 'ta_' + ta.placeholder; } }
+                            return 'no_input';
+                        }""")
+                        await asyncio.sleep(0.5)
+                        # Meta+V 粘贴 + Enter 发送
+                        await conn.page.keyboard.press("Meta+V")
+                        await asyncio.sleep(1.5)
+                        await conn.page.keyboard.press("Enter")
+                        await asyncio.sleep(2)
+                        result = f"comment_sent({text[:10]})"
+                    elif op == "close_comments":
+                        # Escape 关闭评论区
+                        await conn.page.keyboard.press("Escape")
+                        await asyncio.sleep(1)
+                        result = "comments_closed"
                     elif op == "xhs_goto_profile":
-                        # 从底部导航"我"链接获取用户ID，然后URL导航（比DOM点击更可靠）
+                        # 从 DOM 提取"我"底部导航的 profile URL -> page.goto() 导航
                         profile_url = await conn.page.evaluate("""() => {
                             const links = document.querySelectorAll('a');
                             for (const a of links) {
                                 const href = a.href || '';
-                                if (href.includes('/user/profile/') && (a.textContent.trim() === '我' || a.className.includes('bottom'))) {
+                                if (href.includes('/user/profile/')) {
                                     return href;
                                 }
                             }
                             return '';
                         }""")
-                        if profile_url:
-                            await conn.page.goto(profile_url, timeout=20000, wait_until="domcontentloaded")
-                        else:
-                            await conn.page.goto("https://www.xiaohongshu.com/user/profile", timeout=20000, wait_until="domcontentloaded")
-                        await asyncio.sleep(4)
+                        target = profile_url or "https://www.xiaohongshu.com/user/profile"
+                        await conn.page.goto(target, timeout=20000, wait_until="domcontentloaded")
+                        await asyncio.sleep(5)
+
+                        # 统一提取：一次 page.evaluate 获取全部字段
+                        profile_cache = await conn.page.evaluate("""() => {
+                            const text = (document.body.innerText || '').trim();
+                            const title = (document.title || '').replace(' - 小红书', '').trim();
+
+                            const uidM = text.match(/小红书号[：:]\\s*(\\d+)/);
+                            const folM = text.match(/(\d+(?:\.\d+)?[万wW]?)\s*关注/);
+                            const fanM = text.match(/(\d+(?:\.\d+)?[万wW]?)\s*粉丝/);
+                            const likM = text.match(/(\d+(?:\.\d+)?[万wW]?)\s*获赞与收藏/);
+                            const posM = text.match(/笔记[・·](\d+(?:\.\d+)?[万wW]?)/);
+
+                            let bio = '?';
+                            if (text.includes('还没有简介') || text.includes('暂无简介')) {
+                                bio = '(无)';
+                            } else {
+                                const bioM = text.match(/IP属地[：:].+?\\n(.+?)(?=\\d+关注|\\d+粉丝)/);
+                                if (bioM) bio = bioM[1].trim().slice(0, 50) || '(无)';
+                            }
+
+                            return { nickname: title, user_id: uidM ? uidM[1] : '?',
+                                     following: folM ? folM[1] : '?', fans: fanM ? fanM[1] : '?',
+                                     likes: likM ? likM[1] : '?', posts: posM ? posM[1] : '?',
+                                     bio: bio };
+                        }""")
+                        p = profile_cache
+                        log.info(
+                            f"      📊 主页: {p.get('nickname','?')}"
+                            f" ID={p.get('user_id','?')}"
+                            f" 关注={p.get('following','?')}"
+                            f" 粉丝={p.get('fans','?')}"
+                            f" 获赞={p.get('likes','?')}"
+                            f" 笔记={p.get('posts','?')}"
+                        )
+                        # 保存主页信息
+                        try:
+                            pf = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+                            all_p = json.loads(pf.read_text()) if pf.exists() else {}
+                            all_p[account_id] = {
+                                "nickname": p.get("nickname","?"),
+                                "user_id": p.get("user_id","?"),
+                                "following": p.get("following","?"),
+                                "fans": p.get("fans","?"),
+                                "likes": p.get("likes","?"),
+                                "posts": p.get("posts","?"),
+                                "platform": "xiaohongshu",
+                                "updated": datetime.now().isoformat(),
+                            }
+                            pf.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
+                        except:
+                            pass
                         result = "profile_loaded"
                     elif op == "xhs_read_nickname":
-                        nick = await conn.page.evaluate("""() => {
-                            const t = document.title;
-                            return t.replace(' - 小红书','').trim();
-                        }""")
-                        log.info(f"      📝 昵称: {nick}")
-                        result = "nickname=" + nick
+                        v = profile_cache.get("nickname", "?")
+                        log.info(f"      📝 昵称: {v} (cached)")
+                        result = "nickname=" + v
                     elif op == "xhs_read_user_id":
-                        uid = await conn.page.evaluate("""() => {
-                            const all = document.body.innerText;
-                            const m = all.match(/小红书号[：:]\s*(\d+)/);
-                            return m ? m[1] : '?';
-                        }""")
-                        log.info(f"      🔢 小红书号: {uid}")
-                        result = "user_id=" + uid
+                        v = profile_cache.get("user_id", "?")
+                        log.info(f"      🔢 小红书号: {v} (cached)")
+                        result = "user_id=" + v
                     elif op == "xhs_read_following":
-                        v = await conn.page.evaluate("""() => {
-                            const all = document.body.innerText;
-                            const m = all.match(/(\\d+)\\s*关注/);
-                            return m ? m[1] : '?';
-                        }""")
-                        log.info(f"      👥 关注: {v}")
+                        v = profile_cache.get("following", "?")
+                        log.info(f"      👥 关注: {v} (cached)")
                         result = "following=" + v
                     elif op == "xhs_read_fans":
-                        v = await conn.page.evaluate("""() => {
-                            const all = document.body.innerText;
-                            const m = all.match(/(\\d+)\\s*粉丝/);
-                            return m ? m[1] : '?';
-                        }""")
-                        log.info(f"      👥 粉丝: {v}")
+                        v = profile_cache.get("fans", "?")
+                        log.info(f"      👥 粉丝: {v} (cached)")
                         result = "fans=" + v
                     elif op == "xhs_read_likes":
-                        v = await conn.page.evaluate("""() => {
-                            const all = document.body.innerText;
-                            const m = all.match(/获赞与收藏[\\s\\S]*?(\\d+)/);
-                            return m ? m[1] : '?';
-                        }""")
-                        log.info(f"      👍 获赞: {v}")
+                        v = profile_cache.get("likes", "?")
+                        log.info(f"      👍 获赞: {v} (cached)")
                         result = "likes=" + v
                     elif op == "xhs_read_bio":
-                        v = await conn.page.evaluate("""() => {
-                            const all = document.body.innerText;
-                            const m = all.match(/还没有简介|(.+?)(?=\\d+关注|$)/);
-                            if (all.includes('还没有简介')) return '(无)';
-                            const bioM = all.match(/属地[：:].+?(.+?)(?=\\d+关注)/);
-                            return bioM ? bioM[1].trim().slice(0,30) : '?';
-                        }""")
-                        log.info(f"      📄 简介: {v}")
+                        v = profile_cache.get("bio", "?")
+                        log.info(f"      📄 简介: {v} (cached)")
                         result = "bio=" + v
+                    elif op == "xhs_goto_home":
+                        await conn.page.goto("https://www.xiaohongshu.com/explore", timeout=20000, wait_until="domcontentloaded")
+                        await asyncio.sleep(4)
+                        result = "home_loaded"
+                    elif op == "xhs_browse":
+                        if "explore" not in conn.page.url:
+                            await conn.page.goto("https://www.xiaohongshu.com/explore", timeout=15000, wait_until="domcontentloaded")
+                            await asyncio.sleep(3)
+                        result = "browsing"
+                    elif op == "xhs_scroll_feed":
+                        await conn.page.evaluate("() => window.scrollBy(0, 800)")
+                        await asyncio.sleep(2)
+                        result = "scrolled"
+                    elif op == "xhs_click_note":
+                        note = conn.page.locator('section.note-item, a[href*="/explore/"], [class*="note-item"]').first
+                        if await note.count() > 0:
+                            await note.click()
+                            await asyncio.sleep(4)
+                            result = "note_opened"
+                        else:
+                            result = "no_note"
+                    elif op == "xhs_like":
+                        r = await conn.page.evaluate("""() => {
+                            const btns = document.querySelectorAll('[class*="like"],[data-testid*="like"]');
+                            for (const b of btns) {
+                                if (b.offsetParent !== null) { b.click(); return '👍'; }
+                            }
+                            return '-';
+                        }""")
+                        await asyncio.sleep(1)
+                        result = r
+                    elif op == "xhs_comment":
+                        await conn.page.keyboard.press("x")
+                        await asyncio.sleep(2)
+                        result = "comment_opened"
+                    elif op == "xhs_follow":
+                        r = await conn.page.evaluate("""() => {
+                            const btns = document.querySelectorAll('button');
+                            for (const b of btns) {
+                                const t = (b.textContent || '').trim();
+                                if (t.includes('关注') && !t.includes('已关注')) { b.click(); return '✅'; }
+                            }
+                            return '-';
+                        }""")
+                        await asyncio.sleep(1)
+                        result = r
+                    elif op == "xhs_collect":
+                        r = await conn.page.evaluate("""() => {
+                            const btns = document.querySelectorAll('[class*="collect"],[class*="save"]');
+                            for (const b of btns) {
+                                if (b.offsetParent !== null) { b.click(); return '⭐'; }
+                            }
+                            return '-';
+                        }""")
+                        await asyncio.sleep(1)
+                        result = r
+                    elif op == "xhs_search":
+                        kw = sargs.get("keyword", "热门推荐")
+                        await conn.page.evaluate(f"(k) => {{ const i = document.querySelector('input'); if(i) {{ i.value=k; i.dispatchEvent(new Event('input')); }} }}", kw)
+                        await asyncio.sleep(1)
+                        await conn.page.keyboard.press("Enter")
+                        await asyncio.sleep(3)
+                        result = f"searched({kw})"
                     elif op in ("next_video", "swipe_next"):
                         await conn.page.evaluate("() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown'}))")
                         await asyncio.sleep(2)
@@ -437,17 +650,91 @@ class BatchEngine:
 
                 await asyncio.sleep(1.5)
 
-            await conn.close()
+            if own_conn:
+                await conn.close()
             log.info(f"  ✅ {account_id}: 完成 ({report.success}/{len(steps)}步)")
 
         except Exception as e:
             log.error(f"  ❌ {account_id}: {e}")
+            if own_conn and conn:
+                await conn.close()
             report.failed = len(steps)
 
         return report
 
+    async def _run_account_all_rounds(self, account_id: str,
+                                       bm) -> List[AccountRunReport]:
+        """单个账号用一个浏览器实例跑完全部轮次（并行子任务）
+
+        由 run() 通过 asyncio.gather 并发调用。
+        BrowserManager 的 prepare() 已在 run() 中统一执行，
+        这里只负责：resolve_account → cookie 检查 → CDPConnector 连接
+        → 循环跑所有轮次 → 关闭浏览器。
+
+        Args:
+            account_id: 账号名称（如 douyin_01）
+            bm: BrowserManager 实例（仅用于 prepare，实际不管理这里启动的浏览器）
+
+        Returns:
+            每轮一个 AccountRunReport
+        """
+        reports: List[AccountRunReport] = []
+
+        acct_info = resolve_account(account_id)
+        platform = acct_info.get("platform", "douyin")
+        identity_hint = acct_info.get("identity_hint", account_id)
+
+        # Cookie 检查（一次检查，所有轮共用）
+        cookie_status = check_cookie(identity_hint)
+        if cookie_status != "ok":
+            for r in range(1, self.rounds_total + 1):
+                rpt = AccountRunReport(account_id, "", r)
+                rpt.skipped = True
+                reports.append(rpt)
+            log.warning(f"  ⏭️ {account_id}: cookie={cookie_status}，全部跳过")
+            return reports
+
+        identity_dir = str(IDENTITIES_ROOT / identity_hint)
+
+        from cdp_connector import CDPConnector
+        conn = CDPConnector(
+            browser_type="camoufox",
+            headless=False,
+            window=(702, 783),
+            identity_dir=identity_dir,
+        )
+
+        try:
+            await conn.connect()
+            await conn.init_anti_detection()
+
+            for round_idx in range(1, self.rounds_total + 1):
+                bp_name = self._pick_blueprint(round_idx)
+                rpt = await self.run_single(
+                    account_id, bp_name, round_idx, conn=conn,
+                )
+                reports.append(rpt)
+
+                if round_idx < self.rounds_total:
+                    wait = random.uniform(30, 60)
+                    log.info(f"\n  ⏳ [{account_id}] 等待 {wait:.0f}s 后下一轮...")
+                    await asyncio.sleep(wait)
+
+        except Exception as e:
+            log.error(f"  ❌ {account_id}: 浏览器异常退出 - {e}")
+            for r in range(1, self.rounds_total + 1):
+                if not any(x.round == r for x in reports):
+                    rpt = AccountRunReport(account_id, "", r)
+                    rpt.failed = 99
+                    reports.append(rpt)
+        finally:
+            await conn.close()
+            log.info(f"  🛑 {account_id} 浏览器已关闭")
+
+        return reports
+
     async def run(self) -> BatchReport:
-        """执行全部任务"""
+        """执行全部任务（并行模式）"""
         from mc.browser import BrowserManager
 
         report = BatchReport()
@@ -460,24 +747,23 @@ class BatchEngine:
 
         try:
             with bm:
-                for round_idx in range(1, self.rounds_total + 1):
-                    log.info(f"\n{'─'*45}")
-                    log.info(f"  🔄 第 {round_idx}/{self.rounds_total} 轮")
-                    log.info(f"{'─'*45}")
+                # 1) 统一 prepare（清理残留）
+                for account_id in self.accounts:
+                    acct_info = resolve_account(account_id)
+                    identity_hint = acct_info.get("identity_hint", account_id)
+                    bm.prepare(identity_hint)
 
-                    for account_id in self.accounts:
-                        acct_info = resolve_account(account_id)
-                        identity_hint = acct_info.get("identity_hint", account_id)
-                        bm.prepare(identity_hint)
+                # 2) 并行执行：每账号独立浏览器，跑完全部轮次
+                log.info(f"\n{'='*50}")
+                log.info(f"  🚀 并行执行 {len(self.accounts)} 个账号")
+                log.info(f"     每账号 {self.rounds_total} 轮 | 蓝图: {self.blueprints}")
+                log.info(f"{'='*50}")
 
-                        bp_name = self._pick_blueprint(round_idx)
-                        acct_report = await self.run_single(account_id, bp_name, round_idx)
-                        report.account_reports.append(acct_report)
+                tasks = [self._run_account_all_rounds(a, bm) for a in self.accounts]
+                results = await asyncio.gather(*tasks)
 
-                    if round_idx < self.rounds_total:
-                        wait = random.uniform(30, 60)
-                        log.info(f"\n  ⏳ 等待 {wait:.0f}s 后下一轮...")
-                        await asyncio.sleep(wait)
+                for account_reports in results:
+                    report.account_reports.extend(account_reports)
 
         except Exception as e:
             log.error(f"❌ 批量执行异常: {e}")

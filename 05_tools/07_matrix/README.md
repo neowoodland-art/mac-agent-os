@@ -1,8 +1,8 @@
 # Matrix 矩阵养号系统
 
-> **版本**: v4.2 | **环境**: macOS (Apple Silicon) | **引擎**: Camoufox (Firefox 内核) + Chrome CDP
+> **版本**: v4.3 | **环境**: macOS (Apple Silicon) | **引擎**: Camoufox (Firefox 内核) + Chrome CDP
 > **平台**: 抖音 ✅ | 小红书 ✅ | 知乎 🔄
-> **最后更新**: 2026-05-30
+> **最后更新**: 2026-06-08
 
 ---
 
@@ -24,10 +24,14 @@ bash install.sh
 # 2. 检查账号状态
 cd scripts && python matrix.py status accounts
 
-# 3. 运行养号主控（抖音→小红书 全流程）
-bash ../nurture_master.sh
+# 3. 运行每日养号脚本（mc CLI 版本，推荐）
+bash ../nurture_daily.sh
 
-# 4. 或只跑某平台单账号
+# 4. 或指定批次
+bash ../nurture_daily.sh --group 1   # 只跑第1组（抖音前三）
+bash ../nurture_daily.sh --dry       # 查看命令但不执行
+
+# 5. 或只跑某平台单账号（旧版 CLI）
 python matrix.py nurture run -a douyin_01 -r 10
 python matrix.py nurture run -a xhs_02 -r 10
 ```
@@ -44,10 +48,19 @@ python matrix.py nurture run -a xhs_02 -r 10
 │   ├── TOOL.md                           ← 技术细节（双引擎、反检测）
 │   ├── install.sh                        ← 新机一键部署
 │   ├── config_template/accounts.yaml     ← 账号配置模板
+│   ├── nurture_daily.sh                  ← [推荐] 每日养号脚本（mc CLI）
+│   ├── nurture_master.sh                 ← [旧] 养号主控脚本
+│   ├── mc                                ← [新] mc 统一命令入口（Python -m mc）
 │   ├── scripts/
-│   │   ├── matrix.py                     ← 统一 CLI 入口（推荐）
-│   │   ├── nurture_master.sh             ← 养号主控脚本（全流程）
-│   │   ├── atom_ops.py                   ← 原子操作库
+│   │   ├── matrix.py                     ← [旧] 统一 CLI 入口
+│   │   ├── mc/                           ← [新] mc CLI 模块
+│   │   │   ├── __main__.py               ← 入口: python -m mc
+│   │   │   ├── cli.py                    ← CLI 路由
+│   │   │   ├── engine.py                 ← 批量执行引擎（v1.1 并行版）
+│   │   │   ├── run.py                    ← mc run 命令
+│   │   │   ├── browser.py                ← 浏览器生命周期管理
+│   │   │   └── ...
+│   │   ├── cdp_connector.py              ← Camoufox 连接器
 │   │   ├── douyin_ops.py                 ← 抖音操作集
 │   │   ├── matrix_modules/               ← 子模块
 │   │   │   └── utils/cookie_manager.py   ← Cookie 安全模块
@@ -56,60 +69,125 @@ python matrix.py nurture run -a xhs_02 -r 10
 │   └── docs/                             ← 文档目录（25+文件）
 │
 └── agent-local/tools/matrix/            ← 本机数据（不参与同步）
-    ├── config/accounts.yaml              ← 本机账号配置
+    ├── config/accounts.yaml              ← 本机账号配置†
+    ├── config/accounts.override.yaml     ← [新] 本机敏感字段覆写（手机号等）
     ├── identities/{name}/                ← 每账号浏览器指纹+登录态
     ├── accounts/{name}/                  ← 每账号素材/文案/发布记录
     └── backups/cookies/                  ← Cookie 自动备份
+
+† 同手机号的抖音+小红书使用同一个 identity_dir，
+  config_template/accounts.yaml 中有详细说明。
 ```
 
 ---
 
 ## 核心概念
 
-### 统一 CLI：`matrix.py`
+### 统一 CLI：`mc`（推荐）vs `matrix.py`（旧）
 
+`mc` 是 v4.3 引入的新版 CLI，支持批量执行、浏览器生命周期管理：
 ```bash
-cd ~/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts
+cd ~/workbuddy-agent-os/agent-sync/05_tools/07_matrix
+./mc --help
+
+# ── 批量养号（推荐）──
+./mc run --accounts douyin_01,douyin_02 --blueprints nurture_v1 --rounds 3 --mix --interval 45-90
+# 并行模式：每个账号独立浏览器，跑完所有轮次后关闭
 
 # ── 账号管理 ──
-python matrix.py account list               # 列出所有账号
-python matrix.py account status [name]      # 登录状态
-python matrix.py account login <name>       # 首次手动登录
+./mc account list               # 列出所有账号及登录状态
+./mc account login <name>       # 首次手动登录
 
-# ── 养号执行 ──
-python matrix.py nurture run -a <name> -r 10            # 单账号 10 轮
-python matrix.py nurture run -a a -a b -r 10            # 多账号并发
-python matrix.py nurture run -a <name> -r 10 --daemon   # daemon 保持
-python matrix.py nurture run -a <name> -r 10 --no-daemon # 完成后关闭浏览器
-python matrix.py config blueprint list       # 查看可用蓝图
+# ── 语料库 ──
+./mc corpus list                # 查看语料
+./mc corpus add douyin "新语料"
 
-# ── 状态监控 ──
-python matrix.py status all                 # 全局状态
-python matrix.py status browsers            # 浏览器运行状态
+# ── 代理管理 ──
+./mc proxy list
+
+# ── 状态检查 ──
+./mc status all
 ```
 
-### 养号主控脚本：`nurture_master.sh`
+旧版 `matrix.py` 仍在：
+```bash
+cd scripts
+python matrix.py account list
+python matrix.py nurture run -a <name> -r 10
+python matrix.py status all
+python matrix.py config blueprint list
+```
 
-全自动两阶段执行，适合定时任务：
+### 并行执行引擎（v4.3 新增）
+
+`mc run` 使用 `mc/engine.py` 的 `BatchEngine` 执行。v4.3 改为并行模式：
+
+- **单账号全轮复用**：每个账号创建一个 Camoufox 浏览器，跑完所有轮次再关闭
+- **多账号并行**：使用 `asyncio.gather` 同时启动多个浏览器
+- **浏览器启停优化**：N 个账号 × R 轮 → 启停 N 次（而非 N×R 次），节省约 60% 时间
 
 ```
-Phase 0: Cookie 全量备份 → 存储到 backups/cookies/
+旧：轮1→A→B→C → 等待 → 轮2→A→B→C → 等待 → 轮3→A→B→C
+                  （串行，每个账号每轮开闭一次浏览器）
+新：A的全部3轮 ──┐
+    B的全部3轮 ──┼── asyncio.gather ── 同时完成
+    C的全部3轮 ──┘
+                  （每账号一个持久浏览器，跑完3轮再关）
+```
+
+### 每日养号脚本：`nurture_daily.sh`
+
+基于 mc CLI 的自动全流程执行，适合定时任务：
+
+```
+Batch 1: douyin_01,douyin_02,douyin_camo01（3个抖音）
+Batch 2: xhs_01,xhs_02,xhs_03（3个小红书）
+Batch 3: douyin_04,douyin_05,douyin_06（3个抖音）
+Batch 4: xhs_04,xhs_05,xhs_06（3个小红书）
+```
+
+```bash
+# 每日定时执行
+bash /path/to/nurture_daily.sh
+
+# 仅查看命令
+bash /path/to/nurture_daily.sh --dry
+
+# 仅跑第1组
+bash /path/to/nurture_daily.sh --group 1
+```
+
+日志：`/tmp/nurture_daily_YYYYMMDD.log`
+
+### 养号主控脚本（旧）：`nurture_master.sh`
+
+保留向后兼容，两阶段执行：
+
+```
+Phase 0: Cookie 全量备份
 Phase 1: 抖音 ×3 并行养号（--no-daemon）
 Phase 2: 休息 30s
 Phase 3: 小红书 ×3 并行养号
 ```
 
-```bash
-# 手动启动
-bash /path/to/nurture_master.sh
+### 账号配置（核心规则：一手机号 = 一身份）
+
+每账号信息在两层配置中注册：
+
+**Layer 1: `agent-local/tools/matrix/config/accounts.override.yaml`**（本机敏感字段）
+```yaml
+version: '1.0'
+hostname: 5kechengdeAir
+accounts:
+- id: douyin_04
+  phone: '18550099083'
+  enabled: true
+- id: xhs_04
+  phone: '18550099083'   # 同手机号 → 自动使用同一 identity_dir
+  enabled: true
 ```
 
-日志位于 `/tmp/nurture_master/{douyin|xhs}_phase.log`，各账号日志在 `/tmp/matrix_nurture_{account}.log`。
-
-### 账号配置
-
-每账号信息在 `agent-local/tools/matrix/config/accounts.yaml` 中注册：
-
+**Layer 2: `agent-local/tools/matrix/config/accounts.yaml`**（完整配置）
 ```yaml
 accounts:
 - id: douyin_01          # 账号名（CLI 参数用这个）
@@ -120,8 +198,13 @@ accounts:
   window_position: [0, 0] # 屏幕位置（多账号防重叠）
 ```
 
-> ⚠️ **XHS 复用身份**：小红书账号与抖音账号共享 identity_dir（同浏览器指纹）。
-> 例：`xhs_01` → `douyin_01_camo`。切换时要**保护对方 Cookie**——`cookie_manager.py` 自动处理。
+> ⚠️ **一手机号 = 一身份**：同手机号的抖音与小红书必须共享 identity_dir！
+> `MatrixManager` 的合��逻辑会自动为 `accounts.override.yaml` 中同手机号的
+> 不同平台账号分配相同的 identity_dir。
+> 切换平台时用 `cookie_manager.py` 保护对方 Cookie——见下方 Cookie 安全保护。
+
+详情见 [docs/IDENTITY_FACTORY.md](./docs/IDENTITY_FACTORY.md) 和
+`config_template/accounts.yaml`。
 
 ---
 
@@ -220,6 +303,7 @@ config={
 | 评论聚焦失败 | 坐标偏移/DOM变化 | 跳过评论 | 不影响浏览养号 |
 | XHS 评论聚焦失败 | 所有方式 | 跳过评论 | 已知未修复问题 |
 | Chrome 148 更新 | 浏览器升级 | set_viewport_size 失效 | 改用 set_viewport_size（新方案） |
+| **xhs_click_note TimeoutError** | Chrome/Playwright 默认 30s 等待元素可交互 | 笔记点击步骤跳过 | selector = `section.note-item` 或 `a[href*="/explore/"]` 匹配到被遮挡的元素。排查方向：① 加 `{ timeout: 5000 }` 快速失败 ② 改用更精确的选择器排除导航栏链接 ③ 先检查是否有登录弹窗遮挡 |
 
 ---
 

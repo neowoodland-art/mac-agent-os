@@ -297,14 +297,180 @@ def cmd_status(args):
 
 
 # ════════════════════════════════════════════════════════════
-# Record 域 (预留)
+# Record 域 — 原子操作录制
 # ════════════════════════════════════════════════════════════
 
 def cmd_record(args):
-    """操作录制（预留）"""
-    log(f"📹 操作录制功能将在后续版本实现")
-    log(f"   预留命令: mc record start|stop|export")
-    log(f"   当前请使用看板手动创建原子操作")
+    """操作录制入口"""
+    action = args.record_action if hasattr(args, 'record_action') else ""
+
+    if action == "start":
+        _cmd_record_start(args)
+    elif action == "analyze":
+        _cmd_record_analyze(args)
+    elif action == "export":
+        _cmd_record_export(args)
+    elif action == "delete":
+        _cmd_record_delete(args)
+    elif action == "list":
+        _cmd_record_list()
+    else:
+        log(f" 可用: mc record start, mc record analyze <path>, mc record export <path>, mc record list")
+
+
+def _cmd_record_start(args):
+    account = getattr(args, 'account', None) or "douyin_01"
+    platform = getattr(args, 'platform', None) or "auto"
+    log(f"🎬 开始录制 account={account} platform={platform}")
+    import asyncio
+    from mc.recorder import _run_interactive
+    try:
+        asyncio.run(_run_interactive(account, platform))
+    except KeyboardInterrupt:
+        log("\n👋 录制已中断")
+    except Exception as e:
+        log(f"❌ 录制异常: {e}")
+
+
+def _cmd_record_analyze(args):
+    path = getattr(args, 'recording_path', None)
+    if not path:
+        log("❌ 用法: mc record analyze <录制包路径>")
+        return
+    from mc.analyzer import analyze_recording_file
+    log(f"🔍 分析 {path}")
+    result = analyze_recording_file(path)
+    for i, a in enumerate(result.get("actions", [])):
+        at = a.get("action_type", "?")
+        desc = a.get("action_desc", "")
+        log(f"  {'✅' if at != 'unknown' else '❌'} 步骤{i+1}: [{at}] {desc}")
+    if getattr(args, 'json', False):
+        import json; print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def _cmd_record_export(args):
+    path = getattr(args, 'recording_path', None)
+    if not path:
+        log("❌ 用法: mc record export <录制包路径>")
+        return
+    from mc.exporter import export_recording
+    log(f"📦 导出 {path}")
+    result = export_recording(path)
+    if result.get("saved_blueprint"):
+        log(f"  ✅ 蓝图: {result['saved_blueprint']}")
+    if result.get("saved_code"):
+        log(f"  ✅ 代码: {result['saved_code']}")
+    seq = result.get("summary", {}).get("action_sequence", [])
+    log(f"  操作序列: {' → '.join(seq)}")
+
+
+def _cmd_record_delete(args):
+    path = getattr(args, 'recording_path', None)
+    if not path:
+        log("❌ 用法: mc record delete <录制包路径>")
+        return
+    from mc.recorder import RecordingSession
+    if RecordingSession.delete_recording(path):
+        log(f"✅ 已删除: {path}")
+    else:
+        log(f"❌ 删除失败: {path}")
+
+
+def _cmd_record_list():
+    from mc.recorder import RecordingSession
+    rs = RecordingSession.list_recordings()
+    if not rs:
+        log("📭 没有录制包")
+        return
+    for r in rs:
+        log(f"  📹 {r['account']:15s} {r['steps']:2d}步 {r['duration']:5.0f}s {r.get('created','')[:16]} ({r['file']})")
+
+
+# ════════════════════════════════════════════════════════════
+# Op 域 — 原子操作注册/删除
+# ════════════════════════════════════════════════════════════
+
+def cmd_op(args):
+    """原子操作管理"""
+    action = args.op_action if hasattr(args, 'op_action') else ""
+
+    if action == "register":
+        _cmd_op_register(args)
+    elif action == "delete":
+        _cmd_op_delete(args)
+    elif action == "list":
+        _cmd_op_list(args)
+
+
+def _cmd_op_register(args):
+    """注册蓝图为原子操作"""
+    name = getattr(args, 'name', '')
+    source = getattr(args, 'source', 'recorded')
+    blueprint_name = getattr(args, 'from_blueprint', '')
+
+    if not name:
+        log("❌ 用法: mc op register --name <操作名> --from <蓝点名> [--source recorded|manual]")
+        return
+
+    log(f"📝 注册原子操作: {name} (source={source})")
+
+    from matrix_mgmt import MatrixManager
+    mgr = MatrixManager()
+
+    # 如果指定了蓝图，先验证蓝图存在
+    if blueprint_name:
+        bps = mgr.list_blueprints()
+        bp = next((b for b in bps if b['name'] == blueprint_name), None)
+        if not bp:
+            log(f"❌ 蓝图 {blueprint_name} 不存在")
+            return
+
+    # 注册到 OP_GRAPH
+    try:
+        # 构建 OP_GRAPH 条目
+        entry = {
+            "name": name,
+            "platform": getattr(args, 'platform', '通用'),
+            "category": "custom",
+            "label": f"🎬 {name}",
+            "requires": [],
+            "allows": ["rest", "go_back"],
+            "can_be_first": True,
+            "desc": f"原子操作 (source={source})",
+            "_source": source,
+        }
+        # 通过 MatrixManager 注册
+        result = mgr.register_atomic_op(entry)
+        log(f"✅ 已注册: {name}")
+    except Exception as e:
+        log(f"❌ 注册失败: {e}")
+
+
+def _cmd_op_delete(args):
+    """删除原子操作"""
+    name = getattr(args, 'name', '')
+    if not name:
+        log("❌ 用法: mc op delete --name <操作名>")
+        return
+    from matrix_mgmt import MatrixManager
+    mgr = MatrixManager()
+    try:
+        mgr.delete_atomic_op(name)
+        log(f"✅ 已删除: {name}")
+    except Exception as e:
+        log(f"❌ 删除失败: {e}")
+
+
+def _cmd_op_list(args):
+    """列出所有原子操作"""
+    from matrix_mgmt import MatrixManager
+    mgr = MatrixManager()
+    ops = mgr.list_atomic_ops()
+    log(f"📋 原子操作 ({len(ops)}):")
+    for op in ops:
+        source = op.get("_source", "manual")
+        source_tag = "🤖" if source == "recorded" else "✋"
+        log(f"  {source_tag} {op['name']:25s} {op.get('platform','?'):12s} {op.get('desc','')[:30]}")
 
 
 # ════════════════════════════════════════════════════════════
@@ -384,10 +550,49 @@ def build_parser():
     p_status.add_argument("--log-file", default="", help="日志文件路径")
     p_status.set_defaults(func=cmd_status)
 
-    # ── record (预留) ──
-    p_rec = sub.add_parser("record", help="操作录制（预留）")
-    p_rec.add_argument("action", choices=["start", "stop", "export"])
+    # ── record — 原子操作录制 ──
+    p_rec = sub.add_parser("record", help="原子操作录制/分析/导出")
+    rec_sub = p_rec.add_subparsers(dest="record_action")
+
+    p_rec_start = rec_sub.add_parser("start", help="开始录制")
+    p_rec_start.add_argument("--account", default="douyin_01", help="账号ID")
+    p_rec_start.add_argument("--platform", default="auto", choices=["auto", "douyin", "xiaohongshu"], help="平台")
+    p_rec_start.set_defaults(func=cmd_record)
+
+    p_rec_analyze = rec_sub.add_parser("analyze", help="分析录制包")
+    p_rec_analyze.add_argument("recording_path", help="录制包路径")
+    p_rec_analyze.set_defaults(func=cmd_record)
+
+    p_rec_export = rec_sub.add_parser("export", help="导出录制包为蓝图+代码")
+    p_rec_export.add_argument("recording_path", help="录制包路径")
+    p_rec_export.set_defaults(func=cmd_record)
+
+    p_rec_list = rec_sub.add_parser("list", help="列出所有录制包")
+    p_rec_list.set_defaults(func=cmd_record)
+
+    p_rec_delete = rec_sub.add_parser("delete", help="删除录制包")
+    p_rec_delete.add_argument("recording_path", help="录制包路径")
+    p_rec_delete.set_defaults(func=cmd_record)
+
     p_rec.set_defaults(func=cmd_record)
+
+    # ── op — 原子操作注册/删除 ──
+    p_op = sub.add_parser("op", help="原子操作注册/删除")
+    op_sub = p_op.add_subparsers(dest="op_action")
+
+    p_op_reg = op_sub.add_parser("register", help="注册原子操作")
+    p_op_reg.add_argument("--name", required=True, help="操作名")
+    p_op_reg.add_argument("--from-blueprint", default="", help="从蓝图导入")
+    p_op_reg.add_argument("--source", default="recorded", choices=["recorded", "manual"], help="来源标记")
+    p_op_reg.add_argument("--platform", default="通用", help="平台")
+    p_op_reg.set_defaults(func=cmd_op)
+
+    p_op_del = op_sub.add_parser("delete", help="删除原子操作")
+    p_op_del.add_argument("--name", required=True, help="操作名")
+    p_op_del.set_defaults(func=cmd_op)
+
+    p_op_list = op_sub.add_parser("list", help="列出所有原子操作")
+    p_op_list.set_defaults(func=cmd_op)
 
     return parser
 
