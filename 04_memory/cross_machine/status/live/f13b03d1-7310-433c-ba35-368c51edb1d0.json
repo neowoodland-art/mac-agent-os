@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 7.61
+    "load_1m": 8.03
   },
   "memory": {
     "total_gb": 0,
@@ -17,14 +17,25 @@
     "used_gb": 90.3,
     "available_gb": 154.8
   },
-  "last_seen": "2026-06-11T01:56:23.752290+00:00",
+  "last_seen": "2026-06-11T02:55:39.608757+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-11T01:56:23.938479+00:00",
+  "_received_at": "2026-06-11T02:55:39.663834+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
-  "_events": [],
+  "_events": [
+    {
+      "id": "5cbb576b-788b-4c01-bb2f-48d312149265",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-06-11T02:14:13.365581+00:00",
+      "payload": {
+        "summary": "Updating bb30a0072..3b8f9a7ef\nCreated autostash: 037c375ed\nFast-forward\n .../data/automation/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../data/ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json         |  2 +-\n .../data/collector/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .../data/guardd/4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../data/knowledge/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .../data/matrix/4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2",
+        "hostname": "5kechengdeAir"
+      }
+    }
+  ],
   "_uptime": 0
 }
