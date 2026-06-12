@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 2.73
+    "load_1m": 2.07
   },
   "memory": {
     "total_gb": 0,
@@ -17,35 +17,14 @@
     "used_gb": 100.9,
     "available_gb": 144.2
   },
-  "last_seen": "2026-06-12T15:57:13.872222+00:00",
+  "last_seen": "2026-06-12T16:02:43.594155+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-12T15:57:13.900488+00:00",
+  "_received_at": "2026-06-12T16:02:43.618631+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "chengzigedeAir",
-  "_events": [
-    {
-      "id": "5f718b3c-246d-427d-99b6-7f150d2be7b6",
-      "type": "sync_updated",
-      "hostname": "chengzigedeAir",
-      "timestamp": "2026-06-12T08:37:23.070747+00:00",
-      "payload": {
-        "summary": "Updating babdd3330..04c80022f\nCreated autostash: 31b2de919\nFast-forward\n .../data/automation/f13b03d1-7310-433c-ba35-368c51edb1d0.json       | 2 +-\n .../data/ave/f13b03d1-7310-433c-ba35-368c51edb1d0.json              | 2 +-\n .../data/collector/f13b03d1-7310-433c-ba35-368c51edb1d0.json        | 2 +-\n .../data/guardd/f13b03d1-7310-433c-ba35-368c51edb1d0.json           | 2 +-\n .../data/knowledge/f13b03d1-7310-433c-ba35-368c51edb1d0.json        | 2 +-\n .../data/matrix/f13b03d1-7310-433c-ba35-368c51e",
-        "hostname": "chengzigedeAir"
-      }
-    },
-    {
-      "id": "fc2d2b96-c5fc-4f74-9819-be91c9834364",
-      "type": "sync_updated",
-      "hostname": "chengzigedeAir",
-      "timestamp": "2026-06-12T04:05:05.013424+00:00",
-      "payload": {
-        "summary": "Updating 702ed5f7f..beb20309c\nCreated autostash: f3439d3b4\nFast-forward\n .../data/automation/f13b03d1-7310-433c-ba35-368c51edb1d0.json       | 2 +-\n .../data/ave/f13b03d1-7310-433c-ba35-368c51edb1d0.json              | 2 +-\n .../data/collector/f13b03d1-7310-433c-ba35-368c51edb1d0.json        | 2 +-\n .../data/guardd/f13b03d1-7310-433c-ba35-368c51edb1d0.json           | 2 +-\n .../data/knowledge/f13b03d1-7310-433c-ba35-368c51edb1d0.json        | 2 +-\n .../data/matrix/f13b03d1-7310-433c-ba35-368c51e",
-        "hostname": "chengzigedeAir"
-      }
-    }
-  ],
+  "_events": [],
   "_uptime": 0
 }
