@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 6.5
+    "load_1m": 3.97
   },
   "memory": {
     "total_gb": 0,
@@ -17,12 +17,12 @@
     "used_gb": 91.6,
     "available_gb": 153.5
   },
-  "last_seen": "2026-06-12T04:25:24.041859+00:00",
+  "last_seen": "2026-06-12T04:31:49.196974+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-12T04:25:24.123409+00:00",
+  "_received_at": "2026-06-12T04:31:49.284427+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
   "_events": [
@@ -43,6 +43,16 @@
       "timestamp": "2026-06-11T16:42:34.623092+00:00",
       "payload": {
         "summary": "Created autostash: f570de099\nMerge made by the 'ort' strategy.\n .../data/automation/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../data/ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json         |  2 +-\n .../data/collector/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .../data/guardd/4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  6 +++---\n .../data/knowledge/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .../data/matrix/4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n ",
+        "hostname": "5kechengdeAir"
+      }
+    },
+    {
+      "id": "69856990-c310-4b31-aa6d-3fc4bfa14833",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-06-12T04:26:48.988067+00:00",
+      "payload": {
+        "summary": "Updating eb0080c78..11d61c6b6\nCreated autostash: f26e331d7\nFast-forward\n .../data/automation/4cf443bc-ff14-4ed9-885b-b04c5326304d.json  |  2 +-\n .../data/ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json         |  2 +-\n .../data/collector/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .../data/guardd/4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2 +-\n .../data/knowledge/4cf443bc-ff14-4ed9-885b-b04c5326304d.json   |  2 +-\n .../data/matrix/4cf443bc-ff14-4ed9-885b-b04c5326304d.json      |  2",
         "hostname": "5kechengdeAir"
       }
     },
