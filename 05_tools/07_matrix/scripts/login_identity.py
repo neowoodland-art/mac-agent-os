@@ -42,22 +42,27 @@ async def login_identity(identity_name: str, platform: str = "auto"):
     import sys as _sys
     _sys.path.insert(0, str(Path(__file__).parent))
 
-    # "auto" 时从账号注册表解析平台
-    if platform == "auto":
-        try:
-            from matrix_mgmt import MatrixManager
-            mgr = MatrixManager()
-            for a in mgr.list_accounts():
-                if a["id"] == identity_name:
-                    p = a.get("platform", "")
-                    if p in ("douyin", "xiaohongshu"):
-                        platform = p
-                    break
-        except: pass
-        if platform == "auto":
-            platform = "douyin"  # 保底
+    # 从账号注册表读取 identity_dir 和 platform
+    acct_info = {}
+    try:
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        for a in mgr.list_accounts():
+            if a["id"] == identity_name:
+                acct_info = a
+                break
+    except: pass
 
-    identity_dir = str(IDENTITIES_ROOT / identity_name)
+    # 身份目录：优先用 accounts.yaml 中的 identity_dir，否则用账号ID
+    acct_identity = acct_info.get("identity_dir") or acct_info.get("identity_hint") or identity_name
+    acct_identity = acct_identity.replace("identities/", "")
+    identity_dir = str(IDENTITIES_ROOT / acct_identity)
+
+    # 平台：auto 时从账号信息解析
+    if platform == "auto":
+        p = acct_info.get("platform", "douyin")
+        platform = p if p in ("douyin", "xiaohongshu") else "douyin"
+
     signal_file = Path(f"/tmp/login_identity_{identity_name}.signal")
     platform_url = PLATFORM_URLS.get(platform, PLATFORM_URLS["douyin"])
     platform_name = PLATFORM_NAMES.get(platform, platform)
