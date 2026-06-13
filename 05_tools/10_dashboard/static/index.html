@@ -1442,38 +1442,80 @@ async function loadMatrixRun() {
     html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">👥 选择账号</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px" id="batchAcctList">`;
-    accounts.forEach(a => {
-      const s = a._status === 'logged_in' ? '🟢' : '⏸';
-      const pIcon = a.platform === 'xiaohongshu' ? '📕' : a.platform === 'douyin' ? '🎵' : '❓';
-      const phone = String(a.phone || a.phone_mask || '??').slice(0, 11);
-      html += `<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px;white-space:nowrap">
-        <input type="checkbox" class="batch-acct" value="${a.id}" checked>
-        ${s} ${pIcon} <strong>${a.id}</strong> <span style="color:var(--text2);font-size:10px">${phone}</span>
-      </label>`;
-    });
-    html += `</div></div>`;
+    // 按平台分组
+    const douyinAccts = accounts.filter(a => a.platform === 'douyin');
+    const xhsAccts = accounts.filter(a => a.platform === 'xiaohongshu');
 
-    // ── 蓝图选择 ──
+    // 账号分组渲染（每组只默认勾第一个）
     html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">📋 选择蓝图</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px" id="batchBpList">`;
-    blueprints.forEach(b => {
-      html += `<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px">
-        <input type="checkbox" class="batch-bp" value="${b.name}" ${blueprints.indexOf(b) < 2 ? 'checked' : ''}>
-        ${b.name} <span class="badge badge-blue" style="font-size:9px">${b.step_count}步</span>
-      </label>`;
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">👥 选择账号</div>`;
+    [['🎵 抖音', douyinAccts], ['📕 小红书', xhsAccts]].forEach(([label, list]) => {
+      if (!list.length) return;
+      html += `<div style="font-size:11px;color:var(--text2);margin:4px 0 2px">${label}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px" id="batchAcctList">`;
+      list.forEach((a, idx) => {
+        const s = a._status === 'logged_in' ? '🟢' : '⏸';
+        const phone = String(a.phone || a.phone_mask || '??').slice(0, 11);
+        html += `<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px;white-space:nowrap">
+          <input type="checkbox" class="batch-acct" value="${a.id}" data-platform="${a.platform}" ${idx === 0 ? 'checked' : ''}>
+          ${s} <strong>${a.id}</strong> <span style="color:var(--text2);font-size:10px">${phone}</span>
+        </label>`;
+      });
+      html += `</div>`;
     });
-    html += `</div></div>`;
+    html += `</div>`;
+
+    // ── 蓝图选择（带平台过滤） ──
+    html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">📋 选择蓝图 <span style="font-size:11px;color:var(--text2)">（自动根据所选账号过滤平台）</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="batchBpList"></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px" id="bpFilterHint">请先选择账号</div>
+    </div>`;
+    html += `</div>`;
+
+    // ── 蓝图过滤逻辑（账号选择变化时自动过滤） ──
+    window._allBlueprints = ${JSON.stringify(blueprints)};
+    const allBlueprints = window._allBlueprints;
+    function filterBlueprints() {
+      const checkedAccts = [...document.querySelectorAll('.batch-acct:checked')];
+      const platforms = new Set(checkedAccts.map(e => e.getAttribute('data-platform')));
+      const list = document.getElementById('batchBpList');
+      const hint = document.getElementById('bpFilterHint');
+      if (!list) return;
+      if (platforms.size === 0) {
+        list.innerHTML = '';
+        hint.textContent = '请先选择账号';
+        return;
+      }
+      let filtered = allBlueprints;
+      if (platforms.size === 1) {
+        const plat = [...platforms][0];
+        filtered = allBlueprints.filter(b => !b.platform || b.platform === plat);
+        hint.textContent = '🎯 仅显示 ' + (plat === 'douyin' ? '抖音' : '小红书') + ' 蓝图';
+      } else {
+        filtered = allBlueprints.filter(b => !b.platform);
+        hint.textContent = '🔄 多平台混合 — 仅显示通用蓝图';
+      }
+      list.innerHTML = filtered.map(b => '<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px">' +
+        '<input type="checkbox" class="batch-bp" value="' + b.name + '"> ' +
+        b.name + ' <span class="badge badge-blue" style="font-size:9px">' + (b.step_count || '?') + '步</span></label>'
+      ).join('');
+    }
+    // 监听所有 .batch-acct 变化（事件代理）
+    document.querySelector('[data-tab="cmd-run"]')?.addEventListener('click', filterBlueprints);
+    document.addEventListener('change', e => {
+      if (e.target.matches('.batch-acct')) filterBlueprints();
+    });
+    // 初始触发
+    setTimeout(filterBlueprints, 100);
 
     // ── 参数表单 ──
     html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">⚙️ 执行参数</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
         <div><label style="font-size:11px;color:var(--text2)">轮数</label><input id="bpRounds" value="5" type="number" min="1" max="100" style="width:100%"></div>
-        <div><label style="font-size:11px;color:var(--text2)">间隔(秒)</label><input id="bpInterval" value="30-60" style="width:100%"></div>
-        <div><label style="font-size:11px;color:var(--text2)">引擎</label>
-          <select id="bpEngine" style="width:100%"><option value="auto">auto</option><option value="chrome">chrome</option><option value="camoufox">camoufox</option></select>
-        </div>
+        <div><label style="font-size:11px;color:var(--text2)">轮间隔(秒)</label><input id="bpInterval" value="30-60" style="width:100%"></div>
+        <div><label style="font-size:11px;color:var(--text2)">账号间延迟(秒)</label><input id="bpStagger" value="15-30" style="width:100%"></div>
         <div><label style="font-size:11px;color:var(--text2)">模式</label>
           <div style="display:flex;align-items:center;gap:6px;padding-top:4px">
             <input type="checkbox" id="bpMix" checked> <label for="bpMix" style="font-size:12px">混合随机</label>
@@ -1539,6 +1581,7 @@ function batchPreview() {
   const bps = [...document.querySelectorAll('.batch-bp:checked')].map(e => e.value);
   const rounds = document.getElementById('bpRounds')?.value || '5';
   const interval = document.getElementById('bpInterval')?.value || '30-60';
+  const stagger = document.getElementById('bpStagger')?.value || '15-30';
   const mix = document.getElementById('bpMix')?.checked;
   const isRandom = document.getElementById('bpCorpusRandom')?.checked;
   const corpus = isRandom ? ['random'] : [...document.querySelectorAll('.batch-corpus:checked')].map(e => e.value);
@@ -1549,15 +1592,32 @@ function batchPreview() {
     return;
   }
 
+  // 平台一致性检查
+  const checkedEls = [...document.querySelectorAll('.batch-acct:checked')];
+  const platforms = new Set(checkedEls.map(e => e.getAttribute('data-platform')));
+  const allBps = window._allBlueprints || [];
+  const bpPlatforms = new Set(
+    [...document.querySelectorAll('.batch-bp:checked')]
+      .map(e => { const b = allBps.find(x => x.name === e.value); return b && b.platform; })
+      .filter(Boolean)
+  );
+  let warning = '';
+  if (bpPlatforms.size === 1 && platforms.has('douyin') && bpPlatforms.has('xiaohongshu')) {
+    warning = '\n⚠️ 注意：选择了抖音账号和小红书蓝图，平台不匹配！';
+  } else if (bpPlatforms.size === 1 && platforms.has('xiaohongshu') && bpPlatforms.has('douyin')) {
+    warning = '\n⚠️ 注意：选择了小红书账号和抖音蓝图，平台不匹配！';
+  }
+
   let cmd = `mc run --accounts ${accts.join(',')}`;
   cmd += ` --blueprints ${bps.join(',')}`;
   cmd += ` --rounds ${rounds}`;
   cmd += ` --interval ${interval}`;
+  cmd += ` --stagger ${stagger}`;
   if (mix) cmd += ' --mix';
   if (corpus.length) cmd += ` --corpus ${corpus.join(',')}`;
   cmd += ` --proxy ${proxy}`;
 
-  document.getElementById('batchCmdPreview').textContent = cmd;
+  document.getElementById('batchCmdPreview').textContent = cmd + warning;
 }
 
 async function batchExecute() {
@@ -1575,12 +1635,13 @@ async function batchExecute() {
   const accts = [...document.querySelectorAll('.batch-acct:checked')].map(e => e.value);
   const bps = [...document.querySelectorAll('.batch-bp:checked')].map(e => e.value);
   const rounds = parseInt(document.getElementById('bpRounds')?.value) || 5;
+  const stagger = document.getElementById('bpStagger')?.value || '15-30';
   const mix = document.getElementById('bpMix')?.checked;
 
   try {
     const r = await fetch('/api/matrix/nurture/start', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({accounts: accts, blueprints: bps, rounds, mix})
+      body: JSON.stringify({accounts: accts, blueprints: bps, rounds, mix, stagger})
     });
     const d = await r.json();
     if (d.status === 'started') {
