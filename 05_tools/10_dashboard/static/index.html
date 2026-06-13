@@ -1438,32 +1438,28 @@ async function loadMatrixRun() {
 
     let html = '';
 
-    // ── 账号选择 ──
-    html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">👥 选择账号</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px" id="batchAcctList">`;
-    // 按平台分组
+    // ── 账号选择（按平台分组）──
     const douyinAccts = accounts.filter(a => a.platform === 'douyin');
     const xhsAccts = accounts.filter(a => a.platform === 'xiaohongshu');
+    const platGroups = [['🎵 抖音', douyinAccts], ['📕 小红书', xhsAccts]].filter(g => g[1].length);
 
-    // 账号分组渲染（每组只默认勾第一个）
     html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">👥 选择账号</div>`;
-    [['🎵 抖音', douyinAccts], ['📕 小红书', xhsAccts]].forEach(([label, list]) => {
-      if (!list.length) return;
-      html += `<div style="font-size:11px;color:var(--text2);margin:4px 0 2px">${label}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px" id="batchAcctList">`;
-      list.forEach((a, idx) => {
-        const s = a._status === 'logged_in' ? '🟢' : '⏸';
-        const phone = String(a.phone || a.phone_mask || '??').slice(0, 11);
-        html += `<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px;white-space:nowrap">
-          <input type="checkbox" class="batch-acct" value="${a.id}" data-platform="${a.platform}" ${idx === 0 ? 'checked' : ''}>
-          ${s} <strong>${a.id}</strong> <span style="color:var(--text2);font-size:10px">${phone}</span>
-        </label>`;
-      });
-      html += `</div>`;
-    });
-    html += `</div>`;
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">👥 选择账号</div>${
+        platGroups.map(([label, list]) =>
+          `<div style="font-size:11px;color:var(--text2);margin:4px 0 2px">${label}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px" class="batchAcctGroup">${
+            list.map((a, idx) => {
+              const s = a._status === 'logged_in' ? '🟢' : '⏸';
+              const phone = String(a.phone || a.phone_mask || '??').slice(0, 11);
+              return `<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px;white-space:nowrap">
+                <input type="checkbox" class="batch-acct" value="${a.id}" data-platform="${a.platform}" ${idx === 0 ? 'checked' : ''}>
+                ${s} <strong>${a.id}</strong> <span style="color:var(--text2);font-size:10px">${phone}</span>
+              </label>`;
+            }).join('')
+          }</div>`
+        ).join('')
+      }</div>`;
+    // 旧 forEach 已替换为上方 map 渲染
 
     // ── 蓝图选择（带平台过滤） ──
     html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
@@ -1471,7 +1467,6 @@ async function loadMatrixRun() {
       <div style="display:flex;flex-wrap:wrap;gap:6px" id="batchBpList"></div>
       <div style="font-size:11px;color:var(--text2);margin-top:4px" id="bpFilterHint">请先选择账号</div>
     </div>`;
-    html += `</div>`;
 
     // ── 蓝图过滤逻辑（账号选择变化时自动过滤） ──
     window._allBlueprints = ${JSON.stringify(blueprints)};
