@@ -33,10 +33,29 @@ PLATFORM_NAMES = {
 }
 
 
-async def login_identity(identity_name: str, platform: str = "douyin"):
-    """执行首次手动登录"""
+async def login_identity(identity_name: str, platform: str = "auto"):
+    """执行首次手动登录
+    Args:
+        identity_name: 账号ID
+        platform: "auto" 时从 accounts.yaml 自动解析
+    """
     import sys as _sys
     _sys.path.insert(0, str(Path(__file__).parent))
+
+    # "auto" 时从账号注册表解析平台
+    if platform == "auto":
+        try:
+            from matrix_mgmt import MatrixManager
+            mgr = MatrixManager()
+            for a in mgr.list_accounts():
+                if a["id"] == identity_name:
+                    p = a.get("platform", "")
+                    if p in ("douyin", "xiaohongshu"):
+                        platform = p
+                    break
+        except: pass
+        if platform == "auto":
+            platform = "douyin"  # 保底
 
     identity_dir = str(IDENTITIES_ROOT / identity_name)
     signal_file = Path(f"/tmp/login_identity_{identity_name}.signal")
