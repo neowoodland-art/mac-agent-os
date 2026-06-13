@@ -143,5 +143,6 @@
       "op": "next_video",
       "args": {}
     }
-  ]
+  ],
+  "platform": "douyin"
 }

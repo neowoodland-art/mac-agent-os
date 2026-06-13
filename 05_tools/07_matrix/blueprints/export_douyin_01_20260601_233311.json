@@ -1,8 +1,8 @@
 {
   "id": "recorded_douyin_01_5steps",
-  "name": "录制蓝图 (5步)",
+  "name": "抖音-录制蓝图 (5步)",
   "version": "1.0.0",
-  "platform": "xiaohongshu",
+  "platform": "douyin",
   "description": "由录制自动生成: douyin_01 5步操作",
   "steps": [
     {

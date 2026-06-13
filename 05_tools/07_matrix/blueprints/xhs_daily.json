@@ -99,5 +99,6 @@
       "op": "xhs_scroll_feed",
       "args": {}
     }
-  ]
+  ],
+  "platform": "xiaohongshu"
 }

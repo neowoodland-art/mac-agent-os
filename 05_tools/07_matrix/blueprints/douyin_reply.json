@@ -31,5 +31,6 @@
       "op": "go_back",
       "args": {}
     }
-  ]
+  ],
+  "platform": "douyin"
 }

@@ -92,5 +92,6 @@
       "op": "close_comments",
       "args": {}
     }
-  ]
+  ],
+  "platform": "douyin"
 }
