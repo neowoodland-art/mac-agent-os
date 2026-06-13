@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-抖音原子操作库 — 最小可复用操作封装
-每个操作 = 前置检查 + 执行 + 后置验证 + 日志记录
-
-所有操作基于 data-e2e 选择器（最稳定），键盘操作作为 fallback
+抖音原子操作库 v2.0 — PlatformOps 接口实现
 """
 import asyncio
 import random
 import time
 from typing import Optional
+
+from ops._base import PlatformOps, OpResult
 
 # ── 抖音 Web 选择器常量 ──────────────────────────────────────────
 SELECTORS = {
@@ -86,18 +85,169 @@ RATE_LIMITS = {
 }
 
 
-class DouyinOps:
-    """抖音原子操作库"""
+class DouyinOps(PlatformOps):
+    """抖音原子操作库 v2.0 — 实现 PlatformOps 接口"""
+
+    name = "douyin"
+    retry_count = 1
 
     def __init__(self, page, db=None, execution_id=None):
         self.page = page
         self.db = db
         self.execution_id = execution_id
+        self._account_id = None
         self._action_counts = {
             "like": 0, "comment": 0, "follow": 0,
             "collect": 0, "search": 0,
         }
         self._session_start = time.time()
+
+    def set_account_id(self, aid: str):
+        self._account_id = aid
+
+    def supported_ops(self) -> list:
+        return ["goto_home", "goto_url", "like", "collect", "follow",
+                "open_comments", "close_comments", "post_comment",
+                "next_video", "prev_video", "search", "wait_watch",
+                "scroll_feed", "open_video", "wait", "go_back",
+                "goto_profile", "read_profile_field", "read_my_comments",
+                "reply_comment", "search_browse"]
+
+    async def _do_execute(self, op: str, args: dict, step_id: int) -> Optional[OpResult]:
+        """实现 PlatformOps._do_execute — 操作分发"""
+        t0 = time.time()
+
+        if op == "goto_home":
+            await self.page.goto(HOME_URL, timeout=20000, wait_until="domcontentloaded")
+            await asyncio.sleep(3)
+            return OpResult(op, step_id, True, "home", time.time()-t0)
+
+        if op == "goto_url":
+            url = args.get("url", HOME_URL)
+            await self.page.goto(url, timeout=30000, wait_until="domcontentloaded")
+            await asyncio.sleep(5)
+            return OpResult(op, step_id, True, f"goto {url[:30]}", time.time()-t0)
+
+        if op == "like":
+            ok = await self.like(step_id=step_id, probability=args.get("probability", 1.0))
+            if not ok:
+                # KeyZ fallback
+                video = self.page.locator('video')
+                if await video.count() > 0:
+                    box = await video.first.bounding_box()
+                    if box:
+                        await self.page.mouse.click(box['x']+box['width']//2, box['y']+box['height']//3)
+                        await asyncio.sleep(0.5)
+                await self.page.keyboard.press("z")
+                await asyncio.sleep(1.5)
+                ok = await self.like(step_id=step_id)
+            return OpResult(op, step_id, ok, "👍" if ok else "-", time.time()-t0)
+
+        if op == "collect":
+            ok = await self.collect(step_id=step_id)
+            return OpResult(op, step_id, ok, "⭐" if ok else "-", time.time()-t0)
+
+        if op == "follow":
+            ok = await self.follow(step_id=step_id)
+            return OpResult(op, step_id, ok, "➕" if ok else "-", time.time()-t0)
+
+        if op == "open_comments":
+            page_url = self.page.url
+            is_full = "/video/" in page_url and "modal_id" not in page_url
+            if is_full:
+                await self.page.evaluate("""() => {
+                    const list = document.querySelector('[data-e2e="comment-list"]');
+                    if (list && list.offsetParent !== null) list.scrollIntoView({behavior:'instant',block:'start'});
+                }""")
+                await asyncio.sleep(3)
+                return OpResult(op, step_id, True, "scrolled", time.time()-t0)
+            ok = await self.open_comments(step_id=step_id)
+            await asyncio.sleep(3)
+            return OpResult(op, step_id, ok, "opened" if ok else "not_found", time.time()-t0)
+
+        if op == "post_comment":
+            text = args.get("text", "太棒了")
+            ok = await self.post_comment(text, step_id=step_id)
+            return OpResult(op, step_id, ok, "sent" if ok else "fail", time.time()-t0)
+
+        if op == "close_comments":
+            page_url = self.page.url
+            is_full = "/video/" in page_url and "modal_id" not in page_url
+            if is_full:
+                await self.page.evaluate("() => window.scrollTo(0, 0)")
+            else:
+                await self.page.keyboard.press("Escape")
+            await asyncio.sleep(1)
+            return OpResult(op, step_id, True, "closed", time.time()-t0)
+
+        if op == "next_video":
+            await self.page.keyboard.press("ArrowDown")
+            await asyncio.sleep(2)
+            return OpResult(op, step_id, True, "⬇️", time.time()-t0)
+
+        if op == "prev_video":
+            await self.page.keyboard.press("ArrowUp")
+            await asyncio.sleep(2)
+            return OpResult(op, step_id, True, "⬆️", time.time()-t0)
+
+        if op == "search":
+            kw = args.get("keyword", "热门推荐")
+            ok = await self.search(kw, step_id=step_id)
+            return OpResult(op, step_id, ok, f"{kw[:10]}", time.time()-t0)
+
+        if op == "wait_watch":
+            seconds = args.get("seconds", random.randint(5, 12))
+            await self.wait_watch(seconds=seconds, step_id=step_id)
+            return OpResult(op, step_id, True, f"{seconds}s", time.time()-t0)
+
+        if op == "scroll_feed":
+            await self.page.evaluate("() => window.scrollBy(0, 600)")
+            await asyncio.sleep(1)
+            return OpResult(op, step_id, True, "scroll", time.time()-t0)
+
+        if op == "open_video":
+            card = self.page.locator('.discover-video-card-item').first
+            if await card.count() > 0:
+                await card.click()
+                await asyncio.sleep(3)
+            return OpResult(op, step_id, True, "video", time.time()-t0)
+
+        if op == "wait":
+            await asyncio.sleep(args.get("seconds", 2))
+            return OpResult(op, step_id, True, f"{args.get('seconds',2)}s", time.time()-t0)
+
+        if op == "go_back":
+            await self.page.go_back()
+            await asyncio.sleep(2)
+            return OpResult(op, step_id, True, "back", time.time()-t0)
+
+        if op == "goto_profile":
+            d = await self.goto_profile(step_id=step_id)
+            return OpResult(op, step_id, True, d.get("nickname","ok"), time.time()-t0)
+
+        if op == "read_profile_field":
+            v = await self.read_profile_field(args.get("field","nickname"), step_id=step_id)
+            return OpResult(op, step_id, True, str(v)[:20], time.time()-t0)
+
+        if op == "read_my_comments":
+            c = await self.read_my_comments(step_id=step_id)
+            return OpResult(op, step_id, True, f"{len(c)}条", time.time()-t0)
+
+        if op == "reply_comment":
+            ok = await self.reply_comment(args.get("text","谢谢支持"), step_id=step_id)
+            return OpResult(op, step_id, ok, "replied" if ok else "no_btn", time.time()-t0)
+
+        if op == "search_browse":
+            kw = args.get("keyword", "热门推荐")
+            await self.search(kw, step_id=step_id)
+            await self.click_search_result(step_id=step_id)
+            await self.wait_watch(seconds=random.randint(5, 12), step_id=step_id)
+            import random as _rnd
+            if _rnd.random() < 0.6: await self.like(step_id=step_id)
+            if _rnd.random() < 0.2: await self.collect(step_id=step_id)
+            return OpResult(op, step_id, True, "searched+browsed", time.time()-t0)
+
+        return OpResult(op, step_id, False, f"unknown_op:{op}", time.time()-t0)
         self.account_id = ""
         self._profile = {}
         self._last_comments = []
