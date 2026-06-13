@@ -1341,6 +1341,28 @@ async def api_matrix_register(data: dict):
         raise HTTPException(500, detail=str(e))
 
 
+@app.post("/api/matrix/accounts/register")
+async def api_matrix_register_alias(data: dict):
+    """注册接口别名（兼容前端路径 /api/matrix/accounts/register）"""
+    return await api_matrix_register(data)
+
+
+@app.post("/api/matrix/accounts/{account_id}/login")
+async def api_matrix_login(account_id: str):
+    """登录账号"""
+    try:
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        acct = mgr.get_account(account_id)
+        if not acct:
+            raise HTTPException(404, detail=f"账号 {account_id} 不存在")
+        return {"status": "ok", "account_id": account_id, "message": "请手动打开浏览器登录"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
 # ═══════════════════════════════════════════
 # 工作流引擎 API
 # ═══════════════════════════════════════════
