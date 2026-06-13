@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 2.01
+    "load_1m": 3.46
   },
   "memory": {
     "total_gb": 0,
@@ -17,15 +17,25 @@
     "used_gb": 105.4,
     "available_gb": 139.7
   },
-  "last_seen": "2026-06-13T08:05:40.487451+00:00",
+  "last_seen": "2026-06-13T08:10:56.385750+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-13T08:05:40.512406+00:00",
+  "_received_at": "2026-06-13T08:10:56.427573+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "Redmi-12C",
   "_events": [
+    {
+      "id": "845f972c-1ef9-466d-9a97-6297ecae4efa",
+      "type": "knowledge_updated",
+      "hostname": "Redmi-12C",
+      "timestamp": "2026-06-13T08:05:55.468650+00:00",
+      "payload": {
+        "latest_date": "2026-06-06",
+        "previous_date": "2026-06-01"
+      }
+    },
     {
       "id": "9b5ae1d8-a55e-4d41-b89e-c4e00b297815",
       "type": "submissions_pushed",
