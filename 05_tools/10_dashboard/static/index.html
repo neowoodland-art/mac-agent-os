@@ -1557,51 +1557,58 @@ function corpusToggleRandom() {
 }
 
 function batchPreview() {
-  const accts = [...document.querySelectorAll('.batch-acct:checked')].map(e => e.value);
-  const bps = [...document.querySelectorAll('.batch-bp:checked')].map(e => e.value);
-  const rounds = document.getElementById('bpRounds')?.value || '5';
-  const interval = document.getElementById('bpInterval')?.value || '30-60';
-  const stagger = document.getElementById('bpStagger')?.value || '15-30';
-  const mix = document.getElementById('bpMix')?.checked;
-  const isRandom = document.getElementById('bpCorpusRandom')?.checked;
-  const corpus = isRandom ? ['random'] : [...document.querySelectorAll('.batch-corpus:checked')].map(e => e.value);
-  const proxy = document.getElementById('bpProxy')?.value || 'auto';
+  try {
+    const accts = [...document.querySelectorAll('.batch-acct:checked')].map(e => e.value);
+    const bps = [...document.querySelectorAll('.batch-bp:checked')].map(e => e.value);
+    const rounds = document.getElementById('bpRounds')?.value || '5';
+    const interval = document.getElementById('bpInterval')?.value || '30-60';
+    const stagger = document.getElementById('bpStagger')?.value || '15-30';
+    const mix = document.getElementById('bpMix')?.checked;
+    const isRandom = document.getElementById('bpCorpusRandom')?.checked;
+    const corpus = isRandom ? ['random'] : [...document.querySelectorAll('.batch-corpus:checked')].map(e => e.value);
+    const proxy = document.getElementById('bpProxy')?.value || 'auto';
 
-  if (!accts.length) {
-    document.getElementById('batchCmdPreview').textContent = '⚠️ 请先选择账号';
-    return;
+    if (!accts.length) {
+      document.getElementById('batchCmdPreview').textContent = '⚠️ 请先选择账号';
+      return;
+    }
+    if (!bps.length) {
+      document.getElementById('batchCmdPreview').textContent = '⚠️ 请选择至少一个蓝图';
+      return;
+    }
+
+    // 平台一致性检查
+    let warning = '';
+    try {
+      const platforms = new Set([...document.querySelectorAll('.batch-acct:checked')].map(e => e.getAttribute('data-platform')));
+      const allBps = window._allBlueprints || [];
+      if (allBps.length > 0) {
+        const bpPlatforms = new Set(
+          [...document.querySelectorAll('.batch-bp:checked')]
+            .map(e => { try { const b = allBps.find(x => x.name === e.value); return b ? b.platform : '?'; } catch(ex) { return '?'; } })
+            .filter(p => p && p !== '?')
+        );
+        if (bpPlatforms.size === 1 && platforms.has('douyin') && bpPlatforms.has('xiaohongshu')) {
+          warning = '\n⚠️ 注意：选择了抖音账号和小红书蓝图，平台不匹配！';
+        } else if (bpPlatforms.size === 1 && platforms.has('xiaohongshu') && bpPlatforms.has('douyin')) {
+          warning = '\n⚠️ 注意：选择了小红书账号和抖音蓝图，平台不匹配！';
+        }
+      }
+    } catch(ex) { warning = '\n⚠️ 平台检查异常: ' + ex.message; }
+
+    let cmd = `mc run --accounts ${accts.join(',')}`;
+    cmd += ` --blueprints ${bps.join(',')}`;
+    cmd += ` --rounds ${rounds}`;
+    cmd += ` --interval ${interval}`;
+    cmd += ` --stagger ${stagger}`;
+    if (mix) cmd += ' --mix';
+    if (corpus.length) cmd += ` --corpus ${corpus.join(',')}`;
+    cmd += ` --proxy ${proxy}`;
+
+    document.getElementById('batchCmdPreview').textContent = cmd + warning;
+  } catch(e) {
+    document.getElementById('batchCmdPreview').textContent = '❌ 预览出错: ' + e.message;
   }
-  if (!bps.length) {
-    document.getElementById('batchCmdPreview').textContent = '⚠️ 请选择至少一个蓝图（上方切换到某平台后蓝图列表会出现）';
-    return;
-  }
-
-  // 平台一致性检查
-  const checkedEls = [...document.querySelectorAll('.batch-acct:checked')];
-  const platforms = new Set(checkedEls.map(e => e.getAttribute('data-platform')));
-  const allBps = window._allBlueprints || [];
-  const bpPlatforms = new Set(
-    [...document.querySelectorAll('.batch-bp:checked')]
-      .map(e => { const b = allBps.find(x => x.name === e.value); return b && b.platform; })
-      .filter(Boolean)
-  );
-  let warning = '';
-  if (bpPlatforms.size === 1 && platforms.has('douyin') && bpPlatforms.has('xiaohongshu')) {
-    warning = '\n⚠️ 注意：选择了抖音账号和小红书蓝图，平台不匹配！';
-  } else if (bpPlatforms.size === 1 && platforms.has('xiaohongshu') && bpPlatforms.has('douyin')) {
-    warning = '\n⚠️ 注意：选择了小红书账号和抖音蓝图，平台不匹配！';
-  }
-
-  let cmd = `mc run --accounts ${accts.join(',')}`;
-  cmd += ` --blueprints ${bps.join(',')}`;
-  cmd += ` --rounds ${rounds}`;
-  cmd += ` --interval ${interval}`;
-  cmd += ` --stagger ${stagger}`;
-  if (mix) cmd += ' --mix';
-  if (corpus.length) cmd += ` --corpus ${corpus.join(',')}`;
-  cmd += ` --proxy ${proxy}`;
-
-  document.getElementById('batchCmdPreview').textContent = cmd + warning;
 }
 
 async function batchExecute() {
