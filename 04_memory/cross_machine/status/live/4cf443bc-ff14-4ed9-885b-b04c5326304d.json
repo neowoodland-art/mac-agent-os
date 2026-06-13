@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.31
+    "load_1m": 1.41
   },
   "memory": {
     "total_gb": 0,
@@ -17,12 +17,12 @@
     "used_gb": 106.1,
     "available_gb": 139.0
   },
-  "last_seen": "2026-06-13T09:16:00.985851+00:00",
+  "last_seen": "2026-06-13T09:21:19.031698+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-13T09:16:01.009887+00:00",
+  "_received_at": "2026-06-13T09:21:19.057148+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "Redmi-12C",
   "_events": [
@@ -43,6 +43,16 @@
       "timestamp": "2026-06-13T00:56:48.674777+00:00",
       "payload": {
         "count": 11,
+        "hostname": "Redmi-12C"
+      }
+    },
+    {
+      "id": "d92fadef-f645-45f8-8df4-0e72bf3b69b9",
+      "type": "sync_updated",
+      "hostname": "Redmi-12C",
+      "timestamp": "2026-06-13T09:16:18.909393+00:00",
+      "payload": {
+        "summary": "Updating c5553f895..3bb3ddeed\nCreated autostash: ac3ed7e1f\nFast-forward\n 05_tools/07_matrix/scripts/mc/engine.py | 6 +++---\n 1 file changed, 3 insertions(+), 3 deletions(-)",
         "hostname": "Redmi-12C"
       }
     }
