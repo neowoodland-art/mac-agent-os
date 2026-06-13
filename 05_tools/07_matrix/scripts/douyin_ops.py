@@ -98,6 +98,12 @@ class DouyinOps:
             "collect": 0, "search": 0,
         }
         self._session_start = time.time()
+        self.account_id = ""
+        self._profile = {}
+        self._last_comments = []
+
+    def set_account_id(self, aid: str):
+        self.account_id = aid
 
     # ── 内部工具 ──────────────────────────────────────────────
 
@@ -554,6 +560,97 @@ class DouyinOps:
     async def is_verify_shown(self) -> bool:
         """是否弹出了验证码"""
         return await self.page.locator(SELECTORS['verify_panel']).count() > 0
+
+    # ═══════════════════════════════════════════════════════════
+    # 个人主页 & 信息采集
+    # ═══════════════════════════════════════════════════════════
+
+    async def goto_profile(self, step_id: int = 0) -> dict:
+        """AO_PROFILE: 进入个人主页，一次性采集全部字段"""
+        t0 = time.time()
+        await self.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
+        await asyncio.sleep(5)
+        profile = await self.page.evaluate("""() => {
+            const text = (document.body.innerText || '').trim();
+            const title = (document.title || '').replace(' - 抖音', '').replace('的抖音', '').trim();
+            const uidM = text.match(/抖音号[：:]\\s*(\\S+)/);
+            const folM = text.match(/(\\d+(?:\\.\\d+)?[万w]?)\\s*关注/);
+            const fanM = text.match(/(\\d+(?:\\.\\d+)?[万w]?)\\s*粉丝/);
+            const likM = text.match(/(\\d+(?:\\.\\d+)?[万w]?)\\s*获赞/);
+            const posM = text.match(/作品\\s*(\\d+)/);
+            function e2e(s) { const el = document.querySelector('[data-e2e="'+s+'"]'); return el ? (el.textContent||'').trim() : ''; }
+            return {
+                nickname: title, user_id: uidM ? uidM[1] : '?',
+                following: folM ? folM[1] : (e2e('user-info-follow')||'?'),
+                fans: fanM ? fanM[1] : (e2e('user-info-fans')||'?'),
+                likes: likM ? likM[1] : (e2e('user-info-like')||'?'),
+                posts: posM ? posM[1] : (e2e('user-tab-count')||'?'),
+                bio: (e2e('user-bio') || '?').slice(0, 50),
+            };
+        }""")
+        self._profile = profile
+        dur = int((time.time() - t0) * 1000)
+        await self._log_op(step_id, "AO_PROFILE", "user/self", True, dur)
+        return profile
+
+    async def read_profile_field(self, field: str, step_id: int = 0) -> str:
+        """AO_PROFILE: 从已缓存的 profile 读取单个字段"""
+        if not hasattr(self, '_profile') or not self._profile:
+            await self.goto_profile(step_id)
+        return self._profile.get(field, '?')
+
+    # ═══════════════════════════════════════════════════════════
+    # 评论区互动
+    # ═══════════════════════════════════════════════════════════
+
+    async def read_my_comments(self, step_id: int = 0) -> list[dict]:
+        """AO_COMMENT: 读取当前视频的评论区，返回评论列表"""
+        t0 = time.time()
+        await self.open_comments(step_id)
+        await asyncio.sleep(2)
+        comments = await self.page.evaluate("""() => {
+            const items = document.querySelectorAll('[class*="comment-item"], [class*="CommentItem"]');
+            return Array.from(items).slice(0, 20).map(el => {
+                const textEl = el.querySelector('[class*="text"], [class*="content"]');
+                const nameEl = el.querySelector('[class*="name"], [class*="author"]');
+                return {
+                    text: textEl ? textEl.textContent.trim().slice(0, 200) : '',
+                    author: nameEl ? nameEl.textContent.trim() : '',
+                };
+            });
+        }""")
+        self._last_comments = comments
+        dur = int((time.time() - t0) * 1000)
+        await self._log_op(step_id, "AO_READ_COMMENTS", "comment-item", True, dur)
+        return comments
+
+    async def reply_comment(self, reply_text: str, step_id: int = 0) -> bool:
+        """AO_COMMENT: 回复当前评论区的第一条评论"""
+        t0 = time.time()
+        if not await self.page.locator(SELECTORS['comment_list']).count() > 0:
+            await self.open_comments(step_id)
+            await asyncio.sleep(2)
+        # 点击回复按钮
+        reply_btn = await self.page.evaluate("""() => {
+            const btns = document.querySelectorAll('[class*="reply"], [class*="Reply"]');
+            for (const b of btns) {
+                if (b.offsetParent !== null) { b.click(); return true; }
+            }
+            return false;
+        }""")
+        await asyncio.sleep(1)
+        # pbcopy + Meta+V 发送回复
+        if reply_btn:
+            proc = await asyncio.create_subprocess_exec("pbcopy", stdin=asyncio.subprocess.PIPE)
+            await proc.communicate(input=reply_text.encode())
+            await asyncio.sleep(0.5)
+            await self.page.keyboard.press("Meta+V")
+            await asyncio.sleep(1)
+            await self.page.keyboard.press("Enter")
+            await asyncio.sleep(2)
+        dur = int((time.time() - t0) * 1000)
+        await self._log_op(step_id, "AO_REPLY", "reply", reply_btn, dur)
+        return reply_btn
 
     def get_action_summary(self) -> dict:
         """获取本次会话的操作统计"""

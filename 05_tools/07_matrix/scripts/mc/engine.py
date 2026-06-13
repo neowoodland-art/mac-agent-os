@@ -636,6 +636,35 @@ class BatchEngine:
                         await asyncio.sleep(2)
                     elif op == "wait":
                         await asyncio.sleep(sargs.get("seconds", 2))
+                    elif op == "goto_profile":
+                        d = await dyops.goto_profile(step_id=sn)
+                        result = d.get("nickname","ok")
+                        # 保存到 profiles.json
+                        try:
+                            pf = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+                            all_p = json.loads(pf.read_text()) if pf.exists() else {}
+                            all_p[account_id] = {**d, "platform":"douyin","updated":datetime.now().isoformat()}
+                            pf.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
+                        except: pass
+                    elif op == "read_profile_field":
+                        v = await dyops.read_profile_field(sargs.get("field","nickname"), step_id=sn)
+                        result = f"{sargs.get('field','?')}={v}"
+                    elif op == "read_my_comments":
+                        comments = await dyops.read_my_comments(step_id=sn)
+                        result = f"comments={len(comments)}"
+                    elif op == "reply_comment":
+                        text = sargs.get("text", "谢谢支持")
+                        ok = await dyops.reply_comment(text, step_id=sn)
+                        result = "replied" if ok else "no_reply_btn"
+                    elif op == "search_browse":
+                        kw = sargs.get("keyword", "热门推荐")
+                        await dyops.search(kw, step_id=sn)
+                        await dyops.click_search_result(step_id=sn)
+                        await dyops.wait_watch(seconds=random.randint(5, 12), step_id=sn)
+                        import random as _rnd
+                        if _rnd.random() < 0.6: await dyops.like(step_id=sn)
+                        if _rnd.random() < 0.2: await dyops.collect(step_id=sn)
+                        result = "searched+browsed"
                     else:
                         await asyncio.sleep(2)
                         result = f"skip({op})"

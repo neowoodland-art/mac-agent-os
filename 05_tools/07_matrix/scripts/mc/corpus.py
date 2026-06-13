@@ -28,6 +28,7 @@ YAML 格式:
 """
 import logging
 import random
+import re
 import yaml
 from pathlib import Path
 from typing import List, Optional
@@ -36,6 +37,28 @@ log = logging.getLogger(__name__)
 
 TOOL_DIR = Path(__file__).resolve().parent.parent.parent
 CORPUS_DIR = TOOL_DIR / "corpus"
+
+# ── 关键词 → 方向 映射 ──────────────────────────────────────────
+KEYWORD_CATEGORY_MAP = [
+    (["科技", "数码", "手机"], ["称赞", "提问"]),
+    (["美食", "做饭", "菜"], ["称赞", "共鸣"]),
+    (["旅游", "风景", "旅行"], ["称赞", "提问"]),
+    (["情感", "生活", "感悟"], ["共鸣", "安慰"]),
+    (["知识", "科普", "教育"], ["提问", "补充"]),
+]
+
+# 方向名称 → 实际分类名称（兼容两个平台已有的分类）
+DIRECTION_TO_CATEGORY = {
+    "称赞": "赞美",
+    "正面": "赞美",
+    "提问": "提问",
+    "共鸣": "感慨",
+    "安慰": "感慨",
+    "补充": "客观",
+}
+
+# 默认方向标签（用于 fallback）
+ALL_DIRECTIONS = list(DIRECTION_TO_CATEGORY.keys())
 CORPUS_DIR.mkdir(parents=True, exist_ok=True)
 
 # 默认跨平台通用分类
@@ -211,3 +234,97 @@ class CorpusManager:
             path.write_text(yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False))
             self._cache.pop(platform, None)
             log.info(f"  🗑 已删除评论 [{platform}/{category}]: {removed}")
+
+    # ── 账号上下文 ──────────────────────────────────────────
+
+    def set_account_id(self, account_id: str):
+        """设置当前账号 ID，方便后续跟踪上下文"""
+        self._account_id = account_id
+        log.info(f"  👤 设置账号: {account_id}")
+
+    # ── 视频标题匹配 → 评论 ──────────────────────────────────
+
+    @staticmethod
+    def _match_keywords(video_title: str) -> list:
+        """根据视频标题匹配关键词，返回匹配到的方向列表"""
+        matched_directions = []
+        for keywords, directions in KEYWORD_CATEGORY_MAP:
+            for kw in keywords:
+                if kw in video_title:
+                    matched_directions.extend(directions)
+                    break  # 一个关键词组只匹配一次
+        return matched_directions
+
+    def _get_comment_from_categories(self, category_names: list, platform: str = None) -> Optional[str]:
+        """从指定的分类名列表中随机取一条评论（遍历所有平台）"""
+        platforms = [platform] if platform else ["douyin", "xiaohongshu"]
+        candidates = []
+
+        for p in platforms:
+            data = self._load(p)
+            for cat_name, info in data.get("categories", {}).items():
+                if cat_name not in category_names:
+                    continue
+                if not info.get("enabled", True):
+                    continue
+                comments = info.get("comments", []) + info.get("templates", [])
+                candidates.extend(comments)
+
+        if candidates:
+            return random.choice(candidates)
+        return None
+
+    def _get_random_comment(self, platform: str = None) -> Optional[str]:
+        """从所有启用分类中随机取一条评论"""
+        platforms = [platform] if platform else ["douyin", "xiaohongshu"]
+        all_comments = []
+
+        for p in platforms:
+            data = self._load(p)
+            for name, info in data.get("categories", {}).items():
+                if not info.get("enabled", True):
+                    continue
+                if info.get("weight", 0) <= 0:
+                    continue
+                comments = info.get("comments", []) + info.get("templates", [])
+                all_comments.extend(comments)
+
+        if all_comments:
+            return random.choice(all_comments)
+        return None
+
+    def get_comment_for_video(self, video_title: str, direction: str = None) -> Optional[str]:
+        """根据视频标题（和可选方向）从语料库中匹配一条评论
+
+        Args:
+            video_title: 视频标题文本
+            direction:   可选，指定方向，如 "正面"/"提问"/"共鸣"/"补充"
+
+        Returns:
+            匹配到的评论文本，或 None
+        """
+        # 1) 从标题匹配关键词，得到方向列表
+        matched_directions = self._match_keywords(video_title)
+
+        # 2) 如果用户指定了 direction，优先使用，且排在前面
+        if direction and direction in DIRECTION_TO_CATEGORY:
+            # 去重：把指定的 direction 放到最前面
+            if direction in matched_directions:
+                matched_directions.remove(direction)
+            matched_directions = [direction] + matched_directions
+        elif direction:
+            # direction 不在已知方向中时回退到默认匹配
+            pass
+
+        # 3) 有匹配的方向 → 尝试依次取对应分类的评论
+        if matched_directions:
+            for d in matched_directions:
+                cat = DIRECTION_TO_CATEGORY.get(d)
+                if not cat:
+                    continue
+                comment = self._get_comment_from_categories([cat])
+                if comment:
+                    return comment
+
+        # 4) 没有匹配 → 随机返回一条
+        return self._get_random_comment()

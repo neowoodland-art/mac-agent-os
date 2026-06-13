@@ -1,0 +1,25 @@
+{
+  "id": "xhs_daily",
+  "name": "小红书日常养号",
+  "description": "每天3-5轮，随机浏览/点赞/收藏/评论",
+  "version": "1.0",
+  "steps": [
+    {"step_id": 1, "op": "xhs_goto_home", "args": {}},
+    {"step_id": 2, "op": "xhs_scroll_feed", "args": {}},
+    {"step_id": 3, "op": "xhs_click_note", "args": {}},
+    {"step_id": 4, "op": "wait_watch", "args": {"seconds": null}},
+    {"step_id": 5, "op": "xhs_like", "args": {}},
+    {"step_id": 6, "op": "xhs_collect", "args": {"probability": 0.3}},
+    {"step_id": 7, "op": "xhs_comment", "args": {}},
+    {"step_id": 8, "op": "xhs_scroll_feed", "args": {}},
+    {"step_id": 9, "op": "xhs_click_note", "args": {}},
+    {"step_id": 10, "op": "wait_watch", "args": {"seconds": null}},
+    {"step_id": 11, "op": "xhs_like", "args": {}},
+    {"step_id": 12, "op": "xhs_scroll_feed", "args": {}},
+    {"step_id": 13, "op": "xhs_click_note", "args": {}},
+    {"step_id": 14, "op": "wait_watch", "args": {"seconds": null}},
+    {"step_id": 15, "op": "xhs_like", "args": {}},
+    {"step_id": 16, "op": "xhs_collect", "args": {"probability": 0.2}},
+    {"step_id": 17, "op": "xhs_scroll_feed", "args": {}}
+  ]
+}
