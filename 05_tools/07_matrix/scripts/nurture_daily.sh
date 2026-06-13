@@ -22,7 +22,7 @@ MC="$HOME/workbuddy-agent-os/agent-sync/05_tools/07_matrix/mc"
 LOG="/tmp/nurture_daily_$(date +%Y%m%d).log"
 ROUNDS=3
 INTERVAL="45-90"
-BLUEPRINT="nurture_v1"
+BLUEPRINT="douyin_daily"
 DRY=false
 GROUP="all"
 
@@ -83,7 +83,7 @@ fi
 run_batch "Profile: 小红书前三" "xhs_01,xhs_02,xhs_03" "xiaohongshu_read_profile" 1
 
 if [ "$GROUP" = "all" ] || [ "$GROUP" = "2" ]; then
-    run_batch "Batch 2: 小红书前三" "xhs_01,xhs_02,xhs_03" "xiaohongshu_nurture_v1"
+    run_batch "Batch 2: 小红书前三" "xhs_01,xhs_02,xhs_03" "xhs_daily"
 fi
 
 # 读取主页信息（第二组）
@@ -97,7 +97,7 @@ fi
 run_batch "Profile: 小红书后三" "xhs_04,xhs_05,xhs_06" "xiaohongshu_read_profile" 1
 
 if [ "$GROUP" = "all" ] || [ "$GROUP" = "4" ]; then
-    run_batch "Batch 4: 小红书后三" "xhs_04,xhs_05,xhs_06" "xiaohongshu_nurture_v1"
+    run_batch "Batch 4: 小红书后三" "xhs_04,xhs_05,xhs_06" "xhs_daily"
 fi
 
 log ""
