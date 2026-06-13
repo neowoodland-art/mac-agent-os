@@ -1,0 +1,13 @@
+# Matrix AI 评论生成配置模板
+# 复制到 config/ai.yaml 后编辑
+#
+# 不配置 api_key 时 AI 功能自动禁用，不影响现有语料库功能
+# 支持 OpenAI 兼容 API（可接本地模型）
+
+ai:
+  provider: openai       # openai / local（兼容任何 OpenAI 格式的 API）
+  api_key: ""            # 从环境变量 OPENAI_API_KEY 读取，留空则不启用
+  base_url: "https://api.openai.com/v1"
+  model: "gpt-4o-mini"   # 模型名
+  temperature: 0.8       # 生成温度 0-1，越高越随机
+  max_tokens: 100        # 最大生成长度

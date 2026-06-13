@@ -1,0 +1,27 @@
+{
+  "douyin_01": {
+    "nickname": "我的抖音号",
+    "user_id": "抖音号xxx",
+    "platform": "douyin",
+    "updated": "2026-06-13T00:00:00",
+    "persona": {
+      "age_group": "25-35",
+      "gender": "男",
+      "interests": ["科技", "数码", "汽车"],
+      "comment_style": ["称赞", "提问"],
+      "search_keywords": ["手机评测", "数码产品", "汽车测评"]
+    }
+  },
+  "xhs_01": {
+    "nickname": "我的小红书号",
+    "platform": "xiaohongshu",
+    "updated": "2026-06-13T00:00:00",
+    "persona": {
+      "age_group": "25-35",
+      "gender": "女",
+      "interests": ["美食", "旅行", "穿搭"],
+      "comment_style": ["称赞", "共鸣"],
+      "search_keywords": ["美食探店", "旅行攻略", "穿搭分享"]
+    }
+  }
+}

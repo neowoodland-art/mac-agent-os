@@ -1,0 +1,31 @@
+# Matrix 定时任务配置模板
+# 复制到 config/schedule.yaml 后编辑
+#
+# time 格式: HH:MM（每天固定时间执行）
+# enabled: true 启用 / false 禁用
+# @persona 自动从人设配置取搜索关键词
+
+schedules:
+
+  douyin_daily_morning:
+    enabled: false
+    account: douyin_01
+    blueprint: douyin_daily
+    rounds: 3
+    time: "09:00"
+
+  xhs_daily_noon:
+    enabled: false
+    account: xhs_01
+    blueprint: xhs_daily
+    rounds: 2
+    time: "12:30"
+
+  douyin_search_evening:
+    enabled: false
+    account: douyin_01
+    blueprint: douyin_search
+    rounds: 1
+    time: "18:00"
+    args:
+      keyword: "@persona"   # 自动用人设关键词
