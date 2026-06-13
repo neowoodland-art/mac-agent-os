@@ -2110,23 +2110,26 @@ async function loadSmsAccounts() {
     sel.innerHTML = '<option value="">— 选择账号 —</option>' +
       accounts.map(a => '<option value="'+a.id+'" data-phone="'+(a.phone||'')+'" data-nick="'+(a.nickname||'')+'">'+
         (a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+' '+(a.is_local?'(本机)':'')+' ('+a.phone+')</option>').join('');
-    // 账号总览表
+    // 账号管理卡片
     if (overview) {
-      overview.innerHTML = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">'+
-        '<thead><tr style="border-bottom:1px solid #2a2d3e">'+
-          '<th style="padding:4px 6px;text-align:left;color:#8b8fa3">平台</th>'+
-          '<th style="padding:4px 6px;text-align:left;color:#8b8fa3">ID</th>'+
-          '<th style="padding:4px 6px;text-align:left;color:#8b8fa3">手机号</th>'+
-          '<th style="padding:4px 6px;text-align:left;color:#8b8fa3">昵称</th>'+
-          '<th style="padding:4px 6px;text-align:left;color:#8b8fa3">来源</th>'+
-        '</tr></thead><tbody>'+
-        accounts.map(a => '<tr style="border-bottom:1px solid #1e2035">'+
-          '<td style="padding:4px 6px">'+(a.platform==='xiaohongshu'?'📕':'🎵')+'</td>'+
-          '<td style="padding:4px 6px;font-family:monospace">'+a.id+'</td>'+
-          '<td style="padding:4px 6px">'+(a.phone||'-')+'</td>'+
-          '<td style="padding:4px 6px">'+a.nickname+'</td>'+
-          '<td style="padding:4px 6px">'+(a.is_local?'<span style="color:#22c55e">本机</span>':'远程')+'</td>'+
-        '</tr>').join('')+'</tbody></table></div>';
+      const statusColors = { '已采集': '#22c55e', '已登录': '#6366f1', '已注册': '#f59e0b', '未配置': '#8b8fa3' };
+      overview.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px">'+
+        accounts.filter(a => a.is_local).map(a => {
+          const sc = statusColors[a.status_label] || '#8b8fa3';
+          return '<div style="background:#232740;border-radius:8px;padding:10px;border:1px solid #2a2d3e">'+
+            '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">'+
+              '<div><span>'+(a.platform==='xiaohongshu'?'📕':'🎵')+'</span> '+
+              '<span style="font-weight:600;font-size:13px">'+a.nickname+'</span></div>'+
+              '<span style="font-size:10px;background:'+sc+';color:#000;padding:2px 6px;border-radius:4px;font-weight:600">'+a.status_label+'</span>'+
+            '</div>'+
+            '<div style="font-size:11px;color:#8b8fa3;margin-bottom:2px">'+a.id+' <span style="margin:0 4px">|</span> '+a.phone+'</div>'+
+            '<div style="margin-top:6px;display:flex;gap:4px">'+
+              '<button onclick="accountLogin(\''+a.id+'\')" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">🔑 登录</button>'+
+              '<button onclick="collectProfile(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">👤 采集</button>'+
+              '<button onclick="deleteAccount(\''+a.id+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除</button>'+
+            '</div>'+
+          '</div>';
+        }).join('')+'</div>';
     }
   } catch(e) {
     if (overview) overview.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
@@ -2521,6 +2524,45 @@ async function gitSync() {
   } catch(e) {
     btn.textContent = 'err';
     setTimeout(function(){ btn.textContent = 'sync'; btn.style.opacity = '1'; }, 2000);
+  }
+}
+
+// ── 账号登录 ──
+async function accountLogin(accountId) {
+  if (!accountId) return;
+  if (!confirm('打开浏览器登录 '+accountId+' ？')) return;
+  const statusEl = document.getElementById('collectProfileStatus');
+  if (statusEl) statusEl.innerHTML = '⏳ 正在打开浏览器...';
+  try {
+    const r = await fetch('/api/matrix/accounts/'+accountId+'/login', { method:'POST' });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ '+d.message+'</span>';
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'失败')+'</span>';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
+  }
+}
+
+// ── 删除账号 ──
+async function deleteAccount(accountId) {
+  if (!accountId) return;
+  if (!confirm('确定删除账号 '+accountId+' ？\n身份目录和配置将被清理，不可恢复。')) return;
+  const statusEl = document.getElementById('collectProfileStatus');
+  if (statusEl) statusEl.innerHTML = '⏳ 正在删除...';
+  try {
+    const r = await fetch('/api/matrix/accounts/'+accountId+'?delete_identity=true', { method:'DELETE' });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ '+d.message+'</span>';
+      setTimeout(loadSmsAccounts, 2000);
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'失败')+'</span>';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 

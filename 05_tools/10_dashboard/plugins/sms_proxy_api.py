@@ -249,6 +249,38 @@ def api_proxy_test(data: dict):
 # SMS 账号管理 & 注册 API
 # ═══════════════════════════════════════════════
 
+def _account_status(a: dict) -> dict:
+    """增强账号状态：检测 cookie/profile，返回状态标签"""
+    aid = a["id"]
+    identity_dir = IDENTITIES_ROOT / aid
+    has_identity = identity_dir.exists()
+    has_cookie = False
+    if has_identity:
+        ck = identity_dir / "user_data" / "cookies.sqlite"
+        if ck.exists() and ck.stat().st_size > 100:
+            has_cookie = True
+    has_profile = False
+    profiles_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
+    if profiles_path.exists():
+        try:
+            profiles = json.loads(profiles_path.read_text())
+            p = profiles.get(aid, {})
+            nick = p.get("nickname", "")
+            if nick and nick != aid:
+                has_profile = True
+        except: pass
+    if has_profile:
+        status_label = "已采集"
+    elif has_cookie:
+        status_label = "已登录"
+    elif has_identity:
+        status_label = "已注册"
+    else:
+        status_label = "未配置"
+    return {"has_identity": has_identity, "has_cookie": has_cookie,
+            "has_profile": has_profile, "status_label": status_label}
+
+
 @router.get("/sms/accounts")
 def api_sms_accounts():
     """返回所有本机账号（含手机号和昵称），供前端下拉选择"""
@@ -268,11 +300,16 @@ def api_sms_accounts():
             aid = a["id"]
             p = profiles.get(aid, {})
             nick = p.get("nickname") or a.get("display_name") or aid
+            st = _account_status(a)
             result.append({
                 "id": aid, "phone": a.get("phone", ""),
                 "nickname": nick, "platform": a.get("platform", ""),
                 "status": a.get("_status", "unknown"),
                 "is_local": a.get("is_local", False),
+                "status_label": st["status_label"],
+                "has_identity": st["has_identity"],
+                "has_cookie": st["has_cookie"],
+                "has_profile": st["has_profile"],
             })
         return {"accounts": result}
     except Exception as e:
@@ -359,6 +396,20 @@ async def api_account_register(request: Request):
         return {"status": "error", "error": str(e)}
 
 
+@router.post("/accounts/{account_id}/login")
+def api_account_login(account_id: str):
+    """重新打开浏览器登录"""
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
+    import subprocess
+    try:
+        p = subprocess.Popen(
+            [agent_python, "-m", "mc", "account", "login", account_id],
+            cwd=str(SCRIPTS_DIR), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return {"status": "ok", "pid": p.pid, "message": f"浏览器已打开，请登录 {account_id}"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 @router.post("/accounts/{account_id}/collect-profile")
 def api_collect_profile(account_id: str):
     """采集账号昵称信息"""
@@ -373,6 +424,9 @@ def api_collect_profile(account_id: str):
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
+
+# [删除账号使用 app.py 中已有的 DELETE /api/matrix/accounts/{id}]
+# 前端调用时加 ?delete_identity=true
 
 # ═══════════════════════════════════════════════
 # 录制管理 API
