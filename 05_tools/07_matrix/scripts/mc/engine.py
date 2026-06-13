@@ -166,11 +166,40 @@ class BatchEngine:
         self.corpus = corpus or []
         self.stagger = stagger
         self.keep_open = keep_open
+        self.task_params = {}
 
     def _pick_blueprint(self, round_idx: int) -> str:
         if self.mix:
             return random.choice(self.blueprints)
         return self.blueprints[(round_idx - 1) % len(self.blueprints)]
+
+    def _resolve_args(self, sargs: dict, account_id: str, platform: str) -> dict:
+        """解析蓝图步骤中的占位符，替换为实际内容"""
+        import copy
+        resolved = copy.deepcopy(sargs)
+        for k, v in resolved.items():
+            if not isinstance(v, str):
+                continue
+            if "@corpus" in v:
+                from mc.corpus import CorpusManager
+                cm = CorpusManager()
+                direction = resolved.get("direction", "") or self.task_params.get("direction", "")
+                text = cm.get_comment_for_video(
+                    title=self.task_params.get("keyword", ""),
+                    direction=direction,
+                    account_id=account_id,
+                )
+                resolved[k] = v.replace("@corpus", text)
+            if "@keyword" in v:
+                kw = self.task_params.get("keyword", "")
+                resolved[k] = v.replace("@keyword", kw)
+            if "@direction" in v:
+                dr = self.task_params.get("direction", "")
+                resolved[k] = v.replace("@direction", dr)
+            if "@url" in v:
+                url = self.task_params.get("url", "")
+                resolved[k] = v.replace("@url", url)
+        return resolved
 
     async def _run_acct_on_conn(self, account_info: dict, blueprint_name: str,
                                  round_idx: int, conn) -> AccountRunReport:
@@ -212,7 +241,7 @@ class BatchEngine:
         for i, step in enumerate(steps):
             sn = step.get("step_id", i + 1)
             op_name = step.get("op", "")
-            sargs = step.get("args", {})
+            sargs = self._resolve_args(step.get("args", {}), account_id, platform)
             result = await ops.execute(op=op_name, args=sargs, step_id=sn)
             report.add_step(StepResult(op_name, sn, result.success, result.elapsed,
                                        "" if result.success else result.error))
