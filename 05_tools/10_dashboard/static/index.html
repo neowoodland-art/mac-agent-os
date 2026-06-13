@@ -258,13 +258,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 </div>
 
 <!-- Matrix registration view -->
-<div id="view-matrix-register" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">📝 登记注册</h2>
-    <span id="registerMeta" style="font-size:12px;color:var(--text2)"></span>
-  </div>
-  <div id="matrixRegisterContent"></div>
-</div>
+<!-- [登记注册已合并到「短信与管理」页面] -->
 
 <!-- Matrix atom ops view -->
 <div id="view-matrix-atom-ops" class="hidden">
@@ -742,7 +736,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-register','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy'];
+  const matrixSubViews = ['matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -772,7 +766,7 @@ function switchView(view) {
     });
     // Hide ALL other views first
     ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-     'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-register','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy'].forEach(v => {
+     'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy'].forEach(v => {
       document.getElementById('view-' + v)?.classList.add('hidden');
     });
     document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.classList.add('hidden'));
@@ -794,7 +788,7 @@ function switchView(view) {
 
   // 视图显隐
   const viewIds = ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-                   'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-register','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','kb'];
+                   'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','kb'];
   viewIds.forEach(v => {
     document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
   });
@@ -819,7 +813,7 @@ function switchView(view) {
   if (view === 'matrix-run') loadMatrixRun();
   if (view === 'matrix-accounts') loadMatrixAccounts();
   if (view === 'matrix-blueprints') loadMatrixBlueprints();
-  if (view === 'matrix-register') loadRegisterForm();
+  <!-- matrix-register 已合并到 matrix-sms-proxy -->
   if (view === 'matrix-atom-ops') loadMatrixAtomOps();
   if (view === 'matrix-backup') loadMatrixBackup();
   if (view === 'matrix-corpus') loadCorpus();
@@ -1127,7 +1121,7 @@ async function loadPlugins() {
         {view:'matrix-accounts', label:'账号管理'},
         {view:'matrix-c2', label:'远程控制'},
         {view:'matrix-blueprints', label:'蓝图编排'},
-        {view:'matrix-register', label:'登记注册'},
+        <!-- matrix-register 已合并到 matrix-sms-proxy -->
         {view:'matrix-atom-ops', label:'原子操作'},
         {view:'matrix-backup', label:'备份恢复'},
         {view:'matrix-export', label:'导入导出'},
@@ -1944,102 +1938,7 @@ function closeBpModal() {
 // ════════════════════════════════════════════════════════
 // Registration Form
 // ════════════════════════════════════════════════════════
-
-async function loadRegisterForm() {
-  const el = document.getElementById('matrixRegisterContent');
-  const meta = document.getElementById('registerMeta');
-  if (!el) return;
-
-  let existingIdentities = [];
-  try {
-    const r = await fetch('/api/matrix/accounts');
-    const d = await r.json();
-    existingIdentities = [...new Set((d.accounts||[]).map(a => {
-      if (!a.identity_dir) return null;
-      const parts = a.identity_dir.split('/');
-      return parts[parts.length - 1] || null;
-    }).filter(Boolean))];
-  } catch(e) {}
-
-  meta.textContent = `${existingIdentities.length} 个可用身份`;
-
-  el.innerHTML = `<div style="max-width:600px">
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
-      <div style="font-weight:600;font-size:15px;margin-bottom:16px">📝 账号注册表单</div>
-      <div style="display:grid;gap:10px">
-        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">📱 手机号 *</label>
-          <input id="regPhone" placeholder="13800138000" style="width:100%;font-size:14px"></div>
-        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">🌐 平台</label>
-          <select id="regPlatform" style="width:100%;font-size:13px">
-            <option value="douyin">🎵 抖音</option>
-            <option value="xiaohongshu">📕 小红书</option>
-          </select></div>
-        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">🏷️ 显示名称 (选填)</label>
-          <input id="regDisplayName" placeholder="我的新号" style="width:100%"></div>
-        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">🪪 身份</label>
-          <div style="display:flex;gap:10px;align-items:center">
-            <label style="font-size:12px;cursor:pointer"><input type="radio" name="regIdentity" value="new" checked> 新建身份</label>
-            <label style="font-size:12px;cursor:pointer"><input type="radio" name="regIdentity" value="existing" onchange="regToggleExisting()"> 使用已有</label>
-          </div>
-          <select id="regExistingIdentity" style="width:100%;margin-top:4px;display:none">
-            ${existingIdentities.map(id => '<option value="'+id+'">'+id+'</option>').join('')}
-          </select></div>
-        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">🌐 代理 (选填)</label>
-          <input id="regProxy" placeholder="socks5://127.0.0.1:7890" style="width:100%"></div>
-        <div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">📝 备注</label>
-          <input id="regNotes" placeholder="抖音七号" style="width:100%"></div>
-      </div>
-      <div id="regPreview" style="margin-top:16px;background:var(--bg3);border-radius:6px;padding:12px;font-size:12px;font-family:monospace;white-space:pre-wrap"></div>
-      <div style="display:flex;gap:8px;margin-top:14px">
-        <button class="btn btn-primary" onclick="regSubmit()" style="flex:1;padding:10px">✅ 确认注册</button>
-        <button class="btn btn-outline" onclick="loadRegisterForm()" style="padding:10px">🔄 清空</button>
-      </div>
-      <div id="regResult" style="margin-top:12px"></div>
-    </div>
-  </div>`;
-  regPreview();
-}
-
-function regToggleExisting() {
-  const sel = document.getElementById('regExistingIdentity');
-  if (sel) sel.style.display = document.querySelector('input[name="regIdentity"]:checked')?.value === 'existing' ? 'block' : 'none';
-  regPreview();
-}
-
-function regPreview() {
-  const el = document.getElementById('regPreview');
-  if (!el) return;
-  const phone = document.getElementById('regPhone')?.value || '13800138000';
-  const platform = document.getElementById('regPlatform')?.value || 'douyin';
-  const notes = document.getElementById('regNotes')?.value || '-';
-  el.textContent = `📋 注册预览:\n账号ID: ${platform.slice(0,4)}_xx\n手机: ${phone.slice(0,3)}****${phone.slice(-4)}\n备注: ${notes}`;
-}
-
-async function regSubmit() {
-  const phone = document.getElementById('regPhone')?.value.trim();
-  if (!phone) { alert('请输入手机号'); return; }
-  const platform = document.getElementById('regPlatform')?.value || 'douyin';
-  const proxy = document.getElementById('regProxy')?.value || '';
-  const identityMode = document.querySelector('input[name="regIdentity"]:checked')?.value || 'new';
-  const existingIdentity = identityMode === 'existing' ? document.getElementById('regExistingIdentity')?.value : '';
-  const notes = document.getElementById('regNotes')?.value || '';
-  const result = document.getElementById('regResult');
-  result.innerHTML = '<span style="font-size:13px">⏳ 注册中...</span>';
-  try {
-    const r = await fetch('/api/matrix/accounts/register', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({platform, phone, nickname: notes})
-    });
-    const d = await r.json();
-    if (d.status === 'ok') {
-      result.innerHTML = '<div style="padding:10px;background:rgba(34,197,94,.15);border-radius:6px;font-size:13px">✅ 注册成功！<br><br><strong>'+d.account_id+'</strong> ('+d.phone+')<br>身份: '+d.identity_hint+'<br><br>下一步: 在「账号管理」中确认</div>';
-    } else {
-      result.innerHTML = '<div style="color:var(--red);font-size:13px">❌ '+(d.detail||'注册失败')+'</div>';
-    }
-  } catch(e) {
-    result.innerHTML = '<div style="color:var(--red);font-size:13px">❌ '+e.message+'</div>';
-  }
-}
+// [旧登记注册函数已移除，注册功能合并到 SMS 页面]
 
 async function loadMatrixAtomOps() {
   const el = document.getElementById('matrixAtomOpsContent');
