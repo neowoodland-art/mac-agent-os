@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.41
+    "load_1m": 1.71
   },
   "memory": {
     "total_gb": 0,
@@ -14,18 +14,28 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 106.1,
-    "available_gb": 139.0
+    "used_gb": 106.3,
+    "available_gb": 138.8
   },
-  "last_seen": "2026-06-13T09:21:19.031698+00:00",
+  "last_seen": "2026-06-13T09:26:38.799015+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-13T09:21:19.057148+00:00",
+  "_received_at": "2026-06-13T09:26:38.826666+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "Redmi-12C",
   "_events": [
+    {
+      "id": "267e042d-9fda-4a11-b214-b810eb4e1ff0",
+      "type": "sync_updated",
+      "hostname": "Redmi-12C",
+      "timestamp": "2026-06-13T09:21:38.687918+00:00",
+      "payload": {
+        "summary": "Updating 638922ab8..22dacc5a2\nCreated autostash: c47130f8b\nFast-forward\n .../data/automation/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json       | 2 +-\n .../data/ave/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json              | 2 +-\n .../data/collector/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json        | 2 +-\n .../data/guardd/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json           | 2 +-\n .../data/knowledge/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json        | 2 +-\n .../data/matrix/d19759cf-2159-4fe7-b6ff-db14ccf",
+        "hostname": "Redmi-12C"
+      }
+    },
     {
       "id": "845f972c-1ef9-466d-9a97-6297ecae4efa",
       "type": "knowledge_updated",
