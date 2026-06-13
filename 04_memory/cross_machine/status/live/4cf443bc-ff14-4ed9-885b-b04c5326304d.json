@@ -5,7 +5,11 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
+<<<<<<< Updated upstream
     "load_1m": 2.05
+=======
+    "load_1m": 2.3
+>>>>>>> Stashed changes
   },
   "memory": {
     "total_gb": 0,
@@ -14,68 +18,28 @@
   },
   "disk": {
     "total_gb": 245.1,
+<<<<<<< Updated upstream
     "used_gb": 109.7,
     "available_gb": 135.4
   },
   "last_seen": "2026-06-13T13:55:26.152250+00:00",
+=======
+    "used_gb": 110.1,
+    "available_gb": 135.0
+  },
+  "last_seen": "2026-06-13T16:19:38.268392+00:00",
+>>>>>>> Stashed changes
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
+<<<<<<< Updated upstream
   "_received_at": "2026-06-13T13:55:26.196498+00:00",
+=======
+  "_received_at": "2026-06-13T16:19:38.316741+00:00",
+>>>>>>> Stashed changes
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "Redmi-12C",
-  "_events": [
-    {
-      "id": "267e042d-9fda-4a11-b214-b810eb4e1ff0",
-      "type": "sync_updated",
-      "hostname": "Redmi-12C",
-      "timestamp": "2026-06-13T09:21:38.687918+00:00",
-      "payload": {
-        "summary": "Updating 638922ab8..22dacc5a2\nCreated autostash: c47130f8b\nFast-forward\n .../data/automation/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json       | 2 +-\n .../data/ave/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json              | 2 +-\n .../data/collector/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json        | 2 +-\n .../data/guardd/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json           | 2 +-\n .../data/knowledge/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json        | 2 +-\n .../data/matrix/d19759cf-2159-4fe7-b6ff-db14ccf",
-        "hostname": "Redmi-12C"
-      }
-    },
-    {
-      "id": "845f972c-1ef9-466d-9a97-6297ecae4efa",
-      "type": "knowledge_updated",
-      "hostname": "Redmi-12C",
-      "timestamp": "2026-06-13T08:05:55.468650+00:00",
-      "payload": {
-        "latest_date": "2026-06-06",
-        "previous_date": "2026-06-01"
-      }
-    },
-    {
-      "id": "9b5ae1d8-a55e-4d41-b89e-c4e00b297815",
-      "type": "submissions_pushed",
-      "hostname": "Redmi-12C",
-      "timestamp": "2026-06-13T00:56:48.674777+00:00",
-      "payload": {
-        "count": 11,
-        "hostname": "Redmi-12C"
-      }
-    },
-    {
-      "id": "b145d2ff-9f50-4fbf-9fbb-c4e1dff6fa19",
-      "type": "sync_updated",
-      "hostname": "Redmi-12C",
-      "timestamp": "2026-06-13T10:22:43.457248+00:00",
-      "payload": {
-        "summary": "Updating 55d981d69..a4a797e14\nCreated autostash: d517ee398\nFast-forward\n .../data/automation/f13b03d1-7310-433c-ba35-368c51edb1d0.json       | 2 +-\n .../data/ave/f13b03d1-7310-433c-ba35-368c51edb1d0.json              | 2 +-\n .../data/collector/f13b03d1-7310-433c-ba35-368c51edb1d0.json        | 2 +-\n .../data/guardd/f13b03d1-7310-433c-ba35-368c51edb1d0.json           | 6 +++---\n .../data/knowledge/f13b03d1-7310-433c-ba35-368c51edb1d0.json        | 2 +-\n .../data/matrix/f13b03d1-7310-433c-ba35-368",
-        "hostname": "Redmi-12C"
-      }
-    },
-    {
-      "id": "d92fadef-f645-45f8-8df4-0e72bf3b69b9",
-      "type": "sync_updated",
-      "hostname": "Redmi-12C",
-      "timestamp": "2026-06-13T09:16:18.909393+00:00",
-      "payload": {
-        "summary": "Updating c5553f895..3bb3ddeed\nCreated autostash: ac3ed7e1f\nFast-forward\n 05_tools/07_matrix/scripts/mc/engine.py | 6 +++---\n 1 file changed, 3 insertions(+), 3 deletions(-)",
-        "hostname": "Redmi-12C"
-      }
-    }
-  ],
+  "_events": [],
   "_uptime": 0
 }
