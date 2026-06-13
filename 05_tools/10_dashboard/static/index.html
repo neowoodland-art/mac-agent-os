@@ -243,6 +243,41 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div id="matrixRunContent"></div>
 </div>
 
+<!-- 命令与任务（TAB：批量执行 + 定向评论） -->
+<div id="view-matrix-commands" class="hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="font-size:18px">🎯 命令与任务</h2>
+  </div>
+  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #2a2d3e">
+    <div class="cmd-tab active" data-tab="cmd-run" onclick="switchCmdTab('cmd-run',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:#e1e4f0;margin-bottom:-2px">🚀 批量执行</div>
+    <div class="cmd-tab" data-tab="cmd-comment" onclick="switchCmdTab('cmd-comment',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">💬 定向评论</div>
+  </div>
+  <div id="cmd-run-content" style="display:block">
+    <div id="matrixRunContent2"></div>
+  </div>
+  <div id="cmd-comment-content" style="display:none">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">💬 定向评论</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="cmdTaskUrl" placeholder="视频链接" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:280px">
+        <select id="cmdTaskDirection" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px">
+          <option value="">自动选方向</option>
+          <option value="称赞">👍 称赞</option>
+          <option value="提问">🤔 提问</option>
+          <option value="共鸣">💗 共鸣</option>
+          <option value="感慨">😌 感慨</option>
+          <option value="客观">📊 客观</option>
+        </select>
+        <select id="cmdTaskAccount" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
+          <option value="">自动选账号</option>
+        </select>
+        <button onclick="cmdRunCommentTask()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🚀 执行评论</button>
+      </div>
+      <div id="cmdTaskResult" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Matrix account management view -->
 <div id="view-matrix-accounts" class="hidden">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -284,6 +319,21 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div id="recordStatus" style="font-size:12px;color:#8b8fa3;margin-bottom:8px"></div>
   <div id="recordList" style="font-size:12px"><div class="loading">加载录制包...</div></div>
   <div id="recordDetail" style="font-size:12px;margin-top:8px"></div>
+</div>
+
+<!-- ═══ 矩阵设置（TAB：导入导出 / 备份恢复 / 语料库）═══ -->
+<div id="view-matrix-settings" class="hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="font-size:18px">⚙️ 矩阵设置</h2>
+  </div>
+  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #2a2d3e">
+    <div class="set-tab active" data-tab="set-export" onclick="switchSetTab('set-export',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:#e1e4f0;margin-bottom:-2px">📦 导入导出</div>
+    <div class="set-tab" data-tab="set-backup" onclick="switchSetTab('set-backup',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">💾 备份恢复</div>
+    <div class="set-tab" data-tab="set-corpus" onclick="switchSetTab('set-corpus',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">📚 语料库</div>
+  </div>
+  <div id="set-export-content" style="display:block"><div id="matrixExportContent2"></div></div>
+  <div id="set-backup-content" style="display:none"><div id="matrixBackupContent2"></div></div>
+  <div id="set-corpus-content" style="display:none"><div id="corpusContent2"></div></div>
 </div>
 
 <!-- ═══════════════════ System Knowledge Center ═══════════════════ -->
@@ -774,7 +824,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-record'];
+  const matrixSubViews = ['matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-record','matrix-commands','matrix-settings'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -804,7 +854,7 @@ function switchView(view) {
     });
     // Hide ALL other views first
     ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-     'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-settings'].forEach(v => {
+     'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-record','matrix-commands','matrix-settings'].forEach(v => {
       document.getElementById('view-' + v)?.classList.add('hidden');
     });
     document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.classList.add('hidden'));
@@ -826,7 +876,7 @@ function switchView(view) {
 
   // 视图显隐
   const viewIds = ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-                   'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-settings','kb'];
+                   'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-record','matrix-commands','matrix-settings','kb'];
   viewIds.forEach(v => {
     document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
   });
@@ -858,7 +908,8 @@ function switchView(view) {
   if (view === 'matrix-export') loadMatrixExport();
   if (view === 'matrix-sms-proxy') loadSmsProxy();
   if (view === 'matrix-record') loadMatrixRecord();
-  if (view === 'matrix-settings') switchView('matrix-export');
+  if (view === 'matrix-commands') loadMatrixCommands();
+  if (view === 'matrix-settings') loadMatrixSettings();
 }
 
 // ── Stats ──
@@ -1157,7 +1208,7 @@ async function loadPlugins() {
       ]},
       '矩阵系统': { icon: '📡', items: [
         {view:'matrix-sms-proxy', label:'身份与账号'},
-        {view:'matrix-run', label:'命令与任务'},
+        {view:'matrix-commands', label:'命令与任务'},
         {view:'matrix-accounts', label:'账号总览'},
         {view:'matrix-c2', label:'远程控制'},
         {view:'matrix-blueprints', label:'蓝图编排'},
@@ -2834,6 +2885,127 @@ async function recordingDelete(name) {
     await fetch('/api/matrix/recordings/'+encodeURIComponent(name), { method:'DELETE' });
     refreshRecordingList();
   } catch(e) { alert('❌ '+e.message); }
+}
+
+// ════════════════════════════════════════════════════════
+// 命令与任务 TAB
+// ════════════════════════════════════════════════════════
+
+function switchCmdTab(tab, el) {
+  document.querySelectorAll('.cmd-tab').forEach(t => {
+    t.style.borderBottom = '2px solid transparent';
+    t.style.color = '#8b8fa3';
+  });
+  el.style.borderBottom = '2px solid #6366f1';
+  el.style.color = '#e1e4f0';
+  ['cmd-run-content','cmd-comment-content'].forEach(id => {
+    document.getElementById(id).style.display = id === tab+'-content' ? 'block' : 'none';
+  });
+}
+
+async function loadMatrixCommands() {
+  // 加载批量执行内容
+  const runEl = document.getElementById('matrixRunContent2');
+  if (runEl) {
+    runEl.innerHTML = '<div class="loading">加载中...</div>';
+    // 复用已存在的 loadMatrixRun 逻辑（把内容渲染到 matrixRunContent2）
+    try {
+      const r = await fetch('/api/matrix/system-info');
+      // 简单显示表单
+      runEl.innerHTML = document.getElementById('matrixRunContent')?.innerHTML || '<div style="color:#8b8fa3">请在「批量执行」标签页操作</div>';
+    } catch(e) { runEl.innerHTML = '<div class="error">'+e.message+'</div>'; }
+  }
+  // 填充定向评论的账号下拉
+  const acctSel = document.getElementById('cmdTaskAccount');
+  if (acctSel) {
+    try {
+      const r = await fetch('/api/matrix/sms/accounts');
+      const d = await r.json();
+      acctSel.innerHTML = '<option value="">自动选账号</option>' +
+        (d.accounts||[]).filter(a => a.is_local).map(a =>
+          '<option value="'+a.id+'">'+(a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
+    } catch(e) { /* ignore */ }
+  }
+}
+
+async function cmdRunCommentTask() {
+  const url = document.getElementById('cmdTaskUrl')?.value.trim();
+  if (!url) { alert('请填写视频链接'); return; }
+  const direction = document.getElementById('cmdTaskDirection')?.value || '';
+  const account = document.getElementById('cmdTaskAccount')?.value || '';
+  const resultEl = document.getElementById('cmdTaskResult');
+  if (resultEl) resultEl.innerHTML = '⏳ 执行中...';
+  try {
+    const r = await fetch('/api/matrix/task/run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'comment', url, direction, account})
+    });
+    const d = await r.json();
+    if (resultEl) {
+      if (d.status === 'ok') {
+        resultEl.innerHTML = '<span style="color:#22c55e">✅ 完成！成功 '+d.success+'/'+d.total+' 步 ('+d.duration+'s)</span>'+
+          '<div style="font-size:10px;color:#8b8fa3;margin-top:2px">'+d.task_summary+'</div>';
+      } else {
+        resultEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.errors||[d.detail||'失败']).join('; ')+'</span>';
+      }
+    }
+  } catch(e) { if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>'; }
+}
+
+// ════════════════════════════════════════════════════════
+// 矩阵设置 TAB
+// ════════════════════════════════════════════════════════
+
+function switchSetTab(tab, el) {
+  document.querySelectorAll('.set-tab').forEach(t => {
+    t.style.borderBottom = '2px solid transparent';
+    t.style.color = '#8b8fa3';
+  });
+  el.style.borderBottom = '2px solid #6366f1';
+  el.style.color = '#e1e4f0';
+  ['set-export-content','set-backup-content','set-corpus-content'].forEach(id => {
+    document.getElementById(id).style.display = id === tab+'-content' ? 'block' : 'none';
+  });
+}
+
+async function loadMatrixSettings() {
+  // 加载导入导出内容
+  const exportEl = document.getElementById('matrixExportContent2');
+  if (exportEl && typeof loadMatrixExport === 'function') {
+    // 复用现有的 loadMatrixExport，把结果渲染到 matrixExportContent2
+    const origEl = document.getElementById('matrixExportContent');
+    if (origEl) {
+      exportEl.innerHTML = origEl.innerHTML || '<div class="loading">加载中...</div>';
+      loadMatrixExport();
+      // 监控原始内容变化同步到副本
+      const observer = new MutationObserver(() => {
+        exportEl.innerHTML = origEl.innerHTML;
+      });
+      observer.observe(origEl, { childList: true, subtree: true, characterData: true });
+    }
+  }
+  // 备份恢复
+  const backupEl = document.getElementById('matrixBackupContent2');
+  if (backupEl && typeof loadMatrixBackup === 'function') {
+    const origEl = document.getElementById('matrixBackupContent');
+    if (origEl) {
+      backupEl.innerHTML = origEl.innerHTML || '<div class="loading">加载中...</div>';
+      loadMatrixBackup();
+      const observer = new MutationObserver(() => { backupEl.innerHTML = origEl.innerHTML; });
+      observer.observe(origEl, { childList: true, subtree: true, characterData: true });
+    }
+  }
+  // 语料库
+  const corpusEl = document.getElementById('corpusContent2');
+  if (corpusEl && typeof loadCorpus === 'function') {
+    const origEl = document.getElementById('corpusContent');
+    if (origEl) {
+      corpusEl.innerHTML = origEl.innerHTML || '<div class="loading">加载中...</div>';
+      loadCorpus();
+      const observer = new MutationObserver(() => { corpusEl.innerHTML = origEl.innerHTML; });
+      observer.observe(origEl, { childList: true, subtree: true, characterData: true });
+    }
+  }
 }
 
 // ── Keyboard ──
