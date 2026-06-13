@@ -1469,8 +1469,8 @@ async function loadMatrixRun() {
     </div>`;
 
     // ── 蓝图过滤逻辑（账号选择变化时自动过滤） ──
-    window._allBlueprints = ${JSON.stringify(blueprints)};
-    const allBlueprints = window._allBlueprints;
+    window._allBlueprints = blueprints;
+    const allBlueprints = blueprints;
     function filterBlueprints() {
       const checkedAccts = [...document.querySelectorAll('.batch-acct:checked')];
       const platforms = new Set(checkedAccts.map(e => e.getAttribute('data-platform')));
