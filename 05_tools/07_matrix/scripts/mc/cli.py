@@ -183,6 +183,90 @@ def cmd_blueprint(args):
 
 
 # ════════════════════════════════════════════════════════════
+# Task 域
+# ════════════════════════════════════════════════════════════
+
+def cmd_task(args):
+    """智能任务调度"""
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+
+    if args.list:
+        print("""
+可用任务类型:
+  comment  — 定向评论：给链接+方向 → 打开视频 → 评论
+    必填: --url        视频链接
+    选填: --direction  评论方向 (正面/提问/共鸣/感慨)
+          --comment    指定评论内容
+          --account    指定账号
+
+  search   — 搜索浏览：给关键词 → 搜索 → 随机浏览/点赞
+    必填: --keyword    搜索关键词
+    选填: --rounds     浏览几个视频
+
+  collect  — 信息采集：给博主名 → 搜索 → 采集主页信息
+    必填: --keyword    博主名称
+
+  reply    — 作者回复：打开自己视频 → 读评论 → 回复
+    必填: --account    你的账号
+    选填: --comment    回复内容（默认自动生成）
+
+示例:
+  mc task comment --url https://v.douyin.com/xxx --direction 正面
+  mc task search --keyword 美食探店 --rounds 5
+  mc task collect --keyword 张三说科技
+  mc task reply --account douyin_test
+""")
+        return
+
+    if not args.task_type:
+        print("请指定任务类型: comment / search / collect / reply")
+        print("查看帮助: mc task --list")
+        return
+
+    from mc.task import Task, run_task
+    import asyncio
+
+    task = Task(
+        type=args.task_type,
+        url=args.url,
+        keyword=args.keyword,
+        direction=args.direction,
+        comment_text=args.comment,
+        account=args.account,
+        rounds=args.rounds,
+    )
+
+    errors = task.validate()
+    if errors:
+        print("❌ 参数错误:")
+        for e in errors:
+            print(f"   - {e}")
+        print("\n查看帮助: mc task --list")
+        return
+
+    task.auto_fill()
+    print(f"\n📋 任务: {task.summary()}")
+    print(f"    蓝图: {task.blueprint}")
+    print(f"    参数: {task.to_task_params()}")
+
+    if not args.yes:
+        confirm = input("\n⏎ 确认执行？(Y/n): ").strip().lower()
+        if confirm not in ("", "y", "yes"):
+            print("已取消")
+            return
+
+    result = asyncio.run(run_task(task))
+    print(f"\n{'='*50}")
+    if result.get("status") == "error":
+        print(f"❌ 失败: {result.get('errors', result.get('error', 'unknown'))}")
+    else:
+        print(f"✅ 完成: {result.get('success', 0)}/{result.get('total_steps', 0)} 步成功")
+        if result.get("failed"):
+            print(f"⚠️  {result['failed']} 步失败")
+    print(f"耗时: {result.get('duration', 0)}s")
+
+
+# ════════════════════════════════════════════════════════════
 # Corpus 域
 # ════════════════════════════════════════════════════════════
 
@@ -575,6 +659,20 @@ def build_parser():
     p_rec_delete.set_defaults(func=cmd_record)
 
     p_rec.set_defaults(func=cmd_record)
+
+    # ── task — 智能任务 ──
+    p_task = sub.add_parser("task", help="智能任务：自动选账号/蓝图/填参数")
+    p_task.add_argument("task_type", nargs="?", choices=["comment", "search", "collect", "reply"],
+                        help="任务类型")
+    p_task.add_argument("--url", default="", help="视频链接（定向评论用）")
+    p_task.add_argument("--keyword", default="", help="搜索/采集关键词")
+    p_task.add_argument("--direction", default="", help="评论方向：正面/提问/共鸣/感慨")
+    p_task.add_argument("--comment", default="", help="指定评论内容（默认自动生成）")
+    p_task.add_argument("--account", default="", help="指定账号（默认自动选）")
+    p_task.add_argument("--rounds", type=int, default=1, help="执行轮数")
+    p_task.add_argument("--list", action="store_true", help="列出可选任务类型")
+    p_task.add_argument("-y", "--yes", action="store_true", help="跳过确认直接执行")
+    p_task.set_defaults(func=cmd_task)
 
     # ── op — 原子操作注册/删除 ──
     p_op = sub.add_parser("op", help="原子操作注册/删除")

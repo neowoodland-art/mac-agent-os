@@ -297,11 +297,20 @@ class BatchEngine:
                     except:
                         pass
 
-            # 3. 执行蓝图步骤（与 yanghao_runner 相同的执行模式）
+            # 3. 参数替换：蓝图中的 @url/@keyword/@comment_text 等从 task_params 填入
+            task_params = getattr(self, 'task_params', {})
+            def _resolve(val):
+                if isinstance(val, str):
+                    for k, v in task_params.items():
+                        val = val.replace(f'@{k}', str(v))
+                return val
+
+            # 4. 执行蓝图步骤
             for i, step in enumerate(steps):
                 sn = step.get("step_id", i + 1)
                 op = step.get("op", "")
-                sargs = step.get("args", {})
+                sargs_raw = step.get("args", {})
+                sargs = {k: _resolve(v) for k, v in sargs_raw.items()}
                 start_t = time.time()
 
                 try:
@@ -438,6 +447,17 @@ class BatchEngine:
                         result = f"comments_{r}"
                     elif op == "post_comment":
                         text = sargs.get("text", "拍得真好")
+                        # @corpus 标记：从语料库按方向自动生成评论
+                        if text == "@corpus":
+                            direction = task_params.get("direction", "")
+                            kw = sargs.get("keyword", task_params.get("keyword", ""))
+                            try:
+                                from mc.corpus import CorpusManager
+                                cm = CorpusManager()
+                                gen = cm.get_comment_for_video(kw, direction=direction if direction else None)
+                                if gen:
+                                    text = gen
+                            except: pass
                         # pbcopy 写入剪贴板（Draft.js 只认系统级粘贴）
                         proc = await asyncio.create_subprocess_exec(
                             "pbcopy", stdin=asyncio.subprocess.PIPE
