@@ -626,6 +626,7 @@ def build_parser():
     p_run.add_argument("--engine", default="auto", choices=["chrome", "camoufox", "auto"], help="浏览器引擎")
     p_run.add_argument("--mix", action="store_true", help="混合随机模式(每轮随机选蓝图)")
     p_run.add_argument("--daemon", action="store_true", help="后台运行")
+    p_run.add_argument("--keep", action="store_true", help="执行完毕后保留浏览器不关闭")
     p_run.add_argument("--proxy", default="auto", help="代理策略")
     p_run.set_defaults(func=cmd_run)
 
