@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.25
+    "load_1m": 1.35
   },
   "memory": {
     "total_gb": 0,
@@ -14,10 +14,10 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 87.9,
-    "available_gb": 157.2
+    "used_gb": 88.9,
+    "available_gb": 156.2
   },
-  "last_seen": "2026-06-13T11:39:50.929307+00:00",
+  "last_seen": "2026-06-13T11:44:57.374461+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null
