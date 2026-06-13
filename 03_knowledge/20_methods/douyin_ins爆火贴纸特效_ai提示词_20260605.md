@@ -1,3 +1,8 @@
+---
+collected: true
+collected_date: 2026-06-09
+---
+
 # INS 爆火贴纸特效（附 AI 提示词）
 
 > 来源：抖音创作者「AIGC-洋咩咩」

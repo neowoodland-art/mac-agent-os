@@ -1,9 +1,12 @@
 ---
+
 title: Matrix 养号系统已知坑与解决方案
 tags: [matrix, pitfalls, troubleshooting, camoufox, chrome, macos]
 created: 2026-05-29
 updated: 2026-05-29
 nature: method
+collected: true
+collected_date: 2026-06-09
 ---
 
 ## 浏览器引擎

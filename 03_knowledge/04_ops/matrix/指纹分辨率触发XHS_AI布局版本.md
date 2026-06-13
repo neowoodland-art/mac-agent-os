@@ -1,7 +1,10 @@
 ---
+
 title: 指纹分辨率触发小红书 AI-layout 版本
 tags: [xhs, fingerprint, ai-layout, resolution]
 created: 2026-05-27
+collected: true
+collected_date: 2026-06-09
 ---
 
 ## 现象
