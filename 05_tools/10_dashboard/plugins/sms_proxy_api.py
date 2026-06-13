@@ -440,6 +440,38 @@ def api_collect_profile(account_id: str):
 
 # [删除账号使用 app.py 中已有的 DELETE /api/matrix/accounts/{id}]
 # 前端调用时加 ?delete_identity=true
+# 但 app.py 的 delete 有 bug(不写回 accounts.yaml)，前端需额外调用此 cleanup
+
+
+@router.post("/accounts/{account_id}/cleanup")
+def api_account_cleanup(account_id: str):
+    """删除后被 app.py 的 bug 遗漏时，补清理 accounts.yaml 和 registry"""
+    try:
+        import yaml
+        changed = False
+        # 清理 accounts.yaml
+        LOCAL_ACCT = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.yaml"
+        if LOCAL_ACCT.exists():
+            raw = yaml.safe_load(LOCAL_ACCT.read_text()) or {}
+            accts = raw.get("accounts", []) if isinstance(raw, dict) else (raw if isinstance(raw, list) else [])
+            before = len(accts)
+            accts = [a for a in accts if isinstance(a, dict) and a.get("id") != account_id]
+            if len(accts) != before:
+                data = {"accounts": accts}
+                LOCAL_ACCT.write_text(yaml.dump(data, allow_unicode=True, default_flow_style=False))
+                changed = True
+        # 清理 registry
+        reg_path = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
+        if reg_path.exists():
+            reg = yaml.safe_load(reg_path.read_text()) or {"accounts": []}
+            before = len(reg["accounts"])
+            reg["accounts"] = [a for a in reg["accounts"] if a.get("id") != account_id]
+            if len(reg["accounts"]) != before:
+                reg_path.write_text(yaml.dump(reg, allow_unicode=True, default_flow_style=False))
+                changed = True
+        return {"status": "ok", "cleaned": changed}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 # ═══════════════════════════════════════════════
 # 录制管理 API

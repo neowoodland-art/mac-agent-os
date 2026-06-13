@@ -2558,10 +2558,13 @@ async function deleteAccount(accountId) {
   const statusEl = document.getElementById('collectProfileStatus');
   if (statusEl) statusEl.innerHTML = '⏳ 正在删除...';
   try {
+    // app.py 删除（有 bug，不清理 accounts.yaml）
     const r = await fetch('/api/matrix/accounts/'+accountId+'?delete_identity=true', { method:'DELETE' });
     const d = await r.json();
+    // 补清理 accounts.yaml + registry
+    await fetch('/api/matrix/accounts/'+accountId+'/cleanup', { method:'POST' });
     if (d.status === 'ok') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ '+d.message+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 已删除</span>';
       setTimeout(loadSmsAccounts, 2000);
     } else {
       if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'失败')+'</span>';
