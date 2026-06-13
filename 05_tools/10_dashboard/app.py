@@ -1360,6 +1360,7 @@ async def api_matrix_login(account_id: str):
         identity_hint = acct.get("identity_hint") or acct.get("identity_dir", "").replace("identities/", "")
         if not identity_hint:
             raise HTTPException(400, detail="账号无身份目录")
+        platform = acct.get("platform", "douyin")
 
         # 后台启动浏览器
         import asyncio, os
@@ -1368,7 +1369,7 @@ async def api_matrix_login(account_id: str):
         async def _launch():
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, str(SCRIPTS_DIR / "login_identity.py"),
-                identity_hint,
+                identity_hint, "--platform", platform,
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
             )
