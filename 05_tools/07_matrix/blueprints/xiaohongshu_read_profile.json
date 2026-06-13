@@ -1,18 +1,58 @@
 {
   "id": "xiaohongshu_read_profile",
-  "name": "读取主页信息",
+  "name": "小红书-读取主页信息",
   "version": "1.0.0",
   "platform": "xiaohongshu",
   "description": "进入个人主页，逐项读取昵称/小红书号/关注/粉丝/获赞/简介",
   "entry_url": "https://www.xiaohongshu.com/explore",
   "steps": [
-    {"step_id": 1, "op": "xhs_goto_home", "args": {}, "wait_after": 3},
-    {"step_id": 2, "op": "xhs_goto_profile", "args": {}, "wait_after": 3},
-    {"step_id": 3, "op": "xhs_read_nickname", "args": {}, "wait_after": 1},
-    {"step_id": 4, "op": "xhs_read_user_id", "args": {}, "wait_after": 1},
-    {"step_id": 5, "op": "xhs_read_following", "args": {}, "wait_after": 1},
-    {"step_id": 6, "op": "xhs_read_fans", "args": {}, "wait_after": 1},
-    {"step_id": 7, "op": "xhs_read_likes", "args": {}, "wait_after": 1},
-    {"step_id": 8, "op": "xhs_read_bio", "args": {}, "wait_after": 1}
+    {
+      "step_id": 1,
+      "op": "xhs_goto_home",
+      "args": {},
+      "wait_after": 3
+    },
+    {
+      "step_id": 2,
+      "op": "xhs_goto_profile",
+      "args": {},
+      "wait_after": 3
+    },
+    {
+      "step_id": 3,
+      "op": "xhs_read_nickname",
+      "args": {},
+      "wait_after": 1
+    },
+    {
+      "step_id": 4,
+      "op": "xhs_read_user_id",
+      "args": {},
+      "wait_after": 1
+    },
+    {
+      "step_id": 5,
+      "op": "xhs_read_following",
+      "args": {},
+      "wait_after": 1
+    },
+    {
+      "step_id": 6,
+      "op": "xhs_read_fans",
+      "args": {},
+      "wait_after": 1
+    },
+    {
+      "step_id": 7,
+      "op": "xhs_read_likes",
+      "args": {},
+      "wait_after": 1
+    },
+    {
+      "step_id": 8,
+      "op": "xhs_read_bio",
+      "args": {},
+      "wait_after": 1
+    }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "id": "douyin_search_browse",
-  "name": "抖音搜索浏览",
+  "name": "抖音-搜索浏览(v2)",
   "platform": "douyin",
   "version": "1.0.0",
   "description": "搜索关键词→浏览结果→点赞→返回推荐页",
@@ -8,33 +8,59 @@
   "entry_page": "recommend_feed",
   "steps": [
     {
-      "step_id": 1, "op": "goto_home", "args": {},
-      "wait_after": 3, "retry": 2,
+      "step_id": 1,
+      "op": "goto_home",
+      "args": {},
+      "wait_after": 3,
+      "retry": 2,
       "post_check": "is_on_feed"
     },
     {
-      "step_id": 2, "op": "search", "args": {"keyword": "美食推荐"},
-      "wait_after": 3, "retry": 2,
+      "step_id": 2,
+      "op": "search",
+      "args": {
+        "keyword": "美食推荐"
+      },
+      "wait_after": 3,
+      "retry": 2,
       "post_check": "is_on_search"
     },
     {
-      "step_id": 3, "op": "click_search_result", "args": {"index": 0},
-      "wait_after": 3, "retry": 2
+      "step_id": 3,
+      "op": "click_search_result",
+      "args": {
+        "index": 0
+      },
+      "wait_after": 3,
+      "retry": 2
     },
     {
-      "step_id": 4, "op": "wait_watch", "args": {"seconds": 10},
-      "wait_after": 0, "wait_jitter": 3
+      "step_id": 4,
+      "op": "wait_watch",
+      "args": {
+        "seconds": 10
+      },
+      "wait_after": 0,
+      "wait_jitter": 3
     },
     {
-      "step_id": 5, "op": "like", "args": {"probability": 0.5},
+      "step_id": 5,
+      "op": "like",
+      "args": {
+        "probability": 0.5
+      },
       "wait_after": 1.5
     },
     {
-      "step_id": 6, "op": "go_back", "args": {},
+      "step_id": 6,
+      "op": "go_back",
+      "args": {},
       "wait_after": 2
     },
     {
-      "step_id": 7, "op": "goto_home", "args": {},
+      "step_id": 7,
+      "op": "goto_home",
+      "args": {},
       "wait_after": 3
     }
   ]

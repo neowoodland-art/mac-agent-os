@@ -1,22 +1,96 @@
 {
   "id": "douyin_search",
-  "name": "抖音搜索浏览",
+  "name": "抖音-搜索浏览",
   "description": "按关键词搜索、随机点开视频、浏览/点赞/收藏",
   "version": "1.0",
   "steps": [
-    {"step_id": 1, "op": "search_browse", "args": {"keyword": "@keyword"}},
-    {"step_id": 2, "op": "wait", "args": {"seconds": 2}},
-    {"step_id": 3, "op": "next_video", "args": {}},
-    {"step_id": 4, "op": "wait_watch", "args": {"seconds": null}},
-    {"step_id": 5, "op": "like", "args": {"probability": 0.5}},
-    {"step_id": 6, "op": "collect", "args": {"probability": 0.2}},
-    {"step_id": 7, "op": "next_video", "args": {}},
-    {"step_id": 8, "op": "wait_watch", "args": {"seconds": null}},
-    {"step_id": 9, "op": "like", "args": {"probability": 0.6}},
-    {"step_id": 10, "op": "next_video", "args": {}},
-    {"step_id": 11, "op": "wait_watch", "args": {"seconds": null}},
-    {"step_id": 12, "op": "open_comments", "args": {}},
-    {"step_id": 13, "op": "post_comment", "args": {"text": "@corpus"}},
-    {"step_id": 14, "op": "close_comments", "args": {}}
+    {
+      "step_id": 1,
+      "op": "search_browse",
+      "args": {
+        "keyword": "@keyword"
+      }
+    },
+    {
+      "step_id": 2,
+      "op": "wait",
+      "args": {
+        "seconds": 2
+      }
+    },
+    {
+      "step_id": 3,
+      "op": "next_video",
+      "args": {}
+    },
+    {
+      "step_id": 4,
+      "op": "wait_watch",
+      "args": {
+        "seconds": null
+      }
+    },
+    {
+      "step_id": 5,
+      "op": "like",
+      "args": {
+        "probability": 0.5
+      }
+    },
+    {
+      "step_id": 6,
+      "op": "collect",
+      "args": {
+        "probability": 0.2
+      }
+    },
+    {
+      "step_id": 7,
+      "op": "next_video",
+      "args": {}
+    },
+    {
+      "step_id": 8,
+      "op": "wait_watch",
+      "args": {
+        "seconds": null
+      }
+    },
+    {
+      "step_id": 9,
+      "op": "like",
+      "args": {
+        "probability": 0.6
+      }
+    },
+    {
+      "step_id": 10,
+      "op": "next_video",
+      "args": {}
+    },
+    {
+      "step_id": 11,
+      "op": "wait_watch",
+      "args": {
+        "seconds": null
+      }
+    },
+    {
+      "step_id": 12,
+      "op": "open_comments",
+      "args": {}
+    },
+    {
+      "step_id": 13,
+      "op": "post_comment",
+      "args": {
+        "text": "@corpus"
+      }
+    },
+    {
+      "step_id": 14,
+      "op": "close_comments",
+      "args": {}
+    }
   ]
 }

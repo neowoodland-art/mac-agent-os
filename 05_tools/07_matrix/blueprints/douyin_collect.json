@@ -1,13 +1,37 @@
 {
   "id": "douyin_collect",
-  "name": "抖音信息采集",
+  "name": "抖音-信息采集",
   "description": "搜索指定博主 → 采集主页信息（昵称/粉丝/关注/获赞）",
   "version": "1.0",
   "steps": [
-    {"step_id": 1, "op": "goto_home", "args": {}},
-    {"step_id": 2, "op": "search", "args": {"keyword": "@keyword"}},
-    {"step_id": 3, "op": "click_search_result", "args": {}},
-    {"step_id": 4, "op": "goto_profile", "args": {}},
-    {"step_id": 5, "op": "wait", "args": {"seconds": 3}}
+    {
+      "step_id": 1,
+      "op": "goto_home",
+      "args": {}
+    },
+    {
+      "step_id": 2,
+      "op": "search",
+      "args": {
+        "keyword": "@keyword"
+      }
+    },
+    {
+      "step_id": 3,
+      "op": "click_search_result",
+      "args": {}
+    },
+    {
+      "step_id": 4,
+      "op": "goto_profile",
+      "args": {}
+    },
+    {
+      "step_id": 5,
+      "op": "wait",
+      "args": {
+        "seconds": 3
+      }
+    }
   ]
 }

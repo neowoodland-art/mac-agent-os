@@ -1,6 +1,6 @@
 {
   "id": "douyin_read_profile",
-  "name": "读取主页信息",
+  "name": "抖音-读取主页信息",
   "version": "1.0.0",
   "platform": "douyin",
   "description": "进入个人主页，逐项读取昵称/抖音号/关注/粉丝/获赞/作品数/简介",
@@ -9,9 +9,22 @@
       "step_id": 1,
       "op": "goto_home",
       "args": {},
-      "pre": {"page_mode": ["unknown", "grid", "player", "search"]},
-      "post": {"page_mode": "grid"},
-      "verify": {"mode": "anchor", "anchor": "grid_page", "timeout": 20},
+      "pre": {
+        "page_mode": [
+          "unknown",
+          "grid",
+          "player",
+          "search"
+        ]
+      },
+      "post": {
+        "page_mode": "grid"
+      },
+      "verify": {
+        "mode": "anchor",
+        "anchor": "grid_page",
+        "timeout": 20
+      },
       "on_fail": "retry(2)",
       "wait_after": 3
     },
@@ -19,9 +32,17 @@
       "step_id": 2,
       "op": "dy_goto_profile",
       "args": {},
-      "pre": {"page_mode": "grid"},
-      "post": {"page_mode": "profile"},
-      "verify": {"mode": "element", "selector": "[data-e2e='user-info']", "timeout": 15},
+      "pre": {
+        "page_mode": "grid"
+      },
+      "post": {
+        "page_mode": "profile"
+      },
+      "verify": {
+        "mode": "element",
+        "selector": "[data-e2e='user-info']",
+        "timeout": 15
+      },
       "on_fail": "retry(2)",
       "wait_after": 3
     },
@@ -29,63 +50,105 @@
       "step_id": 3,
       "op": "dy_read_nickname",
       "args": {},
-      "pre": {"page_mode": "profile"},
-      "post": {"page_mode": "profile"},
-      "verify": {"mode": "none"},
+      "pre": {
+        "page_mode": "profile"
+      },
+      "post": {
+        "page_mode": "profile"
+      },
+      "verify": {
+        "mode": "none"
+      },
       "wait_after": 1
     },
     {
       "step_id": 4,
       "op": "dy_read_douyin_id",
       "args": {},
-      "pre": {"page_mode": "profile"},
-      "post": {"page_mode": "profile"},
-      "verify": {"mode": "none"},
+      "pre": {
+        "page_mode": "profile"
+      },
+      "post": {
+        "page_mode": "profile"
+      },
+      "verify": {
+        "mode": "none"
+      },
       "wait_after": 1
     },
     {
       "step_id": 5,
       "op": "dy_read_following",
       "args": {},
-      "pre": {"page_mode": "profile"},
-      "post": {"page_mode": "profile"},
-      "verify": {"mode": "none"},
+      "pre": {
+        "page_mode": "profile"
+      },
+      "post": {
+        "page_mode": "profile"
+      },
+      "verify": {
+        "mode": "none"
+      },
       "wait_after": 1
     },
     {
       "step_id": 6,
       "op": "dy_read_fans",
       "args": {},
-      "pre": {"page_mode": "profile"},
-      "post": {"page_mode": "profile"},
-      "verify": {"mode": "none"},
+      "pre": {
+        "page_mode": "profile"
+      },
+      "post": {
+        "page_mode": "profile"
+      },
+      "verify": {
+        "mode": "none"
+      },
       "wait_after": 1
     },
     {
       "step_id": 7,
       "op": "dy_read_likes",
       "args": {},
-      "pre": {"page_mode": "profile"},
-      "post": {"page_mode": "profile"},
-      "verify": {"mode": "none"},
+      "pre": {
+        "page_mode": "profile"
+      },
+      "post": {
+        "page_mode": "profile"
+      },
+      "verify": {
+        "mode": "none"
+      },
       "wait_after": 1
     },
     {
       "step_id": 8,
       "op": "dy_read_posts",
       "args": {},
-      "pre": {"page_mode": "profile"},
-      "post": {"page_mode": "profile"},
-      "verify": {"mode": "none"},
+      "pre": {
+        "page_mode": "profile"
+      },
+      "post": {
+        "page_mode": "profile"
+      },
+      "verify": {
+        "mode": "none"
+      },
       "wait_after": 1
     },
     {
       "step_id": 9,
       "op": "dy_read_bio",
       "args": {},
-      "pre": {"page_mode": "profile"},
-      "post": {"page_mode": "profile"},
-      "verify": {"mode": "none"},
+      "pre": {
+        "page_mode": "profile"
+      },
+      "post": {
+        "page_mode": "profile"
+      },
+      "verify": {
+        "mode": "none"
+      },
       "wait_after": 1
     }
   ]

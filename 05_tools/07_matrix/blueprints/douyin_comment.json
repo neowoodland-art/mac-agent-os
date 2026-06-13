@@ -1,13 +1,39 @@
 {
   "id": "douyin_comment",
-  "name": "抖音定向评论",
+  "name": "抖音-定向评论",
   "description": "给视频链接 → 打开 → 观看 → 评论",
   "version": "1.0",
   "steps": [
-    {"step_id": 1, "op": "goto_url", "args": {"url": "@url"}},
-    {"step_id": 2, "op": "wait_watch", "args": {"seconds": null}},
-    {"step_id": 3, "op": "open_comments", "args": {}},
-    {"step_id": 4, "op": "post_comment", "args": {"text": "@comment_text"}},
-    {"step_id": 5, "op": "close_comments", "args": {}}
+    {
+      "step_id": 1,
+      "op": "goto_url",
+      "args": {
+        "url": "@url"
+      }
+    },
+    {
+      "step_id": 2,
+      "op": "wait_watch",
+      "args": {
+        "seconds": null
+      }
+    },
+    {
+      "step_id": 3,
+      "op": "open_comments",
+      "args": {}
+    },
+    {
+      "step_id": 4,
+      "op": "post_comment",
+      "args": {
+        "text": "@comment_text"
+      }
+    },
+    {
+      "step_id": 5,
+      "op": "close_comments",
+      "args": {}
+    }
   ]
 }
