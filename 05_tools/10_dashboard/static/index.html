@@ -1486,10 +1486,11 @@ async function loadMatrixRun() {
       if (platforms.size === 1) {
         const plat = [...platforms][0];
         filtered = allBlueprints.filter(b => !b.platform || b.platform === plat);
-        hint.textContent = '🎯 仅显示 ' + (plat === 'douyin' ? '抖音' : '小红书') + ' 蓝图';
+        hint.textContent = '🎯 仅显示 ' + (plat === 'douyin' ? '抖音' : '小红书') + ' 蓝图（请选择匹配的）';
       } else {
-        filtered = allBlueprints.filter(b => !b.platform);
-        hint.textContent = '🔄 多平台混合 — 仅显示通用蓝图';
+        // 多平台：显示所有蓝图，让用户自己选
+        filtered = allBlueprints;
+        hint.textContent = '🔄 多平台混合 — 已显示全部蓝图，请按需选择匹配平台的';
       }
       list.innerHTML = filtered.map(b => '<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px">' +
         '<input type="checkbox" class="batch-bp" value="' + b.name + '"> ' +
@@ -1497,7 +1498,6 @@ async function loadMatrixRun() {
       ).join('');
     }
     // 监听所有 .batch-acct 变化（事件代理）
-    document.querySelector('[data-tab="cmd-run"]')?.addEventListener('click', filterBlueprints);
     document.addEventListener('change', e => {
       if (e.target.matches('.batch-acct')) filterBlueprints();
     });
@@ -1582,8 +1582,12 @@ function batchPreview() {
   const corpus = isRandom ? ['random'] : [...document.querySelectorAll('.batch-corpus:checked')].map(e => e.value);
   const proxy = document.getElementById('bpProxy')?.value || 'auto';
 
-  if (!accts.length || !bps.length) {
-    document.getElementById('batchCmdPreview').textContent = '请选择至少一个账号和一个蓝图';
+  if (!accts.length) {
+    document.getElementById('batchCmdPreview').textContent = '⚠️ 请先选择账号';
+    return;
+  }
+  if (!bps.length) {
+    document.getElementById('batchCmdPreview').textContent = '⚠️ 请选择至少一个蓝图（上方切换到某平台后蓝图列表会出现）';
     return;
   }
 
@@ -1622,7 +1626,14 @@ async function batchExecute() {
   if (!output || !content) return;
 
   const cmd = preview.textContent;
-  if (!cmd.startsWith('mc run')) { alert('请先选择账号和蓝图'); return; }
+  if (!cmd.startsWith('mc run')) {
+    const accts = [...document.querySelectorAll('.batch-acct:checked')].length;
+    const bps = [...document.querySelectorAll('.batch-bp:checked')].length;
+    if (!accts) { alert('请先选择账号'); return; }
+    if (!bps) { alert('请先选择蓝图'); return; }
+    alert('请先选择账号和蓝图');
+    return;
+  }
 
   output.style.display = 'block';
   content.textContent = '⏳ 后台执行中...\n';
