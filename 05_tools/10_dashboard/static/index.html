@@ -2266,19 +2266,12 @@ async function loadSmsAccounts() {
     sel.innerHTML = '<option value="">— 选择账号 —</option>' +
       accounts.map(a => '<option value="'+a.id+'" data-phone="'+(a.phone||'')+'" data-nick="'+(a.nickname||'')+'">'+
         (a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+' '+(a.is_local?'(本机)':'')+' ('+a.phone+')</option>').join('');
-    // 加载人设信息
+    // 加载人设信息（供卡片渲染使用）
+    let personas = {};
     try {
       const pr = await fetch('/api/matrix/personas');
       const pd = await pr.json();
-      const personas = pd.personas || {};
-      for (const [aid, p] of Object.entries(personas)) {
-        const el = document.getElementById('persona_'+aid);
-        if (el) {
-          const interests = (p.interests||[]).slice(0,3).join('·');
-          const style = (p.comment_style||[]).slice(0,2).join('/');
-          el.innerHTML = '🎯 '+interests+' <span style="margin:0 4px">|</span> 💬 '+style;
-        }
-      }
+      personas = pd.personas || {};
     } catch(e) { /* ignore */ }
 
     // 填充定向评论的账号下拉
@@ -2289,30 +2282,55 @@ async function loadSmsAccounts() {
           (a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
     }
 
-    // 账号管理卡片
+    // 账号管理卡片（以手机号为单位）
     if (overview) {
-      overview.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px">'+
-        accounts.filter(a => a.is_local).map(a => {
-          const dot = (ok) => ok ? '✅' : '❌';
+      const dot = (ok) => ok ? '✅' : '❌';
+      // 按手机号分组
+      const groups = {};
+      accounts.filter(a => a.is_local).forEach(a => {
+        const phone = a.phone || 'unknown';
+        if (!groups[phone]) groups[phone] = [];
+        groups[phone].push(a);
+      });
+      const personaData = personas || {};
+
+      overview.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:10px">'+
+        Object.entries(groups).map(([phone, accts]) => {
+          // 取第一个有 identity_dir 的作为共享身份名
+          const sharedIdent = accts.find(a => (a.identity_dir||'').startsWith('phone_'))?.identity_dir
+            || accts.find(a => a.has_identity)?.id
+            || accts[0]?.id;
+          // 取该手机号的人设
+          const pid = accts[0]?.id || '';
+          const pdata = personaData[pid] || {};
+          const interests = (pdata.interests||[]).slice(0,3).join('·');
+          const style = (pdata.comment_style||[]).slice(0,2).join('/');
+
+          const platRow = (a) => {
+            const icon = a.platform === 'xiaohongshu' ? '📕' : '🎵';
+            const platName = a.platform === 'xiaohongshu' ? '小红书' : '抖音';
+            return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #1e2035">'+
+              '<span style="width:60px">'+icon+' '+platName+'</span>'+
+              '<span style="width:20px">'+dot(a.has_cookie)+'</span>'+
+              '<span style="width:20px">'+dot(a.has_profile)+'</span>'+
+              '<span style="width:20px">'+dot(a.has_registry)+'</span>'+
+              '<span style="flex:1;font-size:10px;color:#8b8fa3;overflow:hidden;text-overflow:ellipsis">'+a.nickname+'</span>'+
+              '<button onclick="accountLogin(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">🔑</button>'+
+              '<button onclick="collectProfile(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">👤</button>'+
+              '<button onclick="deleteAccount(\''+a.id+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">🗑</button>'+
+            '</div>';
+          };
+
           return '<div style="background:#232740;border-radius:8px;padding:10px;border:1px solid #2a2d3e">'+
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
-              '<div><span>'+(a.platform==='xiaohongshu'?'📕':'🎵')+'</span> '+
-              '<span style="font-weight:600;font-size:13px">'+a.nickname+'</span></div>'+
-              '<span style="font-size:9px;color:#8b8fa3">'+a.id+'</span>'+
+              '<div><span style="font-weight:700;font-size:14px">📱 '+phone+'</span></div>'+
+              '<span style="font-size:9px;color:#8b8fa3">身份: '+sharedIdent+'</span>'+
             '</div>'+
-            '<div style="font-size:11px;color:#8b8fa3;margin-bottom:6px">📱 '+a.phone+'</div>'+
-            '<div style="display:flex;gap:10px;font-size:10px;margin-bottom:6px">'+
-              '<span>'+dot(a.has_identity)+' 身份</span>'+
-              '<span>'+dot(a.has_cookie)+' 登录</span>'+
-              '<span>'+dot(a.has_profile)+' 昵称</span>'+
-              '<span>'+dot(a.has_registry)+' 同步</span>'+
+            (interests ? '<div style="font-size:10px;color:#8b8fa3;margin-bottom:4px">🎯 '+interests+(style?' | 💬 '+style:'')+'</div>' : '')+
+            '<div style="display:grid;grid-template-columns:60px 20px 20px 20px 1fr 24px 24px 24px;gap:2px;font-size:9px;color:#8b8fa3;padding:2px 0;border-bottom:1px solid #2a2d3e;margin-bottom:2px">'+
+              '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>名称</span><span></span><span></span><span></span>'+
             '</div>'+
-            '<div style="font-size:10px;color:#8b8fa3;margin-top:2px" id="persona_'+a.id+'"></div>'+
-            '<div style="margin-top:6px;display:flex;gap:4px">'+
-              '<button onclick="accountLogin(\''+a.id+'\')" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">🔑 登录</button>'+
-              '<button onclick="collectProfile(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">👤 采集</button>'+
-              '<button onclick="deleteAccount(\''+a.id+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除</button>'+
-            '</div>'+
+            accts.map(platRow).join('')+
           '</div>';
         }).join('')+'</div>';
     }
