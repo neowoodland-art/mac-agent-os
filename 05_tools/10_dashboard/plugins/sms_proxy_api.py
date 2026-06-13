@@ -250,15 +250,25 @@ def api_proxy_test(data: dict):
 # ═══════════════════════════════════════════════
 
 def _account_status(a: dict) -> dict:
-    """增强账号状态：检测 cookie/profile，返回状态标签"""
+    """四维状态检测：identity / cookie / profile / registry"""
     aid = a["id"]
+    # ① 有身份目录
     identity_dir = IDENTITIES_ROOT / aid
     has_identity = identity_dir.exists()
+    # ② 有 Cookie（已登录）
     has_cookie = False
     if has_identity:
         ck = identity_dir / "user_data" / "cookies.sqlite"
         if ck.exists() and ck.stat().st_size > 100:
-            has_cookie = True
+            try:
+                import sqlite3
+                conn = sqlite3.connect(str(ck), timeout=1)
+                cnt = conn.execute("SELECT count(*) FROM moz_cookies WHERE name LIKE '%session%'").fetchone()[0]
+                conn.close()
+                has_cookie = cnt > 0
+            except:
+                pass
+    # ③ 有昵称（已采集 profile）
     has_profile = False
     profiles_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
     if profiles_path.exists():
@@ -269,16 +279,20 @@ def _account_status(a: dict) -> dict:
             if nick and nick != aid:
                 has_profile = True
         except: pass
-    if has_profile:
-        status_label = "已采集"
-    elif has_cookie:
-        status_label = "已登录"
-    elif has_identity:
-        status_label = "已注册"
-    else:
-        status_label = "未配置"
+    # ④ 在 registry 中有记录（已同步到联邦）
+    has_registry = False
+    reg_path = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
+    if reg_path.exists():
+        try:
+            import yaml
+            reg = yaml.safe_load(reg_path.read_text()) or {"accounts": []}
+            for ra in reg.get("accounts", []):
+                if ra.get("id") == aid:
+                    has_registry = True
+                    break
+        except: pass
     return {"has_identity": has_identity, "has_cookie": has_cookie,
-            "has_profile": has_profile, "status_label": status_label}
+            "has_profile": has_profile, "has_registry": has_registry}
 
 
 @router.get("/sms/accounts")
@@ -304,12 +318,11 @@ def api_sms_accounts():
             result.append({
                 "id": aid, "phone": a.get("phone", ""),
                 "nickname": nick, "platform": a.get("platform", ""),
-                "status": a.get("_status", "unknown"),
                 "is_local": a.get("is_local", False),
-                "status_label": st["status_label"],
                 "has_identity": st["has_identity"],
                 "has_cookie": st["has_cookie"],
                 "has_profile": st["has_profile"],
+                "has_registry": st["has_registry"],
             })
         return {"accounts": result}
     except Exception as e:
