@@ -607,6 +607,47 @@ def api_account_cleanup(account_id: str):
         return {"status": "error", "error": str(e)}
 
 # ═══════════════════════════════════════════════
+# 清除登录状态 API
+# ═══════════════════════════════════════════════
+
+@router.post("/accounts/{account_id}/clear-cookies")
+def api_clear_cookies(account_id: str):
+    """清除指定账号的登录状态（只清该平台 cookie，不影响同身份的其他平台）"""
+    try:
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        acct = None
+        for a in mgr.list_accounts():
+            if a["id"] == account_id:
+                acct = a
+                break
+        if not acct:
+            return {"status": "error", "error": "账号不存在"}
+
+        identity_dir = acct.get("identity_dir", account_id).replace("identities/", "")
+        plat = acct.get("platform", "douyin")
+        # 平台对应的域名模式
+        domain_pattern = "%douyin%" if plat == "douyin" else "%xiaohongshu%"
+
+        cookie_path = IDENTITIES_ROOT / identity_dir / "user_data" / "cookies.sqlite"
+        if not cookie_path.exists():
+            return {"status": "ok", "message": f"{plat} 无 cookie 可清除"}
+
+        try:
+            import sqlite3
+            conn = sqlite3.connect(str(cookie_path), timeout=3)
+            cur = conn.execute("DELETE FROM moz_cookies WHERE host LIKE ?", (domain_pattern,))
+            deleted = cur.rowcount
+            conn.commit()
+            conn.close()
+            return {"status": "ok", "message": f"已清除 {plat} 的 {deleted} 个 cookie", "deleted": deleted}
+        except Exception as e:
+            return {"status": "error", "error": f"清除失败: {e}"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+# ═══════════════════════════════════════════════
 # 录制管理 API
 # ═══════════════════════════════════════════════
 

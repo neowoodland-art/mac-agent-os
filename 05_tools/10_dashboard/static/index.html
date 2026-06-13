@@ -2373,6 +2373,7 @@ async function loadSmsAccounts() {
               '<span style="flex:1;font-size:10px;color:#8b8fa3;overflow:hidden;text-overflow:ellipsis">'+a.nickname+'</span>'+
               '<button onclick="accountLogin(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">🔑</button>'+
               '<button onclick="collectProfile(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">👤</button>'+
+              '<button onclick="clearCookies(\''+a.id+'\',\''+a.platform+'\')" style="background:#5c1a1a;color:#f87171;border:1px solid #5c1a1a;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">🚫</button>'+
               '<button onclick="deleteAccount(\''+a.id+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">🗑</button>'+
             '</div>';
           };
@@ -2827,6 +2828,27 @@ async function accountLogin(accountId) {
       if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ '+d.message+'</span>';
     } else {
       if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'失败')+'</span>';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
+  }
+}
+
+// ── 清除登录状态 ──
+async function clearCookies(accountId, platform) {
+  if (!accountId) return;
+  const platName = platform === 'xiaohongshu' ? '小红书' : '抖音';
+  if (!confirm('清除 '+accountId+' ('+platName+') 的登录状态？\n清除后需要重新登录，不影响同手机号的其他平台。')) return;
+  const statusEl = document.getElementById('collectProfileStatus');
+  if (statusEl) statusEl.innerHTML = '⏳ 清除中...';
+  try {
+    const r = await fetch('/api/matrix/accounts/'+accountId+'/clear-cookies', { method:'POST' });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ '+d.message+'</span>';
+      loadSmsAccounts().catch(e => {});
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'清除失败')+'</span>';
     }
   } catch(e) {
     if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
