@@ -1,0 +1,10 @@
+# Matrix 定时任务配置
+# 默认全部禁用，按需开启
+schedules:
+
+  douyin_daily_morning:
+    enabled: false
+    account: douyin_blank
+    blueprint: douyin_daily
+    rounds: 3
+    time: "09:00"
