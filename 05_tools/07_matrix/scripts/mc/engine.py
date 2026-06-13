@@ -533,20 +533,41 @@ class BatchEngine:
                         await asyncio.sleep(1)
                         result = "comments_closed"
                     elif op == "xhs_goto_profile":
-                        # 从 DOM 提取"我"底部导航的 profile URL -> page.goto() 导航
-                        profile_url = await conn.page.evaluate("""() => {
+                        # 尝试多种方式进入个人主页
+                        target = ""
+                        # 方式1: 找"我"的导航链接
+                        target = await conn.page.evaluate("""() => {
                             const links = document.querySelectorAll('a');
                             for (const a of links) {
                                 const href = a.href || '';
-                                if (href.includes('/user/profile/')) {
-                                    return href;
-                                }
+                                if (href.includes('/user/profile/')) return href;
                             }
                             return '';
                         }""")
-                        target = profile_url or "https://www.xiaohongshu.com/user/profile"
-                        await conn.page.goto(target, timeout=20000, wait_until="domcontentloaded")
-                        await asyncio.sleep(5)
+                        if not target:
+                            # 方式2: 直接导航到创作者中心（已登录用户）
+                            await conn.page.goto("https://creator.xiaohongshu.com", timeout=15000, wait_until="domcontentloaded")
+                            await asyncio.sleep(3)
+                            # 检查是否被重定向到登录页
+                            if "login" in conn.page.url.lower() or "sign" in conn.page.url.lower():
+                                # 方式3: 回到首页
+                                await conn.page.goto("https://www.xiaohongshu.com/explore", timeout=15000, wait_until="domcontentloaded")
+                                await asyncio.sleep(3)
+                                # 尝试 JS 点击"我"按钮
+                                await conn.page.evaluate("""() => {
+                                    const items = document.querySelectorAll('[class*="tab"],[class*="nav-item"]');
+                                    for (const el of items) {
+                                        const t = (el.textContent||'').trim();
+                                        if (t.includes('我') || t.includes('我的')) { el.click(); return; }
+                                    }
+                                }""")
+                                await asyncio.sleep(3)
+                                target = conn.page.url
+                            else:
+                                target = conn.page.url
+                        if target:
+                            await conn.page.goto(target, timeout=20000, wait_until="domcontentloaded")
+                            await asyncio.sleep(5)
 
                         # 统一提取：一次 page.evaluate 获取全部字段
                         profile_cache = await conn.page.evaluate("""() => {
