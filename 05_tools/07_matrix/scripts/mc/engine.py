@@ -570,11 +570,11 @@ class BatchEngine:
                             await asyncio.sleep(5)
 
                         # 统一提取：一次 page.evaluate 获取全部字段
-                        profile_cache = await conn.page.evaluate("""() => {
+                        profile_cache = await conn.page.evaluate(r"""() => {
                             const text = (document.body.innerText || '').trim();
                             const title = (document.title || '').replace(' - 小红书', '').trim();
 
-                            const uidM = text.match(/小红书号[：:]\\s*(\\d+)/);
+                            const uidM = text.match(/小红书号[：:]\s*(\d+)/);
                             const folM = text.match(/(\d+(?:\.\d+)?[万wW]?)\s*关注/);
                             const fanM = text.match(/(\d+(?:\.\d+)?[万wW]?)\s*粉丝/);
                             const likM = text.match(/(\d+(?:\.\d+)?[万wW]?)\s*获赞与收藏/);
@@ -584,7 +584,7 @@ class BatchEngine:
                             if (text.includes('还没有简介') || text.includes('暂无简介')) {
                                 bio = '(无)';
                             } else {
-                                const bioM = text.match(/IP属地[：:].+?\\n(.+?)(?=\\d+关注|\\d+粉丝)/);
+                                const bioM = text.match(/IP属地[：:].+?\n(.+?)(?=\d+关注|\d+粉丝)/);
                                 if (bioM) bio = bioM[1].trim().slice(0, 50) || '(无)';
                             }
 
