@@ -313,6 +313,11 @@ def api_sms_accounts():
         for a in accounts:
             aid = a["id"]
             p = profiles.get(aid, {})
+            # 平台校验：profiles.json 中的 platform 必须和账号实际 platform 一致
+            acct_plat = a.get("platform", "")
+            profile_plat = p.get("platform", "")
+            if profile_plat and profile_plat != acct_plat:
+                p = {}  # 平台不匹配，忽略此 profile
             nick = p.get("nickname") or a.get("display_name") or aid
             st = _account_status(a)
             result.append({
