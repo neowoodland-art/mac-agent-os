@@ -453,7 +453,6 @@ async def api_task_run(request: Request):
     account = data.get("account", "")
     comment_text = data.get("comment", "")
     from mc.task import Task, run_task
-    import asyncio
     task = Task(type=task_type, url=url, keyword=keyword,
                 direction=direction, account=account, comment_text=comment_text)
     errors = task.validate()
@@ -462,7 +461,7 @@ async def api_task_run(request: Request):
     task.auto_fill()
     if not task.account:
         return {"status": "error", "errors": [f"没有可用的{task.platform}账号"]}
-    result = asyncio.run(run_task(task))
+    result = await run_task(task)
     return {"status": "ok" if result.get("status") != "error" else "error",
             "success": result.get("success", 0),
             "failed": result.get("failed", 0),
