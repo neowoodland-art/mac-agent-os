@@ -3,7 +3,10 @@
 # 安装: chmod +x mc && sudo ln -s $(pwd)/mc /usr/local/bin/mc
 # 或: alias mc='$(pwd)/mc'
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 解析真实路径（支持符号链接）
+_SRC="${BASH_SOURCE[0]}"
+while [ -L "$_SRC" ]; do _SRC="$(readlink "$_SRC")"; done
+SCRIPT_DIR="$(cd "$(dirname "$_SRC")" && pwd)"
 # 自动检测 Python 路径
 PYTHON=""
 if [ -n "$AGENTOS_PYTHON" ] && [ -x "$AGENTOS_PYTHON" ]; then

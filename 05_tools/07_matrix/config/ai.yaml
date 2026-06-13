@@ -1,7 +1,9 @@
-# AI 生成配置
+# Matrix AI 评论生成配置
+# 本地模型用 oMLX（兼容 OpenAI 格式）
 ai:
-  provider: openai  # openai / local
-  api_key: ""  # 空字符串 = 从环境变量 OPENAI_API_KEY 读取
-  base_url: "https://api.openai.com/v1"
-  model: "gpt-4o-mini"
+  provider: local          # local = OpenAI 兼容 API
+  api_key: ""              # oMLX 无鉴权
+  base_url: "http://localhost:8000/v1"
+  model: "Qwen3.5-4B-MLX-4bit"
   temperature: 0.8
+  max_tokens: 100

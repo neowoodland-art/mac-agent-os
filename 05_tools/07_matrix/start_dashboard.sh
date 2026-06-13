@@ -6,8 +6,8 @@ ACTION="${1:-start}"
 
 # 自动检测 Python
 PYTHON=""
-if [ -f "$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3" ]; then
-    PYTHON="$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+if [ -f "$HOME/.workbuddy/binaries/python/versions/3.13.12/bin/python3" ]; then
+    PYTHON="$HOME/.workbuddy/binaries/python/versions/3.13.12/bin/python3"
 elif command -v python3 &>/dev/null; then
     PYTHON="python3"
 else
