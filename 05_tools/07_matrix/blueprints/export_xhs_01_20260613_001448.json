@@ -1,0 +1,33 @@
+{
+  "id": "recorded_xhs_01_7steps",
+  "name": "录制蓝图 (7步)",
+  "version": "1.0.0",
+  "platform": "xiaohongshu",
+  "description": "由录制自动生成: xhs_01 7步操作",
+  "steps": [
+    {
+      "step_id": 1,
+      "op": "custom_navigate",
+      "args": {},
+      "wait_after": 2
+    },
+    {
+      "step_id": 2,
+      "op": "custom_click",
+      "args": {},
+      "wait_after": 2
+    },
+    {
+      "step_id": 3,
+      "op": "custom_click_dy_comment_area",
+      "args": {},
+      "wait_after": 2
+    },
+    {
+      "step_id": 4,
+      "op": "custom_enter_video",
+      "args": {},
+      "wait_after": 2
+    }
+  ]
+}

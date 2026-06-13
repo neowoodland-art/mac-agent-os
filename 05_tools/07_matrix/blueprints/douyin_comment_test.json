@@ -1,0 +1,14 @@
+{
+  "id": "douyin_comment_test",
+  "name": "抖音定向评论测试",
+  "version": "1.0.0",
+  "platform": "douyin",
+  "description": "打开指定视频链接 → 评论",
+  "steps": [
+    {"step_id": 1, "op": "goto_url", "args": {"url": "https://www.douyin.com/video/7650488090326427892"}},
+    {"step_id": 2, "op": "wait_watch", "args": {"seconds": 6}},
+    {"step_id": 3, "op": "open_comments", "args": {}},
+    {"step_id": 4, "op": "post_comment", "args": {"text": "@corpus"}},
+    {"step_id": 5, "op": "wait_watch", "args": {"seconds": 5}}
+  ]
+}

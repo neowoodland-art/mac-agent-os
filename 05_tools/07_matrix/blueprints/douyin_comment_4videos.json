@@ -1,0 +1,25 @@
+{
+  "id": "douyin_comment_4videos",
+  "name": "抖音定向评论4视频",
+  "version": "1.0.0",
+  "platform": "douyin",
+  "description": "连续评论4个指定视频，每次不同语料",
+  "steps": [
+    {"step_id": 1,  "op": "goto_url", "args": {"url": "https://www.douyin.com/video/7650464006721877978"}},
+    {"step_id": 2,  "op": "wait_watch", "args": {"seconds": 5}},
+    {"step_id": 3,  "op": "open_comments", "args": {}},
+    {"step_id": 4,  "op": "post_comment", "args": {"text": "@corpus"}},
+    {"step_id": 5,  "op": "goto_url", "args": {"url": "https://www.douyin.com/video/7650462732021792320"}},
+    {"step_id": 6,  "op": "wait_watch", "args": {"seconds": 5}},
+    {"step_id": 7,  "op": "open_comments", "args": {}},
+    {"step_id": 8,  "op": "post_comment", "args": {"text": "@corpus"}},
+    {"step_id": 9,  "op": "goto_url", "args": {"url": "https://www.douyin.com/video/7650461696415277779"}},
+    {"step_id": 10, "op": "wait_watch", "args": {"seconds": 5}},
+    {"step_id": 11, "op": "open_comments", "args": {}},
+    {"step_id": 12, "op": "post_comment", "args": {"text": "@corpus"}},
+    {"step_id": 13, "op": "goto_url", "args": {"url": "https://www.douyin.com/video/7650460666452916465"}},
+    {"step_id": 14, "op": "wait_watch", "args": {"seconds": 5}},
+    {"step_id": 15, "op": "open_comments", "args": {}},
+    {"step_id": 16, "op": "post_comment", "args": {"text": "@corpus"}}
+  ]
+}

@@ -17,7 +17,25 @@ IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"
 
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+# 本机主机名
+_HN_FILE = AGENT_LOCAL / "identity" / "cached_hostname"
+if _HN_FILE.exists():
+    HOSTNAME = _HN_FILE.read_text().strip()
+else:
+    import socket
+    HOSTNAME = socket.gethostname()
+if not HOSTNAME:
+    HOSTNAME = "unknown"
+
 SMS_YAML = SCRIPTS_DIR / "config" / "sms.yaml"
+
+# 预导入账号管理
+try:
+    from matrix_mgmt import MatrixManager
+    _matrix_mgmt_ok = True
+except Exception as e:
+    _matrix_mgmt_ok = False
+    _matrix_mgmt_err = str(e)
 
 
 class SMSManager:
@@ -186,7 +204,7 @@ class ProxyManager:
 
 
 # ═══ FastAPI 路由 ═══
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 router = APIRouter(prefix="/api/matrix", tags=["matrix"])
 _sms = SMSManager()
@@ -225,3 +243,234 @@ def api_proxy_set(account_id: str, data: dict):
 @router.post("/proxies/test")
 def api_proxy_test(data: dict):
     return _proxy.test_proxy(data.get("proxy", ""))
+
+
+# ═══════════════════════════════════════════════
+# SMS 账号管理 & 注册 API
+# ═══════════════════════════════════════════════
+
+@router.get("/sms/accounts")
+def api_sms_accounts():
+    """返回所有本机账号（含手机号和昵称），供前端下拉选择"""
+    if not _matrix_mgmt_ok:
+        return {"error": f"账号模块未加载: {_matrix_mgmt_err}"}
+    try:
+        mgr = MatrixManager()
+        accounts = mgr.list_accounts()
+        profiles_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
+        profiles = {}
+        if profiles_path.exists():
+            try:
+                profiles = json.loads(profiles_path.read_text())
+            except: pass
+        result = []
+        for a in accounts:
+            aid = a["id"]
+            p = profiles.get(aid, {})
+            nick = p.get("nickname") or a.get("display_name") or aid
+            result.append({
+                "id": aid, "phone": a.get("phone", ""),
+                "nickname": nick, "platform": a.get("platform", ""),
+                "status": a.get("_status", "unknown"),
+                "is_local": a.get("is_local", False),
+            })
+        return {"accounts": result}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/sms/test/{phone_or_account}")
+def api_sms_test_ext(phone_or_account: str, timeout: int = 15):
+    """查短信（支持手机号或账号ID）"""
+    if phone_or_account and len(phone_or_account) < 11 and _matrix_mgmt_ok:
+        try:
+            mgr = MatrixManager()
+            for a in mgr.list_accounts():
+                if a["id"] == phone_or_account and a.get("phone"):
+                    return _sms.test_receive(a["phone"], timeout)
+        except: pass
+    return _sms.test_receive(phone_or_account, timeout)
+
+
+@router.post("/accounts/register")
+async def api_account_register(request: Request):
+    """注册新账号：创建身份目录→写入accounts.yaml→打开浏览器登录"""
+    data = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    plat = data.get("platform", "douyin")
+    phone = data.get("phone", "").strip()
+    nick = data.get("nickname", "").strip()
+    if plat not in ("douyin", "xiaohongshu"):
+        return {"status": "error", "error": "平台只支持 douyin / xiaohongshu"}
+    if not phone:
+        return {"status": "error", "error": "手机号不能为空"}
+    # 生成 account_id
+    prefix = {"douyin": "douyin_", "xiaohongshu": "xhs_"}.get(plat, "acct_")
+    try:
+        mgr = MatrixManager()
+        existing = [a["id"] for a in mgr.list_accounts() if a["id"].startswith(prefix)]
+        nums = [int(a.replace(prefix, "")) for a in existing if a.replace(prefix, "").isdigit()]
+        n = max(nums) + 1 if nums else 1
+    except: n = 1
+    acct_id = f"{prefix}{n}"
+    try:
+        # 1. 创建身份目录
+        identity_dir = IDENTITIES_ROOT / acct_id
+        identity_dir.mkdir(parents=True, exist_ok=True)
+        (identity_dir / "user_data").mkdir(exist_ok=True)
+        import yaml
+        config = {
+            "fingerprint_summary": {"platform": "Win32", "screen": "1920x1080"},
+            "identity": {"name": acct_id, "platform": plat, "created_at": datetime.now().isoformat()},
+            "window": [802, 783],
+        }
+        (identity_dir / "config.yaml").write_text(yaml.dump(config, allow_unicode=True, default_flow_style=False))
+        # 2. 写入 accounts.yaml
+        LOCAL_ACCT_YAML = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.yaml"
+        accts = []
+        if LOCAL_ACCT_YAML.exists():
+            raw = yaml.safe_load(LOCAL_ACCT_YAML.read_text()) or {}
+            accts = raw.get("accounts", []) if isinstance(raw, dict) else (raw if isinstance(raw, list) else [])
+        accts = [a for a in accts if isinstance(a, dict) and a.get("id") != acct_id]
+        accts.append({
+            "id": acct_id, "platform": plat, "phone": phone,
+            "display_name": nick or acct_id, "enabled": True,
+            "browser_type": "camoufox", "profile_dir": acct_id, "identity_dir": acct_id,
+        })
+        LOCAL_ACCT_YAML.write_text(yaml.dump({"accounts": accts}, allow_unicode=True, default_flow_style=False))
+        # 3. 同步到 accounts_registry.yaml
+        registry_path = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
+        try:
+            reg = yaml.safe_load(registry_path.read_text()) or {"accounts": []}
+            reg["accounts"] = [a for a in reg["accounts"] if a.get("id") != acct_id]
+            reg["accounts"].append({
+                "id": acct_id, "platform": plat, "phone": phone,
+                "display_name": nick or acct_id, "assigned_machine": HOSTNAME or "unknown",
+            })
+            registry_path.write_text(yaml.dump(reg, allow_unicode=True, default_flow_style=False))
+        except: pass
+        # 4. 启动浏览器登录
+        agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
+        cmd = [agent_python, "-m", "mc", "account", "login", acct_id]
+        import subprocess
+        subprocess.Popen(cmd, cwd=str(SCRIPTS_DIR), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return {"status": "ok", "account_id": acct_id, "message": f"账号 {acct_id} 已创建，浏览器已打开请登录",
+                "next": "登录成功后可以在 Dashboard 采集昵称"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@router.post("/accounts/{account_id}/collect-profile")
+def api_collect_profile(account_id: str):
+    """采集账号昵称信息"""
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
+    import subprocess
+    try:
+        p = subprocess.Popen(
+            [agent_python, "-m", "mc", "run", "--accounts", account_id,
+             "--blueprints", "douyin_read_profile", "--rounds", "1"],
+            cwd=str(SCRIPTS_DIR), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return {"status": "ok", "pid": p.pid, "message": f"正在采集 {account_id} 的昵称信息"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+# ═══════════════════════════════════════════════
+# 录制管理 API
+# ═══════════════════════════════════════════════
+
+RECORDINGS_DIR = AGENT_LOCAL / "tools" / "matrix" / "recordings"
+_recording_process = None
+
+
+@router.post("/recordings/start")
+def api_recording_start(data: dict = None):
+    """启动录制"""
+    global _recording_process
+    account = (data or {}).get("account", "douyin_test")
+    platform = "douyin"
+    try:
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        for a in mgr.list_accounts():
+            if a["id"] == account:
+                p = a.get("platform", "douyin")
+                platform = {"douyin": "douyin", "xiaohongshu": "xiaohongshu"}.get(p, "douyin")
+                break
+    except: pass
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
+    cmd = [agent_python, "-m", "mc.recorder", account, platform]
+    import subprocess
+    try:
+        p = subprocess.Popen(cmd, cwd=str(SCRIPTS_DIR), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        import time; time.sleep(2)
+        if p.poll() is not None:
+            stderr = p.stderr.read().decode()[:200] if p.stderr else ""
+            return {"status": "error", "error": f"录制进程退出 (code={p.returncode})", "detail": stderr}
+        _recording_process = {"pid": p.pid, "account": account}
+        return {"status": "ok", "pid": p.pid, "account": account, "message": "录制已启动"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@router.post("/recordings/stop")
+def api_recording_stop():
+    """停止录制"""
+    global _recording_process
+    if _recording_process:
+        import os, signal
+        try:
+            os.kill(_recording_process["pid"], signal.SIGTERM)
+            import time; time.sleep(1)
+        except: pass
+        _recording_process = None
+        return {"status": "ok", "message": "录制已停止"}
+    return {"status": "ok", "message": "无运行中的录制"}
+
+
+@router.get("/recordings/status")
+def api_recording_status():
+    """查看录制状态"""
+    global _recording_process
+    if _recording_process:
+        import os
+        try:
+            os.kill(_recording_process["pid"], 0)
+            return {"status": "running", "pid": _recording_process["pid"], "account": _recording_process["account"]}
+        except: pass
+        _recording_process = None
+    return {"status": "idle"}
+
+
+@router.get("/recordings")
+def api_recordings_list():
+    """列出录制包"""
+    from mc.recorder import RecordingSession
+    return {"recordings": RecordingSession.list_recordings()}
+
+
+@router.get("/recordings/{name}")
+def api_recording_analyze(name: str):
+    """分析录制包"""
+    from mc.analyzer import analyze_recording_file
+    p = RECORDINGS_DIR / name
+    if p.exists():
+        return analyze_recording_file(str(p))
+    return {"error": f"录制包不存在: {name}"}
+
+
+@router.post("/recordings/{name}/export")
+def api_recording_export(name: str):
+    """导出录制包"""
+    from mc.exporter import export_recording
+    p = RECORDINGS_DIR / name
+    if p.exists():
+        return export_recording(str(p))
+    return {"error": f"录制包不存在: {name}"}
+
+
+@router.delete("/recordings/{name}")
+def api_recording_delete(name: str):
+    """删除录制包"""
+    from mc.recorder import RecordingSession
+    ok = RecordingSession.delete_recording(name)
+    return {"deleted": ok}

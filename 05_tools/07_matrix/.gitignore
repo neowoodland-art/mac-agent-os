@@ -13,3 +13,9 @@ logs/
 
 # Local config (per-machine, not synced)
 local.yaml
+# Temp artifacts
+*.png
+temp_*.json
+diagnose_ops.py
+step_by_step_*.py
+praise_all.sh

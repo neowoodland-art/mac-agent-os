@@ -1,158 +1,158 @@
-version: '1.0'
 accounts:
-- id: douyin_01
-  platform: douyin
-  phone_mask: 185****8610
-  assigned_machine: 5kechengdeAir
+- assigned_machine: 5kechengdeAir
+  id: douyin_01
   identity_hint: douyin_01_camo
-  window:
-  - 702
-  - 783
-  window_position:
-  - 0
-  - 0
   notes: 测试备注
-- id: douyin_02
-  platform: douyin
-  phone_mask: 185****3366
-  assigned_machine: 5kechengdeAir
-  identity_hint: douyin_02_camo
-  window:
-  - 702
-  - 783
-  window_position:
-  - 400
-  - 0
-  notes: 抖音副号
-- id: douyin_camo01
-  platform: douyin
-  phone_mask: 153****8283
-  assigned_machine: 5kechengdeAir
-  identity_hint: douyin_camo01
-  window:
-  - 702
-  - 783
-  window_position:
-  - 750
-  - 0
-  notes: 抖音三号
-- id: xhs_01
-  platform: xiaohongshu
   phone_mask: 185****8610
-  assigned_machine: 5kechengdeAir
-  identity_hint: douyin_01_camo
+  platform: douyin
   window:
   - 702
   - 783
   window_position:
   - 0
-  - 800
-  notes: 小红书（复用 douyin_01 指纹）
-- id: xhs_02
-  platform: xiaohongshu
-  phone_mask: 185****3366
-  assigned_machine: 5kechengdeAir
+  - 0
+- assigned_machine: 5kechengdeAir
+  id: douyin_02
   identity_hint: douyin_02_camo
+  notes: 抖音副号
+  phone_mask: 185****3366
+  platform: douyin
   window:
   - 702
   - 783
   window_position:
   - 400
-  - 800
-  notes: 小红书（复用 douyin_02 指纹）
-- id: xhs_03
-  platform: xiaohongshu
-  phone_mask: 153****8283
-  assigned_machine: 5kechengdeAir
+  - 0
+- assigned_machine: 5kechengdeAir
+  id: douyin_camo01
   identity_hint: douyin_camo01
+  notes: 抖音三号
+  phone_mask: 153****8283
+  platform: douyin
+  window:
+  - 702
+  - 783
+  window_position:
+  - 750
+  - 0
+- assigned_machine: 5kechengdeAir
+  id: xhs_01
+  identity_hint: douyin_01_camo
+  notes: 小红书（复用 douyin_01 指纹）
+  phone_mask: 185****8610
+  platform: xiaohongshu
+  window:
+  - 702
+  - 783
+  window_position:
+  - 0
+  - 800
+- assigned_machine: 5kechengdeAir
+  id: xhs_02
+  identity_hint: douyin_02_camo
+  notes: 小红书（复用 douyin_02 指纹）
+  phone_mask: 185****3366
+  platform: xiaohongshu
+  window:
+  - 702
+  - 783
+  window_position:
+  - 400
+  - 800
+- assigned_machine: 5kechengdeAir
+  id: xhs_03
+  identity_hint: douyin_camo01
+  notes: 小红书（复用 douyin_camo01 指纹）
+  phone_mask: 153****8283
+  platform: xiaohongshu
   window:
   - 702
   - 783
   window_position:
   - 750
   - 800
-  notes: 小红书（复用 douyin_camo01 指纹）
-- id: zhihu_01
-  platform: zhihu
-  phone_mask: ''
-  assigned_machine: 5kechengdeAir
+- assigned_machine: 5kechengdeAir
+  id: zhihu_01
   identity_hint: ''
+  notes: 知乎待注册
+  phone_mask: ''
+  platform: zhihu
   window:
   - 702
   - 783
   window_position:
   - 0
   - 0
-  notes: 知乎待注册
-- id: douyin_04
-  platform: douyin
-  phone_mask: 185****9083
-  assigned_machine: 5kechengdeAir
+- assigned_machine: 5kechengdeAir
+  id: douyin_04
   identity_hint: douyin_04
+  notes: 抖音四号
+  phone_mask: 185****9083
+  platform: douyin
   window:
   - 702
   - 783
   window_position:
   - 1150
   - 0
-  notes: 抖音四号
-- id: xhs_04
-  platform: xiaohongshu
-  phone_mask: 185****9083
-  assigned_machine: 5kechengdeAir
+- assigned_machine: 5kechengdeAir
+  id: xhs_04
   identity_hint: douyin_04
+  notes: 小红书（共享 douyin_04 身份）
+  phone_mask: 185****9083
+  platform: xiaohongshu
   window:
   - 702
   - 783
   window_position:
   - 1150
   - 800
-  notes: 小红书（共享 douyin_04 身份）
-- id: douyin_05
-  platform: douyin
-  phone_mask: 185****9224
-  assigned_machine: 5kechengdeAir
+- assigned_machine: 5kechengdeAir
+  id: douyin_05
   identity_hint: douyin_05
+  notes: 抖音五号
+  phone_mask: 185****9224
+  platform: douyin
   window:
   - 702
   - 783
   window_position:
   - 0
   - 1600
-  notes: 抖音五号
-- id: xhs_05
-  platform: xiaohongshu
-  phone_mask: 185****9224
-  assigned_machine: 5kechengdeAir
+- assigned_machine: 5kechengdeAir
+  id: xhs_05
   identity_hint: douyin_05
+  notes: 小红书（共享 douyin_05 身份）
+  phone_mask: 185****9224
+  platform: xiaohongshu
   window:
   - 702
   - 783
   window_position:
   - 400
   - 1600
-  notes: 小红书（共享 douyin_05 身份）
-- id: douyin_06
-  platform: douyin
-  phone_mask: 137****6808
-  assigned_machine: 5kechengdeAir
+- assigned_machine: 5kechengdeAir
+  id: douyin_06
   identity_hint: douyin_06
+  notes: 抖音六号
+  phone_mask: 137****6808
+  platform: douyin
   window:
   - 702
   - 783
   window_position:
   - 750
   - 1600
-  notes: 抖音六号
-- id: xhs_06
-  platform: xiaohongshu
-  phone_mask: 137****6808
-  assigned_machine: 5kechengdeAir
+- assigned_machine: 5kechengdeAir
+  id: xhs_06
   identity_hint: douyin_06
+  notes: 小红书（共享 douyin_06 身份）
+  phone_mask: 137****6808
+  platform: xiaohongshu
   window:
   - 702
   - 783
   window_position:
   - 1150
   - 1600
-  notes: 小红书（共享 douyin_06 身份）
+version: '1.0'
