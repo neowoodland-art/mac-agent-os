@@ -400,6 +400,11 @@ launchctl kickstart -k gui/$(id -u)/com.agentos.dashboard 2>/dev/null || true
 # ═══════════════════════════════════════════════════════════
 
 echo ""
+# 清除 Python 缓存（防止旧 .pyc 影响）
+echo "  🧹 清除 Python 缓存..."
+find "$AGENT_SYNC_DIR" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+find "$AGENT_SYNC_DIR" -name "*.pyc" -delete 2>/dev/null || true
+
 echo "🔍 验证..."
 sleep 4
 
