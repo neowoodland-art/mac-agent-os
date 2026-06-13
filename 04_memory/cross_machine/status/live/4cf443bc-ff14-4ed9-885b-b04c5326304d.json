@@ -5,11 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-<<<<<<< Updated upstream
-    "load_1m": 2.05
-=======
-    "load_1m": 2.3
->>>>>>> Stashed changes
+    "load_1m": 1.07
   },
   "memory": {
     "total_gb": 0,
@@ -18,26 +14,15 @@
   },
   "disk": {
     "total_gb": 245.1,
-<<<<<<< Updated upstream
-    "used_gb": 109.7,
-    "available_gb": 135.4
-  },
-  "last_seen": "2026-06-13T13:55:26.152250+00:00",
-=======
     "used_gb": 110.1,
     "available_gb": 135.0
   },
-  "last_seen": "2026-06-13T16:19:38.268392+00:00",
->>>>>>> Stashed changes
+  "last_seen": "2026-06-13T17:52:21.369801+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-<<<<<<< Updated upstream
-  "_received_at": "2026-06-13T13:55:26.196498+00:00",
-=======
-  "_received_at": "2026-06-13T16:19:38.316741+00:00",
->>>>>>> Stashed changes
+  "_received_at": "2026-06-13T17:52:21.410363+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "Redmi-12C",
   "_events": [],
