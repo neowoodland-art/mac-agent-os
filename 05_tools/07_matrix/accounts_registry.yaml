@@ -155,4 +155,9 @@ accounts:
   window_position:
   - 1150
   - 1600
+- assigned_machine: chengzigedeAir
+  display_name: 测试
+  id: douyin_134
+  phone: '13800138000'
+  platform: douyin
 version: '1.0'

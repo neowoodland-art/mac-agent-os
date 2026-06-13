@@ -2712,6 +2712,34 @@ async function gitSync() {
   }
 }
 
+// ── 账号注册 ──
+async function accountRegister() {
+  const plat = document.getElementById('regPlatform')?.value;
+  const phone = document.getElementById('regPhone')?.value;
+  const nick = document.getElementById('regNickname')?.value;
+  const statusEl = document.getElementById('regStatus');
+  if (!phone) { alert('请输入手机号'); return; }
+  if (statusEl) statusEl.innerHTML = '<span style="color:#8b8fa3">⏳ 注册中...</span>';
+  try {
+    const r = await fetch('/api/matrix/accounts/register', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({platform:plat, phone:phone, nickname:nick})
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ '+d.message+'</span>'+
+        '<div style="margin-top:4px;font-size:10px;color:#8b8fa3">账号ID: '+d.account_id+' | 登录后可以采集昵称</div>';
+      document.getElementById('regPhone').value = '';
+      document.getElementById('regNickname').value = '';
+      setTimeout(loadSmsAccounts, 2000);
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'注册失败')+'</span>';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
+  }
+}
+
 // ── 账号登录 ──
 async function accountLogin(accountId) {
   if (!accountId) return;
