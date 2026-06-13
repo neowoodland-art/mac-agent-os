@@ -1477,6 +1477,8 @@ async function loadMatrixRun() {
       const list = document.getElementById('batchBpList');
       const hint = document.getElementById('bpFilterHint');
       if (!list) return;
+      // 保存当前已选蓝图
+      const prevChecked = new Set([...document.querySelectorAll('.batch-bp:checked')].map(e => e.value));
       if (platforms.size === 0) {
         list.innerHTML = '';
         hint.textContent = '请先选择账号';
@@ -1488,14 +1490,15 @@ async function loadMatrixRun() {
         filtered = allBlueprints.filter(b => !b.platform || b.platform === plat);
         hint.textContent = '🎯 仅显示 ' + (plat === 'douyin' ? '抖音' : '小红书') + ' 蓝图（请选择匹配的）';
       } else {
-        // 多平台：显示所有蓝图，让用户自己选
         filtered = allBlueprints;
         hint.textContent = '🔄 多平台混合 — 已显示全部蓝图，请按需选择匹配平台的';
       }
-      list.innerHTML = filtered.map(b => '<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px">' +
-        '<input type="checkbox" class="batch-bp" value="' + b.name + '"> ' +
-        b.name + ' <span class="badge badge-blue" style="font-size:9px">' + (b.step_count || '?') + '步</span></label>'
-      ).join('');
+      list.innerHTML = filtered.map(b => {
+        const checked = prevChecked.has(b.name) ? 'checked' : '';
+        return '<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px">' +
+          '<input type="checkbox" class="batch-bp" value="' + b.name + '" ' + checked + '> ' +
+          b.name + ' <span class="badge badge-blue" style="font-size:9px">' + (b.step_count || '?') + '步</span></label>';
+      }).join('');
     }
     // 监听所有 .batch-acct 变化（事件代理）
     document.addEventListener('change', e => {
