@@ -447,15 +447,28 @@ def api_account_login(account_id: str):
 
 @router.post("/accounts/{account_id}/collect-profile")
 def api_collect_profile(account_id: str):
-    """采集账号昵称信息"""
+    """采集账号昵称信息（根据平台选择正确蓝图）"""
+    # 从账号注册表获取平台
+    platform = "douyin"
+    try:
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        for a in mgr.list_accounts():
+            if a["id"] == account_id:
+                p = a.get("platform", "douyin")
+                platform = p if p in ("douyin", "xiaohongshu") else "douyin"
+                break
+    except: pass
+    # 根据平台选择采集蓝图
+    bp_name = "xiaohongshu_read_profile" if platform == "xiaohongshu" else "douyin_read_profile"
     agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
     import subprocess
     try:
         p = subprocess.Popen(
             [agent_python, "-m", "mc", "run", "--accounts", account_id,
-             "--blueprints", "douyin_read_profile", "--rounds", "1"],
+             "--blueprints", bp_name, "--rounds", "1"],
             cwd=str(SCRIPTS_DIR), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return {"status": "ok", "pid": p.pid, "message": f"正在采集 {account_id} 的昵称信息"}
+        return {"status": "ok", "pid": p.pid, "message": f"正在采集 {account_id} 的昵称信息（{bp_name}）"}
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
