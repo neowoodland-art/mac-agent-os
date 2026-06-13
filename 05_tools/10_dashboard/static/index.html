@@ -1452,7 +1452,7 @@ async function loadMatrixRun() {
               const s = a._status === 'logged_in' ? '🟢' : '⏸';
               const phone = String(a.phone || a.phone_mask || '??').slice(0, 11);
               return `<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px;white-space:nowrap">
-                <input type="checkbox" class="batch-acct" value="${a.id}" data-platform="${a.platform}" ${idx === 0 ? 'checked' : ''}>
+                <input type="checkbox" class="batch-acct" value="${a.id}" data-platform="${a.platform}">
                 ${s} <strong>${a.id}</strong> <span style="color:var(--text2);font-size:10px">${phone}</span>
               </label>`;
             }).join('')
