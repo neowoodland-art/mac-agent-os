@@ -524,6 +524,27 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     <div id="regStatus" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
   </div>
 
+  <!-- 🎯 定向评论任务 -->
+  <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:12px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px">🎯 定向评论任务</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="taskUrl" placeholder="视频链接" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:280px">
+      <select id="taskDirection" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px">
+        <option value="">自动选方向</option>
+        <option value="称赞">👍 称赞</option>
+        <option value="提问">🤔 提问</option>
+        <option value="共鸣">💗 共鸣</option>
+        <option value="感慨">😌 感慨</option>
+        <option value="客观">📊 客观</option>
+      </select>
+      <select id="taskAccount" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px">
+        <option value="">自动选账号</option>
+      </select>
+      <button onclick="runCommentTask()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🚀 执行评论</button>
+    </div>
+    <div id="taskResult" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
+  </div>
+
   <!-- 📊 账号手机号总览 -->
   <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
     <div style="font-size:13px;font-weight:600;margin-bottom:8px">📊 账号手机号总览</div>
@@ -2110,6 +2131,14 @@ async function loadSmsAccounts() {
     sel.innerHTML = '<option value="">— 选择账号 —</option>' +
       accounts.map(a => '<option value="'+a.id+'" data-phone="'+(a.phone||'')+'" data-nick="'+(a.nickname||'')+'">'+
         (a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+' '+(a.is_local?'(本机)':'')+' ('+a.phone+')</option>').join('');
+    // 填充定向评论的账号下拉
+    const taskAcct = document.getElementById('taskAccount');
+    if (taskAcct) {
+      taskAcct.innerHTML = '<option value="">自动选账号</option>' +
+        accounts.filter(a => a.is_local).map(a => '<option value="'+a.id+'">'+
+          (a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
+    }
+
     // 账号管理卡片
     if (overview) {
       overview.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px">'+
@@ -2591,6 +2620,33 @@ async function collectProfile(accountId) {
     }
   } catch(e) {
     if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
+  }
+}
+
+// ── 定向评论任务 ──
+async function runCommentTask() {
+  const url = document.getElementById('taskUrl')?.value.trim();
+  if (!url) { alert('请填写视频链接'); return; }
+  const direction = document.getElementById('taskDirection')?.value || '';
+  const account = document.getElementById('taskAccount')?.value || '';
+  const resultEl = document.getElementById('taskResult');
+  if (resultEl) resultEl.innerHTML = '⏳ 正在执行定向评论任务...';
+  try {
+    const r = await fetch('/api/matrix/task/run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'comment', url, direction, account})
+    });
+    const d = await r.json();
+    if (resultEl) {
+      if (d.status === 'ok') {
+        resultEl.innerHTML = '<span style="color:#22c55e">✅ 评论完成！成功 '+d.success+'/'+d.total+' 步 ('+d.duration+'s)</span>'+
+          '<div style="font-size:10px;color:#8b8fa3;margin-top:2px">'+d.task_summary+'</div>';
+      } else {
+        resultEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.errors||[d.detail||'失败']).join('; ')+'</span>';
+      }
+    }
+  } catch(e) {
+    if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 

@@ -438,6 +438,40 @@ def api_collect_profile(account_id: str):
         return {"status": "error", "error": str(e)}
 
 
+# ═══════════════════════════════════════════════
+# 任务执行 API
+# ═══════════════════════════════════════════════
+
+@router.post("/task/run")
+async def api_task_run(request: Request):
+    """从 Dashboard 执行智能任务"""
+    data = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    task_type = data.get("type", "comment")
+    url = data.get("url", "")
+    keyword = data.get("keyword", "")
+    direction = data.get("direction", "")
+    account = data.get("account", "")
+    comment_text = data.get("comment", "")
+    from mc.task import Task, run_task
+    import asyncio
+    task = Task(type=task_type, url=url, keyword=keyword,
+                direction=direction, account=account, comment_text=comment_text)
+    errors = task.validate()
+    if errors:
+        return {"status": "error", "errors": errors}
+    task.auto_fill()
+    if not task.account:
+        return {"status": "error", "errors": [f"没有可用的{task.platform}账号"]}
+    result = asyncio.run(run_task(task))
+    return {"status": "ok" if result.get("status") != "error" else "error",
+            "success": result.get("success", 0),
+            "failed": result.get("failed", 0),
+            "total": result.get("total_steps", 0),
+            "duration": result.get("duration", 0),
+            "task_summary": task.summary(),
+            "detail": result.get("error", "")}
+
+
 # [删除账号使用 app.py 中已有的 DELETE /api/matrix/accounts/{id}]
 # 前端调用时加 ?delete_identity=true
 # 但 app.py 的 delete 有 bug(不写回 accounts.yaml)，前端需额外调用此 cleanup

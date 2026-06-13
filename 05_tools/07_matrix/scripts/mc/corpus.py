@@ -245,6 +245,18 @@ class CorpusManager:
     # ── 视频标题匹配 → 评论 ──────────────────────────────────
 
     @staticmethod
+    def _extract_first_keyword(video_title: str) -> Optional[str]:
+        """从视频标题中提取第一个匹配的关键词"""
+        for keywords, _ in KEYWORD_CATEGORY_MAP:
+            for kw in keywords:
+                if kw in video_title:
+                    return kw
+        # fallback: 取标题第一个有意义的词
+        import re
+        words = re.findall(r'[\w\u4e00-\u9fff]{2,}', video_title)
+        return words[0] if words else ""
+
+    @staticmethod
     def _match_keywords(video_title: str) -> list:
         """根据视频标题匹配关键词，返回匹配到的方向列表"""
         matched_directions = []
@@ -324,7 +336,16 @@ class CorpusManager:
                     continue
                 comment = self._get_comment_from_categories([cat])
                 if comment:
+                    # 替换 {keyword} 为视频标题中的第一个关键词
+                    kw = self._extract_first_keyword(video_title)
+                    if kw:
+                        comment = comment.replace("{keyword}", kw)
                     return comment
 
         # 4) 没有匹配 → 随机返回一条
-        return self._get_random_comment()
+        comment = self._get_random_comment()
+        if comment and "{keyword}" in comment:
+            kw = self._extract_first_keyword(video_title)
+            if kw:
+                comment = comment.replace("{keyword}", kw)
+        return comment
