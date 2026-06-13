@@ -2114,7 +2114,7 @@ async function loadSmsAccounts() {
     if (overview) {
       overview.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px">'+
         accounts.filter(a => a.is_local).map(a => {
-          const dot = (ok, color) => '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+(ok?color:'#3a3d4e')+';margin-right:3px"></span>';
+          const dot = (ok) => ok ? '✅' : '❌';
           return '<div style="background:#232740;border-radius:8px;padding:10px;border:1px solid #2a2d3e">'+
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
               '<div><span>'+(a.platform==='xiaohongshu'?'📕':'🎵')+'</span> '+
@@ -2123,10 +2123,10 @@ async function loadSmsAccounts() {
             '</div>'+
             '<div style="font-size:11px;color:#8b8fa3;margin-bottom:6px">📱 '+a.phone+'</div>'+
             '<div style="display:flex;gap:10px;font-size:10px;margin-bottom:6px">'+
-              '<span>'+dot(a.has_identity,'#22c55e')+'身份</span>'+
-              '<span>'+dot(a.has_cookie,'#6366f1')+'登录</span>'+
-              '<span>'+dot(a.has_profile,'#f59e0b')+'昵称</span>'+
-              '<span>'+dot(a.has_registry,'#8b8fa3')+'同步</span>'+
+              '<span>'+dot(a.has_identity)+' 身份</span>'+
+              '<span>'+dot(a.has_cookie)+' 登录</span>'+
+              '<span>'+dot(a.has_profile)+' 昵称</span>'+
+              '<span>'+dot(a.has_registry)+' 同步</span>'+
             '</div>'+
             '<div style="margin-top:6px;display:flex;gap:4px">'+
               '<button onclick="accountLogin(\''+a.id+'\')" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">🔑 登录</button>'+
