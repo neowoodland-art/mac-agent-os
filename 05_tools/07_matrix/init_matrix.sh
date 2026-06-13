@@ -235,6 +235,71 @@ echo -n "  语料库(小红书):    "
 if [ -f "$MATRIX_CODE/corpus/xiaohongshu.yaml" ]; then echo "✅"; else echo "❌"; fi
 
 # ═══════════════════════════════════════════════════════════
+# 7. 身份共享检测
+# ═══════════════════════════════════════════════════════════
+
+echo ""
+echo "📊 ─── 7. 身份共享检查 ───"
+IDENTITY_BASE="$AGENT_LOCAL/tools/matrix/identities"
+ACCOUNTS_YAML="$AGENT_LOCAL/tools/matrix/config/accounts.yaml"
+
+IDENTITY_ISSUES=0
+if [ -f "$ACCOUNTS_YAML" ]; then
+    # 用 Python 检测身份共享状态
+    python3 << 'PYEOF' 2>/dev/null || true
+import yaml, os, shutil
+from pathlib import Path
+
+HOME = Path.home()
+ACCOUNTS = HOME / "workbuddy-agent-os/agent-local/tools/matrix/config/accounts.yaml"
+IDENTITIES = HOME / "workbuddy-agent-os/agent-local/tools/matrix/identities"
+
+if not ACCOUNTS.exists():
+    print("UNCONFIGURED")
+    exit(0)
+
+data = yaml.safe_load(ACCOUNTS.read_text())
+accts = data.get("accounts", []) if isinstance(data, dict) else data if isinstance(data, list) else []
+
+# 按手机号分组
+phones = {}
+for a in accts:
+    phone = a.get("phone", "")
+    if phone:
+        phones.setdefault(phone, []).append(a)
+
+shared = 0
+not_shared = 0
+fixes = []
+
+for phone, group in phones.items():
+    if len(group) < 2:
+        continue
+    dirs = set(a.get("identity_dir", a["id"]) for a in group)
+    if len(dirs) == 1:
+        shared += 1
+    else:
+        not_shared += 1
+        # 找有 user_data 的作为源
+        source = None
+        for a in group:
+            d = a.get("identity_dir", a["id"]).replace("identities/", "")
+            ud = IDENTITIES / d / "user_data"
+            if ud.exists() and any(ud.iterdir()):
+                source = d
+                break
+        shared_dir = f"phone_{phone}"
+        fixes.append(f"PHONE:{phone}|SRC:{source or 'none'}|DIR:{shared_dir}")
+
+print(f"SHARED:{shared}")
+print(f"NOT_SHARED:{not_shared}")
+for f in fixes:
+    print(f"FIX:{f}")
+PYEOF
+else:
+    echo "  accounts.yaml 不存在，跳过"
+
+# ═══════════════════════════════════════════════════════════
 # 检测汇总
 # ═══════════════════════════════════════════════════════════
 
