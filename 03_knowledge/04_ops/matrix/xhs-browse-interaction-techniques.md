@@ -1,9 +1,12 @@
 ---
+
 title: 小红书养号页面交互技术
 tags: [xhs, browse, interaction, qr-wall, refresh, black-screen, ai-layout, tab-detection, timeout]
 created: 2026-05-29
 updated: 2026-05-29
 nature: method
+collected: true
+collected_date: 2026-06-09
 ---
 
 ## 核心选择器

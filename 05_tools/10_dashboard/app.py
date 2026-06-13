@@ -838,6 +838,18 @@ def api_matrix_accounts():
         raise HTTPException(500, detail=str(e))
 
 
+@app.get("/api/matrix/profiles")
+def api_matrix_account_profiles():
+    """读取已保存的账号主页信息"""
+    try:
+        path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+        if path.exists():
+            return json.loads(path.read_text())
+        return {}
+    except:
+        return {}
+
+
 @app.get("/api/matrix/accounts/{account_id}")
 def api_matrix_account(account_id: str):
     """获取单个账号详情"""
@@ -944,6 +956,42 @@ def api_matrix_atom_ops():
         return {"ops": mgr.list_atomic_ops(), "total": len(mgr.list_atomic_ops())}
     except Exception as e:
         raise HTTPException(500, detail=str(e))
+
+
+# ── 录制系统 API ──
+
+@app.get("/api/matrix/record/list")
+def api_record_list():
+    """列出所有录制包"""
+    from mc.recorder import RecordingSession
+    return {"recordings": RecordingSession.list_recordings()}
+
+
+@app.post("/api/matrix/record/analyze")
+def api_record_analyze(data: dict):
+    """分析录制包"""
+    path = data.get("path", "")
+    from mc.analyzer import analyze_recording_file
+    result = analyze_recording_file(path)
+    return result
+
+
+@app.post("/api/matrix/record/export")
+def api_record_export(data: dict):
+    """导出录制包"""
+    path = data.get("path", "")
+    from mc.exporter import export_recording
+    result = export_recording(path)
+    return result
+
+
+@app.post("/api/matrix/record/delete")
+def api_record_delete(data: dict):
+    """删除录制包"""
+    path = data.get("path", "")
+    from mc.recorder import RecordingSession
+    ok = RecordingSession.delete_recording(path)
+    return {"status": "ok" if ok else "error"}
 
 
 @app.get("/api/matrix/blueprints")

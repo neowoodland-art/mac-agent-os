@@ -1,9 +1,12 @@
 ---
+
 title: Matrix 养号系统架构与运维指南
 tags: [matrix, nurture, architecture, operations, douyin, xhs]
 created: 2026-05-29
 updated: 2026-05-29
 nature: method
+collected: true
+collected_date: 2026-06-09
 ---
 
 ## 系统概览
