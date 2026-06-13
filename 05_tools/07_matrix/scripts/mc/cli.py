@@ -427,6 +427,18 @@ def cmd_record(args):
 def _cmd_record_start(args):
     account = getattr(args, 'account', None) or "douyin_01"
     platform = getattr(args, 'platform', None) or "auto"
+    # "auto" 时从账号解析平台
+    if platform == "auto":
+        try:
+            from matrix_mgmt import MatrixManager
+            mgr = MatrixManager()
+            for a in mgr.list_accounts():
+                if a["id"] == account:
+                    p = a.get("platform", "")
+                    if p in ("douyin", "xiaohongshu"):
+                        platform = p
+                    break
+        except: pass
     log(f"🎬 开始录制 account={account} platform={platform}")
     import asyncio
     from mc.recorder import _run_interactive

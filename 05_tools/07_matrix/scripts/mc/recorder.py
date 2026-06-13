@@ -79,7 +79,20 @@ class RecordingSession:
         self._start_time = time.time()
         self._is_recording = True
 
-        # 导航到入口页
+        # 导航到入口页（"auto" 时从账号解析平台）
+        if self.platform == "auto" and self.account_id:
+            try:
+                import sys
+                sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+                from matrix_mgmt import MatrixManager
+                mgr = MatrixManager()
+                for a in mgr.list_accounts():
+                    if a["id"] == self.account_id:
+                        p = a.get("platform", "")
+                        if p in ("douyin", "xiaohongshu"):
+                            self.platform = p
+                        break
+            except: pass
         target = self.entry_url or {
             "douyin": "https://www.douyin.com/",
             "xiaohongshu": "https://www.xiaohongshu.com/explore",
