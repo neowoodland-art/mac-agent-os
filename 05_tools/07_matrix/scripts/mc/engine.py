@@ -185,7 +185,7 @@ class BatchEngine:
                 cm = CorpusManager()
                 direction = resolved.get("direction", "") or self.task_params.get("direction", "")
                 text = cm.get_comment_for_video(
-                    title=self.task_params.get("keyword", ""),
+                    video_title=self.task_params.get("keyword", ""),
                     direction=direction,
                     account_id=account_id,
                 )
