@@ -1465,47 +1465,29 @@ async function loadMatrixRun() {
     html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">📋 选择蓝图 <span style="font-size:11px;color:var(--text2)">（自动根据所选账号过滤平台）</span></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px" id="batchBpList"></div>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px" id="bpFilterHint">请先选择账号</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px" id="bpFilterHint">加载中...</div>
     </div>`;
 
     // ── 蓝图过滤逻辑（账号选择变化时自动过滤） ──
     window._allBlueprints = blueprints;
     const allBlueprints = blueprints;
-    function filterBlueprints() {
-      const checkedAccts = [...document.querySelectorAll('.batch-acct:checked')];
-      const platforms = new Set(checkedAccts.map(e => e.getAttribute('data-platform')));
+    // 蓝图列表渲染（不过滤，显示全部，平台匹配在预览时检查）
+    function renderBlueprints() {
       const list = document.getElementById('batchBpList');
       const hint = document.getElementById('bpFilterHint');
       if (!list) return;
-      // 保存当前已选蓝图
       const prevChecked = new Set([...document.querySelectorAll('.batch-bp:checked')].map(e => e.value));
-      if (platforms.size === 0) {
-        list.innerHTML = '';
-        hint.textContent = '请先选择账号';
-        return;
-      }
-      let filtered = allBlueprints;
-      if (platforms.size === 1) {
-        const plat = [...platforms][0];
-        filtered = allBlueprints.filter(b => !b.platform || b.platform === plat);
-        hint.textContent = '🎯 仅显示 ' + (plat === 'douyin' ? '抖音' : '小红书') + ' 蓝图（请选择匹配的）';
-      } else {
-        filtered = allBlueprints;
-        hint.textContent = '🔄 多平台混合 — 已显示全部蓝图，请按需选择匹配平台的';
-      }
-      list.innerHTML = filtered.map(b => {
+      list.innerHTML = allBlueprints.map(b => {
         const checked = prevChecked.has(b.name) ? 'checked' : '';
+        const platTag = b.platform ? (b.platform === 'douyin' ? '🎵' : '📕') : '❓';
         return '<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px">' +
           '<input type="checkbox" class="batch-bp" value="' + b.name + '" ' + checked + '> ' +
-          b.name + ' <span class="badge badge-blue" style="font-size:9px">' + (b.step_count || '?') + '步</span></label>';
+          b.name + ' <span class="badge badge-blue" style="font-size:9px">' + (b.step_count || '?') + '步</span> ' +
+          '<span style="font-size:9px;color:var(--text2)">' + platTag + '</span></label>';
       }).join('');
+      if (hint) hint.textContent = '✅ 显示全部 ' + allBlueprints.length + ' 个蓝图（平台匹配在执行时自动处理）';
     }
-    // 监听所有 .batch-acct 变化（事件代理）
-    document.addEventListener('change', e => {
-      if (e.target.matches('.batch-acct')) filterBlueprints();
-    });
-    // 初始触发
-    setTimeout(filterBlueprints, 100);
+    renderBlueprints();
 
     // ── 参数表单 ──
     html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
