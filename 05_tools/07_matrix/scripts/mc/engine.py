@@ -319,6 +319,11 @@ class BatchEngine:
                     if op == "goto_home":
                         await conn.page.goto("https://www.douyin.com/", timeout=15000)
                         await asyncio.sleep(3)
+                    elif op == "goto_url":
+                        url = sargs.get("url", "https://www.douyin.com/")
+                        log.info(f"  📍 导航到: {url[:60]}...")
+                        await conn.page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                        await asyncio.sleep(5)
                     elif op == "dy_goto_profile":
                         await conn.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
                         await asyncio.sleep(5)
@@ -419,14 +424,23 @@ class BatchEngine:
                         seconds = sargs.get("seconds", random.randint(5, 12))
                         await dyops.wait_watch(step_id=sn, seconds=seconds)
                     elif op == "like":
-                        r = await conn.page.evaluate("""() => {
-                            const b = document.querySelector('[data-e2e="feed-active-video-double-like"]');
-                            if (b) { b.click(); return '👍'; }
-                            const b2 = document.querySelector('[data-e2e="like-count"]');
-                            if (b2) { b2.click(); return '👍'; }
-                            return '-';
-                        }""")
-                        result = r
+                        # 双路径：1) DOM 点 digg 按钮 2) 视频获焦 + KeyZ 快捷键兜底
+                        ok = await dyops.like(step_id=sn, probability=1.0)
+                        if not ok:
+                            log.info(f"  🔄 digg 按钮未找到，尝试 KeyZ 快捷键")
+                            video = conn.page.locator('video')
+                            if await video.count() > 0:
+                                box = await video.first.bounding_box()
+                                if box:
+                                    await conn.page.mouse.click(
+                                        box['x'] + box['width'] // 2,
+                                        box['y'] + box['height'] // 3,
+                                    )
+                                    await asyncio.sleep(0.5)
+                            await conn.page.keyboard.press("z")
+                            await asyncio.sleep(1.5)
+                            ok = await dyops.like(step_id=sn, probability=1.0)
+                        result = "👍" if ok else "-"
                     elif op == "collect":
                         r = await conn.page.evaluate("""() => {
                             const b = document.querySelector('[data-e2e="video-collect"]');
@@ -434,17 +448,30 @@ class BatchEngine:
                         }""")
                         result = r
                     elif op == "open_comments":
-                        # 抖音: KeyX 打开评论区
-                        await conn.page.keyboard.press("x")
-                        await asyncio.sleep(2)
-                        # 验证评论区是否打开
-                        r = await conn.page.evaluate("""() => {
-                            const panel = document.querySelector('[data-e2e="comment-panel"], [class*="comment-list"], [class*="CommentList"]');
-                            if (panel && panel.offsetParent !== null) return 'opened';
-                            const input = document.querySelector('[data-e2e="comment-input"], textarea[placeholder*="评论"]');
-                            return (input && input.offsetParent !== null) ? 'input_visible' : 'not_found';
-                        }""")
-                        result = f"comments_{r}"
+                        # 检测页面模式：Path A（弹窗） vs Path B（全屏视频页）
+                        page_url = conn.page.url
+                        is_full_page = "/video/" in page_url and "modal_id" not in page_url
+                        if is_full_page:
+                            r = await conn.page.evaluate("""() => {
+                                const list = document.querySelector('[data-e2e="comment-list"]');
+                                if (list && list.offsetParent !== null) {
+                                    list.scrollIntoView({behavior: 'instant', block: 'start'});
+                                    return 'already_open';
+                                }
+                                const inputArea = document.querySelector('.comment-input-inner-container, [class*="comment-input"]');
+                                if (inputArea && inputArea.offsetParent !== null) {
+                                    inputArea.scrollIntoView({behavior: 'instant', block: 'center'});
+                                    return 'scrolled';
+                                }
+                                window.scrollTo(0, document.body.scrollHeight);
+                                return 'scrolled_bottom';
+                            }""")
+                            await asyncio.sleep(3)
+                            result = f"comments_{r}"
+                        else:
+                            ok = await dyops.open_comments(step_id=sn)
+                            await asyncio.sleep(3)
+                            result = "opened" if ok else "not_found"
                     elif op == "post_comment":
                         text = sargs.get("text", "拍得真好")
                         # @corpus 标记：从语料库按方向自动生成评论
@@ -458,21 +485,41 @@ class BatchEngine:
                                 if gen:
                                     text = gen
                             except: pass
+                        # 检测页面模式：Path A（弹窗） vs Path B（全屏视频页）
+                        page_url = conn.page.url
+                        is_full_page = "/video/" in page_url and "modal_id" not in page_url
+                        if is_full_page:
+                            # Path B: 滚动到评论区 + 点输入框 + pbcopy 粘贴 + 发送
+                            await asyncio.sleep(1)
+                            await conn.page.evaluate("""() => {
+                                const area = document.querySelector('[class*="comment-input-inner"], [class*="comment-input-inner-container"]');
+                                if (area) area.scrollIntoView({behavior: 'instant', block: 'center'});
+                            }""")
+                            await asyncio.sleep(1)
+                            r = await conn.page.evaluate("""() => {
+                                const input = document.querySelector('[class*="comment-input-inner"] [contenteditable="true"], [contenteditable="true"]');
+                                if (input && input.offsetParent !== null) { input.focus(); input.click(); return 'focused'; }
+                                const container = document.querySelector('[class*="comment-input-inner"]');
+                                if (container) { container.click(); return 'container_clicked'; }
+                                return 'no_input';
+                            }""")
+                            await asyncio.sleep(1)
+                        else:
+                            # Path A: 聚焦评论输入框
+                            r = await conn.page.evaluate("""() => {
+                                const sel = '[data-e2e="comment-input"], textarea[placeholder*="评论"], .comment-input, [contenteditable="true"]';
+                                const el = document.querySelector(sel);
+                                if (el && el.offsetParent !== null) { el.focus(); return 'focused'; }
+                                const tas = document.querySelectorAll('textarea');
+                                for (const ta of tas) { if (ta.offsetParent !== null) { ta.focus(); return 'ta_' + ta.placeholder; } }
+                                return 'no_input';
+                            }""")
+                            await asyncio.sleep(0.5)
                         # pbcopy 写入剪贴板（Draft.js 只认系统级粘贴）
                         proc = await asyncio.create_subprocess_exec(
                             "pbcopy", stdin=asyncio.subprocess.PIPE
                         )
                         await proc.communicate(input=text.encode())
-                        await asyncio.sleep(0.5)
-                        # 聚焦评论输入框
-                        r = await conn.page.evaluate("""() => {
-                            const sel = '[data-e2e="comment-input"], textarea[placeholder*="评论"], .comment-input, [contenteditable="true"]';
-                            const el = document.querySelector(sel);
-                            if (el && el.offsetParent !== null) { el.focus(); return 'focused'; }
-                            const tas = document.querySelectorAll('textarea');
-                            for (const ta of tas) { if (ta.offsetParent !== null) { ta.focus(); return 'ta_' + ta.placeholder; } }
-                            return 'no_input';
-                        }""")
                         await asyncio.sleep(0.5)
                         # Meta+V 粘贴 + Enter 发送
                         await conn.page.keyboard.press("Meta+V")
