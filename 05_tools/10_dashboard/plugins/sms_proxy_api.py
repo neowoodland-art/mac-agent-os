@@ -363,28 +363,50 @@ async def api_account_register(request: Request):
     except: n = 1
     acct_id = f"{prefix}{n}"
     try:
-        # 1. 创建身份目录
-        identity_dir = IDENTITIES_ROOT / acct_id
-        identity_dir.mkdir(parents=True, exist_ok=True)
-        (identity_dir / "user_data").mkdir(exist_ok=True)
+        # 1. 判断身份目录：同手机号是否已有 identity
         import yaml
-        config = {
-            "fingerprint_summary": {"platform": "Win32", "screen": "1920x1080"},
-            "identity": {"name": acct_id, "platform": plat, "created_at": datetime.now().isoformat()},
-            "window": [802, 783],
-        }
-        (identity_dir / "config.yaml").write_text(yaml.dump(config, allow_unicode=True, default_flow_style=False))
-        # 2. 写入 accounts.yaml
         LOCAL_ACCT_YAML = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.yaml"
-        accts = []
+        existing_accts = []
         if LOCAL_ACCT_YAML.exists():
             raw = yaml.safe_load(LOCAL_ACCT_YAML.read_text()) or {}
-            accts = raw.get("accounts", []) if isinstance(raw, dict) else (raw if isinstance(raw, list) else [])
-        accts = [a for a in accts if isinstance(a, dict) and a.get("id") != acct_id]
+            existing_accts = raw.get("accounts", []) if isinstance(raw, dict) else (raw if isinstance(raw, list) else [])
+
+        # 查找同手机号的现有 identity_dir
+        shared_identity_name = None
+        for ea in existing_accts:
+            if isinstance(ea, dict) and ea.get("phone") == phone:
+                ed = ea.get("identity_dir") or ea.get("identity_hint") or ""
+                if ed:
+                    shared_identity_name = ed.replace("identities/", "")
+                    break
+
+        if shared_identity_name:
+            # 复用已有身份目录
+            identity_name = shared_identity_name
+            identity_dir = IDENTITIES_ROOT / identity_name
+            # 确保目录存在
+            identity_dir.mkdir(parents=True, exist_ok=True)
+            (identity_dir / "user_data").mkdir(exist_ok=True)
+        else:
+            # 新建身份目录，以 phone_ 开头
+            identity_name = f"phone_{phone}"
+            identity_dir = IDENTITIES_ROOT / identity_name
+            identity_dir.mkdir(parents=True, exist_ok=True)
+            (identity_dir / "user_data").mkdir(exist_ok=True)
+            config = {
+                "fingerprint_summary": {"platform": "Win32", "screen": "1920x1080"},
+                "identity": {"name": identity_name, "platform": plat, "created_at": datetime.now().isoformat()},
+                "window": [802, 783],
+            }
+            (identity_dir / "config.yaml").write_text(yaml.dump(config, allow_unicode=True, default_flow_style=False))
+
+        # 2. 写入 accounts.yaml
+        accts = [a for a in existing_accts if isinstance(a, dict) and a.get("id") != acct_id]
         accts.append({
             "id": acct_id, "platform": plat, "phone": phone,
             "display_name": nick or acct_id, "enabled": True,
-            "browser_type": "camoufox", "profile_dir": acct_id, "identity_dir": acct_id,
+            "browser_type": "camoufox", "profile_dir": identity_name,
+            "identity_dir": identity_name,
         })
         LOCAL_ACCT_YAML.write_text(yaml.dump({"accounts": accts}, allow_unicode=True, default_flow_style=False))
         # 3. 同步到 accounts_registry.yaml
@@ -522,17 +544,37 @@ def api_account_cleanup(account_id: str):
     try:
         import yaml
         changed = False
+        deleted_identity = False
         # 清理 accounts.yaml
         LOCAL_ACCT = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.yaml"
         if LOCAL_ACCT.exists():
             raw = yaml.safe_load(LOCAL_ACCT.read_text()) or {}
             accts = raw.get("accounts", []) if isinstance(raw, dict) else (raw if isinstance(raw, list) else [])
+            # 先记录这个账号的 identity_dir
+            deleted_identity_dir = None
+            for a in accts:
+                if isinstance(a, dict) and a.get("id") == account_id:
+                    deleted_identity_dir = a.get("identity_dir") or a.get("identity_hint") or ""
+                    break
+            # 从配置中移除
             before = len(accts)
             accts = [a for a in accts if isinstance(a, dict) and a.get("id") != account_id]
             if len(accts) != before:
                 data = {"accounts": accts}
                 LOCAL_ACCT.write_text(yaml.dump(data, allow_unicode=True, default_flow_style=False))
                 changed = True
+            # 删除身份目录（仅当没有其他账号使用同一 identity_dir）
+            if deleted_identity_dir:
+                still_in_use = any(
+                    isinstance(a, dict) and (a.get("identity_dir") or a.get("identity_hint") or "") == deleted_identity_dir
+                    for a in accts
+                )
+                if not still_in_use:
+                    import shutil
+                    ident_path = IDENTITIES_ROOT / deleted_identity_dir.replace("identities/", "")
+                    if ident_path.exists():
+                        shutil.rmtree(ident_path)
+                        deleted_identity = True
         # 清理 registry
         reg_path = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
         if reg_path.exists():
@@ -542,7 +584,7 @@ def api_account_cleanup(account_id: str):
             if len(reg["accounts"]) != before:
                 reg_path.write_text(yaml.dump(reg, allow_unicode=True, default_flow_style=False))
                 changed = True
-        return {"status": "ok", "cleaned": changed}
+        return {"status": "ok", "cleaned": changed, "identity_deleted": deleted_identity}
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
