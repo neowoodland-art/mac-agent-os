@@ -215,7 +215,7 @@ case "$L_STATUS" in
     stopped)    echo "⚠️  已停止"
                 FIXES="$FIXES\n  - launchctl kickstart com.agentos.dashboard" ;;
     broken_path)
-                local broken_py=$(grep -A1 'ProgramArguments' "$PLIST" 2>/dev/null | grep -v "ProgramArguments\|--\|array\|string" | head -1 | sed 's/.*<string>//;s/<\/string>.*//')
+                broken_py=$(grep -A1 'ProgramArguments' "$PLIST" 2>/dev/null | grep -v "ProgramArguments\|--\|array\|string" | head -1 | sed 's/.*<string>//;s/<\/string>.*//')
                 echo "❌ Python 路径错误: $broken_py"
                 FIXES="$FIXES\n  - 运行本脚本自动修复 plist" ;;
     missing)    echo "❌ 未配置"
