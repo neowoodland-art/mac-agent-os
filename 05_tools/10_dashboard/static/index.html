@@ -1556,6 +1556,9 @@ function corpusToggleRandom() {
   batchPreview();
 }
 
+// 保存最后一次预览的选中值，供 batchExecute 使用
+var _lastPreview = { accts: [], bps: [], rounds: 5, stagger: '15-30', mix: false, corpus: [], proxy: 'auto' };
+
 function batchPreview() {
   try {
     const accts = [...document.querySelectorAll('.batch-acct:checked')].map(e => e.value);
@@ -1605,6 +1608,15 @@ function batchPreview() {
     if (corpus.length) cmd += ` --corpus ${corpus.join(',')}`;
     cmd += ` --proxy ${proxy}`;
 
+    // 保存到全局，供 batchExecute 使用
+    _lastPreview.accts = accts;
+    _lastPreview.bps = bps;
+    _lastPreview.rounds = rounds;
+    _lastPreview.interval = interval;
+    _lastPreview.stagger = stagger;
+    _lastPreview.mix = mix;
+    _lastPreview.corpus = corpus;
+    _lastPreview.proxy = proxy;
     document.getElementById('batchCmdPreview').textContent = cmd + warning;
   } catch(e) {
     document.getElementById('batchCmdPreview').textContent = '❌ 预览出错: ' + e.message;
@@ -1612,34 +1624,29 @@ function batchPreview() {
 }
 
 async function batchExecute() {
+  // 使用 _lastPreview 中保存的值（不重新查询 DOM）
+  const accts = _lastPreview.accts;
+  const bps = _lastPreview.bps;
   const output = document.getElementById('batchOutput');
   const content = document.getElementById('batchOutputContent');
-  const preview = document.getElementById('batchCmdPreview');
   if (!output || !content) return;
-
-  const cmd = preview.textContent;
-  if (!cmd.startsWith('mc run')) {
-    const accts = [...document.querySelectorAll('.batch-acct:checked')].length;
-    const bps = [...document.querySelectorAll('.batch-bp:checked')].length;
-    if (!accts) { alert('请先选择账号'); return; }
-    if (!bps) { alert('请先选择蓝图'); return; }
-    alert('请先选择账号和蓝图');
+  if (!accts.length || !bps.length) {
+    content.textContent = '❌ 请先在预览中确认账号和蓝图已选择';
+    output.style.display = 'block';
     return;
   }
 
   output.style.display = 'block';
-  content.textContent = '⏳ 后台执行中...\n';
-
-  const accts = [...document.querySelectorAll('.batch-acct:checked')].map(e => e.value);
-  const bps = [...document.querySelectorAll('.batch-bp:checked')].map(e => e.value);
-  const rounds = parseInt(document.getElementById('bpRounds')?.value) || 5;
-  const stagger = document.getElementById('bpStagger')?.value || '15-30';
-  const mix = document.getElementById('bpMix')?.checked;
+  content.textContent = '⏳ 执行中...\n';
+  const rounds = _lastPreview.rounds;
+  const interval = _lastPreview.interval;
+  const stagger = _lastPreview.stagger;
+  const mix = _lastPreview.mix;
 
   try {
     const r = await fetch('/api/matrix/nurture/start', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({accounts: accts, blueprints: bps, rounds, mix, stagger})
+      body: JSON.stringify({accounts: accts, blueprints: bps, rounds, interval, stagger, mix})
     });
     const d = await r.json();
     if (d.status === 'started') {

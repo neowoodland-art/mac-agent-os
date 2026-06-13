@@ -922,6 +922,8 @@ async def api_matrix_nurture_start(data: dict):
         accounts = data.get("accounts", [])
         blueprints = data.get("blueprints", [])
         rounds = data.get("rounds", 5)
+        interval = data.get("interval", "30-60")
+        stagger = data.get("stagger", "15-30")
         mix = data.get("mix", False)
         daemon = data.get("daemon", False)
 
@@ -930,7 +932,7 @@ async def api_matrix_nurture_start(data: dict):
 
         import subprocess
         mc_path = str(Path(__file__).resolve().parent.parent.parent / "05_tools" / "07_matrix" / "mc")
-        cmd = [mc_path, "run", f"--accounts={','.join(accounts)}", f"--blueprints={','.join(blueprints)}", f"--rounds={rounds}"]
+        cmd = [mc_path, "run", f"--accounts={','.join(accounts)}", f"--blueprints={','.join(blueprints)}", f"--rounds={rounds}", f"--interval={interval}", f"--stagger={stagger}"]
         if mix:
             cmd.append("--mix")
         if daemon:
