@@ -267,6 +267,28 @@ def cmd_task(args):
 
 
 # ════════════════════════════════════════════════════════════
+# Schedule 域
+# ════════════════════════════════════════════════════════════
+
+def cmd_schedule(args):
+    """定时任务管理"""
+    if args.action == "list":
+        from mc.scheduler import cmd_schedule_list
+        cmd_schedule_list()
+    elif args.action == "add":
+        from mc.scheduler import cmd_schedule_add
+        cmd_schedule_add(args.id, args.account, args.blueprint, args.time, args.rounds, args.args)
+    elif args.action == "remove":
+        from mc.scheduler import cmd_schedule_remove
+        cmd_schedule_remove(args.id)
+    elif args.action == "start":
+        import asyncio
+        from mc.scheduler import scheduler_loop
+        print("🕐 定时调度器启动中...")
+        asyncio.run(scheduler_loop())
+
+
+# ════════════════════════════════════════════════════════════
 # Corpus 域
 # ════════════════════════════════════════════════════════════
 
@@ -673,6 +695,18 @@ def build_parser():
     p_task.add_argument("--list", action="store_true", help="列出可选任务类型")
     p_task.add_argument("-y", "--yes", action="store_true", help="跳过确认直接执行")
     p_task.set_defaults(func=cmd_task)
+
+    # ── schedule — 定时任务 ──
+    p_sched = sub.add_parser("schedule", help="定时任务管理")
+    p_sched.add_argument("action", choices=["list", "add", "remove", "start"],
+                         help="list=列出 add=添加 remove=删除 start=启动调度器")
+    p_sched.add_argument("--id", default="", help="任务ID")
+    p_sched.add_argument("--account", default="", help="账号")
+    p_sched.add_argument("--blueprint", default="", help="蓝图")
+    p_sched.add_argument("--time", default="09:00", help="执行时间 HH:MM")
+    p_sched.add_argument("--rounds", type=int, default=1, help="轮数")
+    p_sched.add_argument("--args", default="", help="额外参数 keyword=xxx")
+    p_sched.set_defaults(func=cmd_schedule)
 
     # ── op — 原子操作注册/删除 ──
     p_op = sub.add_parser("op", help="原子操作注册/删除")

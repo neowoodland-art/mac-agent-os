@@ -1,0 +1,7 @@
+# AI 生成配置
+ai:
+  provider: openai  # openai / local
+  api_key: ""  # 空字符串 = 从环境变量 OPENAI_API_KEY 读取
+  base_url: "https://api.openai.com/v1"
+  model: "gpt-4o-mini"
+  temperature: 0.8

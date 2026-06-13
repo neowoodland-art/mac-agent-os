@@ -943,6 +943,33 @@ async function loadStats() {
 async function loadProductions(page) {
   if (page !== undefined) currentPage = page;
   const el = document.getElementById('productionList');
+
+  // 加载矩阵养号运营数据看板
+  try {
+    const [sr, ar] = await Promise.all([
+      fetch('/api/matrix/sms/accounts'),
+      fetch('/api/matrix/system-info').catch(() => ({ json: () => ({}) })),
+    ]);
+    const sd = await sr.json();
+    const accounts = (sd.accounts || []).filter(a => a.is_local);
+    const online = accounts.filter(a => a.has_cookie);
+    const profiled = accounts.filter(a => a.has_profile);
+    const statsHtml = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">'+
+      '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
+        '<div style="font-size:24px;font-weight:700;color:#6366f1">'+accounts.length+'</div>'+
+        '<div style="font-size:11px;color:var(--text2)">📱 本机账号</div></div>'+
+      '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
+        '<div style="font-size:24px;font-weight:700;color:#22c55e">'+online.length+'</div>'+
+        '<div style="font-size:11px;color:var(--text2)">🔑 已登录</div></div>'+
+      '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
+        '<div style="font-size:24px;font-weight:700;color:#f59e0b">'+profiled.length+'</div>'+
+        '<div style="font-size:11px;color:var(--text2)">👤 已采集</div></div>'+
+      '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
+        '<div style="font-size:24px;font-weight:700;color:#8b8fa3">'+sd.accounts.length+'</div>'+
+        '<div style="font-size:11px;color:var(--text2)">🌐 联邦账号</div></div>'+
+    '</div>';
+    el.innerHTML = statsHtml + '<div class="loading">加载生产数据...</div>';
+  } catch(e) { /* ignore */ }
   el.innerHTML = '<div class="loading">加载中...</div>';
   try {
     const strategy = document.getElementById('filterStrategy').value;

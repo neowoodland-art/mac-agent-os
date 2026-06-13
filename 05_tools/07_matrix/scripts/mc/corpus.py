@@ -26,17 +26,26 @@ YAML 格式:
       comments:
         - "笑死我了哈哈哈哈哈"
 """
+import asyncio
+import json
 import logging
+import os
 import random
 import re
-import yaml
 from pathlib import Path
 from typing import List, Optional
+
+import yaml
 
 log = logging.getLogger(__name__)
 
 TOOL_DIR = Path(__file__).resolve().parent.parent.parent
 CORPUS_DIR = TOOL_DIR / "corpus"
+CONFIG_DIR = TOOL_DIR / "config"
+
+# 项目根目录（agent-sync/05_tools/.. 的上一层，即 workbuddy-agent-os）
+PROJECT_ROOT = TOOL_DIR.parent.parent.parent
+PROFILES_PATH = PROJECT_ROOT / "agent-local/tools/matrix/data/profiles.json"
 
 # ── 关键词 → 方向 映射 ──────────────────────────────────────────
 KEYWORD_CATEGORY_MAP = [
@@ -127,12 +136,152 @@ DEFAULT_XHS_COMMENTS = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════
+# AI 评论生成器
+# ═══════════════════════════════════════════════════════════════
+
+class AIGenerator:
+    """AI 评论生成器（OpenAI 兼容 API）
+
+    使用简单的 HTTP 请求，不依赖 openai 库。
+    没有配置 API key 时跳过，不影响现有功能。
+    """
+
+    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
+        config = self._load_config()
+
+        raw_key = api_key or config.get("api_key", "") or os.environ.get("OPENAI_API_KEY", "")
+        self.api_key = raw_key.strip() if raw_key else ""
+
+        self.base_url = (base_url or config.get("base_url") or "https://api.openai.com/v1").rstrip("/")
+        self.model = model or config.get("model") or "gpt-4o-mini"
+        self.temperature = config.get("temperature", 0.8)
+
+    # ── 配置加载 ────────────────────────────────────────────
+
+    @staticmethod
+    def _load_config() -> dict:
+        """从 config/ai.yaml 加载配置"""
+        path = CONFIG_DIR / "ai.yaml"
+        if path.exists():
+            try:
+                raw = yaml.safe_load(path.read_text())
+                return (raw or {}).get("ai", {})
+            except Exception as exc:
+                log.warning("  ⚠️  ai.yaml 解析失败: %s", exc)
+        return {}
+
+    # ── 公共 API ────────────────────────────────────────────
+
+    @property
+    def available(self) -> bool:
+        """是否有 API key 可用"""
+        return bool(self.api_key)
+
+    async def generate_comment(
+        self,
+        video_title: str,
+        video_desc: str = "",
+        direction: str = "称赞",
+        persona: dict = None,
+    ) -> Optional[str]:
+        """根据视频标题和方向生成评论
+
+        Args:
+            video_title: 视频标题
+            video_desc:  视频描述（可选）
+            direction:   评论方向（称赞/提问/共鸣/补充/搞笑）
+            persona:     账号人设字典（可选）
+
+        Returns:
+            生成的评论文本，失败返回 None
+        """
+        if not self.available:
+            log.debug("  ⏭️  AI 生成跳过（未配置 API key）")
+            return None
+
+        prompt = self._build_prompt(video_title, video_desc, direction, persona)
+        text = await self._call_api(prompt)
+        return text
+
+    # ── 内部方法 ────────────────────────────────────────────
+
+    def _build_prompt(self, video_title: str, video_desc: str, direction: str, persona: dict = None) -> str:
+        """构建 prompt"""
+        style_hint = f"（风格要求：{direction}）"
+
+        persona_hint = ""
+        if persona:
+            parts = []
+            if persona.get("age_group"):
+                parts.append(f"年龄层: {persona['age_group']}")
+            if persona.get("gender"):
+                parts.append(f"性别: {persona['gender']}")
+            if persona.get("interests"):
+                parts.append(f"兴趣: {'、'.join(persona['interests'])}")
+            if persona.get("comment_style"):
+                parts.append(f"评论风格: {'、'.join(persona['comment_style'])}")
+            if parts:
+                persona_hint = f"\n账号人设: {'; '.join(parts)}"
+
+        desc_part = f"\n视频描述: {video_desc}" if video_desc else ""
+
+        return (
+            f"你是一个短视频平台的活跃用户。请根据以下视频信息写一条 {direction} 方向的评论{style_hint}。"
+            f"{persona_hint}"
+            f"\n视频标题: {video_title}"
+            f"{desc_part}"
+            "\n\n要求："
+            "\n- 语言自然，像真实用户的评论"
+            "\n- 长度 10~50 字"
+            "\n- 不要用 emoji"
+            "\n- 直接输出评论内容，不要加引号或前缀"
+        )
+
+    async def _call_api(self, prompt: str) -> Optional[str]:
+        """调用 OpenAI 兼容 API 生成文本"""
+        import httpx
+
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    json={
+                        "model": self.model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": self.temperature,
+                        "max_tokens": 150,
+                    },
+                )
+                if resp.status_code != 200:
+                    log.warning("  ⚠️  AI API 返回 %s: %s", resp.status_code, resp.text[:200])
+                    return None
+                data = resp.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    return None
+                text = choices[0].get("message", {}).get("content", "").strip()
+                return text if text else None
+        except Exception as exc:
+            log.warning("  ⚠️  AI API 调用失败: %s", exc)
+            return None
+
+
+# ═══════════════════════════════════════════════════════════════
+# 语料库管理器
+# ═══════════════════════════════════════════════════════════════
+
 class CorpusManager:
     """语料库管理器"""
 
     def __init__(self):
         self._cache = {}
+        self._personas = {}  # account_id → persona dict
+        self._ai_gen = None  # AIGenerator 懒实例化
         self._ensure_files()
+
+    # ── 语料文件管理 ────────────────────────────────────────
 
     def _ensure_files(self):
         """确保语料库 YAML 文件存在"""
@@ -152,6 +301,60 @@ class CorpusManager:
             else:
                 self._cache[platform] = {"version": "1.0", "categories": {}}
         return self._cache[platform]
+
+    # ── 人设管理 ──────────────────────────────────────────
+
+    def load_personas(self) -> dict:
+        """从 profiles.json 加载所有人设，返回 account_id → persona dict"""
+        log.info(f"  📂 加载人设数据: {PROFILES_PATH}")
+        try:
+            if PROFILES_PATH.exists():
+                raw = json.loads(PROFILES_PATH.read_text())
+                self._personas = {}
+                for account_id, profile in raw.items():
+                    persona = profile.get("persona")
+                    if persona:
+                        self._personas[account_id] = persona
+                log.info(f"  ✅ 加载 {len(self._personas)} 个人设")
+            else:
+                log.warning("  ⚠️  人设文件不存在: %s", PROFILES_PATH)
+                self._personas = {}
+        except Exception as exc:
+            log.warning("  ⚠️  加载人设失败: %s", exc)
+            self._personas = {}
+        return self._personas
+
+    def get_persona(self, account_id: str) -> Optional[dict]:
+        """获取指定账号的人设
+
+        Args:
+            account_id: 账号 ID
+
+        Returns:
+            人设字典，或 None
+        """
+        if not self._personas:
+            self.load_personas()
+        persona = self._personas.get(account_id)
+        if persona is None:
+            log.debug(f"  ℹ️  账号 %s 无人设", account_id)
+        return persona
+
+    def get_search_keywords(self, account_id: str) -> list:
+        """获取账号人设中的搜索关键词
+
+        Args:
+            account_id: 账号 ID
+
+        Returns:
+            关键词列表（无人设时返回空列表）
+        """
+        persona = self.get_persona(account_id)
+        if persona:
+            return persona.get("search_keywords", [])
+        return []
+
+    # ── 语料查询 ──────────────────────────────────────────
 
     def list_categories(self) -> list:
         """列出所有平台的分类"""
@@ -242,6 +445,14 @@ class CorpusManager:
         self._account_id = account_id
         log.info(f"  👤 设置账号: {account_id}")
 
+    # ── AI 生成器 ──────────────────────────────────────────
+
+    def _get_ai_generator(self) -> AIGenerator:
+        """懒获取 AI 生成器实例"""
+        if self._ai_gen is None:
+            self._ai_gen = AIGenerator()
+        return self._ai_gen
+
     # ── 视频标题匹配 → 评论 ──────────────────────────────────
 
     @staticmethod
@@ -252,7 +463,6 @@ class CorpusManager:
                 if kw in video_title:
                     return kw
         # fallback: 取标题第一个有意义的词
-        import re
         words = re.findall(r'[\w\u4e00-\u9fff]{2,}', video_title)
         return words[0] if words else ""
 
@@ -305,28 +515,55 @@ class CorpusManager:
             return random.choice(all_comments)
         return None
 
-    def get_comment_for_video(self, video_title: str, direction: str = None) -> Optional[str]:
-        """根据视频标题（和可选方向）从语料库中匹配一条评论
+    def get_comment_for_video(
+        self,
+        video_title: str,
+        direction: str = None,
+        account_id: str = None,
+    ) -> Optional[str]:
+        """根据视频标题（和可选方向/账号人设）从语料库中匹配一条评论
 
         Args:
             video_title: 视频标题文本
-            direction:   可选，指定方向，如 "正面"/"提问"/"共鸣"/"补充"
+            direction:   可选，指定方向，如 "称赞"/"提问"/"共鸣"/"补充"
+            account_id:  可选，账号 ID，用于根据人设的 comment_style 优先选择方向
 
         Returns:
             匹配到的评论文本，或 None
         """
+        # 0) 有人设 → 优先用人设的 comment_style 作为方向
+        persona = None
+        if account_id:
+            persona = self.get_persona(account_id)
+            if persona and not direction:
+                # 如果未指定 direction，用人设的第一个 comment_style
+                styles = persona.get("comment_style", [])
+                if styles:
+                    # 先用 comment_style 去匹配，最后 fallback 到随机
+                    pass  # 后面有具体逻辑
+
         # 1) 从标题匹配关键词，得到方向列表
         matched_directions = self._match_keywords(video_title)
 
-        # 2) 如果用户指定了 direction，优先使用，且排在前面
+        # 2) 如果用户指定了 direction，优先使用
         if direction and direction in DIRECTION_TO_CATEGORY:
-            # 去重：把指定的 direction 放到最前面
             if direction in matched_directions:
                 matched_directions.remove(direction)
             matched_directions = [direction] + matched_directions
         elif direction:
-            # direction 不在已知方向中时回退到默认匹配
             pass
+
+        # 2.5) 如果有人设且未指定 direction，把人设的 comment_style 优先排列
+        if persona and not direction:
+            styles = persona.get("comment_style", [])
+            # 把人设风格中在 matched_directions 里的提到最前面
+            for style in reversed(styles):
+                if style in matched_directions:
+                    matched_directions.remove(style)
+                    matched_directions = [style] + matched_directions
+                elif style in DIRECTION_TO_CATEGORY:
+                    # 人设风格虽未匹配到关键词，也尝试作为候选方向
+                    matched_directions = [style] + matched_directions
 
         # 3) 有匹配的方向 → 尝试依次取对应分类的评论
         if matched_directions:
@@ -336,13 +573,30 @@ class CorpusManager:
                     continue
                 comment = self._get_comment_from_categories([cat])
                 if comment:
-                    # 替换 {keyword} 为视频标题中的第一个关键词
                     kw = self._extract_first_keyword(video_title)
                     if kw:
                         comment = comment.replace("{keyword}", kw)
                     return comment
 
-        # 4) 没有匹配 → 随机返回一条
+        # 4) 没有语料匹配 → fallback: 尝试 AI 生成
+        ai = self._get_ai_generator()
+        if ai.available:
+            try:
+                # 同步上下文执行异步 AI 调用
+                comment = asyncio.run(
+                    ai.generate_comment(
+                        video_title=video_title,
+                        direction=direction or (persona.get("comment_style", [""])[0] if persona else "称赞"),
+                        persona=persona,
+                    )
+                )
+                if comment:
+                    log.info("  🤖 AI 生成评论: %s", comment[:40])
+                    return comment
+            except Exception as exc:
+                log.warning("  ⚠️  AI 生成失败: %s", exc)
+
+        # 5) 最后兜底 → 随机返回一条
         comment = self._get_random_comment()
         if comment and "{keyword}" in comment:
             kw = self._extract_first_keyword(video_title)
