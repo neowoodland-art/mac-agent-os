@@ -1487,7 +1487,6 @@ async function loadMatrixRun() {
       }).join('');
       if (hint) hint.textContent = '✅ 显示全部 ' + allBlueprints.length + ' 个蓝图（平台匹配在执行时自动处理）';
     }
-    renderBlueprints();
 
     // ── 参数表单 ──
     html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
@@ -1540,6 +1539,7 @@ async function loadMatrixRun() {
     </div>`;
 
     el.innerHTML = html;
+    renderBlueprints();
     batchPreview();
   } catch(e) {
     el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
