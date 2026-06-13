@@ -249,11 +249,33 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     <h2 style="font-size:18px">🎯 命令与任务</h2>
   </div>
   <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #2a2d3e">
-    <div class="cmd-tab active" data-tab="cmd-run" onclick="switchCmdTab('cmd-run',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:#e1e4f0;margin-bottom:-2px">🚀 批量执行</div>
+      <div class="cmd-tab active" data-tab="cmd-run" onclick="switchCmdTab('cmd-run',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:#e1e4f0;margin-bottom:-2px">🚀 批量执行</div>
     <div class="cmd-tab" data-tab="cmd-comment" onclick="switchCmdTab('cmd-comment',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">💬 定向评论</div>
+    <div class="cmd-tab" data-tab="cmd-schedule" onclick="switchCmdTab('cmd-schedule',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">⏰ 定时任务</div>
   </div>
   <div id="cmd-run-content" style="display:block">
     <div id="matrixRunContent2"></div>
+  </div>
+  <div id="cmd-schedule-content" style="display:none">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">⏰ 定时任务</div>
+      <div id="scheduleForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <input id="schedId" placeholder="任务ID" value="daily" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100px">
+        <select id="schedAccount" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:130px"><option value="">选账号</option></select>
+        <select id="schedBlueprint" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:130px">
+          <option value="douyin_daily">douyin_daily</option>
+          <option value="douyin_search">douyin_search</option>
+          <option value="douyin_comment">douyin_comment</option>
+          <option value="xhs_daily">xhs_daily</option>
+        </select>
+        <input id="schedTime" placeholder="09:00" value="09:00" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:70px">
+        <input id="schedRounds" placeholder="轮数" value="3" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:50px">
+        <button onclick="addSchedule()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">➕ 添加</button>
+        <button onclick="refreshScheduleList()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
+      </div>
+      <div id="scheduleList" style="font-size:12px">加载中...</div>
+      <div id="scheduleStatus" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
+    </div>
   </div>
   <div id="cmd-comment-content" style="display:none">
     <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
@@ -2244,6 +2266,21 @@ async function loadSmsAccounts() {
     sel.innerHTML = '<option value="">— 选择账号 —</option>' +
       accounts.map(a => '<option value="'+a.id+'" data-phone="'+(a.phone||'')+'" data-nick="'+(a.nickname||'')+'">'+
         (a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+' '+(a.is_local?'(本机)':'')+' ('+a.phone+')</option>').join('');
+    // 加载人设信息
+    try {
+      const pr = await fetch('/api/matrix/personas');
+      const pd = await pr.json();
+      const personas = pd.personas || {};
+      for (const [aid, p] of Object.entries(personas)) {
+        const el = document.getElementById('persona_'+aid);
+        if (el) {
+          const interests = (p.interests||[]).slice(0,3).join('·');
+          const style = (p.comment_style||[]).slice(0,2).join('/');
+          el.innerHTML = '🎯 '+interests+' <span style="margin:0 4px">|</span> 💬 '+style;
+        }
+      }
+    } catch(e) { /* ignore */ }
+
     // 填充定向评论的账号下拉
     const taskAcct = document.getElementById('taskAccount');
     if (taskAcct) {
@@ -2270,6 +2307,7 @@ async function loadSmsAccounts() {
               '<span>'+dot(a.has_profile)+' 昵称</span>'+
               '<span>'+dot(a.has_registry)+' 同步</span>'+
             '</div>'+
+            '<div style="font-size:10px;color:#8b8fa3;margin-top:2px" id="persona_'+a.id+'"></div>'+
             '<div style="margin-top:6px;display:flex;gap:4px">'+
               '<button onclick="accountLogin(\''+a.id+'\')" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">🔑 登录</button>'+
               '<button onclick="collectProfile(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">👤 采集</button>'+
@@ -2930,7 +2968,7 @@ function switchCmdTab(tab, el) {
   });
   el.style.borderBottom = '2px solid #6366f1';
   el.style.color = '#e1e4f0';
-  ['cmd-run-content','cmd-comment-content'].forEach(id => {
+  ['cmd-run-content','cmd-comment-content','cmd-schedule-content'].forEach(id => {
     document.getElementById(id).style.display = id === tab+'-content' ? 'block' : 'none';
   });
 }
@@ -2954,6 +2992,20 @@ async function loadMatrixCommands() {
       }
     }
   }
+  // 加载定时任务列表
+  refreshScheduleList();
+  // 填充定时任务的账号下拉
+  const schedAcct = document.getElementById('schedAccount');
+  if (schedAcct) {
+    try {
+      const r = await fetch('/api/matrix/sms/accounts');
+      const d = await r.json();
+      schedAcct.innerHTML = '<option value="">选账号</option>' +
+        (d.accounts||[]).filter(a => a.is_local).map(a =>
+          '<option value="'+a.id+'">'+(a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
+    } catch(e) { /* ignore */ }
+  }
+
   // 填充定向评论的账号下拉
   const acctSel = document.getElementById('cmdTaskAccount');
   if (acctSel) {
@@ -2989,6 +3041,42 @@ async function cmdRunCommentTask() {
       }
     }
   } catch(e) { if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>'; }
+}
+
+// ════════════════════════════════════════════════════════
+// 定时任务
+// ════════════════════════════════════════════════════════
+
+async function refreshScheduleList() {
+  const listEl = document.getElementById('scheduleList');
+  const statusEl = document.getElementById('scheduleStatus');
+  if (!listEl) return;
+  try {
+    const r = await fetch('/api/matrix/schedules');
+    const d = await r.json();
+    const scheds = d.schedules || [];
+    if (!scheds.length) {
+      listEl.innerHTML = '<div style="color:#8b8fa3;padding:10px;text-align:center">暂无定时任务<br><span style="font-size:10px">在下方添加，或编辑 config/schedule.yaml</span></div>';
+      return;
+    }
+    listEl.innerHTML = '<div style="display:grid;gap:4px">' +
+      scheds.map(s => '<div style="background:#232740;border-radius:4px;padding:6px 8px;border:1px solid #2a2d3e;display:flex;justify-content:space-between;align-items:center;font-size:11px">' +
+        '<div><strong>' + (s.id||'') + '</strong> <span style="color:#8b8fa3">' + (s.account||'') + ' → ' + (s.blueprint||'') + '</span></div>' +
+        '<div><span style="color:#6366f1">' + (s.time||'') + '</span> ' + (s.enabled ? '🟢' : '⚪') + ' ' + (s.rounds||1) + '轮</div>' +
+      '</div>').join('') + '</div>';
+    if (statusEl) statusEl.innerHTML = '共 ' + scheds.length + ' 个定时任务';
+  } catch(e) { listEl.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
+}
+
+function addSchedule() {
+  const id = document.getElementById('schedId')?.value || 'daily';
+  const account = document.getElementById('schedAccount')?.value;
+  const blueprint = document.getElementById('schedBlueprint')?.value;
+  const time = document.getElementById('schedTime')?.value || '09:00';
+  const rounds = document.getElementById('schedRounds')?.value || 3;
+  if (!account) { alert('请选择账号'); return; }
+  const statusEl = document.getElementById('scheduleStatus');
+  if (statusEl) statusEl.innerHTML = '✅ 请在终端执行：<br><code>mc schedule add --id '+id+' --account '+account+' --blueprint '+blueprint+' --time '+time+' --rounds '+rounds+'</code><br>然后 <code>mc schedule start</code> 启动调度器';
 }
 
 // ════════════════════════════════════════════════════════

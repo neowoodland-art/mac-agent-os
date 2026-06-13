@@ -439,6 +439,46 @@ def api_collect_profile(account_id: str):
 
 
 # ═══════════════════════════════════════════════
+# 定时任务 & 人设 API
+# ═══════════════════════════════════════════════
+
+SCHEDULE_YAML = SCRIPTS_DIR / "config" / "schedule.yaml"
+
+
+@router.get("/schedules")
+def api_schedules():
+    if not SCHEDULE_YAML.exists():
+        return {"schedules": []}
+    try:
+        import yaml
+        data = yaml.safe_load(SCHEDULE_YAML.read_text())
+        scheds = data.get("schedules", {})
+        result = []
+        for sid, cfg in scheds.items():
+            cfg["id"] = sid
+            result.append(cfg)
+        return {"schedules": result}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/personas")
+def api_personas():
+    pf = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
+    if not pf.exists():
+        return {"personas": {}}
+    try:
+        data = json.loads(pf.read_text())
+        personas = {}
+        for aid, info in data.items():
+            if "persona" in info:
+                personas[aid] = info["persona"]
+        return {"personas": personas}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ═══════════════════════════════════════════════
 # 任务执行 API
 # ═══════════════════════════════════════════════
 
