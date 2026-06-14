@@ -1343,6 +1343,29 @@ async def api_matrix_corpus_add(data: dict):
         raise HTTPException(500, detail=str(e))
 
 
+@app.post("/api/matrix/corpus/batch-add")
+async def api_matrix_corpus_batch_add(data: dict):
+    """批量导入评论到语料库"""
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        platform = data.get("platform", "douyin")
+        category = data.get("category", "")
+        texts = data.get("texts", [])
+        if not category or not texts:
+            raise HTTPException(400, detail="category 和 texts 必填")
+        added = 0
+        for t in texts:
+            if t.strip():
+                cm.add_comment(category, t.strip(), platform)
+                added += 1
+        return {"status": "ok", "added": added, "platform": platform, "category": category}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
 @app.get("/api/matrix/corpus/detail")
 def api_matrix_corpus_detail(platform: str = "douyin", category: str = ""):
     """获取某个分类下所有评论"""

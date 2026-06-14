@@ -2785,6 +2785,64 @@ async function loadCorpus() {
         <button class="btn btn-primary btn-sm" onclick="corpusAdd()">+ 添加</button>
         <span id="corpusAddResult" style="font-size:12px"></span>
       </div>
+    </div>
+    <!-- 批量导入 -->
+    <div style="margin-top:8px;background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">📥 批量导入</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+        <select id="corpusBatchPlatform" style="width:120px">
+          <option value="douyin">🎵 抖音</option>
+          <option value="xiaohongshu">📕 小红书</option>
+        </select>
+        <input id="corpusBatchCategory" placeholder="分类名" style="width:100px">
+        <button class="btn btn-primary btn-sm" onclick="corpusBatchImport()">📥 导入</button>
+        <span id="corpusBatchResult" style="font-size:12px"></span>
+      </div>
+      <textarea id="corpusBatchTexts" placeholder="每行一条评论，直接粘贴即可&#10;例：&#10;讲得太好了，受益匪浅！&#10;这个观点很新颖，学习了&#10;干货满满，感谢分享" style="width:100%;height:100px;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px;border-radius:5px;font-size:12px;font-family:monospace"></textarea>
+      <div style="font-size:10px;color:#8b8fa3;margin-top:4px">支持粘贴、拖入 txt 文件（点击下方「选择文件」或直接粘贴内容）</div>
+    </div>
+    <!-- 格式模板 -->
+    <div style="margin-top:8px;background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:600;font-size:13px">📋 格式模板</div>
+        <span style="font-size:10px;color:#8b8fa3;cursor:pointer" onclick="copyTemplate()">📋 复制模板</span>
+      </div>
+      <pre style="font-size:10px;background:#1a1d2e;padding:8px;border-radius:4px;margin-top:6px;overflow-x:auto;white-space:pre-wrap;color:#8b8fa3">
+# 语料库格式模板 v2.0
+# 支持身份(Persona)×场景(Scene)×内容(Content) 三维结构
+# 也兼容当前的一维分类格式（categories）
+
+## 一维格式（当前使用）
+categories:
+  赞美:
+    comments:
+      - "讲得太好了，受益匪浅！"
+      - "干货满满，感谢分享"
+  提问:
+    comments:
+      - "请问这是在哪里？"
+
+## 二维格式（推荐）
+personas:
+  health_lover:
+    name: "养生爱好者"
+    tags: ["养生","健康"]
+scenes:
+  first_comment:
+    label: "首次评论"
+content:
+  health_lover.first_comment:
+    - "这个养生方法很实用"
+    - "坚持调理最重要"
+
+## 三维格式（含多轮对话）
+content:
+  health_lover.follow_up:
+    round_1:
+      - "确实如此，{keyword}我也是这么认为的"
+    round_2:
+      - "对，后来我换了一种方法就好了"
+      </pre>
     </div>`;
 
     el.innerHTML = html;
@@ -2813,6 +2871,60 @@ async function corpusAdd() {
       result.textContent = '❌ '+d.error;
     }
   } catch(e) { result.textContent = '❌ '+e.message; }
+}
+
+async function corpusBatchImport() {
+  const platform = document.getElementById('corpusBatchPlatform')?.value;
+  const category = document.getElementById('corpusBatchCategory')?.value;
+  const textsEl = document.getElementById('corpusBatchTexts');
+  const result = document.getElementById('corpusBatchResult');
+  if (!category || !textsEl?.value.trim()) { result.textContent = '❌ 请输入分类名和评论内容'; return; }
+  const texts = textsEl.value.split('\n').filter(t => t.trim());
+  result.textContent = '⏳ 导入 ' + texts.length + ' 条...';
+  try {
+    const r = await fetch('/api/matrix/corpus/batch-add', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({platform, category, texts})
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      result.textContent = '✅ 成功导入 ' + d.added + ' 条';
+      textsEl.value = '';
+      loadCorpus();
+    } else {
+      result.textContent = '❌ ' + (d.detail || d.error);
+    }
+  } catch(e) { result.textContent = '❌ ' + e.message; }
+}
+
+function copyTemplate() {
+  const text = `# 语料库模板 v2.0
+# 分类 + 评论（一维）
+categories:
+  赞美:
+    comments:
+      - "讲得太好了，受益匪浅！"
+  提问:
+    comments:
+      - "请问这是在哪里？"
+
+# 身份 + 场景 + 内容（三维）
+personas:
+  health_lover:
+    name: "养生爱好者"
+    tags: ["养生","健康"]
+scenes:
+  first_comment:
+    label: "首次评论"
+content:
+  health_lover.first_comment:
+    - "这个养生方法很实用"
+  health_lover.follow_up:
+    round_1:
+      - "确实如此，{keyword}我也是这么认为的"
+    round_2:
+      - "对，后来我换了一种方法就好了"`;
+  navigator.clipboard.writeText(text).then(() => alert('✅ 已复制模板')).catch(() => alert('复制失败，请手动选中复制'));
 }
 
 let _corpusModalOpen = false;
