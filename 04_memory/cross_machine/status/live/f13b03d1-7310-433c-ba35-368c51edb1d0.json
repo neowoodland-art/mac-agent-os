@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.76
+    "load_1m": 1.09
   },
   "memory": {
     "total_gb": 0,
@@ -17,25 +17,15 @@
     "used_gb": 92.4,
     "available_gb": 152.7
   },
-  "last_seen": "2026-06-14T05:29:03.569883+00:00",
+  "last_seen": "2026-06-14T05:34:09.572210+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-14T05:29:03.594973+00:00",
+  "_received_at": "2026-06-14T05:34:09.598517+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
   "_events": [
-    {
-      "id": "6a787d15-9599-4bfd-bcb7-7ef95c6ee4e8",
-      "type": "sync_updated",
-      "hostname": "5kechengdeAir",
-      "timestamp": "2026-06-14T05:03:39.793140+00:00",
-      "payload": {
-        "summary": "Created autostash: 98338b0ab4\nMerge made by the 'ort' strategy.\n .../data/automation/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json       | 2 +-\n .../data/ave/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json              | 2 +-\n .../data/collector/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json        | 2 +-\n .../data/guardd/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json           | 2 +-\n .../data/knowledge/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json        | 2 +-\n .../data/matrix/d19759cf-2159-4fe7-b6ff-db14ccf379f5.js",
-        "hostname": "5kechengdeAir"
-      }
-    },
     {
       "id": "6fad9d87-6c8f-4c09-9708-4944499e279b",
       "type": "sync_updated",
@@ -53,6 +43,16 @@
       "timestamp": "2026-06-14T05:13:51.673493+00:00",
       "payload": {
         "summary": "Created autostash: 216b275508\nMerge made by the 'ort' strategy.\n .../automation/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json   |  2 +-\n .../data/ave/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json     |  2 +-\n .../collector/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json    |  2 +-\n .../data/guardd/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json  |  2 +-\n .../knowledge/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json    |  2 +-\n .../data/matrix/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json  | 14 +++++++++++---\n .../data/skills",
+        "hostname": "5kechengdeAir"
+      }
+    },
+    {
+      "id": "8e6091e9-196f-47dc-a195-0a2d9ea818a1",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-06-14T05:29:09.441979+00:00",
+      "payload": {
+        "summary": "Created autostash: 0346068aab\nMerge made by the 'ort' strategy.\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5/events/2026-06-14.jsonl    | 1 +\n .../machines/d19759cf-2159-4fe7-b6ff-db14ccf379f5/heartbeat.json    | 6 +++---\n 04_memory/cross_machine/status/7kecheng/heartbeat.json              | 4 ++--\n .../status/live/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json           | 6 +++---\n 4 files changed, 9 insertions(+), 8 deletions(-)",
         "hostname": "5kechengdeAir"
       }
     },
