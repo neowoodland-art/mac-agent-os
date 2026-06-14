@@ -512,23 +512,33 @@ guardd 每 300s 往 Gitee 仓库的 `04_memory/cross_machine/` 写心跳文件:
 | 实时性 | ❌ 有延迟 | ❌ 有延迟 | ✅ 实时 |
 | 历史记录 | ✅ 有 | ✅ 仍保留 | ❌ 无 (可加日志) |
 
-**结论: guardd 保留, 但停止写 Gitee。改为写本机 + `mc remote` 做即时查询。**
+**结论: guardd 保留, 但停止写 Gitee。改为写本机 + `mc remote` 做即时查询。** (2026-06-14 已实施)
 
-### 6.5 多机任务分配
+### 6.5 `mc remote` 命令（已实现）
 
+```bash
+mc remote list                 # 列出已注册机器（来源: 本机machines.json + cross_machine/machines/）
+mc remote ping [host]          # 连通性测试 (调用 /api/health)
+mc remote status [host]        # 获取所有/指定机器完整状态 (调用 /api/machine/status)
+mc remote exec <host> <cmd>    # 在远程机器执行 mc 命令 (调用 /api/machine/exec)
 ```
-场景: 在 chengzigedeAir 上执行抖音养号
-→ mc remote exec chengzigedeAir "mc douyin nurture --account my_name --blueprint daily"
 
-场景: 所有机器同时采集
-→ mc remote exec --all "mc collect --all"
+**通信方式 (--via):**
+- `auto` (默认): 先试 HTTP API (Tailscale IP:9988), 失败自动回退 SSH
+- `http`: 强制走 HTTP API (Dashboard 端点)
+- `ssh`: 强制走 SSH 通道
 
-场景: 查所有机器状态
-→ mc remote status --json
-  {
-    "7kecheng": {"online": true, "accounts": 11, "last_seen": "30s ago"},
-    "chengzigedeAir": {"online": true, "accounts": 5, "last_seen": "2min ago"}
-  }
+**Dashboard 新增端点 (均已在 app.py 实现):**
+```python
+GET  /api/machine/status    # 本机完整状态 (系统/矩阵/采集/磁盘/guardd)
+POST /api/machine/exec      # 远程执行 mc 命令 (白名单安全限制)
+```
+
+**Tailscale 安装 (可选, 但强烈推荐):**
+```bash
+brew install tailscale          # 每台机器都安装
+tailscale up                    # 登录同一账号, 获得 100.x.x.x IP
+# 之后 mc remote 通过该加密 IP 通信, 跨网络、跨子网、端到端加密
 ```
 
 ---

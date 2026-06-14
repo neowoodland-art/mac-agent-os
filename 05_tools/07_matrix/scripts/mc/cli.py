@@ -731,6 +731,234 @@ def cmd_platform(args, plat_name, plat_inst):
 
 
 # ════════════════════════════════════════════════════════════
+# 远程多机命令
+# ════════════════════════════════════════════════════════════
+
+def _lookup_machines():
+    """读取机器注册表, 返回 {hostname: {ip, user, ...}}
+    
+    数据来源 (优先级):
+    1. agent-local/runtime/machines.json  (手动注册)
+    2. 04_memory/cross_machine/machines/ (git 同步)
+    """
+    machines = {}
+    
+    # 来源1: 本机注册表
+    local_reg = AGENT_LOCAL / "runtime" / "machines.json"
+    if local_reg.exists():
+        try:
+            machines.update(json.loads(local_reg.read_text()))
+        except: pass
+    
+    # 来源2: cross_machine 目录 (从 Gitee 同步的远程机器信息)
+    cross_dir = Path.home() / "workbuddy-agent-os" / "agent-sync" / "04_memory" / "cross_machine" / "machines"
+    if cross_dir.exists():
+        for f in sorted(cross_dir.glob("*.json")):
+            try:
+                d = json.loads(f.read_text())
+                hn = d.get("hostname", f.stem)
+                if hn and hn not in machines:
+                    machines[hn] = d
+            except: pass
+    
+    # 没找到则返回本机
+    if not machines:
+        import socket
+        hn = socket.gethostname()
+        machines[hn] = {
+            "hostname": hn,
+            "ip": "127.0.0.1",
+            "port": 9988,
+            "user": os.environ.get("USER", ""),
+        }
+    
+    return machines
+
+
+def _http_call(host_info, path, method="GET", data=None):
+    """通过 HTTP API 调用远程机器 (Tailscale/局域网)"""
+    try:
+        import requests as req_lib
+    except ImportError:
+        return {"status": "error", "message": "requests 库未安装, 请 pip install requests"}
+    
+    ip = host_info.get("ip", host_info.get("hostname", "localhost"))
+    port = host_info.get("port", 9988)
+    url = f"http://{ip}:{port}{path}"
+    
+    try:
+        # 绕过系统代理 (SOCKS5 代理可能导致 502)
+        no_proxy = {"http": "", "https": ""}
+        headers = {"User-Agent": "mc-remote/1.0"}
+        
+        if method == "GET":
+            r = req_lib.get(url, timeout=10, proxies=no_proxy, headers=headers)
+        else:
+            r = req_lib.post(url, json=data, timeout=10, proxies=no_proxy, headers=headers)
+        
+        if r.status_code == 200:
+            return r.json()
+        return {"status": "error", "message": f"HTTP {r.status_code}: {r.text[:200]}"}
+    except req_lib.exceptions.ConnectionError:
+        return {"status": "error", "message": "连接失败 (Connection refused)"}
+    except req_lib.exceptions.Timeout:
+        return {"status": "error", "message": "超时 (10s)"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+def _ssh_call(host_info, command):
+    """通过 SSH 在远程机器执行命令"""
+    import subprocess
+    
+    user = host_info.get("user", "")
+    ip = host_info.get("ip", host_info.get("hostname", ""))
+    ssh_target = f"{user}@{ip}" if user else ip
+    
+    full_cmd = ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
+                ssh_target, command]
+    
+    try:
+        r = subprocess.run(full_cmd, capture_output=True, text=True, timeout=60)
+        return {
+            "status": "ok" if r.returncode == 0 else "error",
+            "returncode": r.returncode,
+            "stdout": r.stdout[:5000],
+            "stderr": r.stderr[:500],
+        }
+    except subprocess.TimeoutExpired:
+        return {"status": "error", "message": "SSH 超时 (60s)"}
+    except FileNotFoundError:
+        return {"status": "error", "message": "ssh 命令未找到"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+def cmd_remote(args):
+    """mc remote — 远程多机管理"""
+    
+    if args.remote_action == "list":
+        machines = _lookup_machines()
+        if args.json:
+            print(json.dumps(machines, ensure_ascii=False, indent=2))
+            return
+        
+        print(f"\n📡 已注册机器 ({len(machines)}):")
+        for hn, info in machines.items():
+            ip = info.get("ip", "?")
+            port = info.get("port", 9988)
+            user = info.get("user", "")
+            via = info.get("via", "http")
+            print(f"  {hn:20s}  {user:10s}  {ip:15s}:{port}  (via {via})")
+        return
+    
+    if args.remote_action == "ping":
+        machines = _lookup_machines()
+        if args.host:
+            machines = {k: v for k, v in machines.items()
+                       if args.host in k or args.host in v.get("ip", "")}
+        
+        results = {}
+        for hn, info in machines.items():
+            r = _http_call(info, "/api/health")
+            results[hn] = {
+                "reachable": r.get("status") == "ok",
+                "response": r.get("hostname", ""),
+            }
+        
+        if args.json:
+            print(json.dumps(results, ensure_ascii=False, indent=2))
+            return
+        
+        print(f"\n📡 连通性测试 ({len(results)}):")
+        for hn, r in results.items():
+            icon = "✅" if r["reachable"] else "❌"
+            echo = r.get("response", "")[:20]
+            print(f"  {icon} {hn:20s}  {echo}")
+        return
+    
+    if args.remote_action == "status":
+        machines = _lookup_machines()
+        if args.host:
+            machines = {k: v for k, v in machines.items()
+                       if args.host in k or args.host in v.get("ip", "")}
+        
+        results = {}
+        for hn, info in machines.items():
+            r = _http_call(info, "/api/machine/status")
+            results[hn] = r
+        
+        if args.json:
+            print(json.dumps(results, ensure_ascii=False, indent=2))
+            return
+        
+        print(f"\n📊 多机状态 ({len(results)}):")
+        for hn, r in results.items():
+            status_icon = "✅" if r.get("status") == "ok" or "hostname" in r else "❌"
+            mat = r.get("matrix", {})
+            hp = r.get("homepage_info", {})
+            disk = r.get("disk", {})
+            guardd = r.get("guardd", {})
+            guardd_icon = "🟢" if guardd.get("running") else "🔴"
+            collected = hp.get("collected_at", "")[:16] if hp.get("collected_at") else "未采集"
+            print(f"  {status_icon} {hn:20s} {'v'+r.get('version','?'):10s}"
+                  f" 账号:{mat.get('total_accounts','?')} 已登录:{mat.get('logged_in_accounts','?')}")
+            print(f"      {guardd_icon} guardd  | 🕐 {collected} | 💾 {disk.get('free_gb','?')}G 剩余")
+        return
+    
+    if args.remote_action == "exec":
+        command = " ".join(args.command)
+        host = args.host
+        via = args.via
+        
+        machines = _lookup_machines()
+        host_info = None
+        for hn, info in machines.items():
+            if host in hn or host in info.get("ip", ""):
+                host_info = info
+                break
+        
+        if not host_info:
+            host_info = {"ip": host, "port": 9988, "via": "http"}
+        
+        # HTTP 方式 (Tailscale/局域网)
+        if via in ("auto", "http"):
+            result = _http_call(host_info, "/api/machine/exec", method="POST",
+                              data={"command": command})
+            if result.get("status") == "ok" or "stdout" in result:
+                if args.json:
+                    print(json.dumps(result, ensure_ascii=False, indent=2))
+                else:
+                    out = result.get("stdout", "")
+                    err = result.get("stderr", "")
+                    if out:
+                        print(out[:5000])
+                    if err:
+                        print(f"⚠️ stderr: {err}")
+                return
+            elif via == "http":
+                print(f"❌ HTTP 执行失败: {result.get('message','')}")
+                return
+        
+        # SSH 方式
+        if via in ("auto", "ssh"):
+            result = _ssh_call(host_info, command)
+            if result.get("status") == "ok" or result.get("returncode") == 0:
+                if args.json:
+                    print(json.dumps(result, ensure_ascii=False, indent=2))
+                else:
+                    print(result.get("stdout", "")[:5000])
+                    if result.get("stderr", ""):
+                        print(f"⚠️ stderr: {result['stderr'][:500]}")
+                return
+            elif via == "ssh":
+                print(f"❌ SSH 执行失败: {result.get('message','')}")
+                return
+        
+        print(f"❌ 无法连接到 {host}: HTTP 和 SSH 均失败")
+
+
+# ════════════════════════════════════════════════════════════
 # 主解析器
 # ════════════════════════════════════════════════════════════
 
@@ -894,6 +1122,30 @@ def build_parser():
     p_login.add_argument("--account", default="", help="按账号ID登录")
     p_login.add_argument("--platform", default="auto", choices=["auto", "douyin", "xiaohongshu"], help="平台")
     p_login.set_defaults(func=cmd_login)
+
+    # ── remote — 远程多机命令 ──
+    p_remote = sub.add_parser("remote", help="远程多机管理 (通过 Tailscale/SSH/HTTP)")
+    remote_sub = p_remote.add_subparsers(dest="remote_action")
+
+    p_remote_exec = remote_sub.add_parser("exec", help="在远程机器执行命令")
+    p_remote_exec.add_argument("host", help="远程机器 hostname 或 Tailscale IP")
+    p_remote_exec.add_argument("command", nargs="+", help="要执行的命令, 如 'mc status --json'")
+    p_remote_exec.add_argument("--via", default="auto", choices=["auto", "http", "ssh"],
+                               help="通信方式: auto/http/ssh")
+    p_remote_exec.set_defaults(func=cmd_remote)
+
+    p_remote_status = remote_sub.add_parser("status", help="查看所有/指定机器状态")
+    p_remote_status.add_argument("host", nargs="?", default="", help="指定机器 (默认全部)")
+    p_remote_status.add_argument("--via", default="auto", choices=["auto", "http", "ssh"],
+                                 help="通信方式")
+    p_remote_status.set_defaults(func=cmd_remote)
+
+    p_remote_ping = remote_sub.add_parser("ping", help="测试机器连通性")
+    p_remote_ping.add_argument("host", nargs="?", default="", help="指定机器 (默认全部)")
+    p_remote_ping.set_defaults(func=cmd_remote)
+
+    p_remote_list = remote_sub.add_parser("list", help="列出已注册机器")
+    p_remote_list.set_defaults(func=cmd_remote)
 
     # ══════════════════════════════════════════════════════
     # 动态发现平台插件: mc [platform] [action] --account <name>

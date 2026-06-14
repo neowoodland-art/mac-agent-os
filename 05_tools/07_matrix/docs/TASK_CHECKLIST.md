@@ -68,17 +68,23 @@
 
 ## 第四阶段: 联邦多机 + 持续扩展
 
-### 4.1 guardd 改造
-- [ ] guardd 停止写 Gitee
-- [ ] 改为写本机 local 目录
-- [ ] cross_machine/data/ 加入 .gitignore
-- [ ] 清理 Gitee 仓库历史心跳文件
+### 4.1 guardd 改造 (已完成 ✅)
+- [x] guardd.py: 心跳数据改写到 agent-local/runtime/guardd/
+- [x] 注释掉 _git_sync() 调用, 不再提交 Gitee
+- [x] .gitignore: 加入 04_memory/cross_machine/data/
+- [x] git rm --cached: 清除 78 个历史心跳文件
+- [x] Dashboard guardd 插件: 新增读本机 guardd 状态
+- [x] 兼容旧 cross_machine/data/ 数据
 
-### 4.2 Tailscale + 远程执行
-- [ ] 各机装 Tailscale
-- [ ] Dashboard 加 `/api/machine/status` 端点
-- [ ] 实现 `mc remote exec`
-- [ ] 实现 `mc remote status`
+### 4.2 Tailscale + mc remote (已完成 ✅)
+- [x] app.py: 新增 /api/machine/status 端点 (本机完整状态)
+- [x] app.py: 新增 /api/machine/exec 端点 (远程执行 mc 命令)
+- [x] mc CLI: 新增 remote 子命令 (list/ping/status/exec)
+- [x] 支持 HTTP API 和 SSH 双通道通信
+- [x] 代理绕过: requests 库绕过 SOCKS5 代理
+- [x] 机器注册表: agent-local/runtime/machines.json
+- [x] 文档 FRAMEWORK_V1.md 已更新
+- [ ] 安装 Tailscale: `brew install tailscale && tailscale up`
 
 ### 4.3 Dashboard 合并
 - [ ] 把 matrix_mgmt.html 功能迁移到 index.html

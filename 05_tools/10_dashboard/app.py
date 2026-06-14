@@ -545,6 +545,121 @@ def health():
     }
 
 # ═══════════════════════════════════════════════════════════
+# 联邦远程状态 API (供 mc remote 调用 / Tailscale 通道)
+# ═══════════════════════════════════════════════════════════
+
+@app.get("/api/machine/status")
+def api_machine_status():
+    """返回本机完整状态 (供 mc remote status 远程查询)"""
+    import subprocess, shutil
+
+    # 系统信息
+    uname = os.uname()
+    boot_time = None
+    try:
+        with open("/proc/uptime") as f:
+            uptime_secs = float(f.read().split()[0])
+            boot_time = datetime.now().timestamp() - uptime_secs
+    except:
+        try:
+            r = subprocess.run(["sysctl", "-n", "kern.boottime"], capture_output=True, text=True)
+            if "sec =" in r.stdout:
+                boot_time = int(r.stdout.split("sec =")[1].split(",")[0])
+        except: pass
+
+    # 磁盘
+    disk_total, disk_used = 0, 0
+    try:
+        du = shutil.disk_usage(str(Path.home()))
+        disk_total, disk_used = du.total, du.used
+    except: pass
+
+    # Matrix 账号摘要
+    try:
+        from scripts.matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        sys_info = mgr.system_info()
+        accounts = mgr.list_accounts()
+    except Exception as e:
+        sys_info = {"error": str(e)}
+        accounts = []
+
+    # 主页采集信息
+    hp_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "homepage_info.json"
+    hp_data = {}
+    if hp_path.exists():
+        try: hp_data = json.loads(hp_path.read_text())
+        except: pass
+
+    # guardd 状态
+    guardd_status = {"running": False}
+    try:
+        r = subprocess.run(["pgrep", "-f", "guardd"], capture_output=True, text=True)
+        guardd_status["running"] = bool(r.stdout.strip())
+    except: pass
+
+    return {
+        "hostname": HOSTNAME,
+        "version": "2.0.0",
+        "platform": "macOS",
+        "kernel": f"{uname.sysname} {uname.release}",
+        "boot_time": boot_time,
+        "disk": {
+            "total_gb": round(disk_total / (1024**3), 1),
+            "used_gb": round(disk_used / (1024**3), 1),
+            "free_gb": round((disk_total - disk_used) / (1024**3), 1),
+        },
+        "matrix": {
+            "total_accounts": sys_info.get("total_accounts", 0),
+            "enabled_accounts": sys_info.get("enabled_accounts", 0),
+            "logged_in_accounts": sys_info.get("logged_in_accounts", 0),
+            "identity_dirs": sys_info.get("identity_dirs", 0),
+        },
+        "homepage_info": {
+            "collected_at": hp_data.get("collected_at", ""),
+            "total_results": len(hp_data.get("results", [])),
+        },
+        "guardd": guardd_status,
+        "plugins": {n: "available" if _AVAILABLE.get(n) else "unavailable" for n in _PLUGINS},
+        "ts": datetime.now().isoformat(),
+    }
+
+
+@app.post("/api/machine/exec")
+def api_machine_exec(data: dict):
+    """远程执行 mc 命令 (供 mc remote exec 调用, Token 认证)"""
+    command = data.get("command", "")
+    if not command:
+        return {"status": "error", "message": "command required"}
+    # 安全检查: 只允许 mc 命令
+    allowed_prefixes = ["mc collect", "mc status", "mc account", "mc sms",
+                        "mc douyin", "mc xiaohongshu", "mc login", "mc record"]
+    if not any(command.startswith(p) for p in allowed_prefixes):
+        return {"status": "error", "message": f"command not allowed: {command[:50]}"}
+
+    import subprocess
+    mc_path = Path(__file__).resolve().parent.parent / "07_matrix" / "scripts" / "mc" / "cli.py"
+    # 转换为 --json 模式执行
+    cmd_parts = command.split()
+    cmd_parts.insert(1, "--json")  # mc --json ...
+    full_cmd = [sys.executable, str(mc_path)] + cmd_parts[1:]
+
+    try:
+        r = subprocess.run(full_cmd, capture_output=True, text=True, timeout=120,
+                          cwd=str(mc_path.parent))
+        return {
+            "status": "ok",
+            "returncode": r.returncode,
+            "stdout": r.stdout[:5000],
+            "stderr": r.stderr[:500],
+        }
+    except subprocess.TimeoutExpired:
+        return {"status": "error", "message": "timeout (120s)"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+# ═══════════════════════════════════════════════════════════
 # 联邦 PUSH API (反向连接, UID 认证)
 # ═══════════════════════════════════════════════════════════
 
