@@ -172,4 +172,40 @@ accounts:
   id: douyin_134
   phone: '13800138000'
   platform: douyin
+- assigned_machine: 192.168.31.180
+  id: douyin_03
+  identity_hint: douyin_03
+  notes: douyin 185****9569
+  phone_mask: 185****9569
+  platform: douyin
+  window:
+  - 702
+  - 783
+  window_position:
+  - 0
+  - 0
+- assigned_machine: 192.168.31.180
+  id: xhs_07
+  identity_hint: xhs_07
+  notes: xiaohongshu 185****9569
+  phone_mask: 185****9569
+  platform: xiaohongshu
+  window:
+  - 702
+  - 783
+  window_position:
+  - 0
+  - 0
+- id: douyin_07
+  platform: douyin
+  phone_mask: 153****7926
+  assigned_machine: 192.168.31.180
+  identity_hint: douyin_07
+  window:
+  - 702
+  - 783
+  window_position:
+  - 0
+  - 0
+  notes: douyin 153****7926
 version: '1.0'
