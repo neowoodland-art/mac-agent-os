@@ -65,3 +65,26 @@ class XiaohongshuPlatform(BasePlatform):
             return {"status": "not_found"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+    def publish(self, account_name: str, file_path: str = "", title: str = "", desc: str = "") -> dict:
+        """发布笔记到小红书"""
+        identity = self._resolve_account(account_name)
+        publish_script = SCRIPTS_DIR / "publish_video.py"
+        if not Path(file_path).exists():
+            return {"status": "error", "message": f"文件不存在: {file_path}"}
+        cmd = [sys.executable, str(publish_script), "xiaohongshu",
+               "--account", identity, "--file", str(Path(file_path).resolve())]
+        if title:
+            cmd += ["--title", title]
+        if desc:
+            cmd += ["--desc", desc]
+        try:
+            p = subprocess.run(cmd, cwd=str(SCRIPTS_DIR), capture_output=True, text=True, timeout=300)
+            return {"status": "ok" if p.returncode == 0 else "error", "output": p.stdout[-500:]}
+        except subprocess.TimeoutExpired:
+            return {"status": "error", "message": "发布超时 (300s)"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+
+Xiaohongshu = XiaohongshuPlatform

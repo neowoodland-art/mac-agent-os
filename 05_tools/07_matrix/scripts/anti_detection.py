@@ -194,3 +194,78 @@ class BehaviorProfile:
         data = self.get_stats()
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+# ═══════════════════════════════════════════════════════════════
+# 高斯抖动 + 指数退避工具
+# ═══════════════════════════════════════════════════════════════
+
+
+def gaussian_sleep(base: float, jitter_ratio: float = 0.3, min_val: float = 0.3) -> float:
+    """高斯抖动睡眠: base 秒 ±jitter_ratio%, 最少 min_val 秒
+    
+    用法:
+        await anti_detection.gaussian_sleep(5.0)    # 5s ±30%, 即 3.5-6.5s
+        await anti_detection.gaussian_sleep(2.0, 0.5)  # 2s ±50%
+    """
+    import asyncio
+    jitter = base * random.uniform(-jitter_ratio, jitter_ratio)
+    delay = max(base + jitter, min_val)
+    return delay  # 返回秒数, 调用方自行 await asyncio.sleep()
+
+
+def gaussian_async_sleep(base: float, jitter_ratio: float = 0.3, min_val: float = 0.3):
+    """异步版本: await gaussian_async_sleep(5)"""
+    import asyncio
+    delay = gaussian_sleep(base, jitter_ratio, min_val)
+    return asyncio.sleep(delay)
+
+
+def exponential_backoff(attempt: int, base_delay: float = 5.0, max_delay: float = 120.0) -> float:
+    """指数退避: 第 n 次重试等待 base * 2^n 秒, 上限 max_delay
+    
+    用法:
+        for i in range(3):
+            try:
+                await do_something()
+                break
+            except:
+                delay = anti_detection.exponential_backoff(i)
+                await asyncio.sleep(delay)
+    """
+    delay = base_delay * (2 ** attempt)
+    # 加 50% 高斯抖动
+    delay *= (1 + random.uniform(-0.5, 0.5))
+    return min(max(delay, 1.0), max_delay)
+
+
+def human_typing_delay(text: str) -> float:
+    """模拟人类打字速度: 每字符 50-150ms, 标点符号后额外 200-500ms"""
+    base = len(text) * random.uniform(0.05, 0.15)
+    # 标点符号加时
+    extra = sum(random.uniform(0.2, 0.5) for c in text if c in "，。！？；：、")
+    return base + extra
+
+
+def random_view_duration(min_s: float = 15, max_s: float = 120) -> float:
+    """随机观看时长, 对数正态分布 (更接近真实人类)"""
+    import math
+    mu = math.log((min_s + max_s) / 2)
+    sigma = 0.5
+    return max(min_s, min(max_s, random.lognormvariate(mu, sigma)))
+
+
+def jitter_mouse_position(x: int, y: int, radius: int = 5) -> tuple:
+    """鼠标位置抖动: 在 (x,y) 周围 radius 像素内随机偏移"""
+    return (
+        x + random.randint(-radius, radius),
+        y + random.randint(-radius, radius),
+    )
+
+
+__all__ = [
+    'FINGERPRINT_SCRIPT', 'OVERLAY_REMOVE_SCRIPT',
+    'gaussian_sleep', 'gaussian_async_sleep', 'exponential_backoff',
+    'human_typing_delay', 'random_view_duration', 'jitter_mouse_position',
+    'AntiDetection',
+]
