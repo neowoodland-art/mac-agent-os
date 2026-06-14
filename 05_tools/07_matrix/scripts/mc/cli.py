@@ -600,6 +600,80 @@ def _cmd_op_list(args):
 
 
 # ════════════════════════════════════════════════════════════
+# 采集命令
+# ════════════════════════════════════════════════════════════
+
+def cmd_collect(args):
+    """mc collect — 主页信息采集"""
+    import subprocess
+    runner = SCRIPTS_DIR / "collect_batch_runner.py"
+    if not runner.exists():
+        runner = SCRIPTS_DIR / "collect_homepage_info.py"
+    
+    cmd = [sys.executable, str(runner)]
+    if args.phone:
+        cmd += ["--single", args.phone]
+    elif args.account:
+        cmd += ["--single", args.account]
+    # --all: 不加参数, 默认全部
+    
+    if not args.status:
+        print(f"🚀 启动采集: {' '.join(cmd)}")
+        p = subprocess.Popen(cmd, cwd=str(SCRIPTS_DIR))
+        if args.json:
+            print(json.dumps({"status": "started", "pid": p.pid}))
+    else:
+        # 查进度
+        progress_file = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
+        if progress_file.exists():
+            data = json.loads(progress_file.read_text())
+            if args.json:
+                print(json.dumps(data, ensure_ascii=False))
+            else:
+                s = data.get("status", "unknown")
+                done = data.get("completed", 0)
+                total = data.get("total_identities", 0)
+                print(f"状态: {s} | {done}/{total} 完成")
+        else:
+            print("暂无采集进度")
+
+
+# ════════════════════════════════════════════════════════════
+# 登录命令
+# ════════════════════════════════════════════════════════════
+
+def cmd_login(args):
+    """mc login — 打开浏览器登录账号"""
+    import subprocess
+    login_script = SCRIPTS_DIR / "login_identity.py"
+    
+    if args.account:
+        target = args.account
+    elif args.phone:
+        # 从账号注册表查找
+        try:
+            from matrix_mgmt import MatrixManager
+            mgr = MatrixManager()
+            for a in mgr.list_accounts():
+                if a.get("phone") == args.phone:
+                    target = a.get("identity_dir", a["id"]).replace("identities/", "")
+                    break
+            else:
+                print(f"❌ 手机号 {args.phone} 未找到")
+                return
+        except:
+            target = args.phone
+    else:
+        print("❌ 请指定 --account 或 --phone")
+        return
+    
+    platform = args.platform
+    cmd = [sys.executable, str(login_script), target, "--platform", platform]
+    print(f"🚀 打开登录: {' '.join(cmd)}")
+    subprocess.Popen(cmd, cwd=str(SCRIPTS_DIR))
+
+
+# ════════════════════════════════════════════════════════════
 # 主解析器
 # ════════════════════════════════════════════════════════════
 
@@ -748,6 +822,21 @@ def build_parser():
 
     p_op_list = op_sub.add_parser("list", help="列出所有原子操作")
     p_op_list.set_defaults(func=cmd_op)
+
+    # ── collect — 主页信息采集 ──
+    p_collect = sub.add_parser("collect", help="采集账号主页信息")
+    p_collect.add_argument("--all", action="store_true", help="采集所有身份")
+    p_collect.add_argument("--phone", default="", help="按手机号采集")
+    p_collect.add_argument("--account", default="", help="按账号ID采集")
+    p_collect.add_argument("--status", action="store_true", help="查看采集进度")
+    p_collect.set_defaults(func=cmd_collect)
+
+    # ── login — 账号登录 ──
+    p_login = sub.add_parser("login", help="打开浏览器登录账号")
+    p_login.add_argument("--phone", default="", help="按手机号登录")
+    p_login.add_argument("--account", default="", help="按账号ID登录")
+    p_login.add_argument("--platform", default="auto", choices=["auto", "douyin", "xiaohongshu"], help="平台")
+    p_login.set_defaults(func=cmd_login)
 
     return parser
 
