@@ -55,6 +55,8 @@ tr:hover td { background: var(--bg3); }
 .btn-sm { padding: 4px 10px; font-size: 11px; }
 .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
 .btn-outline:hover { background: var(--bg3); }
+.btn-amber { background: rgba(245,158,11,.2); color: var(--amber); border: 1px solid rgba(245,158,11,.3); }
+.btn-amber:hover { background: rgba(245,158,11,.3); }
 
 .card { background: var(--bg2); border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); margin-bottom: 16px; }
 .card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
@@ -132,6 +134,8 @@ label { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: block
   </div>
 
   <div class="stats" id="statsBar"></div>
+  <div id="collectBar"></div>
+  <div id="collectResult" class="card hidden" style="margin-top:0;margin-bottom:16px"></div>
 
   <div class="tabs">
     <div class="tab active" onclick="switchTab('accounts',this)">&#x1F464; 账号管理</div>
@@ -140,6 +144,7 @@ label { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: block
     <div class="tab" onclick="switchTab('atomops',this)">&#x26A1; 原子操作</div>
     <div class="tab" onclick="switchTab('backup',this)">&#x1F4BE; 备份恢复</div>
     <div class="tab" onclick="switchTab('importexport',this)">&#x1F4E6; 导入导出</div>
+    <div class="tab" onclick="switchTab('homepage',this)">&#x1F4CA; 主页信息</div>
   </div>
 
   <!-- ═══════════════════ Accounts Panel ═══════════════════ -->
@@ -267,7 +272,35 @@ label { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: block
     </div>
   </div>
 
-</div>
+  <!-- ═══════════════════ Homepage Info Panel ═══════════════════ -->
+  <div id="panel-homepage" class="hidden">
+    <div class="stats" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="stat-card"><div class="label">身份数</div><div class="value" id="hp-total-identities">-</div></div>
+      <div class="stat-card"><div class="label">抖音已登录</div><div class="value" style="color:var(--green)" id="hp-dy-logged">-</div></div>
+      <div class="stat-card"><div class="label">小红书已读取</div><div class="value" style="color:var(--blue)" id="hp-xhs-read">-</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <span>&#x1F4CA; 抖音首页信息</span>
+        <button class="btn btn-outline btn-sm" onclick="loadHomepageInfo()">&#x1F504; 刷新</button>
+      </div>
+      <div id="homepage-douyin-table"><div class="loading">加载中...</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <span>&#x1F4D5; 小红书首页信息</span>
+        <span style="font-size:12px;color:var(--text2)" id="hp-xhs-note"></span>
+      </div>
+      <div id="homepage-xiaohongshu-table"><div class="loading">加载中...</div></div>
+    </div>
+    <div class="card" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3)">
+      <div class="card-title" style="color:var(--amber)">&#x26A0;&#xFE0F; 说明</div>
+      <p class="text-sm text-muted">数据来源: <code>collect_homepage_info.py</code> 采集后写入 <code>data/homepage_info.json</code>。<br>
+      &#x1F504; 如需更新数据，请在终端执行：<br>
+      <code style="background:var(--bg3);padding:2px 6px;border-radius:4px">cd ~/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts && python collect_homepage_info.py</code><br>
+      &#x2139;&#xFE0F; 采集需要打开 Camoufox 浏览器读取主页，展示只需读文件，不开浏览器。</p>
+    </div>
+  </div>
 
 <!-- Modal -->
 <div id="modalOverlay" class="modal-overlay hidden" onclick="if(event.target===this)closeModal()">
@@ -287,8 +320,17 @@ async function loadAll() {
 }
 async function loadSystemInfo() {
   try {
-    const r = await fetch(`${API}/api/matrix/system-info`);
+    const [r, sr] = await Promise.all([
+      fetch(`${API}/api/matrix/system-info`),
+      fetch(`${API}/api/matrix/collect-homepage/status`),
+    ]);
     const info = await r.json();
+    const status = await sr.json();
+    const isRunning = status.status === 'running' || status.status === 'started';
+    const btnLabel = isRunning ? '⏳ 采集中...' : '📡 采集主页信息';
+    const btnCls = isRunning ? 'btn-amber btn-sm' : 'btn-primary btn-sm';
+    const btnDisabled = isRunning ? 'disabled' : '';
+
     document.getElementById('statsBar').innerHTML = `
       <div class="stat-card"><div class="label">总账号</div><div class="value">${info.total_accounts}</div></div>
       <div class="stat-card"><div class="label">已启用</div><div class="value" style="color:var(--green)">${info.enabled_accounts}</div></div>
@@ -296,6 +338,30 @@ async function loadSystemInfo() {
       <div class="stat-card"><div class="label">身份目录</div><div class="value">${info.identity_dirs}</div></div>
       <div class="stat-card"><div class="label">蓝图</div><div class="value" style="color:var(--amber)">${info.blueprints}</div></div>
     `;
+
+    // 显示采集按钮栏（单独一行，避免被 stat card 挤到屏幕外）
+    const collectBar = document.getElementById('collectBar');
+    if (collectBar) {
+      const btnClass = isRunning ? 'btn-amber' : 'btn-primary';
+      const disabledAttr = isRunning ? 'disabled' : '';
+      const btnText = isRunning ? '⏳ 采集中...' : '📡 采集主页信息';
+      const infoText = isRunning ? '正在分批采集所有身份主页信息...' : '分批并行读取抖音+小红书主页信息（最多同时开3个浏览器）';
+      const onclickAttr = isRunning ? '' : 'startHomepageCollect()';
+      collectBar.innerHTML =
+        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 0 16px 0">' +
+          '<button class="btn ' + btnClass + '" id="collectBtn" onclick="' + onclickAttr + '" ' + disabledAttr + '>' +
+            btnText +
+          '</button>' +
+          '<span class="text-xs text-muted" id="collectInfoText">' + infoText + '</span>' +
+        '</div>';
+    }
+
+    // 显示进度或之前的结果
+    if (isRunning) {
+      showCollectProgress(status);
+    } else if (status.status === 'completed' && status.completed > 0) {
+      showCollectProgress(status);
+    }
   } catch(e) {}
 }
 
@@ -965,12 +1031,13 @@ const origSwitchTab = switchTab;
 switchTab = function(name, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
-  ['accounts','c2','blueprints','atomops','backup','importexport'].forEach(p => {
+  ['accounts','c2','blueprints','atomops','backup','importexport','homepage'].forEach(p => {
     const panel = document.getElementById('panel-' + p);
     if (panel) panel.classList.toggle('hidden', p !== name);
   });
   if (name === 'c2') { loadC2Machines(); loadC2History(); }
   if (name === 'backup') loadBackups();
+  if (name === 'homepage') loadHomepageInfo();
 };
 
 // Enhance loadAccounts to show richer data
@@ -1009,6 +1076,258 @@ loadAccounts = async function() {
     }).join('') + '</tbody></table>';
   } catch(e) { el.innerHTML = '<div class="error">'+e.message+'</div>'; }
 };
+
+// ════════════════════════════════════════════════════════
+// HOMEPAGE INFO (采集的主页信息，读 JSON 文件，不开浏览器)
+// ════════════════════════════════════════════════════════
+
+async function loadHomepageInfo() {
+  const dyEl = document.getElementById('homepage-douyin-table');
+  const xhsEl = document.getElementById('homepage-xiaohongshu-table');
+  dyEl.innerHTML = '<div class="loading">加载中...</div>';
+  xhsEl.innerHTML = '<div class="loading">加载中...</div>';
+
+  try {
+    const r = await fetch(`${API}/api/matrix/homepage-info`);
+    const data = await r.json();
+
+    if (data.error) {
+      dyEl.innerHTML = `<div class="error">${data.error}${data.hint ? '<br><span class="text-sm">'+data.hint+'</span>' : ''}</div>`;
+      xhsEl.innerHTML = `<div class="error">${data.error}</div>`;
+      document.getElementById('hp-total-identities').textContent = '-';
+      document.getElementById('hp-dy-logged').textContent = '-';
+      document.getElementById('hp-xhs-read').textContent = '-';
+      return;
+    }
+
+    const results = data.results || [];
+    document.getElementById('hp-total-identities').textContent = results.length;
+
+    // Parse douyin data
+    const dyData = results.filter(r => r.douyin && r.douyin.status === 'loaded');
+    const dyLogged = dyData.filter(r => r.douyin.nickname && !r.douyin.nickname.includes('登录后'));
+    document.getElementById('hp-dy-logged').textContent = dyLogged.length + '/' + dyData.length;
+
+    // Parse xiaohongshu data
+    const xhsValid = results.filter(r => r.xiaohongshu && r.xiaohongshu.status === 'loaded' && r.xiaohongshu.nickname && !r.xiaohongshu.nickname.includes('问点点') && !r.xiaohongshu.nickname.includes('推荐'));
+    const xhsTotal = results.filter(r => r.xiaohongshu).length;
+    document.getElementById('hp-xhs-read').textContent = xhsValid.length + '/' + xhsTotal;
+    document.getElementById('hp-xhs-note').textContent = xhsValid.length ? '' : '⚠️ 未采集到小红书个人页数据，点击终端命令重新采集';
+
+    // Render douyin table
+    dyEl.innerHTML = '<table><thead><tr>' +
+      '<th>身份</th><th>手机</th><th>昵称</th><th>粉丝</th><th>关注</th><th>状态</th>' +
+      '</tr></thead><tbody>' + results.map(r => {
+        const dy = r.douyin;
+        if (!dy) return '';
+        const loggedIn = dy.nickname && !dy.nickname.includes('登录后');
+        const statusCls = loggedIn ? 'badge-green' : 'badge-amber';
+        const statusTxt = loggedIn ? '&#x2705; 已登录' : '&#x26A0; 未登录';
+        return '<tr>' +
+          '<td><strong>' + (r.display_name||r.identity_dir||'?') + '</strong></td>' +
+          '<td class="text-xs text-muted">' + (r.phone||'-') + '</td>' +
+          '<td>' + (loggedIn ? dy.nickname : '<span class="text-muted">-</span>') + '</td>' +
+          '<td>' + (dy.fans || '-') + '</td>' +
+          '<td>' + (dy.following || '-') + '</td>' +
+          '<td><span class="badge ' + statusCls + '">' + statusTxt + '</span></td>' +
+          '</tr>';
+      }).join('') + '</tbody></table>';
+
+    // Render xiaohongshu table
+    xhsEl.innerHTML = '<table><thead><tr>' +
+      '<th>身份</th><th>手机</th><th>昵称</th><th>粉丝</th><th>关注</th><th>状态</th>' +
+      '</tr></thead><tbody>' + results.map(r => {
+        const xhs = r.xiaohongshu;
+        if (!xhs) return '';
+        const valid = xhs.nickname && !xhs.nickname.includes('问点点') && !xhs.nickname.includes('推荐');
+        const statusCls = valid ? 'badge-green' : 'badge-amber';
+        const statusTxt = valid ? '&#x2705; 已读取' : '&#x26A0; 未登录';
+        return '<tr>' +
+          '<td><strong>' + (r.display_name||r.identity_dir||'?') + '</strong></td>' +
+          '<td class="text-xs text-muted">' + (r.phone||'-') + '</td>' +
+          '<td>' + (valid ? xhs.nickname : '<span class="text-muted">-</span>') + '</td>' +
+          '<td>' + (xhs.fans || '-') + '</td>' +
+          '<td>' + (xhs.following || '-') + '</td>' +
+          '<td><span class="badge ' + statusCls + '">' + statusTxt + '</span></td>' +
+          '</tr>';
+      }).join('') + '</tbody></table>';
+
+  } catch(e) {
+    dyEl.innerHTML = '<div class="error">'+e.message+'</div>';
+    xhsEl.innerHTML = '<div class="error">'+e.message+'</div>';
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// COLLECT HOMEPAGE (分批并行采集)
+// ════════════════════════════════════════════════════════
+
+let collectPollTimer = null;
+
+async function startHomepageCollect() {
+  const btn = document.getElementById('collectBtn');
+  if (btn && btn.innerText.includes('采集中')) return;
+
+  document.getElementById('collectResult').classList.remove('hidden');
+  document.getElementById('collectResult').innerHTML = '<div class="loading">🚀 启动采集任务...</div>';
+
+  try {
+    const r = await fetch(`${API}/api/matrix/collect-homepage`, { method: 'POST' });
+    const data = await r.json();
+    if (data.status === 'already_running') {
+      showCollectProgress({ status: 'running', message: '已有任务在运行' });
+    } else if (data.status === 'started') {
+      // 开始轮询
+      pollCollectProgress();
+    } else {
+      document.getElementById('collectResult').innerHTML = `<div class="error">启动失败: ${data.error || data.message}</div>`;
+      resetCollectBtn();
+    }
+  } catch(e) {
+    document.getElementById('collectResult').innerHTML = `<div class="error">${e.message}</div>`;
+    resetCollectBtn();
+  }
+}
+
+function pollCollectProgress() {
+  if (collectPollTimer) clearInterval(collectPollTimer);
+  
+  collectPollTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`${API}/api/matrix/collect-homepage/status`);
+      const data = await r.json();
+      showCollectProgress(data);
+      
+      if (data.status === 'completed' || data.status === 'error' || data.status === 'cancelled') {
+        clearInterval(collectPollTimer);
+        collectPollTimer = null;
+        
+        // 自动刷新主页信息 tab 数据
+        const hpTab = document.querySelector('.tab:last-child');
+        if (hpTab && hpTab.classList.contains('active')) {
+          loadHomepageInfo();
+        }
+      }
+    } catch(e) {
+      console.error('Poll error:', e);
+    }
+  }, 3000);
+}
+
+function showCollectProgress(data) {
+  const el = document.getElementById('collectResult');
+  
+  if (data.status === 'running' || data.status === 'started') {
+    const done = data.completed || 0;
+    const total = data.total_identities || '?';
+    const batch = data.current_batch || 0;
+    const batches = data.total_batches || '?';
+    const pct = total > 0 ? Math.round(done / total * 100) : 0;
+    
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span class="text-sm" style="color:var(--amber)">⏳ 采集中...</span>
+            <span class="text-sm text-muted">批次 ${batch}/${batches}</span>
+          </div>
+          <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:var(--primary);border-radius:3px;transition:width .5s"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px">
+            <span class="text-xs text-muted">${done}/${total} 身份</span>
+            <span class="text-xs text-muted">${pct}%</span>
+          </div>
+          <div style="margin-top:6px;display:flex;gap:12px" class="text-xs">
+            <span style="color:var(--green)">✅ 成功: ${data.success || 0}</span>
+            <span style="color:var(--red)">❌ 失败: ${data.failed || 0}</span>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-danger" onclick="cancelCollect()">取消</button>
+      </div>
+    `;
+  } else if (data.status === 'completed') {
+    const allResults = data.results || [];
+    const successCount = data.success || allResults.filter(r => {
+      const dy = r.douyin, xhs = r.xiaohongshu;
+      return (dy && dy.nickname && !dy.nickname.includes('登录后')) ||
+             (xhs && xhs.nickname && !xhs.nickname.includes('问点点') && !xhs.nickname.includes('推荐'));
+    }).length;
+    const failCount = (data.total_identities || allResults.length) - successCount;
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:20px">✅</span>
+        <div style="flex:1">
+          <div style="font-weight:600">采集完成</div>
+          <div class="text-sm text-muted">
+            成功: <span style="color:var(--green);font-weight:600">${successCount}</span> &nbsp;|&nbsp;
+            失败: <span style="color:var(--red);font-weight:600">${failCount}</span> &nbsp;|&nbsp;
+            共 ${data.total_identities || allResults.length} 个身份
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="showCollectDetail(${JSON.stringify(allResults).replace(/"/g, '&quot;')})">查看详情</button>
+      </div>
+    `;
+    el.style.borderColor = 'rgba(34,197,94,.3)';
+    el.style.background = 'rgba(34,197,94,.08)';
+  } else if (data.status === 'error') {
+    el.innerHTML = `<div class="error">❌ ${data.message || '采集异常'}</div>`;
+    el.style.borderColor = 'rgba(239,68,68,.3)';
+    el.style.background = 'rgba(239,68,68,.08)';
+  } else if (data.status === 'cancelled') {
+    el.innerHTML = `<div style="color:var(--amber)">⏹️ ${data.message || '已取消'}</div>`;
+    el.style.borderColor = 'rgba(245,158,11,.3)';
+    el.style.background = 'rgba(245,158,11,.08)';
+  }
+}
+
+function showCollectDetail(results) {
+  if (!results || !results.length) return;
+  const rows = results.map(r => {
+    const dy = r.douyin;
+    const xhs = r.xiaohongshu;
+    const dyOk = dy && dy.status === 'loaded' && dy.nickname && !dy.nickname.includes('登录后');
+    const xhsOk = xhs && xhs.status === 'loaded' && xhs.nickname && !xhs.nickname.includes('问点点') && !xhs.nickname.includes('推荐');
+    return `<tr>
+      <td><strong>${r.display_name||r.identity_dir||'?'}</strong></td>
+      <td class="text-xs text-muted">${r.phone||'-'}</td>
+      <td>${dyOk ? dy.nickname : '<span class="text-muted">-</span>'}</td>
+      <td>${dyOk ? (dy.fans||'-') : '-'}</td>
+      <td>${xhsOk ? xhs.nickname : '<span class="text-muted">-</span>'}</td>
+      <td>${xhsOk ? (xhs.fans||'-') : '-'}</td>
+    </tr>`;
+  }).join('');
+  
+  document.getElementById('collectResult').innerHTML += `
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <table class="text-sm"><thead><tr>
+        <th>身份</th><th>手机</th><th>抖音昵称</th><th>抖音粉丝</th><th>小红书昵称</th><th>小红书粉丝</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+    </div>
+  `;
+}
+
+async function cancelCollect() {
+  try {
+    await fetch(`${API}/api/matrix/collect-homepage/cancel`, { method: 'POST' });
+    if (collectPollTimer) { clearInterval(collectPollTimer); collectPollTimer = null; }
+    resetCollectBtn();
+    showCollectProgress({ status: 'cancelled', message: '已取消' });
+  } catch(e) { console.error(e); }
+}
+
+function resetCollectBtn() {
+  const btn = document.getElementById('collectBtn');
+  const info = document.getElementById('collectInfoText');
+  if (btn) {
+    btn.className = 'btn btn-primary';
+    btn.textContent = '📡 采集主页信息';
+    btn.onclick = startHomepageCollect;
+    btn.disabled = false;
+  }
+  if (info) info.textContent = '分批并行读取抖音+小红书主页信息（最多同时开3个浏览器）';
+}
 </script>
 </body>
 </html>

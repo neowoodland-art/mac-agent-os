@@ -850,6 +850,91 @@ def api_matrix_account_profiles():
         return {}
 
 
+@app.get("/api/matrix/homepage-info")
+def api_matrix_homepage_info():
+    """读取已采集的主页信息（从 homepage_info.json，不开浏览器）"""
+    try:
+        path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "homepage_info.json"
+        if path.exists():
+            return json.loads(path.read_text())
+        return {"error": "尚未采集主页信息", "hint": "请先运行: cd ~/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts && python collect_homepage_info.py"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+_COLLECT_PROCESS = None  # 全局保存采集子进程引用
+
+@app.post("/api/matrix/collect-homepage")
+def api_matrix_start_collect():
+    """启动主页信息采集（后台运行，分批并行）"""
+    import subprocess
+    global _COLLECT_PROCESS
+
+    # 检查是否已在运行
+    if _COLLECT_PROCESS and _COLLECT_PROCESS.poll() is None:
+        return {"status": "already_running", "message": "采集任务已在运行中"}
+
+    script = Path.home() / "workbuddy-agent-os" / "agent-sync" / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
+    if not script.exists():
+        return {"error": f"采集脚本不存在: {script}"}
+
+    # 重置进度文件
+    progress_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "collect_progress.json"
+    try:
+        if progress_path.exists():
+            progress_path.unlink()
+    except: pass
+
+    _COLLECT_PROCESS = subprocess.Popen(
+        [sys.executable, str(script)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=str(script.parent),
+    )
+    return {"status": "started", "message": "采集任务已启动"}
+
+
+@app.get("/api/matrix/collect-homepage/status")
+def api_matrix_collect_status():
+    """查询采集进度"""
+    import subprocess
+    global _COLLECT_PROCESS
+
+    progress_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "collect_progress.json"
+    if progress_path.exists():
+        try:
+            data = json.loads(progress_path.read_text())
+            return data
+        except: pass
+
+    # 无进度文件时判断进程状态
+    if _COLLECT_PROCESS:
+        ret = _COLLECT_PROCESS.poll()
+        if ret is None:
+            return {"status": "running", "message": "采集进行中...", "completed": 0, "total_identities": 0}
+        elif ret == 0:
+            return {"status": "completed", "message": "采集完成", "completed": 0, "total_identities": 0}
+        else:
+            return {"status": "error", "message": f"采集进程异常退出 (code {ret})"}
+
+    return {"status": "idle", "message": "暂无采集任务"}
+
+
+@app.post("/api/matrix/collect-homepage/cancel")
+def api_matrix_cancel_collect():
+    """取消正在运行的采集"""
+    global _COLLECT_PROCESS
+    if _COLLECT_PROCESS and _COLLECT_PROCESS.poll() is None:
+        _COLLECT_PROCESS.terminate()
+        try:
+            _COLLECT_PROCESS.wait(timeout=5)
+        except:
+            _COLLECT_PROCESS.kill()
+        _COLLECT_PROCESS = None
+        return {"status": "cancelled", "message": "采集已取消"}
+    return {"status": "idle", "message": "没有运行中的采集"}
+
+
 @app.get("/api/matrix/accounts/{account_id}")
 def api_matrix_account(account_id: str):
     """获取单个账号详情"""
