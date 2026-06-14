@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 2.07
+    "load_1m": 2.29
   },
   "memory": {
     "total_gb": 0,
@@ -14,15 +14,15 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 89.0,
-    "available_gb": 156.1
+    "used_gb": 89.3,
+    "available_gb": 155.8
   },
-  "last_seen": "2026-06-14T09:46:02.918685+00:00",
+  "last_seen": "2026-06-14T09:51:09.475700+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-14T09:46:02.972923+00:00",
+  "_received_at": "2026-06-14T09:51:09.554413+00:00",
   "_uid": "d19759cf-2159-4fe7-b6ff-db14ccf379f5",
   "_hostname": "7kecheng",
   "_events": [
