@@ -524,15 +524,9 @@ def api_git_sync():
 
 @app.get("/matrix-mgmt")
 def matrix_mgmt_page():
-    """Matrix 管理前端页面"""
-    mgmt_path = _static_dir / "matrix_mgmt.html"
-    if mgmt_path.exists():
-        from fastapi.responses import HTMLResponse
-        content = mgmt_path.read_text(encoding="utf-8")
-        return HTMLResponse(content=content, headers={
-            "Cache-Control": "no-store, no-cache, must-revalidate",
-        })
-    return {"error": "matrix_mgmt.html not found"}
+    """重定向到统一 Dashboard (matrix_mgmt.html 功能已合并)"""
+    from starlette.responses import RedirectResponse
+    return RedirectResponse(url="/", status_code=301)
 
 
 @app.get("/api/health")

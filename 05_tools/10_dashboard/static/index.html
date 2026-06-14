@@ -673,6 +673,19 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     <div style="font-size:13px;font-weight:600;margin-bottom:8px">📊 账号手机号总览</div>
     <div id="smsAccountsOverview" style="font-size:12px">加载中...</div>
   </div>
+
+  <!-- 📊 已采集主页信息 -->
+  <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-top:12px">
+    <div onclick="toggleHomepageInfo()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none">
+      <div style="font-size:13px;font-weight:600">📊 主页信息 <span id="hpInfoBadge" style="font-size:10px;color:#8b8fa3;font-weight:normal"></span></div>
+      <span id="hpInfoToggle" style="font-size:11px;color:#8b8fa3">▶ 展开</span>
+    </div>
+    <div id="hpInfoBody" style="display:none;margin-top:8px;font-size:12px">
+      <div id="hpInfoContent">
+        <div class="loading">加载中...</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Characters view -->
@@ -880,7 +893,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-record','matrix-commands','matrix-settings'];
+  const matrixSubViews = ['matrix-run','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-record','matrix-commands','matrix-settings'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -1297,7 +1310,6 @@ async function loadPlugins() {
         {view:'matrix-commands', label:'命令与任务', sub: [
           {view:'matrix-c2', label:'远程控制'},
         ]},
-        {view:'matrix-accounts', label:'账号总览'},
         {view:'matrix-blueprints', label:'蓝图编排'},
         {view:'matrix-atom-ops', label:'原子操作'},
         {view:'matrix-record', label:'录制管理'},
@@ -2722,6 +2734,80 @@ function toggleProxyPanel() {
   body.style.display = isOpen ? 'none' : 'block';
   icon.textContent = isOpen ? '▶ 展开' : '▼ 收起';
   if (!isOpen) loadProxyList();
+}
+
+// ── 主页信息折叠 ──
+function toggleHomepageInfo() {
+  const body = document.getElementById('hpInfoBody');
+  const icon = document.getElementById('hpInfoToggle');
+  if (!body || !icon) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  icon.textContent = isOpen ? '▶ 展开' : '▼ 收起';
+  if (!isOpen) loadHomepageInfoSms();
+}
+
+async function loadHomepageInfoSms() {
+  const el = document.getElementById('hpInfoContent');
+  if (!el) return;
+  el.innerHTML = '<div class="loading">加载中...</div>';
+
+  try {
+    const r = await fetch('/api/matrix/homepage-info');
+    const data = await r.json();
+    if (data.error) {
+      el.innerHTML = '<div style="color:#f59e0b;font-size:11px">' + data.error + '</div>';
+      return;
+    }
+
+    const results = data.results || [];
+    const collectedAt = data.collected_at || '';
+    const ts = collectedAt ? collectedAt.replace('T',' ').slice(0,19) : '未知';
+
+    const badge = document.getElementById('hpInfoBadge');
+    if (badge) badge.textContent = '(' + results.length + ' 个身份 · ' + ts.slice(5,16) + ')';
+
+    let html = '<div style="color:#6366f1;font-size:10px;margin-bottom:4px">🕐 采集时间: ' + ts + '</div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr style="background:#232740">';
+    html += '<th style="padding:3px 6px;text-align:left">身份</th>';
+    html += '<th style="padding:3px 6px;text-align:left">手机</th>';
+    html += '<th style="padding:3px 6px;text-align:left">🎵 抖音</th>';
+    html += '<th style="padding:3px 6px;text-align:right">粉丝</th>';
+    html += '<th style="padding:3px 6px;text-align:left">📕 小红书</th>';
+    html += '<th style="padding:3px 6px;text-align:right">粉丝</th>';
+    html += '</tr></thead><tbody>';
+
+    results.forEach(function(r) {
+      const dy = r.douyin || {};
+      const xhs = r.xiaohongshu || {};
+      const dyOk = dy.nickname && dy.nickname.indexOf('登录后') === -1;
+      const xhsOk = xhs.nickname && xhs.nickname.indexOf('问点点') === -1 && xhs.nickname.indexOf('推荐') === -1;
+      html += '<tr style="border-top:1px solid #2a2d3e">';
+      html += '<td style="padding:3px 6px">' + (r.display_name||'?') + '</td>';
+      html += '<td style="padding:3px 6px;color:#8b8fa3;font-size:9px">' + (r.phone||'-') + '</td>';
+      html += '<td style="padding:3px 6px">' + (dyOk ? dy.nickname : '<span style="color:#8b8fa3;font-style:italic">(无)</span>') + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right;color:#8b8fa3">' + (dyOk ? (dy.fans||'-') : '-') + '</td>';
+      html += '<td style="padding:3px 6px">' + (xhsOk ? xhs.nickname : '<span style="color:#8b8fa3;font-style:italic">(无)</span>') + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right;color:#8b8fa3">' + (xhsOk ? (xhs.fans||'-') : '-') + '</td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+
+    let suc = 0;
+    results.forEach(function(r) {
+      const d = r.douyin, x = r.xiaohongshu;
+      if ((d && d.nickname && d.nickname.indexOf('登录后') === -1) ||
+          (x && x.nickname && x.nickname.indexOf('问点点') === -1 && x.nickname.indexOf('推荐') === -1)) {
+        suc++;
+      }
+    });
+    html += '<div style="margin-top:4px;font-size:9px;color:#8b8fa3">✅ 成功: ' + suc + '/' + results.length + '  &nbsp; 采集: mc collect --all</div>';
+
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="color:#ef4444;font-size:11px">' + e.message + '</div>';
+  }
 }
 
 // ── Proxy ──
