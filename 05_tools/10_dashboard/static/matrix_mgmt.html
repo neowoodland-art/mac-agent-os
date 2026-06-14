@@ -382,21 +382,48 @@ async function loadAccounts() {
   const el = document.getElementById('accountList');
   el.innerHTML = '<div class="loading">加载中...</div>';
   try {
-    const r = await fetch(`${API}/api/matrix/accounts`);
+    const [r, hr] = await Promise.all([
+      fetch(`${API}/api/matrix/accounts`),
+      fetch(`${API}/api/matrix/homepage-info`),
+    ]);
     const data = await r.json();
+    const hpData = await hr.json();
     const accts = data.accounts || [];
     if (!accts.length) { el.innerHTML = '<div class="error">暂无账号</div>'; return; }
 
+    // 构建 phone → homepage 映射（按 identity_dir 匹配）
+    const hpMap = {};
+    (hpData.results || []).forEach(r => {
+      const phone = r.phone;
+      hpMap[phone] = r;
+    });
+
     el.innerHTML = `<table><thead><tr>
-      <th>ID</th><th>平台</th><th>手机</th><th>登录</th><th>身份目录</th><th>窗口</th><th>启用</th><th>操作</th>
+      <th>ID</th><th>平台</th><th>手机</th><th>登录</th><th>昵称</th><th>粉丝</th><th>身份目录</th><th>窗口</th><th>启用</th><th>操作</th>
     </tr></thead><tbody>${accts.map(a => {
       const sb = statusBadge(a._status);
       const dirExists = a._identity_dir_exists ? '✅' : '❌';
+      // 查找主页信息
+      const hp = hpMap[a.phone] || hpMap[a.identity_dir?.replace('identities/','')];
+      let nickname = '', fans = '';
+      if (hp) {
+        if (a.platform === 'douyin' && hp.douyin) {
+          const dy = hp.douyin;
+          nickname = dy.nickname && !dy.nickname.includes('登录后') ? dy.nickname : '';
+          fans = nickname ? (dy.fans || '') : '';
+        } else if (a.platform === 'xiaohongshu' && hp.xiaohongshu) {
+          const xhs = hp.xiaohongshu;
+          nickname = xhs.nickname && !xhs.nickname.includes('问点点') && !xhs.nickname.includes('推荐') ? xhs.nickname : '';
+          fans = nickname ? (xhs.fans || '') : '';
+        }
+      }
       return `<tr>
         <td><strong>${a.id}</strong></td>
         <td>${a.platform==='douyin'?'🎵':'📕'} ${a.platform}</td>
         <td>${(a.phone||'-').slice(0,11)}</td>
         <td><span class="badge ${sb.cls}">${sb.txt}</span></td>
+        <td class="text-xs" style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${nickname || '<span class="text-muted">-</span>'}</td>
+        <td class="text-xs">${fans || '-'}</td>
         <td class="text-xs"><span title="${a.identity_dir||''}">${dirExists} ${(a.identity_dir||'-').split('/').pop()}</span></td>
         <td class="text-xs text-muted">${(a.window||['-','-']).join('×')}</td>
         <td>${a.enabled ? '✅' : '⏸'}</td>
