@@ -252,8 +252,9 @@ def api_proxy_test(data: dict):
 def _account_status(a: dict) -> dict:
     """四维状态检测：identity / cookie / profile / registry"""
     aid = a["id"]
-    # ① 有身份目录
-    identity_dir = IDENTITIES_ROOT / aid
+    # ① 有身份目录（使用 identity_dir 字段，兼容共享身份）
+    ident_name = a.get("identity_dir") or a.get("identity_hint") or aid
+    identity_dir = IDENTITIES_ROOT / ident_name.replace("identities/", "")
     has_identity = identity_dir.exists()
     # ② 有 Cookie（已登录）
     has_cookie = False
@@ -385,6 +386,13 @@ async def api_account_register(request: Request):
                     shared_identity_name = ed.replace("identities/", "")
                     break
 
+        # 冲突检测：同手机号+同平台
+        conflict = [ea for ea in existing_accts
+                    if isinstance(ea, dict) and ea.get("phone") == phone
+                    and ea.get("platform") == plat]
+        if conflict:
+            return {"status": "error", "error": f"手机号 {phone} 已有 {plat} 账号: {conflict[0]['id']}。如需重新注册，请先删除旧账号。"}
+
         if shared_identity_name:
             # 复用已有身份目录
             identity_name = shared_identity_name
@@ -426,7 +434,7 @@ async def api_account_register(request: Request):
             registry_path.write_text(yaml.dump(reg, allow_unicode=True, default_flow_style=False))
         except: pass
         # 4. 启动浏览器登录
-        agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
+        agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
         cmd = [agent_python, "-m", "mc", "account", "login", acct_id]
         import subprocess
         subprocess.Popen(cmd, cwd=str(SCRIPTS_DIR), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -439,7 +447,7 @@ async def api_account_register(request: Request):
 @router.post("/accounts/{account_id}/login")
 def api_account_login(account_id: str):
     """重新打开浏览器登录"""
-    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
     import subprocess
     try:
         p = subprocess.Popen(
@@ -466,7 +474,7 @@ def api_collect_profile(account_id: str):
     except: pass
     # 根据平台选择采集蓝图
     bp_name = "xiaohongshu_read_profile" if platform == "xiaohongshu" else "douyin_read_profile"
-    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
     import subprocess
     try:
         p = subprocess.Popen(
@@ -685,7 +693,7 @@ def api_recording_start(data: dict = None):
                 platform = {"douyin": "douyin", "xiaohongshu": "xiaohongshu"}.get(p, "douyin")
                 break
     except: pass
-    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
     cmd = [agent_python, "-m", "mc.recorder", account, platform]
     import subprocess
     try:

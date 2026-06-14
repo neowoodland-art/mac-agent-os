@@ -2444,7 +2444,7 @@ async function loadSmsAccounts() {
       // 按手机号分组
       const groups = {};
       accounts.filter(a => a.is_local).forEach(a => {
-        const phone = a.phone || 'unknown';
+        const phone = a.phone || '未设置手机号';
         if (!groups[phone]) groups[phone] = [];
         groups[phone].push(a);
       });
