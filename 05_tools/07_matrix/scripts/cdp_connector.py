@@ -175,9 +175,10 @@ class CDPConnector:
             'headless': self.headless,
             'window': (w_width, w_height),
             'locale': self.locale or ['zh-CN'],
-            'os': 'windows',
             'fonts': ['STHeiti', 'Heiti SC', 'PingFang SC', 'Noto Sans CJK SC'],
             'humanize': 1.5,
+            # 操作系统: 优先用 config.yaml, 否则随机
+            'os': config.get("fingerprint_summary", {}).get("os") or random.choice(["windows", "macos", "android"]),
             'firefox_user_prefs': {
                 'dom.disable_window_move_resize': False,
             },
@@ -282,6 +283,22 @@ class CDPConnector:
 
         print(f"✅ Camoufox 持久化就绪 | user_data: {identity_path.name}/user_data/")
         print(f"   窗口: {w_width}×{w_height}")
+
+        # 保存 os 选择到 config.yaml（供后续查询和前端展示）
+        try:
+            chosen_os = kwargs.get('os', 'windows')
+            old_os = config.get("fingerprint_summary", {}).get("os")
+            if old_os != chosen_os:
+                import yaml as _y2
+                if "fingerprint_summary" not in config:
+                    config["fingerprint_summary"] = {}
+                config["fingerprint_summary"]["os"] = chosen_os
+                # 同时更新 screen 信息
+                config["fingerprint_summary"]["screen"] = f"{w_width}x{w_height}"
+                with open(config_path, 'w') as f:
+                    _y2.dump(config, f, allow_unicode=True, default_flow_style=False)
+                print(f"   📝 指纹已保存: {chosen_os} {w_width}x{w_height}")
+        except: pass
 
     # ─── Chrome / Firefox CDP 连接 ──────────────────────────────
 
