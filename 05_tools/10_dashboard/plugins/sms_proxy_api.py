@@ -514,6 +514,47 @@ def api_schedules():
         return {"error": str(e)}
 
 
+@router.get("/schedules")
+def api_schedules():
+    """返回所有定时任务"""
+    from mc.scheduler import load_all_schedules
+    return {"schedules": load_all_schedules()}
+
+
+@router.post("/schedules/toggle")
+def api_schedule_toggle(data: dict):
+    """启用/禁用定时任务"""
+    sid = (data or {}).get("id", "")
+    enabled = (data or {}).get("enabled", True)
+    from mc.scheduler import load_all_schedules, save_all_schedules
+    all_s = load_all_schedules()
+    if sid in all_s:
+        all_s[sid]["enabled"] = enabled
+        save_all_schedules(all_s)
+        return {"status": "ok"}
+    return {"status": "error", "error": f"未找到任务 {sid}"}
+
+
+@router.post("/schedules/delete")
+def api_schedule_delete(data: dict):
+    """删除定时任务"""
+    sid = (data or {}).get("id", "")
+    from mc.scheduler import load_all_schedules, save_all_schedules
+    all_s = load_all_schedules()
+    if sid in all_s:
+        del all_s[sid]
+        save_all_schedules(all_s)
+        return {"status": "ok"}
+    return {"status": "error", "error": f"未找到任务 {sid}"}
+
+
+@router.get("/schedules/history")
+def api_schedule_history():
+    """返回最近20条执行历史"""
+    from mc.scheduler import read_history
+    return {"history": read_history(limit=20)}
+
+
 @router.get("/personas")
 def api_personas():
     pf = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"

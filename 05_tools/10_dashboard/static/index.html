@@ -263,24 +263,31 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     <div id="matrixRunContent2"></div>
   </div>
   <div id="cmd-schedule-content" style="display:none">
-    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">⏰ 定时任务</div>
-      <div id="scheduleForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-        <input id="schedId" placeholder="任务ID" value="daily" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100px">
-        <select id="schedAccount" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:130px"><option value="">选账号</option></select>
-        <select id="schedBlueprint" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:130px">
-          <option value="douyin_daily">douyin_daily</option>
-          <option value="douyin_search">douyin_search</option>
-          <option value="douyin_comment">douyin_comment</option>
-          <option value="xhs_daily">xhs_daily</option>
-        </select>
-        <input id="schedTime" placeholder="09:00" value="09:00" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:70px">
-        <input id="schedRounds" placeholder="轮数" value="3" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:50px">
-        <button onclick="addSchedule()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">➕ 添加</button>
-        <button onclick="refreshScheduleList()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
-      </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <input id="schedId" placeholder="任务ID" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100px">
+      <select id="schedAccount" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:120px"><option value="">选账号</option></select>
+      <select id="schedBlueprint" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:120px">
+        <option value="douyin_daily">douyin_daily</option>
+        <option value="douyin_search">douyin_search</option>
+        <option value="douyin_comment">douyin_comment</option>
+        <option value="xhs_daily">xhs_daily</option>
+      </select>
+      <input id="schedTime" placeholder="09:00" value="09:00" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:60px">
+      <input id="schedDays" placeholder="1-7" value="1,2,3,4,5,6,7" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:90px" title="运行日 1=周一..7=周日">
+      <input id="schedRounds" placeholder="轮数" value="3" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:45px">
+      <button onclick="scheduleAdd()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">➕ 添加</button>
+    </div>
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:8px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px">📋 任务列表 <span style="font-size:11px;color:#8b8fa3;font-weight:400">（点击🟢⚪切换启用/禁用）</span></div>
       <div id="scheduleList" style="font-size:12px">加载中...</div>
-      <div id="scheduleStatus" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
+    </div>
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:8px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px">📊 执行历史 <span style="font-size:11px;color:#8b8fa3;font-weight:400">最近10条</span></div>
+      <div id="scheduleHistory" style="font-size:11px">加载中...</div>
+    </div>
+    <div style="display:flex;gap:6px;font-size:11px;color:#8b8fa3">
+      <span>调度器状态：<span id="scheduleStatus">检查中...</span></span>
+      <button onclick="refreshScheduleList()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新</button>
     </div>
   </div>
   <div id="cmd-collect-content" style="display:none">
@@ -3470,34 +3477,88 @@ async function cmdCollectAll() {
 
 async function refreshScheduleList() {
   const listEl = document.getElementById('scheduleList');
+  const histEl = document.getElementById('scheduleHistory');
   const statusEl = document.getElementById('scheduleStatus');
-  if (!listEl) return;
-  try {
-    const r = await fetch('/api/matrix/schedules');
-    const d = await r.json();
-    const scheds = d.schedules || [];
-    if (!scheds.length) {
-      listEl.innerHTML = '<div style="color:#8b8fa3;padding:10px;text-align:center">暂无定时任务<br><span style="font-size:10px">在下方添加，或编辑 config/schedule.yaml</span></div>';
-      return;
-    }
-    listEl.innerHTML = '<div style="display:grid;gap:4px">' +
-      scheds.map(s => '<div style="background:#232740;border-radius:4px;padding:6px 8px;border:1px solid #2a2d3e;display:flex;justify-content:space-between;align-items:center;font-size:11px">' +
-        '<div><strong>' + (s.id||'') + '</strong> <span style="color:#8b8fa3">' + (s.account||'') + ' → ' + (s.blueprint||'') + '</span></div>' +
-        '<div><span style="color:#6366f1">' + (s.time||'') + '</span> ' + (s.enabled ? '🟢' : '⚪') + ' ' + (s.rounds||1) + '轮</div>' +
-      '</div>').join('') + '</div>';
-    if (statusEl) statusEl.innerHTML = '共 ' + scheds.length + ' 个定时任务';
-  } catch(e) { listEl.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
+  // 加载任务列表
+  if (listEl) {
+    try {
+      const r = await fetch('/api/matrix/schedules');
+      const d = await r.json();
+      const scheds = d.schedules || {};
+      const entries = Object.entries(scheds);
+      if (!entries.length) {
+        listEl.innerHTML = '<div style="color:#8b8fa3;padding:10px;text-align:center">暂无定时任务，在上方添加</div>';
+      } else {
+        listEl.innerHTML = entries.map(([sid, s]) =>
+          '<div style="background:#232740;border-radius:4px;padding:6px 8px;border:1px solid #2a2d3e;display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:3px">' +
+          '<div><strong>' + sid + '</strong> <span style="color:#8b8fa3">' + (s.account||'') + ' → ' + (s.blueprint||'') + '</span></div>' +
+          '<div style="display:flex;align-items:center;gap:6px">' +
+          '<span style="color:#6366f1">' + (s.time||'') + '</span>' +
+          '<span style="color:#8b8fa3;font-size:10px">' + (s.days||'每天') + '</span>' +
+          '<span style="cursor:pointer" onclick="scheduleToggle(\''+sid+'\',' + (!s.enabled) + ')">' + (s.enabled ? '🟢' : '⚪') + '</span>' +
+          '<span style="cursor:pointer;color:#ef4444;font-size:10px" onclick="scheduleDelete(\''+sid+'\')">✕</span>' +
+          '</div></div>'
+        ).join('');
+      }
+    } catch(e) { if (listEl) listEl.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
+  }
+  // 加载历史
+  if (histEl) {
+    try {
+      const r = await fetch('/api/matrix/schedules/history');
+      const d = await r.json();
+      const hist = d.history || [];
+      if (!hist.length) {
+        histEl.innerHTML = '<div style="color:#8b8fa3;padding:6px">暂无执行记录</div>';
+      } else {
+        histEl.innerHTML = hist.map(e =>
+          '<div style="padding:3px 0;border-bottom:1px solid #1e2035;display:flex;justify-content:space-between;font-size:10px">' +
+          '<span>' + (e.timestamp||'').slice(0,16) + ' ' + (e.schedule_id||'') + '</span>' +
+          '<span>' + (e.error ? '❌ '+e.error.slice(0,20) : (e.status||'✅')) + ' ' + (e.success||0)+'/'+((e.success||0)+(e.failed||0)) + ' ' + (e.duration||0)+'s</span>' +
+          '</div>'
+        ).join('');
+      }
+    } catch(e) { if (histEl) histEl.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
+  }
+  // 调度器状态
+  if (statusEl) statusEl.innerHTML = '<span style="color:#8b8fa3">需手动启动: mc schedule start</span>';
 }
 
-function addSchedule() {
-  const id = document.getElementById('schedId')?.value || 'daily';
+async function scheduleAdd() {
+  const id = document.getElementById('schedId')?.value.trim();
   const account = document.getElementById('schedAccount')?.value;
   const blueprint = document.getElementById('schedBlueprint')?.value;
   const time = document.getElementById('schedTime')?.value || '09:00';
-  const rounds = document.getElementById('schedRounds')?.value || 3;
+  const days = document.getElementById('schedDays')?.value || '1,2,3,4,5,6,7';
+  const rounds = parseInt(document.getElementById('schedRounds')?.value) || 3;
+  if (!id) { alert('请输入任务ID'); return; }
   if (!account) { alert('请选择账号'); return; }
-  const statusEl = document.getElementById('scheduleStatus');
-  if (statusEl) statusEl.innerHTML = '✅ 请在终端执行：<br><code>mc schedule add --id '+id+' --account '+account+' --blueprint '+blueprint+' --time '+time+' --rounds '+rounds+'</code><br>然后 <code>mc schedule start</code> 启动调度器';
+  // 通过 mc CLI 添加
+  const cmd = 'mc schedule add --id '+id+' --account '+account+' --blueprint '+blueprint+' --time '+time+' --days '+days+' --rounds '+rounds;
+  if (!confirm('将在终端执行:\n'+cmd+'\n\n确认？')) return;
+  alert('请在终端执行:\n'+cmd+'\n\n或手动编辑 config/schedule.yaml');
+  refreshScheduleList();
+}
+
+async function scheduleToggle(sid, enabled) {
+  try {
+    await fetch('/api/matrix/schedules/toggle', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:sid, enabled})
+    });
+    refreshScheduleList();
+  } catch(e) { alert('❌ '+e.message); }
+}
+
+async function scheduleDelete(sid) {
+  if (!confirm('删除定时任务 '+sid+' ？')) return;
+  try {
+    await fetch('/api/matrix/schedules/delete', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:sid})
+    });
+    refreshScheduleList();
+  } catch(e) { alert('❌ '+e.message); }
 }
 
 // ════════════════════════════════════════════════════════

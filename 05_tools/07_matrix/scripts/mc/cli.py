@@ -279,12 +279,18 @@ def cmd_schedule(args):
         cmd_schedule_list()
     elif args.action == "add":
         from mc.scheduler import cmd_schedule_add
-        cmd_schedule_add(args.id, args.account, args.blueprint, args.time, args.rounds, args.args)
+        cmd_schedule_add(args.id, args.account, args.blueprint, args.time,
+                         args.rounds, getattr(args, 'days', '1,2,3,4,5,6,7'), args.args)
     elif args.action == "remove":
         from mc.scheduler import cmd_schedule_remove
         cmd_schedule_remove(args.id)
+    elif args.action == "history":
+        from mc.scheduler import cmd_schedule_history
+        cmd_schedule_history(getattr(args, 'id', ''))
     elif args.action == "start":
         import asyncio
+        import logging
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
         from mc.scheduler import scheduler_loop
         print("🕐 定时调度器启动中...")
         asyncio.run(scheduler_loop())
@@ -714,12 +720,13 @@ def build_parser():
 
     # ── schedule — 定时任务 ──
     p_sched = sub.add_parser("schedule", help="定时任务管理")
-    p_sched.add_argument("action", choices=["list", "add", "remove", "start"],
-                         help="list=列出 add=添加 remove=删除 start=启动调度器")
+    p_sched.add_argument("action", choices=["list", "add", "remove", "start", "history"],
+                         help="list=列出 add=添加 remove=删除 start=启动调度器 history=查看历史")
     p_sched.add_argument("--id", default="", help="任务ID")
     p_sched.add_argument("--account", default="", help="账号")
     p_sched.add_argument("--blueprint", default="", help="蓝图")
     p_sched.add_argument("--time", default="09:00", help="执行时间 HH:MM")
+    p_sched.add_argument("--days", default="1,2,3,4,5,6,7", help="运行日 1=周一..7=周日,逗号分隔")
     p_sched.add_argument("--rounds", type=int, default=1, help="轮数")
     p_sched.add_argument("--args", default="", help="额外参数 keyword=xxx")
     p_sched.set_defaults(func=cmd_schedule)
