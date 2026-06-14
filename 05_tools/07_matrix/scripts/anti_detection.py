@@ -267,5 +267,5 @@ __all__ = [
     'FINGERPRINT_SCRIPT', 'OVERLAY_REMOVE_SCRIPT',
     'gaussian_sleep', 'gaussian_async_sleep', 'exponential_backoff',
     'human_typing_delay', 'random_view_duration', 'jitter_mouse_position',
-    'AntiDetection',
+    'BehaviorProfile',
 ]
