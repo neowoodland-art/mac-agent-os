@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-批量主页信息采集器 — 分批并行版 (v1.0)
+批量主页信息采集器 — 分批并行版 (v1.2)
 
-策略:
-  1. 按身份分组，每批最多 3 个身份同时启动 Camoufox
-  2. 每个浏览器: 先抖音取信息 → 再小红书取信息 → 关闭
-  3. 一批全部完成后才启下一批
-  4. 实时写进度到 data/collect_progress.json
+采集规则（所有机器通用）:
+  1. 按身份分组，每批最多 3 个身份
+  2. 同一批内，每个身份间隔 15 秒启动浏览器（避免同时开 3 个导致卡顿）
+  3. 同一个身份的两个平台（抖音+小红书）共用同一浏览器，只换网址
+  4. 一个身份采集完 → 关闭浏览器 → 再进行下一个
+  5. 一批全部完成后才启动下一批
 
 用法:
   python collect_batch_runner.py
 
 输出:
   data/collect_progress.json  (实时进度)
-  data/homepage_info.json     (最终结果)
+  data/homepage_info.json     (最终结果, 含 collected_at 时间戳)
 """
 
 import asyncio, json, re, sys, time, traceback
@@ -270,22 +271,36 @@ async def main():
         progress["current_batch"] = batch_num
         write_progress(progress)
 
-        # 并行处理这一批
-        tasks = [process_identity(g, progress) for g in batch]
-        batch_results = await asyncio.gather(*tasks)
+        # ══════════════════════════════════════════════════════
+        # 分批启动：每批内身份间隔 15s 启动，避免同时开浏览器导致卡顿
+        # 同身份内两个平台共用同一浏览器（先抖音后小红书，只换网址）
+        # ══════════════════════════════════════════════════════
+        batch_results = [None] * len(batch)
+
+        async def launch_with_stagger(idx, g):
+            """每个身份延迟 idx*15 秒后启动"""
+            if idx > 0:
+                await asyncio.sleep(15 * idx)
+            result = await process_identity(g, progress)
+            batch_results[idx] = result
+            # 每完成一个就写一次进度
+            done = sum(1 for r in batch_results if r is not None)
+            progress["results"] = [r for r in batch_results if r is not None]
+            progress["completed"] = done
+            progress["success"] = sum(1 for r in batch_results if r and
+                ((r.get("douyin") and r["douyin"]["status"]=="loaded" and r["douyin"].get("nickname") and not "登录后" in r["douyin"]["nickname"])
+                or (r.get("xiaohongshu") and r["xiaohongshu"]["status"]=="loaded" and r["xiaohongshu"].get("nickname") and not "问点点" in r["xiaohongshu"]["nickname"] and not "推荐" in r["xiaohongshu"]["nickname"])))
+            progress["failed"] = done - progress["success"]
+            write_progress(progress)
+            print(f" 📊 批次进度: {done}/{len(batch)} 完成 (成功{progress['success']}, 失败{progress['failed']})")
+
+        # 使用 asyncio.gather 同时启动所有带延迟的任务
+        # 每个任务在 launch_with_stagger 内部等待 idx*15s，不会同时启动
+        tasks = [launch_with_stagger(i, g) for i, g in enumerate(batch)]
+        await asyncio.gather(*tasks)
 
         all_results.extend(batch_results)
-
-        # 更新进度
-        progress["results"] = all_results
-        progress["completed"] = len(all_results)
-        progress["success"] = sum(1 for r in all_results
-            if (r.get("douyin") and r["douyin"]["status"]=="loaded" and r["douyin"].get("nickname") and not "登录后" in r["douyin"]["nickname"])
-            or (r.get("xiaohongshu") and r["xiaohongshu"]["status"]=="loaded" and r["xiaohongshu"].get("nickname") and not "问点点" in r["xiaohongshu"]["nickname"] and not "推荐" in r["xiaohongshu"]["nickname"]))
-        progress["failed"] = progress["completed"] - progress["success"]
-        write_progress(progress)
-
-        print(f"\n 📊 进度: {progress['completed']}/{total} 完成")
+        print(f"\n 📊 批次完成: 累计 {len(all_results)}/{total}")
 
     # 保存最终结果
     progress["status"] = "completed"
