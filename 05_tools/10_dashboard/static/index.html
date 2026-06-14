@@ -3421,10 +3421,6 @@ async function collectAllPlatforms(phone) {
   } catch(e) {
     if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + e.message + '</span>';
   }
-}    }
-  } catch(e) {
-    if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444">❌ ${e.message}</span>`;
-  }
 }
 
 async function deleteIdentityByPhone(phone) {
