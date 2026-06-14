@@ -316,11 +316,7 @@ async def main():
         all_results.extend(batch_results)
         print(f"\n 📊 批次完成: 累计 {len(all_results)}/{total}")
 
-    # 保存最终结果
-    progress["status"] = "completed"
-    progress["finished_at"] = datetime.now().isoformat()
-    write_progress(progress)
-
+    # 先写输出文件（保证前端轮询到 completed 时数据已就绪）
     output = {
         "collected_at": datetime.now().isoformat(),
         "total_identities": total,
@@ -329,6 +325,11 @@ async def main():
     }
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
+
+    # 再标记完成（避免 race condition：前端看到 completed 但文件还没写好）
+    progress["status"] = "completed"
+    progress["finished_at"] = datetime.now().isoformat()
+    write_progress(progress)
 
     # 汇总
     print(f"\n\n{'='*60}")
