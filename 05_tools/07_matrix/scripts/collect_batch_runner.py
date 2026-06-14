@@ -30,7 +30,10 @@ IDENTITIES_ROOT = AGENT_LOCAL / "identities"
 PROGRESS_FILE = AGENT_LOCAL / "data" / "collect_progress.json"
 OUTPUT_FILE = AGENT_LOCAL / "data" / "homepage_info.json"
 SCREENSHOTS_DIR = AGENT_LOCAL / "screenshots" / "homepage"
+HISTORY_DIR = AGENT_LOCAL / "data" / "homepage" / "history"
+TIMELINE_FILE = HISTORY_DIR / "timeline.json"
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+HISTORY_DIR.mkdir(parents=True, exist_ok=True)
 
 from cdp_connector import CDPConnector
 
@@ -325,6 +328,37 @@ async def main():
     }
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
+
+    # ── 归档历史快照 ──
+    now = datetime.now()
+    ts = now.strftime("%Y%m%d_%H%M%S")
+    snapshot_file = HISTORY_DIR / f"homepage_info_{ts}.json"
+    try:
+        with open(snapshot_file, "w", encoding="utf-8") as f:
+            json.dump(output, f, ensure_ascii=False, indent=2)
+        # 追加到时间线
+        timeline_entry = {
+            "snapshot": f"homepage_info_{ts}.json",
+            "collected_at": now.isoformat(),
+            "total_identities": total,
+            "total_accounts": len(accounts),
+            "success": progress["success"],
+            "failed": progress["failed"],
+        }
+        timeline = []
+        if TIMELINE_FILE.exists():
+            try:
+                timeline = json.loads(TIMELINE_FILE.read_text())
+            except: pass
+        timeline.append(timeline_entry)
+        # 最多保留 200 条
+        if len(timeline) > 200:
+            timeline = timeline[-200:]
+        with open(TIMELINE_FILE, "w", encoding="utf-8") as f:
+            json.dump(timeline, f, ensure_ascii=False, indent=2)
+        print(f" 📜 历史: {snapshot_file}")
+    except Exception as e:
+        print(f" ⚠️ 历史归档失败: {e}")
 
     # 再标记完成（避免 race condition：前端看到 completed 但文件还没写好）
     progress["status"] = "completed"

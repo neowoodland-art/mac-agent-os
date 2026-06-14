@@ -971,6 +971,19 @@ def api_matrix_homepage_info():
         return {"error": str(e)}
 
 
+@app.get("/api/matrix/homepage-history")
+def api_matrix_homepage_history():
+    """读取采集历史时间线"""
+    try:
+        history_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "homepage" / "history" / "timeline.json"
+        if history_path.exists():
+            data = json.loads(history_path.read_text())
+            return {"history": data, "total": len(data)}
+        return {"history": [], "total": 0, "message": "暂无采集历史"}
+    except Exception as e:
+        return {"error": str(e), "history": [], "total": 0}
+
+
 _COLLECT_PROCESS = None  # 全局保存采集子进程引用
 
 @app.post("/api/matrix/collect-homepage")

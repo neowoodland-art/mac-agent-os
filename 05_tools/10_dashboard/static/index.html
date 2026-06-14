@@ -686,6 +686,19 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
       </div>
     </div>
   </div>
+
+  <!-- 📜 采集历史 -->
+  <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-top:12px">
+    <div onclick="toggleCollectHistory()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none">
+      <div style="font-size:13px;font-weight:600">📜 采集历史</div>
+      <span id="chToggle" style="font-size:11px;color:#8b8fa3">▶ 展开</span>
+    </div>
+    <div id="chBody" style="display:none;margin-top:8px;font-size:12px">
+      <div id="chContent">
+        <div class="loading">加载中...</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Characters view -->
@@ -2803,6 +2816,64 @@ async function loadHomepageInfoSms() {
       }
     });
     html += '<div style="margin-top:4px;font-size:9px;color:#8b8fa3">✅ 成功: ' + suc + '/' + results.length + '  &nbsp; 采集: mc collect --all</div>';
+
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="color:#ef4444;font-size:11px">' + e.message + '</div>';
+  }
+}
+
+// ── 采集历史 ──
+function toggleCollectHistory() {
+  const body = document.getElementById('chBody');
+  const icon = document.getElementById('chToggle');
+  if (!body || !icon) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  icon.textContent = isOpen ? '▶ 展开' : '▼ 收起';
+  if (!isOpen) loadCollectHistory();
+}
+
+async function loadCollectHistory() {
+  const el = document.getElementById('chContent');
+  if (!el) return;
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await fetch('/api/matrix/homepage-history');
+    const data = await r.json();
+    const history = data.history || [];
+    if (!history.length) {
+      el.innerHTML = '<div style="color:#8b8fa3;font-size:11px">暂无采集历史</div>';
+      return;
+    }
+
+    // 时间倒序
+    history.reverse();
+
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr style="background:#232740">';
+    html += '<th style="padding:3px 6px;text-align:left">#</th>';
+    html += '<th style="padding:3px 6px;text-align:left">采集时间</th>';
+    html += '<th style="padding:3px 6px;text-align:right">身份</th>';
+    html += '<th style="padding:3px 6px;text-align:right">账号</th>';
+    html += '<th style="padding:3px 6px;text-align:right">成功</th>';
+    html += '<th style="padding:3px 6px;text-align:right">失败</th>';
+    html += '</tr></thead><tbody>';
+
+    history.forEach(function(h, i) {
+      const ts = (h.collected_at || '').replace('T',' ').slice(0,19);
+      const bg = i % 2 === 0 ? '' : 'background:#1e2133';
+      html += '<tr style="border-top:1px solid #2a2d3e;' + bg + '">';
+      html += '<td style="padding:3px 6px">' + (history.length - i) + '</td>';
+      html += '<td style="padding:3px 6px;color:#6366f1">' + ts.slice(5,16) + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right">' + (h.total_identities||'?') + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right">' + (h.total_accounts||'?') + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right;color:#22c55e">' + (h.success||0) + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right;color:#ef4444">' + (h.failed||0) + '</td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    html += '<div style="margin-top:4px;font-size:9px;color:#8b8fa3">📜 共 ' + history.length + ' 次采集记录</div>';
 
     el.innerHTML = html;
   } catch(e) {
