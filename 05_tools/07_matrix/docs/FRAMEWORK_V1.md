@@ -1,7 +1,7 @@
 # MC 系统框架设计方案 v1.0
 
 > 最后更新: 2026-06-14
-> 设计目标: 三层分离 + 平台插件化 + 联邦多机协同 + 录制回放全链路
+> 设计目标: 三层分离 + 平台插件化 + 联邦多机协同 + 录制回放全链路 + 原子操作蓝图系统
 
 ---
 
@@ -241,7 +241,162 @@ mkdir platforms/kuaishou/
 
 ---
 
-## 六、联邦多机协同方案
+## 六、原子操作 + 蓝图系统
+
+### 6.1 三层模型
+
+```
+录制 (record)
+  ↓ 捕捉用户在浏览器上的操作
+原子操作 (atom) = {前置状态锚点, 操作步骤, 后置状态验证}
+  ↓ 组合串联成工作流
+蓝图 (blueprint) = 有向无环图 (DAG) 的原子序列
+  ↓ 打包发布为 CLI 命令
+CLI 命令 = mc [platform] [blueprint_name] --account <name>
+```
+
+### 6.2 原子操作的数据结构
+
+每个原子操作是一个自包含的"操作单元":
+
+```json
+{
+  "name": "douyin_like_video",
+  "category": "interact",
+  "platform": "douyin",
+  "version": 1,
+  "description": "点赞当前播放的视频",
+  "before": {
+    "url_pattern": "https://www.douyin.com/**",
+    "dom_anchor": ".video-player",
+    "logged_in": true
+  },
+  "steps": [
+    {"type": "wait", "target": ".like-btn", "timeout": 5000},
+    {"type": "click", "target": ".like-btn", "xpath": "//div[contains(@class, 'like')]"},
+    {"type": "verify", "check": ".like-btn.active"}
+  ],
+  "after": {
+    "dom_check": ".like-btn.active"
+  }
+}
+```
+
+### 6.3 蓝图的 DAG 结构
+
+蓝图 = 多个原子操作按顺序或条件连接成有向无环图:
+
+```
+          ┌─────────┐
+          │ 登录检测  │
+          └────┬────┘
+               │ 未登录
+          ┌────▼────┐
+          │ 扫码登录  │
+          └────┬────┘
+               │ 已登录
+          ┌────▼────┐
+          │ 打开首页  │
+          └────┬────┘
+          ┌────▼────┐
+          │ 浏览推荐  │  ← 循环 5 次
+          └────┬────┘
+          ┌────▼────┐
+          │ 随机点赞  │  ← 30% 概率
+          └────┬────┘
+          ┌────▼────┐
+          │ 等待 8秒  │
+          └────┬────┘
+          ┌────▼────┐
+          │ 滚动加载  │
+          └─────────┘
+```
+
+蓝图 JSON:
+
+```json
+{
+  "name": "douyin_daily_browse",
+  "platform": "douyin",
+  "description": "日常浏览推荐页, 随机点赞",
+  "version": 2,
+  "nodes": [
+    {"id": "check_login", "atom": "check_login", "position": {"x": 100, "y": 0}},
+    {"id": "goto_home", "atom": "goto_home", "position": {"x": 100, "y": 80}},
+    {"id": "browse", "atom": "wait_watch", "position": {"x": 100, "y": 160}},
+    {"id": "like", "atom": "like", "position": {"x": 100, "y": 240}, "probability": 0.3},
+    {"id": "scroll", "atom": "scroll_feed", "position": {"x": 100, "y": 320}}
+  ],
+  "edges": [
+    {"from": "check_login", "to": "goto_home"},
+    {"from": "goto_home", "to": "browse"},
+    {"from": "browse", "to": "like"},
+    {"from": "like", "to": "scroll"}
+  ]
+}
+```
+
+### 6.4 与 Dashboard 可视化编辑器的关系
+
+Dashboard 的 **矩阵管理页 (matrix_mgmt.html) 已有 SVG DAG 节点编辑器**。
+
+蓝图编排流程:
+
+```
+打开 Dashboard → 矩阵管理 → 蓝图编排 tab
+  │
+  ├─ 左侧节点面板: 列出所有可用原子操作 (按平台/分类)
+  │   登录类 | 浏览类 | 互动类 | 工具类
+  │
+  ├─ 中间画布: 拖拽原子到画布, 连线编排
+  │   支持: 顺序 / 条件分支 / 循环 / 概率
+  │
+  └─ 右侧属性面板: 配置选中节点的参数
+      等待时间 | 点击概率 | 目标选择器
+      
+
+编辑完成后:
+  → 保存为 blueprint.json → 存入 blueprints/ 目录
+  → CLI 直接调用: mc douyin nurture --blueprint douyin_daily --account my_name
+  → 或用录制功能生成新原子: mc record start → 操作 → mc record stop → 自动生成原子
+```
+
+### 6.5 录制 → 原子 → 蓝图 → CLI 全链路
+
+```
+步骤1: 录制
+  mc record start                           ← 打开浏览器, 开始录制
+  → 人在浏览器上操作 (点赞/评论/浏览...)
+  mc record stop                            ← 停止录制
+  → 生成 raw_recording.json (时间轴事件序列)
+
+步骤2: 提炼原子
+  mc record refine raw_recording.json       ← AI 辅助提炼
+  → 生成 atom.json (结构化原子操作, 含前后状态)
+
+步骤3: 组合蓝图
+  Dashboard DAG 编辑器                       ← 拖拽编排
+  或 CLI: mc blueprint compose --atoms a1,a2,a3
+  → 生成 blueprint.json
+
+步骤4: 打包发布
+  mc blueprint publish douyin_daily_v3      ← 注入 blueprints/
+  → 自动生成 CLI 入口
+  mc douyin nurture --blueprint douyin_daily_v3 --account my_name
+```
+
+### 6.6 适配界面版本更新
+
+当平台改版 (DOM 结构变化), 旧原子可能失效。方案:
+
+1. **录制新操作**: `mc record start` → 在新版界面上操作 → `mc record stop`
+2. **对比旧原子**: `mc record diff old_atom.json new_recording.json`
+3. **自动修补**: AI 分析差异, 更新选择器/css/xpath
+4. **版本管理**: 原子带 `version` 字段, 旧版蓝图可指定使用旧版原子
+
+---
+
+## 七、联邦多机协同方案
 
 ### 6.1 现状评估
 
@@ -288,16 +443,76 @@ capabilities: [douyin, xiaohongshu]   # 这台机器能操作哪些平台
 local_accounts: 11                     # 本机账号数
 ```
 
-### 6.4 guardd 改进建议
+### 6.4 guardd 替换方案: 从 Gitee 迁移到 Tailscale
 
-当前的 guardd 每 300s 写一次心跳, 问题:
-- 间隔太长, 机器挂了一台不知道
-- 心跳文件在 Gitee 上, 有 push 延迟
+#### 当前 guardd 的问题
 
-**改进方案**: 
-- 保持 guardd 现有机制 (不要动, 够用)
-- 增加 **"即时状态"通道**: `mc remote status` 时直接 HTTP 请求各机器, 不依赖 Gitee
-- heartbeat 缩短到 60s (可选)
+guardd 每 300s 往 Gitee 仓库的 `04_memory/cross_machine/` 写心跳文件:
+
+```
+问题1: 每次 git status 都有 10 个文件被修改, 分不清是心跳还是真改动
+问题2: 多机同时写 Gitee 导致 push/pull 冲突
+问题3: 心跳延迟 (Gitee push 不是实时的)
+问题4: 仓库里混入大量无意义的自动生成文件
+```
+
+**核心矛盾: Git 是版本管理工具, 不是实时状态同步工具。把心跳数据放 Gitee 是架构错误。**
+
+#### 替换方案: 本地状态 + Tailscale 即时查询
+
+```
+┌────────────────────────────────────────────────────────┐
+│ 部署前: guardd → Gitee (10个json频繁更新, 冲突不断)    │
+│                                                       │
+│ 部署后: 各机本地存状态 + 需查询时走 Tailscale HTTP API  │
+│                                                       │
+│ Gitee 仓库只保留:                                     │
+│   代码 + 配置 + cross_machine/machines/ (机器注册,     │
+│   几乎不变)                                            │
+│                                                       │
+│ 各机本地保留:                                          │
+│   agent-local/tools/matrix/data/status.json           │
+│   (心跳数据, 不参与 Gitee 同步)                        │
+│                                                       │
+│ 实时查询:                                              │
+│   mc remote status → 通过 Tailscale 查各机 API         │
+│   实时返回, 无冲突, 无延迟                              │
+└────────────────────────────────────────────────────────┘
+```
+
+#### 具体实施
+
+```
+步骤1: guardd 停止写 Gitee 的 cross_machine/data/
+       → 改为写本机 agent-local/tools/matrix/data/guardd_status.json
+       → 文件格式不变, 只是换了个目录
+
+步骤2: guardd 不再提交 git
+       → 从 guardd.py 中去掉 git add/commit/push 步骤
+       → cross_machine/data/*.json 文件不再被更新
+
+步骤3: Gitee 仓库清理
+       → 把 04_memory/cross_machine/data/ 加入 .gitignore
+       → 一次性提交删除历史心跳文件
+       → 以后 git status 不再被心跳文件污染
+
+步骤4: 即时状态替代
+       → 每台机器 Dashboard 提供 /api/machine/status 端点
+       → mc remote status 通过 Tailscale 查各机
+       → 实时, 无冲突, 零延迟
+```
+
+#### 对比
+
+| 维度 | guardd (当前) | guardd (改造后) | mc remote |
+|------|:------------:|:---------------:|:---------:|
+| 存储位置 | Gitee 仓库 | 本机 local 目录 | 内存 + API |
+| 更新频率 | 300s | 300s 或更长 | 即时查询 |
+| Git 冲突 | ⚠️ 频繁 | ✅ 完全没有 | ✅ 不涉及 Git |
+| 实时性 | ❌ 有延迟 | ❌ 有延迟 | ✅ 实时 |
+| 历史记录 | ✅ 有 | ✅ 仍保留 | ❌ 无 (可加日志) |
+
+**结论: guardd 保留, 但停止写 Gitee。改为写本机 + `mc remote` 做即时查询。**
 
 ### 6.5 多机任务分配
 
