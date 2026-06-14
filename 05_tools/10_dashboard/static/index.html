@@ -3401,12 +3401,14 @@ async function loadMatrixCommands() {
   const corpusOrig = document.getElementById('corpusContent');
   if (corpusEl3 && corpusOrig && !window._corpusObs3) {
     window._corpusObs3 = new MutationObserver(() => {
-      document.getElementById('corpusContent3').innerHTML = document.getElementById('corpusContent').innerHTML;
+      const target = document.getElementById('corpusContent3');
+      const src = document.getElementById('corpusContent');
+      if (target && src) target.innerHTML = src.innerHTML;
     });
     window._corpusObs3.observe(corpusOrig, { childList: true, subtree: true, characterData: true });
-    // 首次加载
-    if (typeof loadCorpus === 'function' && !corpusOrig.innerHTML.includes('加载语料库')) {
-      loadCorpus();
+    // 强制加载语料库（无论原始页面是否已加载）
+    if (typeof loadCorpus === 'function') {
+      loadCorpus().catch(e => console.error('corpus load err', e));
     }
     corpusEl3.innerHTML = corpusOrig.innerHTML || '<div class="loading">加载语料库...</div>';
   }
