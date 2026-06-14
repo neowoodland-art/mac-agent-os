@@ -7,10 +7,12 @@
 _SRC="${BASH_SOURCE[0]}"
 while [ -L "$_SRC" ]; do _SRC="$(readlink "$_SRC")"; done
 SCRIPT_DIR="$(cd "$(dirname "$_SRC")" && pwd)"
-# 自动检测 Python 路径
+# 自动检测 Python 路径（优先使用 matrix venv，解决代码签名问题）
 PYTHON=""
 if [ -n "$AGENTOS_PYTHON" ] && [ -x "$AGENTOS_PYTHON" ]; then
     PYTHON="$AGENTOS_PYTHON"
+elif [ -f "$HOME/.workbuddy/binaries/python/envs/matrix/bin/python3" ]; then
+    PYTHON="$HOME/.workbuddy/binaries/python/envs/matrix/bin/python3"
 elif [ -f "$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3" ]; then
     PYTHON="$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3"
 elif command -v python3 &>/dev/null; then
