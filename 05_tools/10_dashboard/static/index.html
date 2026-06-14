@@ -596,15 +596,20 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
       <div id="collectProfileStatus" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
     </div>
 
-    <!-- 🔌 代理管理 -->
-    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔌 代理管理</div>
-      <div style="margin-bottom:8px;font-size:12px">
-        <input id="proxyTestInput" placeholder="代理地址 (如 http://127.0.0.1:7890)" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
-        <button onclick="proxyTest()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🔍 测试代理</button>
-        <span id="proxyTestResult" style="font-size:11px;margin-left:6px"></span>
+    <!-- 🔌 代理管理（可折叠） -->
+    <div style="background:#1a1d2e;border-radius:10px;padding:0;border:1px solid #2a2d3e">
+      <div onclick="toggleProxyPanel()" style="display:flex;justify-content:space-between;align-items:center;padding:12px;cursor:pointer;user-select:none">
+        <span style="font-size:13px;font-weight:600">🔌 代理管理</span>
+        <span id="proxyToggleIcon" style="font-size:11px;color:#8b8fa3;transition:transform .2s">▶ 展开</span>
       </div>
-      <div id="proxyList" style="font-size:12px">加载中...</div>
+      <div id="proxyPanelBody" style="display:none;padding:0 12px 12px">
+        <div style="margin-bottom:8px;font-size:12px">
+          <input id="proxyTestInput" placeholder="代理地址 (如 http://127.0.0.1:7890)" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+          <button onclick="proxyTest()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🔍 测试代理</button>
+          <span id="proxyTestResult" style="font-size:11px;margin-left:6px"></span>
+        </div>
+        <div id="proxyList" style="font-size:12px">加载中...</div>
+      </div>
     </div>
   </div>
 
@@ -2608,6 +2613,17 @@ async function smsQuery(phone) {
       <span style="color:#8b8fa3;font-size:10px;margin-left:4px">${(m.content||'').slice(0,60)}</span>
     </div>`).join('') || '<div style="color:#8b8fa3;font-size:11px;padding:4px 0">无短信记录</div>';
   } catch(e) { /* silent */ }
+}
+
+// ── 代理面板折叠 ──
+function toggleProxyPanel() {
+  const body = document.getElementById('proxyPanelBody');
+  const icon = document.getElementById('proxyToggleIcon');
+  if (!body || !icon) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  icon.textContent = isOpen ? '▶ 展开' : '▼ 收起';
+  if (!isOpen) loadProxyList();
 }
 
 // ── Proxy ──
