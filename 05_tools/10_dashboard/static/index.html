@@ -286,13 +286,19 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div id="cmd-collect-content" style="display:none">
     <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">👤 信息采集</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-        <select id="collectAccount" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:160px"><option value="">选择账号</option></select>
-        <button onclick="cmdCollectProfile()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">👤 执行采集</button>
+      <div style="display:flex;gap:6px;margin-bottom:8px;font-size:12px">
+        <span style="color:#8b8fa3">选择范围：</span>
+        <span onclick="switchCollectMode('identity',this)" class="collect-mode active" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:#6366f1;color:#fff">📱 按身份</span>
+        <span onclick="switchCollectMode('platform',this)" class="collect-mode" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:#232740;color:#e1e4f0">🎯 按平台</span>
+        <span onclick="switchCollectMode('account',this)" class="collect-mode" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:#232740;color:#e1e4f0">👤 按账号</span>
+      </div>
+      <div id="collectList" style="font-size:12px;max-height:200px;overflow-y:auto;margin-bottom:8px;background:#1e2035;border-radius:6px;padding:6px">加载账号列表...</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="cmdCollectSelected()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">👤 执行选中</button>
         <button onclick="cmdCollectAll()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📋 全部采集</button>
       </div>
-      <div id="collectStatus" style="font-size:11px;color:#8b8fa3;margin-bottom:4px"></div>
-      <div id="collectLog" style="font-size:11px;background:#1a1d2e;border-radius:6px;padding:8px;max-height:200px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
+      <div id="collectStatus" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
+      <div id="collectLog" style="font-size:11px;background:#1a1d2e;border-radius:6px;padding:8px;margin-top:4px;max-height:150px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
     </div>
   </div>
   <div id="cmd-comment-content" style="display:none">
@@ -3269,17 +3275,13 @@ async function loadMatrixCommands() {
     } catch(e) { /* ignore */ }
   }
 
-  // 填充采集任务账号下拉
-  const collectSel = document.getElementById('collectAccount');
-  if (collectSel) {
-    try {
-      const r = await fetch('/api/matrix/sms/accounts');
-      const d = await r.json();
-      collectSel.innerHTML = '<option value="">选择账号</option>' +
-        (d.accounts||[]).filter(a => a.is_local).map(a =>
-          '<option value="'+a.id+'">'+(a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
-    } catch(e) { /* ignore */ }
-  }
+  // 加载采集模块账号列表
+  try {
+    const r = await fetch('/api/matrix/sms/accounts');
+    const d = await r.json();
+    _collectAccounts = d.accounts || [];
+    renderCollectList();
+  } catch(e) { /* ignore */ }
 
   // 填充定向评论的账号下拉
   const acctSel = document.getElementById('cmdTaskAccount');
@@ -3319,68 +3321,147 @@ async function cmdRunCommentTask() {
 }
 
 // ════════════════════════════════════════════════════════
-// 信息采集
+// 信息采集（三维选择）
 // ════════════════════════════════════════════════════════
 
-async function cmdCollectProfile() {
-  const sel = document.getElementById('collectAccount');
+var _collectMode = 'identity';
+var _collectAccounts = [];
+
+function switchCollectMode(mode, el) {
+  _collectMode = mode;
+  document.querySelectorAll('.collect-mode').forEach(e => {
+    e.style.background = '#232740';
+    e.style.color = '#e1e4f0';
+  });
+  el.style.background = '#6366f1';
+  el.style.color = '#fff';
+  renderCollectList();
+}
+
+function renderCollectList() {
+  const listEl = document.getElementById('collectList');
+  if (!listEl) return;
+  const accts = _collectAccounts.filter(a => a.is_local);
+  if (!accts.length) { listEl.innerHTML = '<div style="color:#8b8fa3;padding:6px">暂无本机账号</div>'; return; }
+
+  if (_collectMode === 'identity') {
+    // 按手机号分组显示
+    const groups = {};
+    accts.forEach(a => {
+      const phone = a.phone || '未设置手机号';
+      if (!groups[phone]) groups[phone] = [];
+      groups[phone].push(a);
+    });
+    listEl.innerHTML = Object.entries(groups).map(([phone, list]) =>
+      '<div style="margin:2px 0">' +
+      '<label style="cursor:pointer;font-size:12px">' +
+      '<input type="checkbox" class="collect-id-item" data-phone="'+phone+'" onchange="toggleCollectIdentity(this)"> ' +
+      '📱 ' + phone + ' (' + list.length + '个平台)</label>' +
+      list.map(a => '<div style="margin-left:20px;font-size:11px;color:#8b8fa3">' +
+        (a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.id+' ('+a.nickname+')</div>').join('') +
+      '</div>'
+    ).join('');
+  } else if (_collectMode === 'platform') {
+    // 按平台分组
+    const groups = { douyin: [], xiaohongshu: [] };
+    accts.forEach(a => { if (groups[a.platform]) groups[a.platform].push(a); });
+    listEl.innerHTML = Object.entries(groups).filter(g=>g[1].length).map(([plat, list]) =>
+      '<div style="margin:2px 0">' +
+      '<label style="cursor:pointer;font-size:12px">' +
+      '<input type="checkbox" class="collect-plat-item" data-platform="'+plat+'" onchange="toggleCollectPlatform(this)"> ' +
+      (plat==='xiaohongshu'?'📕 小红书':'🎵 抖音') + ' (' + list.length + '个账号)</label>' +
+      list.map(a => '<div style="margin-left:20px;font-size:11px;color:#8b8fa3">' +
+        a.id+' ('+a.nickname+')</div>').join('') +
+      '</div>'
+    ).join('');
+  } else {
+    // 按账号
+    listEl.innerHTML = accts.map(a =>
+      '<label style="display:block;cursor:pointer;font-size:12px;padding:2px 0">' +
+      '<input type="checkbox" class="collect-acct-item" value="'+a.id+'"> ' +
+      (a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.id+' ('+a.nickname+')</label>'
+    ).join('');
+  }
+}
+
+function toggleCollectIdentity(el) {
+  // 子账号全选/全不选
+  const phone = el.getAttribute('data-phone');
+  const checked = el.checked;
+  document.querySelectorAll('.collect-acct-item').forEach(cb => {
+    if (cb.getAttribute('data-phone') === phone) cb.checked = checked;
+  });
+}
+
+function toggleCollectPlatform(el) {
+  const plat = el.getAttribute('data-platform');
+  const checked = el.checked;
+  document.querySelectorAll('.collect-acct-item').forEach(cb => {
+    if (cb.getAttribute('data-platform') === plat) cb.checked = checked;
+  });
+}
+
+function getSelectedAccounts() {
+  const sel = new Set();
+  if (_collectMode === 'identity') {
+    document.querySelectorAll('.collect-id-item:checked').forEach(cb => {
+      const phone = cb.getAttribute('data-phone');
+      _collectAccounts.filter(a => a.is_local && a.phone === phone).forEach(a => sel.add(a.id));
+    });
+  } else if (_collectMode === 'platform') {
+    document.querySelectorAll('.collect-plat-item:checked').forEach(cb => {
+      const plat = cb.getAttribute('data-platform');
+      _collectAccounts.filter(a => a.is_local && a.platform === plat).forEach(a => sel.add(a.id));
+    });
+  } else {
+    document.querySelectorAll('.collect-acct-item:checked').forEach(cb => sel.add(cb.value));
+  }
+  return [...sel];
+}
+
+async function cmdCollectSelected() {
+  const ids = getSelectedAccounts();
+  if (!ids.length) { alert('请先选择要采集的账号'); return; }
   const statusEl = document.getElementById('collectStatus');
   const logEl = document.getElementById('collectLog');
-  if (!sel || !sel.value) { alert('请选择要采集的账号'); return; }
-  const aid = sel.value;
-  if (statusEl) statusEl.innerHTML = '⏳ 正在采集 ' + aid + '...';
-  if (logEl) logEl.textContent = '⏳ 启动采集...\n';
-  try {
-    const r = await fetch('/api/matrix/accounts/' + aid + '/collect-profile', { method: 'POST' });
-    const d = await r.json();
-    if (d.status === 'ok') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 采集已启动 (PID ' + d.pid + ')，浏览器打开中...</span>';
-      if (logEl) logEl.textContent += '✅ 采集进程已启动\n⏳ 等待采集完成（约30-60秒）...\n';
-      // 轮询采集结果
-      setTimeout(async () => {
-        if (logEl) logEl.textContent += '🔄 检查采集结果...\n';
-        if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 采集完成！查看下方数据</span>';
-        // 刷新账号列表以显示最新数据
-        if (typeof loadSmsAccounts === 'function') loadSmsAccounts();
-      }, 30000);
-    } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + (d.error || '采集失败') + '</span>';
-      if (logEl) logEl.textContent += '❌ ' + (d.error || '采集失败') + '\n';
+  if (logEl) logEl.textContent = '';
+  if (statusEl) statusEl.innerHTML = '⏳ 正在采集 ' + ids.length + ' 个账号...';
+  for (const aid of ids) {
+    if (logEl) logEl.textContent += '⏳ 采集 ' + aid + '...\n';
+    try {
+      const rr = await fetch('/api/matrix/accounts/' + aid + '/collect-profile', { method: 'POST' });
+      const dd = await rr.json();
+      if (logEl) logEl.textContent += (dd.status === 'ok' ? '✅ 已启动 (PID '+dd.pid+')' : '❌ ' + (dd.error || '失败')) + '\n';
+      await new Promise(r => setTimeout(r, 5000));
+    } catch (e) {
+      if (logEl) logEl.textContent += '❌ ' + e.message + '\n';
     }
-  } catch (e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + e.message + '</span>';
-    if (logEl) logEl.textContent += '❌ ' + e.message + '\n';
   }
+  if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 采集完成，30秒后刷新数据</span>';
+  setTimeout(() => { if (typeof loadSmsAccounts === 'function') loadSmsAccounts(); }, 30000);
 }
 
 async function cmdCollectAll() {
   const statusEl = document.getElementById('collectStatus');
   const logEl = document.getElementById('collectLog');
-  if (statusEl) statusEl.innerHTML = '⏳ 正在采集所有账号...';
   if (logEl) logEl.textContent = '';
-  try {
-    const r = await fetch('/api/matrix/sms/accounts');
-    const d = await r.json();
-    const local = (d.accounts || []).filter(a => a.is_local);
-    if (logEl) logEl.textContent += '📋 共 ' + local.length + ' 个本机账号\n';
-    for (const a of local) {
-      if (logEl) logEl.textContent += '⏳ 采集 ' + a.id + '...\n';
-      try {
-        const rr = await fetch('/api/matrix/accounts/' + a.id + '/collect-profile', { method: 'POST' });
-        const dd = await rr.json();
-        if (logEl) logEl.textContent += (dd.status === 'ok' ? '✅ 已启动' : '❌ ' + (dd.error || '失败')) + '\n';
-        await new Promise(r => setTimeout(r, 5000));
-      } catch (e) {
-        if (logEl) logEl.textContent += '❌ ' + e.message + '\n';
-      }
+  if (statusEl) statusEl.innerHTML = '⏳ 正在采集所有账号...';
+  const accts = _collectAccounts.filter(a => a.is_local);
+  if (logEl) logEl.textContent += '📋 共 ' + accts.length + ' 个本机账号\n';
+  for (const a of accts) {
+    if (logEl) logEl.textContent += '⏳ 采集 ' + a.id + '...\n';
+    try {
+      const rr = await fetch('/api/matrix/accounts/' + a.id + '/collect-profile', { method: 'POST' });
+      const dd = await rr.json();
+      if (logEl) logEl.textContent += (dd.status === 'ok' ? '✅ 已启动' : '❌ ' + (dd.error || '失败')) + '\n';
+      await new Promise(r => setTimeout(r, 5000));
+    } catch (e) {
+      if (logEl) logEl.textContent += '❌ ' + e.message + '\n';
     }
-    if (logEl) logEl.textContent += '✅ 全部采集完成！（等待30秒后刷新数据）\n';
-    if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 全部采集完成</span>';
-    setTimeout(() => { if (typeof loadSmsAccounts === 'function') loadSmsAccounts(); }, 30000);
-  } catch (e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + e.message + '</span>';
-    if (logEl) logEl.textContent += '❌ ' + e.message + '\n';
   }
+  if (logEl) logEl.textContent += '✅ 全部采集完成\n';
+  if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 全部采集完成，30秒后刷新数据</span>';
+  setTimeout(() => { if (typeof loadSmsAccounts === 'function') loadSmsAccounts(); }, 30000);
 }
 
 // ════════════════════════════════════════════════════════
