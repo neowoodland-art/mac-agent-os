@@ -329,6 +329,10 @@ def api_sms_accounts():
                 "has_cookie": st["has_cookie"],
                 "has_profile": st["has_profile"],
                 "has_registry": st["has_registry"],
+                "fans": p.get("fans", "?"),
+                "posts": p.get("posts", "?"),
+                "following": p.get("following", "?"),
+                "likes": p.get("likes", "?"),
             })
         return {"accounts": result}
     except Exception as e:
