@@ -1263,90 +1263,28 @@ async def api_matrix_corpus_delete(data: dict):
 
 # ── 登记注册 API ──
 
+# 已迁移至 sms_proxy_api.py — 新注册 API（创建身份目录+写accounts.yaml+启动浏览器）
+# 旧版 app.py 注册接口仅写 accounts_registry.yaml，不创建身份目录，已废弃
 @app.post("/api/matrix/register")
 async def api_matrix_register(data: dict):
-    """登记注册新账号"""
-    try:
-        phone = data.get("phone", "").strip()
-        platform = data.get("platform", "douyin")
-        display_name = data.get("display_name", "")
-        proxy = data.get("proxy", "")
-        identity_mode = data.get("identity_mode", "new")  # "new" or "existing"
-        existing_identity = data.get("existing_identity", "")
-        notes = data.get("notes", "")
-
-        if not phone:
-            raise HTTPException(400, detail="手机号必填")
-
-        # 生成账号ID
-        import yaml
-        from pathlib import Path
-        AGENT_SYNC = Path(__file__).resolve().parent.parent.parent
-        REGISTRY_PATH = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
-
-        reg = yaml.safe_load(REGISTRY_PATH.read_text()) if REGISTRY_PATH.exists() else {"accounts": []}
-        existing_ids = [a["id"] for a in reg.get("accounts", [])]
-
-        # 自动编号 — 使用平台完整前缀
-        pid_prefix = {"douyin": "douyin", "xiaohongshu": "xhs"}
-        prefix = pid_prefix.get(platform, platform[:4])
-        num = 1
-        while f"{prefix}_{num:02d}" in existing_ids:
-            num += 1
-        new_id = f"{prefix}_{num:02d}"
-
-        # 身份目录名
-        identity_hint = existing_identity if identity_mode == "existing" and existing_identity else new_id
-
-        # phone_mask
-        phone_mask = phone[:3] + "****" + phone[-4:] if len(phone) >= 7 else phone
-
-        # 写入 registry
-        new_acct = {
-            "id": new_id,
-            "platform": platform,
-            "phone_mask": phone_mask,
-            "assigned_machine": HOSTNAME,
-            "identity_hint": identity_hint,
-            "window": [702, 783],
-            "window_position": [0, 0],
-            "notes": notes or f"{platform} {phone_mask}",
-        }
-        reg["accounts"].append(new_acct)
-        REGISTRY_PATH.write_text(yaml.dump(reg, default_flow_style=False, allow_unicode=True, sort_keys=False))
-
-        # 写入 override
-        AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
-        OVR_PATH = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.override.yaml"
-        ovr = yaml.safe_load(OVR_PATH.read_text()) if OVR_PATH.exists() else {"version": "1.0", "hostname": HOSTNAME, "accounts": []}
-        ovr_acct = {"id": new_id, "phone": phone, "enabled": True}
-        if proxy:
-            ovr_acct["proxy"] = proxy
-        ovr["accounts"].append(ovr_acct)
-        OVR_PATH.write_text(yaml.dump(ovr, default_flow_style=False, allow_unicode=True, sort_keys=False))
-
-        logger.info(f"Matrix: 新账号注册 {new_id} ({phone})")
-
-        return {
-            "status": "ok",
-            "account_id": new_id,
-            "platform": platform,
-            "phone": phone,
-            "identity_hint": identity_hint,
-            "notes": notes,
-            "registry_updated": True,
-            "override_updated": True,
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, detail=str(e))
-
-
-@app.post("/api/matrix/accounts/register")
-async def api_matrix_register_alias(data: dict):
-    """注册接口别名（兼容前端路径 /api/matrix/accounts/register）"""
-    return await api_matrix_register(data)
+    """登记注册新账号（已废弃，保留旧路径兼容）"""
+    # 转发到 sms_proxy_api 的新注册 API
+    from plugins.sms_proxy_api import api_account_register
+    from fastapi import Request
+    # 构造 Request 对象调用
+    from starlette.requests import Request as StarletteRequest
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/api/matrix/accounts/register",
+        "headers": [(b"content-type", b"application/json")],
+    }
+    import json
+    async def receive():
+        return {"type": "http.request", "body": json.dumps(data).encode(), "more_body": False}
+    req = StarletteRequest(scope, receive)
+    result = await api_account_register(req)
+    return result
 
 
 @app.post("/api/matrix/accounts/{account_id}/login")
