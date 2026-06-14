@@ -204,12 +204,10 @@ async def process_identity(group, progress_data, window_index=0):
     accounts = group["accounts"]
     result = {"identity_dir":idir,"display_name":name,"phone":phone,"douyin":None,"xiaohongshu":None}
     
-    # 窗口位置错开，避免互相遮挡
-    # 每个窗口 802×783，间距 50px
+    # 窗口位置 X 轴错开 150px，避免左右遮挡
     win_w, win_h = 802, 783
-    gap = 50
-    win_x = (win_w + gap) * (window_index % 2)
-    win_y = 30 + (win_h + gap) * (window_index // 2)
+    win_x = 150 * window_index
+    win_y = 30
     
     print(f"\n   🔄 [{name}] ({phone})...")
     print(f"   🪟 窗口位置: ({win_x}, {win_y}) 尺寸: {win_w}×{win_h}")
