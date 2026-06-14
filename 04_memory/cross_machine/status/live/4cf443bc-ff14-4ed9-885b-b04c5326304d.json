@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.37
+    "load_1m": 1.72
   },
   "memory": {
     "total_gb": 0,
@@ -14,15 +14,15 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 112.4,
-    "available_gb": 132.7
+    "used_gb": 112.5,
+    "available_gb": 132.6
   },
-  "last_seen": "2026-06-14T08:07:19.595825+00:00",
+  "last_seen": "2026-06-14T08:12:37.002852+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-14T08:07:19.620584+00:00",
+  "_received_at": "2026-06-14T08:12:37.028295+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "chengzigedeAir",
   "_events": [
