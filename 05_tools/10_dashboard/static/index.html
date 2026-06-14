@@ -927,6 +927,7 @@ function switchView(view) {
   if (view === 'matrix-sms-proxy') loadSmsProxy();
   if (view === 'matrix-record') loadMatrixRecord();
   if (view === 'matrix-commands') loadMatrixCommands();
+  if (view === 'matrix-c2') loadC2Machines();
   if (view === 'matrix-settings') loadMatrixSettings();
 }
 
@@ -1255,9 +1256,10 @@ async function loadPlugins() {
       ]},
       '矩阵系统': { icon: '📡', items: [
         {view:'matrix-sms-proxy', label:'身份与账号'},
-        {view:'matrix-commands', label:'命令与任务'},
+        {view:'matrix-commands', label:'命令与任务', sub: [
+          {view:'matrix-c2', label:'远程控制'},
+        ]},
         {view:'matrix-accounts', label:'账号总览'},
-        {view:'matrix-c2', label:'远程控制'},
         {view:'matrix-blueprints', label:'蓝图编排'},
         {view:'matrix-atom-ops', label:'原子操作'},
         {view:'matrix-record', label:'录制管理'},
