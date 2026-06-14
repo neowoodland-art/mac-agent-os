@@ -5,7 +5,11 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
+<<<<<<< Updated upstream
     "load_1m": 1.83
+=======
+    "load_1m": 1.25
+>>>>>>> Stashed changes
   },
   "memory": {
     "total_gb": 0,
@@ -17,7 +21,11 @@
     "used_gb": 111.8,
     "available_gb": 133.3
   },
+<<<<<<< Updated upstream
   "last_seen": "2026-06-14T06:16:03.487971+00:00",
+=======
+  "last_seen": "2026-06-14T06:26:34.850831+00:00",
+>>>>>>> Stashed changes
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null
