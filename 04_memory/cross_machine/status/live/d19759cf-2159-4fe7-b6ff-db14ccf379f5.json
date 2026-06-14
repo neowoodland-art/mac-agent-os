@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.9
+    "load_1m": 2.79
   },
   "memory": {
     "total_gb": 0,
@@ -17,11 +17,35 @@
     "used_gb": 90.8,
     "available_gb": 154.3
   },
-  "last_seen": "2026-06-14T14:03:00.115546+00:00",
+  "last_seen": "2026-06-14T14:08:08.085834+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
+  "_source": "push",
+  "_received_at": "2026-06-14T14:08:08.156786+00:00",
   "_uid": "d19759cf-2159-4fe7-b6ff-db14ccf379f5",
   "_hostname": "7kecheng",
-  "_received_at": "2026-06-14T14:03:00.117137+00:00"
+  "_events": [
+    {
+      "id": "20f38ba1-0ecb-4e7b-90a9-76e5a2d3f59e",
+      "type": "sync_updated",
+      "hostname": "7kecheng",
+      "timestamp": "2026-06-13T16:03:38.723500+00:00",
+      "payload": {
+        "summary": "Updating 3e1c025f6..a64baab5a\nCreated autostash: 47394fdb2\nFast-forward\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../ave/f13b03d1-7310-433c-ba35-368c51edb1d0.json  |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13",
+        "hostname": "7kecheng"
+      }
+    },
+    {
+      "id": "40feeb71-bbee-4c6f-9cf6-65057ec550e5",
+      "type": "sync_updated",
+      "hostname": "7kecheng",
+      "timestamp": "2026-06-14T03:57:22.969086+00:00",
+      "payload": {
+        "summary": "Updating cfeb029bb..73aae18bc\nCreated autostash: d12e01ef5\nFast-forward\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../ave/f13b03d1-7310-433c-ba35-368c51edb1d0.json  |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13",
+        "hostname": "7kecheng"
+      }
+    }
+  ],
+  "_uptime": 0
 }
