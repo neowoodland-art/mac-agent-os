@@ -101,8 +101,10 @@ async def process_identity(group, progress_data, window_index=0):
         conn = CDPConnector(identity_dir=str(IDENTITIES_ROOT/idir), headless=False,
                            window=(win_w, win_h), locale=["zh-CN"],
                            window_position=(win_x, win_y))
-        try: await conn.page.set_viewport_size({"width":802,"height":783})
-        except: pass
+        await conn.connect()
+        if conn.page:
+            try: await conn.page.set_viewport_size({"width":802,"height":783})
+            except: pass
         if any(a["platform"]=="douyin" for a in accounts):
             result["douyin"] = await extract_douyin(conn.page, idir, phone)
         if any(a["platform"]=="xiaohongshu" for a in accounts):
