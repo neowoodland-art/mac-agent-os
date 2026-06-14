@@ -192,16 +192,32 @@ async def extract_xiaohongshu(page, identity_name, phone):
         info["status"]="error"; info["_error"]=str(e)
         return info
 
-async def process_identity(group, progress_data):
+async def process_identity(group, progress_data, window_index=0):
+    """处理一个身份的所有账号（先抖音后小红书，共用同一浏览器）
+    
+    Args:
+        group: 身份分组数据
+        progress_data: 进度数据（未使用，保留兼容）
+        window_index: 在同一批次中的序号，用于错开窗口位置 (0,1,2)
+    """
     idir, name, phone = group["identity_dir"], group["display_name"], group["phone"]
     accounts = group["accounts"]
     result = {"identity_dir":idir,"display_name":name,"phone":phone,"douyin":None,"xiaohongshu":None}
+    
+    # 窗口位置错开，避免互相遮挡
+    # 每个窗口 802×783，间距 50px
+    win_w, win_h = 802, 783
+    gap = 50
+    win_x = (win_w + gap) * (window_index % 2)
+    win_y = 30 + (win_h + gap) * (window_index // 2)
+    
     print(f"\n   🔄 [{name}] ({phone})...")
+    print(f"   🪟 窗口位置: ({win_x}, {win_y}) 尺寸: {win_w}×{win_h}")
     conn = None
     try:
         conn = CDPConnector(identity_dir=str(IDENTITIES_ROOT/idir), headless=False,
-                           window=(802,783), locale=["zh-CN"])
-        await conn.connect()
+                           window=(win_w, win_h), locale=["zh-CN"],
+                           window_position=(win_x, win_y))
         try: await conn.page.set_viewport_size({"width":802,"height":783})
         except: pass
         if any(a["platform"]=="douyin" for a in accounts):
@@ -278,10 +294,10 @@ async def main():
         batch_results = [None] * len(batch)
 
         async def launch_with_stagger(idx, g):
-            """每个身份延迟 idx*15 秒后启动"""
+            """每个身份延迟 idx*15 秒后启动，窗口位置按 idx 错开"""
             if idx > 0:
                 await asyncio.sleep(15 * idx)
-            result = await process_identity(g, progress)
+            result = await process_identity(g, progress, window_index=idx)
             batch_results[idx] = result
             # 每完成一个就写一次进度
             done = sum(1 for r in batch_results if r is not None)
