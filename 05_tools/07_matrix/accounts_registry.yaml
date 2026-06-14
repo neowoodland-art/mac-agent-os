@@ -172,7 +172,6 @@ accounts:
   id: douyin_134
   phone: '13800138000'
   platform: douyin
-<<<<<<< Updated upstream
 - assigned_machine: 192.168.31.180
   id: xhs_07
   identity_hint: xhs_07
