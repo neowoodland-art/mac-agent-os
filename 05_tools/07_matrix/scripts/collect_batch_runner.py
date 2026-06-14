@@ -37,6 +37,9 @@ HISTORY_DIR.mkdir(parents=True, exist_ok=True)
 
 from cdp_connector import CDPConnector
 
+# 导入已验证的提取函数（来自 collect_homepage_info.py 成功方案）
+from collect_homepage_info import extract_douyin, extract_xiaohongshu
+
 DOUYIN_URL = "https://www.douyin.com/"
 XHS_URL = "https://www.xiaohongshu.com/explore"
 
@@ -59,16 +62,6 @@ def group_by_identity(accounts):
         g["accounts"].sort(key=lambda a: 0 if a["platform"]=="douyin" else 1)
     return list(groups.values())
 
-async def read_text(page):
-    try:
-        return await page.evaluate("""()=>{
-            const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,null,false);
-            let t=[];let n;
-            while(n=w.nextNode()){let s=n.textContent.trim();if(s){let el=n.parentElement;if(el&&el.offsetParent!==null)t.push(s)}}
-            return t.slice(0,800).join('\\n');
-        }""")
-    except: return ""
-
 async def safe_goto(page, url, timeout=45000):
     try:
         await page.goto(url, timeout=timeout, wait_until="domcontentloaded")
@@ -83,117 +76,6 @@ async def take_screenshot(page, prefix, identity_name):
         await page.screenshot(path=str(SCREENSHOTS_DIR/f"{prefix}_{safe}_{ts}.png"))
     except: pass
 
-async def extract_douyin(page, identity_name, phone):
-    info = {"platform":"douyin","phone":phone,"status":"pending","url":"",
-            "nickname":"","fans":"","following":"","likes":"","posts":"","bio":""}
-    try:
-        print(f"     📍 抖音...")
-        ok = await safe_goto(page, DOUYIN_URL)
-        if not ok: info["status"]="nav_error"; return info
-        await asyncio.sleep(6)  # 多等一会儿让统计数字渲染
-        info["url"] = page.url
-        await take_screenshot(page, "dy", identity_name)
-        body_text = await read_text(page)
-        if not body_text: info["status"]="no_text"; return info
-        lines = [l.strip() for l in body_text.split("\n") if l.strip()]
-        all_text = "\n".join(lines[:300])
-        try: info["_title"] = await page.title()
-        except: pass
-        skip_words = {"精选","推荐","搜索","关注","朋友","我的","直播","放映厅","短剧",
-                     "小游戏","抖音","首页","通知","私信","投稿","登录","开启读屏标签",
-                     "读屏标签已关闭","未登录","壁纸","更多","热点"}
-        for line in lines[:50]:
-            line = line.strip()
-            if 1 < len(line) <= 18 and line not in skip_words and \
-               not line.startswith("@") and not line.startswith("http") and \
-               not re.match(r'^[\d:,.万w]+$', line):
-                info["nickname"] = line; break
-        for pat, key in [(r'(?:粉丝?)\s*[：:]\s*([\d,.万wW]+)',"fans"),
-                         (r'(?:关注)\s*[：:]\s*([\d,.万wW]+)',"following")]:
-            m = re.search(pat, all_text)
-            if m: info[key] = m.group(1)
-        # 兜底: 找 "粉丝 数字" 或 "关注 数字" (中间没冒号)
-        if not info["fans"]:
-            m = re.search(r'粉丝\s*(\d+[\.\d]*[万w]?)', all_text)
-            if m: info["fans"] = m.group(1)
-        if not info["following"]:
-            m = re.search(r'关注\s*(\d+[\.\d]*[万w]?)', all_text)
-            if m: info["following"] = m.group(1)
-        # 再兜底: 从 _stats_found 里找合理的数字 (靠近文本前面的小数字通常是用户统计)
-        if not info["fans"] and not info["following"]:
-            stats = re.findall(r'\b(\d+)\b', all_text[:1500])
-            # 找排除视频播放量(万级)后的小数字
-            small_nums = [s for s in stats if 1 <= int(s) <= 99999]
-            if len(small_nums) >= 2:
-                # 通常关注数在前,粉丝数在后
-                info["following"] = small_nums[0]
-                info["fans"] = small_nums[1]
-        info["status"] = "loaded"
-        log = f"     ✅ 抖音: {info['nickname'] or '?'}  粉丝:{info['fans'] or '?'}  关注:{info.get('following','?')}"
-        print(log)
-        return info
-    except Exception as e:
-        print(f"     ❌ 抖音异常: {e}")
-        info["status"]="error"; info["_error"]=str(e)
-        return info
-
-async def extract_xiaohongshu(page, identity_name, phone):
-    info = {"platform":"xiaohongshu","phone":phone,"status":"pending","url":"",
-            "nickname":"","fans":"","following":"","notes":"","bio":""}
-    try:
-        print(f"     📍 小红书...")
-        ok = await safe_goto(page, XHS_URL, timeout=45000)
-        if not ok: info["status"]="nav_error"; return info
-        await asyncio.sleep(4)
-        info["url"] = page.url
-        await take_screenshot(page, "xhs", identity_name)
-        for method in range(3):
-            try:
-                if method == 0:
-                    await page.evaluate("""()=>{
-                        const els=document.querySelectorAll('a,span,div');
-                        for(const e of els){
-                            if(e.textContent.trim()==='我'&&e.offsetParent!==null){e.click();return true;}
-                        } return false;
-                    }""")
-                    await asyncio.sleep(4)
-                elif method == 1:
-                    await page.evaluate("""()=>{
-                        const a=document.querySelector('a[href*="user/profile"],a[href*="profile"]');
-                        if(a){a.click();return true;}
-                        return false;
-                    }""")
-                    await asyncio.sleep(4)
-                elif method == 2:
-                    await page.goto("https://www.xiaohongshu.com/user/profile/self", timeout=15000, wait_until="domcontentloaded")
-                    await asyncio.sleep(4)
-                break
-            except: pass
-        info["url"] = page.url
-        body_text = await read_text(page)
-        if not body_text: info["status"]="no_text"; return info
-        lines = [l.strip() for l in body_text.split("\n") if l.strip()]
-        text_for_nums = "\n".join(lines[:400])
-        skip_words = {"探索","发现","首页","推荐","关注","附近","消息","我","笔记","收藏",
-                     "赞过","编辑资料","创作中心","小红书","登录","注册","发布","直播"}
-        for line in lines[:80]:
-            line = line.strip()
-            if 1 < len(line) <= 18 and line not in skip_words and \
-               not re.match(r'^[\d,.万w]+$', line) and \
-               not line.startswith("@") and not line.startswith("http"):
-                info["nickname"] = line; break
-        for pat, key in [(r'(?:粉丝)\s*[：:]?\s*([\d,.万wW]+)',"fans"),
-                         (r'(?:关注)\s*[：:]?\s*([\d,.万wW]+)',"following"),
-                         (r'(?:笔记|作品)\s*[：:]?\s*([\d,.万wW]+)',"notes")]:
-            m = re.search(pat, text_for_nums)
-            if m: info[key] = m.group(1)
-        info["status"] = "loaded"
-        print(f"     ✅ 小红书: {info['nickname'] or '?'}  粉丝:{info['fans'] or '?'}  关注:{info.get('following','?')}")
-        return info
-    except Exception as e:
-        print(f"     ❌ 小红书异常: {e}")
-        info["status"]="error"; info["_error"]=str(e)
-        return info
 
 async def process_identity(group, progress_data, window_index=0):
     """处理一个身份的所有账号（先抖音后小红书，共用同一浏览器）
