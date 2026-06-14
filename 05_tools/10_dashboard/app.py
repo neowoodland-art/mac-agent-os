@@ -1331,7 +1331,7 @@ async def api_matrix_register(data: dict):
             "status": "ok",
             "account_id": new_id,
             "platform": platform,
-            "phone": phone_mask,
+            "phone": phone,
             "identity_hint": identity_hint,
             "notes": notes,
             "registry_updated": True,

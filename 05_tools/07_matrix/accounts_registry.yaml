@@ -11,6 +11,7 @@ accounts:
   window_position:
   - 0
   - 0
+  phone: '18513308610'
 - assigned_machine: 5kechengdeAir
   id: douyin_02
   identity_hint: douyin_02_camo
@@ -23,6 +24,7 @@ accounts:
   window_position:
   - 400
   - 0
+  phone: '18500003366'
 - assigned_machine: 5kechengdeAir
   id: douyin_camo01
   identity_hint: douyin_camo01
@@ -35,6 +37,7 @@ accounts:
   window_position:
   - 750
   - 0
+  phone: '15370108283'
 - assigned_machine: 5kechengdeAir
   id: xhs_01
   identity_hint: douyin_01_camo
@@ -47,6 +50,7 @@ accounts:
   window_position:
   - 0
   - 800
+  phone: '18513308610'
 - assigned_machine: 5kechengdeAir
   id: xhs_02
   identity_hint: douyin_02_camo
@@ -59,6 +63,7 @@ accounts:
   window_position:
   - 400
   - 800
+  phone: '18500003366'
 - assigned_machine: 5kechengdeAir
   id: xhs_03
   identity_hint: douyin_camo01
@@ -71,6 +76,7 @@ accounts:
   window_position:
   - 750
   - 800
+  phone: '15370108283'
 - assigned_machine: 5kechengdeAir
   id: zhihu_01
   identity_hint: ''
@@ -95,6 +101,7 @@ accounts:
   window_position:
   - 1150
   - 0
+  phone: 185****9083
 - assigned_machine: 5kechengdeAir
   id: xhs_04
   identity_hint: douyin_04
@@ -107,6 +114,7 @@ accounts:
   window_position:
   - 1150
   - 800
+  phone: 185****9083
 - assigned_machine: 5kechengdeAir
   id: douyin_05
   identity_hint: douyin_05
@@ -119,6 +127,7 @@ accounts:
   window_position:
   - 0
   - 1600
+  phone: 185****9224
 - assigned_machine: 5kechengdeAir
   id: xhs_05
   identity_hint: douyin_05
@@ -131,6 +140,7 @@ accounts:
   window_position:
   - 400
   - 1600
+  phone: 185****9224
 - assigned_machine: 5kechengdeAir
   id: douyin_06
   identity_hint: douyin_06
@@ -143,6 +153,7 @@ accounts:
   window_position:
   - 750
   - 1600
+  phone: 137****6808
 - assigned_machine: 5kechengdeAir
   id: xhs_06
   identity_hint: douyin_06
@@ -155,6 +166,7 @@ accounts:
   window_position:
   - 1150
   - 1600
+  phone: 137****6808
 - assigned_machine: chengzigedeAir
   display_name: 测试
   id: douyin_134

@@ -247,6 +247,26 @@ class DouyinOps(PlatformOps):
             if _rnd.random() < 0.2: await self.collect(step_id=step_id)
             return OpResult(op, step_id, True, "searched+browsed", time.time()-t0)
 
+        # dy_* 系列操作（read_profile 蓝图用）
+        if op == "dy_goto_profile":
+            await self.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
+            await asyncio.sleep(5)
+            return OpResult(op, step_id, True, "profile", time.time()-t0)
+
+        if op.startswith("dy_read_"):
+            field_map = {
+                "dy_read_nickname": "nickname",
+                "dy_read_douyin_id": "user_id",
+                "dy_read_following": "following",
+                "dy_read_fans": "fans",
+                "dy_read_likes": "likes",
+                "dy_read_posts": "posts",
+                "dy_read_bio": "bio",
+            }
+            field = field_map.get(op, op.replace("dy_read_", ""))
+            val = await self.read_profile_field(field, step_id=step_id)
+            return OpResult(op, step_id, True, f"{field}={val}", time.time()-t0)
+
         return OpResult(op, step_id, False, f"unknown_op:{op}", time.time()-t0)
         self.account_id = ""
         self._profile = {}
