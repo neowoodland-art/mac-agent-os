@@ -434,7 +434,7 @@ async def api_account_register(request: Request):
             registry_path.write_text(yaml.dump(reg, allow_unicode=True, default_flow_style=False))
         except: pass
         # 4. 启动浏览器登录
-        agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
+        agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
         cmd = [agent_python, "-m", "mc", "account", "login", acct_id]
         import subprocess
         subprocess.Popen(cmd, cwd=str(SCRIPTS_DIR), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -447,7 +447,7 @@ async def api_account_register(request: Request):
 @router.post("/accounts/{account_id}/login")
 def api_account_login(account_id: str):
     """重新打开浏览器登录"""
-    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
     import subprocess
     try:
         p = subprocess.Popen(
@@ -474,7 +474,7 @@ def api_collect_profile(account_id: str):
     except: pass
     # 根据平台选择采集蓝图
     bp_name = "xiaohongshu_read_profile" if platform == "xiaohongshu" else "douyin_read_profile"
-    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
     import subprocess
     try:
         p = subprocess.Popen(
@@ -693,7 +693,7 @@ def api_recording_start(data: dict = None):
                 platform = {"douyin": "douyin", "xiaohongshu": "xiaohongshu"}.get(p, "douyin")
                 break
     except: pass
-    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
     cmd = [agent_python, "-m", "mc.recorder", account, platform]
     import subprocess
     try:
