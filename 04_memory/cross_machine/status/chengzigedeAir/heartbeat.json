@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.13
+    "load_1m": 2.1
   },
   "memory": {
     "total_gb": 0,
@@ -14,14 +14,10 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 113.1,
-    "available_gb": 132.0
+    "used_gb": 113.2,
+    "available_gb": 131.9
   },
-<<<<<<< Updated upstream
-  "last_seen": "2026-06-14T10:46:04.774933+00:00",
-=======
-  "last_seen": "2026-06-14T14:03:30.103234+00:00",
->>>>>>> Stashed changes
+  "last_seen": "2026-06-14T15:49:34.957553+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null
