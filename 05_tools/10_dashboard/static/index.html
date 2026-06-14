@@ -3208,17 +3208,37 @@ async function loginAllPlatforms(phone) {
 async function collectAllPlatforms(phone) {
   const accts = (window._lastSmsAccounts || []).filter(a => a.is_local && a.phone === phone);
   if (!accts.length) return;
-  if (!confirm('采集 '+phone+' 下所有平台的昵称？')) return;
+  if (!confirm('📡 采集 '+phone+' 下所有平台的主页信息？\n（使用新采集系统，需要打开 Camoufox 浏览器）')) return;
   const statusEl = document.getElementById('collectProfileStatus');
-  for (const a of accts) {
-    if (statusEl) statusEl.innerHTML = '⏳ 正在采集 '+a.id+'...';
-    try {
-      await fetch('/api/matrix/accounts/'+a.id+'/collect-profile', { method:'POST' });
-      await new Promise(r => setTimeout(r, 3000));
-    } catch(e) { /* ignore */ }
+  if (statusEl) statusEl.innerHTML = '⏳ 启动新采集系统（分批并行，最多同时开3个浏览器）...';
+  
+  try {
+    const r = await fetch('/api/matrix/collect-homepage', { method:'POST' });
+    const data = await r.json();
+    if (data.status === 'already_running') {
+      if (statusEl) statusEl.innerHTML = '⏳ 已有采集任务在运行...';
+    } else if (data.status === 'started') {
+      if (statusEl) statusEl.innerHTML = '⏳ 采集已启动，正在分批处理...';
+      // 轮询进度
+      const poll = setInterval(async () => {
+        try {
+          const pr = await fetch('/api/matrix/collect-homepage/status');
+          const ps = await pr.json();
+          if (ps.status === 'running') {
+            if (statusEl) statusEl.innerHTML = `⏳ 采集中... ${ps.completed||0}/${ps.total_identities||'?'}`;
+          } else {
+            clearInterval(poll);
+            if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 采集完成</span>';
+            loadSmsAccounts();
+          }
+        } catch(e) { /* silent */ }
+      }, 5000);
+    } else {
+      if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444">❌ ${data.error||data.message}</span>`;
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444">❌ ${e.message}</span>`;
   }
-  if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 全部采集已启动，稍后刷新查看</span>';
-  setTimeout(loadSmsAccounts, 10000);
 }
 
 async function deleteIdentityByPhone(phone) {

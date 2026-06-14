@@ -280,6 +280,22 @@ def _account_status(a: dict) -> dict:
             if nick and nick != aid:
                 has_profile = True
         except: pass
+    # 也检查 homepage_info.json（新采集系统）
+    if not has_profile:
+        hp_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "homepage_info.json"
+        if hp_path.exists():
+            try:
+                hp_data = json.loads(hp_path.read_text())
+                phone = a.get("phone", "")
+                for r in hp_data.get("results", []):
+                    if r.get("phone") != phone:
+                        continue
+                    plat = a.get("platform", "")
+                    pdata = r.get(plat, {})
+                    if pdata and pdata.get("nickname") and pdata["nickname"] != aid:
+                        has_profile = True
+                        break
+            except: pass
     # ④ 在 registry 中有记录（已同步到联邦）
     has_registry = False
     reg_path = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
