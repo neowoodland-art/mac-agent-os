@@ -259,6 +259,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     <div class="cmd-tab" data-tab="cmd-schedule" onclick="switchCmdTab('cmd-schedule',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">⏰ 定时任务</div>
     <div class="cmd-tab" data-tab="cmd-collect" onclick="switchCmdTab('cmd-collect',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">👤 信息采集</div>
     <div class="cmd-tab" data-tab="cmd-corpus" onclick="switchCmdTab('cmd-corpus',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">📚 语料库</div>
+    <div class="cmd-tab" data-tab="cmd-nurture" onclick="switchCmdTab('cmd-nurture',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">🌱 全部养号</div>
   </div>
   <div id="cmd-run-content" style="display:block">
     <div id="matrixRunContent2"></div>
@@ -314,6 +315,24 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     </div>
   </div>
   <div id="cmd-corpus-content" style="display:none"><div id="corpusContent3"></div></div>
+  <div id="cmd-nurture-content" style="display:none">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">🌱 全部养号 <span style="font-size:10px;color:#8b8fa3;font-weight:400">日常养号调度器 v1.0</span></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <select id="nurturePhone" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
+          <option value="">所有身份</option>
+        </select>
+        <label style="font-size:11px;color:#8b8fa3">每身份分钟: <input id="nurtureMins" type="number" value="10" min="5" max="30" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 6px;border-radius:4px;font-size:11px;width:50px"></label>
+        <label style="font-size:11px;color:#8b8fa3">并发: <input id="nurtureConcur" type="number" value="3" min="1" max="5" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 6px;border-radius:4px;font-size:11px;width:40px"></label>
+        <label style="font-size:11px;color:#8b8fa3">间隔: <input id="nurtureStagger" type="number" value="15" min="5" max="60" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 6px;border-radius:4px;font-size:11px;width:45px">秒</label>
+        <button onclick="nurturePreview()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📅 预览排期</button>
+        <button onclick="nurtureStart()" style="background:#22c55e;color:#000;border:none;padding:6px 20px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🚀 开始养号</button>
+      </div>
+      <div id="nurturePreview" style="font-size:11px;color:#8b8fa3;margin-bottom:4px;font-family:monospace;white-space:pre-wrap"></div>
+      <div id="nurtureStatus" style="font-size:12px;color:#8b8fa3;margin-bottom:4px"></div>
+      <div id="nurtureLog" style="font-size:11px;background:#1a1d2e;border-radius:6px;padding:8px;margin-top:4px;max-height:400px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
+    </div>
+  </div>
   <div id="cmd-comment-content" style="display:none">
     <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">💬 定向评论</div>
@@ -2513,15 +2532,18 @@ async function loadSmsAccounts() {
           const platRow = (a) => {
             const icon = a.platform === 'xiaohongshu' ? '📕' : '🎵';
             const platName = a.platform === 'xiaohongshu' ? '小红书' : '抖音';
-            return '<div style="display:flex;align-items:center;gap:4px;padding:3px 0;border-bottom:1px solid #1e2035">'+
-              '<span style="width:46px;font-size:10px">'+icon+' '+platName+'</span>'+
+            // 模拟设备信息
+            const deviceMap = {douyin:'iPad Pro (iOS)', xiaohongshu:'iPhone 15 (iOS)'};
+            const device = deviceMap[a.platform] || 'Windows Chrome';
+            return '<div style="display:flex;align-items:center;gap:3px;padding:3px 0;border-bottom:1px solid #1e2035">'+
+              '<span style="width:38px;font-size:10px">'+icon+' '+platName+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_cookie)+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_profile)+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_registry)+'</span>'+
-              '<span style="width:30px;font-size:9px;color:#8b8fa3;text-align:center">'+(recStats[a.id]||0)+'次</span>'+
-              '<span style="flex:1;font-size:10px;color:#8b8fa3;overflow:hidden;text-overflow:ellipsis">'+a.nickname+'</span>'+
-              '<span style="width:40px;font-size:9px;color:#8b8fa3;text-align:center" title="粉丝">📊'+fmtNum(a.fans)+'</span>'+
-              '<span style="width:36px;font-size:9px;color:#8b8fa3;text-align:center" title="作品">📹'+fmtNum(a.posts)+'</span>'+
+              '<span style="width:28px;font-size:9px;color:#8b8fa3;text-align:center">'+(recStats[a.id]||0)+'次</span>'+
+              '<span style="flex:1;font-size:10px;color:#8b8fa3;overflow:hidden;text-overflow:ellipsis" title="'+device+'">'+a.nickname+'</span>'+
+              '<span style="width:36px;font-size:9px;color:#8b8fa3;text-align:center" title="粉丝">📊'+fmtNum(a.fans)+'</span>'+
+              '<span style="width:30px;font-size:8px;color:#6366f1;text-align:center;overflow:hidden" title="模拟: '+device+'">'+(a.platform==='douyin'?'🅸🅿':'📱')+'</span>'+
               '<button onclick="accountLogin(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="登录">🔑</button>'+
               '<button onclick="clearCookies(\''+a.id+'\',\''+a.platform+'\')" style="background:#5c1a1a;color:#f87171;border:1px solid #5c1a1a;padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="清除登录">🚫</button>'+
               '<button onclick="deleteAccount(\''+a.id+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="删除">🗑</button>'+
@@ -2535,8 +2557,8 @@ async function loadSmsAccounts() {
               '<span style="font-size:9px;color:#8b8fa3">🍪 '+(accts.reduce((s,a)=>s+(a.has_cookie?1:0),0))+'已登录 | 📦 '+recCount+'次录制</span>'+
             '</div>'+
             (interests ? '<div style="font-size:10px;color:#8b8fa3;margin-bottom:4px">🎯 '+interests+(style?' | 💬 '+style:'')+'</div>' : '')+
-            '<div style="display:grid;grid-template-columns:46px 18px 18px 18px 30px 1fr 40px 36px 22px 22px 22px;gap:2px;font-size:9px;color:#8b8fa3;padding:2px 0;border-bottom:1px solid #2a2d3e;margin-bottom:2px">'+
-              '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>录制</span><span>名称</span><span>粉丝</span><span>作品</span><span></span><span></span><span></span>'+
+            '<div style="display:grid;grid-template-columns:38px 18px 18px 18px 28px 1fr 36px 30px 22px 22px;gap:2px;font-size:9px;color:#8b8fa3;padding:2px 0;border-bottom:1px solid #2a2d3e;margin-bottom:2px">'+
+              '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>录制</span><span>名称</span><span>粉丝</span><span>模拟</span><span></span><span></span>'+
             '</div>'+
             accts.map(platRow).join('')+
             '<div style="margin-top:6px;display:flex;gap:4px">'+
@@ -3634,7 +3656,7 @@ function switchCmdTab(tab, el) {
   });
   el.style.borderBottom = '2px solid #6366f1';
   el.style.color = '#e1e4f0';
-  ['cmd-run-content','cmd-comment-content','cmd-schedule-content','cmd-collect-content','cmd-corpus-content'].forEach(id => {
+  ['cmd-run-content','cmd-comment-content','cmd-schedule-content','cmd-collect-content','cmd-corpus-content','cmd-nurture-content'].forEach(id => {
     document.getElementById(id).style.display = id === tab+'-content' ? 'block' : 'none';
   });
 }
@@ -4041,6 +4063,95 @@ async function showCollectReport(filterIds, statusEl, logEl) {
   } catch(e) {
     if (logEl) logEl.textContent += '❌ 读取结果失败: ' + e.message + '\n';
   }
+}
+
+// ════════════════════════════════════════════════════════
+// 养号调度器
+// ════════════════════════════════════════════════════════
+
+let nurturePollTimer = null;
+
+function loadNurturePhones() {
+  const sel = document.getElementById('nurturePhone');
+  if (!sel) return;
+  const phones = new Set();
+  (window._lastSmsAccounts || []).forEach(a => {
+    if (a.phone) phones.add(a.phone);
+  });
+  sel.innerHTML = '<option value="">所有身份</option>' +
+    Array.from(phones).sort().map(p => '<option value="'+p+'">'+p+'</option>').join('');
+}
+
+async function nurturePreview() {
+  const el = document.getElementById('nurturePreview');
+  const phone = document.getElementById('nurturePhone')?.value || '';
+  const mins = document.getElementById('nurtureMins')?.value || 10;
+  const concur = document.getElementById('nurtureConcur')?.value || 3;
+  const stagger = document.getElementById('nurtureStagger')?.value || 15;
+  if (!el) return;
+
+  el.textContent = '⏳ 计算排期...';
+  try {
+    const r = await fetch('/api/matrix/nurture/preview?' +
+      'phone='+encodeURIComponent(phone)+
+      '&mins='+mins+'&concur='+concur+'&stagger='+stagger);
+    const d = await r.json();
+    if (d.error) { el.textContent = '❌ '+d.error; return; }
+    let txt = d.schedule || '';
+    txt += '\n---\n' + '📊 预估总耗时: ~' + d.total_min + ' 分钟 (' + (d.total_min/60).toFixed(1) + ' 小时)';
+    txt += '\n身份数: ' + d.identities + ' | 批次: ' + d.batches;
+    el.textContent = txt;
+  } catch(e) {
+    el.textContent = '❌ '+e.message;
+  }
+}
+
+async function nurtureStart() {
+  const phone = document.getElementById('nurturePhone')?.value || '';
+  const mins = document.getElementById('nurtureMins')?.value || 10;
+  const concur = document.getElementById('nurtureConcur')?.value || 3;
+  const stagger = document.getElementById('nurtureStagger')?.value || 15;
+  const statusEl = document.getElementById('nurtureStatus');
+  const logEl = document.getElementById('nurtureLog');
+  if (logEl) logEl.textContent = '';
+  if (statusEl) statusEl.innerHTML = '⏳ 启动养号...';
+
+  try {
+    const r = await fetch('/api/matrix/nurture/start', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone: phone, mins: parseInt(mins), concur: parseInt(concur), stagger: parseInt(stagger)})
+    });
+    const d = await r.json();
+    if (d.status === 'started') {
+      if (statusEl) statusEl.innerHTML = '⏳ 养号进行中... (轮询进度)';
+      if (logEl) logEl.textContent = '🚀 养号已启动\n';
+      nurturePollTimer = setInterval(async () => {
+        try {
+          const pr = await fetch('/api/matrix/nurture/status');
+          const ps = await pr.json();
+          if (ps.status === 'running') {
+            if (statusEl) statusEl.innerHTML = '⏳ 养号中... ' + (ps.completed||0) + '/' + (ps.total||'?');
+            if (logEl && ps.log) logEl.textContent = ps.log.slice(-5000);
+          } else {
+            clearInterval(nurturePollTimer);
+            nurturePollTimer = null;
+            if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 养号完成</span>';
+            if (logEl && ps.log) logEl.textContent = ps.log.slice(-5000);
+          }
+        } catch(e) { /* silent */ }
+      }, 5000);
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||d.message)+'</span>';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
+  }
+}
+
+// ── 养号 API 端点 ──
+async function loadCmdNurture() {
+  loadNurturePhones();
 }
 
 // ════════════════════════════════════════════════════════

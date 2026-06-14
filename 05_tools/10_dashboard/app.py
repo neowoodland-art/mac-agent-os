@@ -1084,7 +1084,99 @@ def api_matrix_cancel_collect():
             _COLLECT_PROCESS.kill()
         _COLLECT_PROCESS = None
         return {"status": "cancelled", "message": "采集已取消"}
-    return {"status": "idle", "message": "没有运行中的采集"}
+        return {"status": "idle", "message": "没有运行中的采集"}
+
+
+# ═══════════════════════════════════════════════════════════
+# 养号调度器 API
+# ═══════════════════════════════════════════════════════════
+
+_NURTURE_PROCESS = None
+_NURTURE_LOG = ""
+
+@app.get("/api/matrix/nurture/preview")
+def api_nurture_preview(phone: str = "", mins: int = 10, concur: int = 3, stagger: int = 15):
+    """预览养号排期"""
+    try:
+        # 直接从 accounts.yaml 读取
+        import yaml
+        acct_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "config" / "accounts.yaml"
+        if acct_path.exists():
+            with open(acct_path) as f:
+                data = yaml.safe_load(f)
+            accounts = [a for a in data.get("accounts", []) if a.get("enabled", True)]
+        else:
+            accounts = []
+        phones = sorted(set(a.get("phone", "") for a in accounts if a.get("phone")))
+        if phone:
+            phones = [p for p in phones if p == phone]
+        identities = len(phones)
+        batches = (identities + concur - 1) // concur
+        total_min = round(identities * mins / concur + batches * 0.5, 1)
+
+        lines = [f"📋 身份数: {identities} | 批次: {batches}"]
+        for i, p in enumerate(phones):
+            b = i // concur + 1
+            offset = (i % concur) * stagger
+            lines.append(f" 批次{b}#{i%concur+1} +{offset}s | {p}")
+        lines.append(f"每身份 ~{mins}分钟 | 并发 {concur} | 间隔 {stagger}s")
+
+        return {"schedule": "\n".join(lines), "total_min": total_min, "identities": identities, "batches": batches}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/matrix/nurture/start")
+def api_nurture_start(data: dict):
+    """启动养号"""
+    import subprocess
+    global _NURTURE_PROCESS, _NURTURE_LOG
+    phone = (data or {}).get("phone", "")
+    mins = (data or {}).get("mins", 10)
+    concur = (data or {}).get("concur", 3)
+    stagger = (data or {}).get("stagger", 15)
+
+    if _NURTURE_PROCESS and _NURTURE_PROCESS.poll() is None:
+        return {"status": "already_running", "message": "养号任务已在运行"}
+
+    script = Path.home() / "workbuddy-agent-os" / "agent-sync" / "05_tools" / "07_matrix" / "scripts" / "nurture_daily.py"
+    if not script.exists():
+        return {"error": f"脚本不存在: {script}"}
+
+    cmd = [sys.executable, str(script)]
+    if phone: cmd += ["--phone", phone]
+
+    _NURTURE_LOG = ""
+    _NURTURE_PROCESS = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        cwd=str(script.parent), text=True,
+    )
+    return {"status": "started", "message": "养号已启动"}
+
+
+@app.get("/api/matrix/nurture/status")
+def api_nurture_status():
+    """查询养号进度"""
+    global _NURTURE_PROCESS, _NURTURE_LOG
+    if _NURTURE_PROCESS:
+        ret = _NURTURE_PROCESS.poll()
+        if ret is None:
+            # 读取最新日志
+            try:
+                while True:
+                    line = _NURTURE_PROCESS.stdout.readline()
+                    if not line: break
+                    _NURTURE_LOG += line
+            except: pass
+            return {"status": "running", "log": _NURTURE_LOG[-5000:]}
+        else:
+            # 读剩余输出
+            try:
+                remaining = _NURTURE_PROCESS.stdout.read()
+                _NURTURE_LOG += remaining
+            except: pass
+            return {"status": "completed" if ret == 0 else "error", "log": _NURTURE_LOG[-5000:], "returncode": ret}
+    return {"status": "idle", "log": ""}
 
 
 @app.get("/api/matrix/accounts/{account_id}")
