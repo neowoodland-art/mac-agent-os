@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.53
+    "load_1m": 1.39
   },
   "memory": {
     "total_gb": 0,
@@ -17,14 +17,35 @@
     "used_gb": 92.3,
     "available_gb": 152.8
   },
-  "last_seen": "2026-06-14T02:43:32.535841+00:00",
+  "last_seen": "2026-06-14T03:11:08.137301+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-14T02:43:32.596056+00:00",
+  "_received_at": "2026-06-14T03:11:08.161763+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
-  "_events": [],
+  "_events": [
+    {
+      "id": "5fe08472-8e2a-4037-80d4-a701ed92fee2",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-06-14T03:06:08.020322+00:00",
+      "payload": {
+        "summary": "Created autostash: 9fbda014a1\nMerge made by the 'ort' strategy.\n .../data/automation/4cf443bc-ff14-4ed9-885b-b04c5326304d.json       | 2 +-\n .../data/ave/4cf443bc-ff14-4ed9-885b-b04c5326304d.json              | 2 +-\n .../data/collector/4cf443bc-ff14-4ed9-885b-b04c5326304d.json        | 2 +-\n .../data/guardd/4cf443bc-ff14-4ed9-885b-b04c5326304d.json           | 2 +-\n .../data/knowledge/4cf443bc-ff14-4ed9-885b-b04c5326304d.json        | 2 +-\n .../data/matrix/4cf443bc-ff14-4ed9-885b-b04c5326304d.js",
+        "hostname": "5kechengdeAir"
+      }
+    },
+    {
+      "id": "bc54b719-1ab3-4957-a460-12085263df2b",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-06-14T02:55:48.591909+00:00",
+      "payload": {
+        "summary": "Updating 3d67029434..485ce2575e\nCreated autostash: 1bd8000a93\nFast-forward\n .../automation/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json   |  2 +-\n .../data/ave/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json     |  2 +-\n .../collector/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json    |  2 +-\n .../data/guardd/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json  |  2 +-\n .../knowledge/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json    |  2 +-\n .../data/matrix/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json  | 14 +++++++++++---\n .../",
+        "hostname": "5kechengdeAir"
+      }
+    }
+  ],
   "_uptime": 0
 }
