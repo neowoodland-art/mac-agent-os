@@ -135,8 +135,26 @@ async def main():
     print(f" 📊 批量主页信息采集器 (分批并行 v1.0)")
     print(f" {'='*60}")
 
+    # 支持 --phone 只采集单个身份
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--phone", default="", help="只采集指定手机号的身份")
+    parser.add_argument("--account", default="", help="只采集指定账号ID")
+    args, _ = parser.parse_known_args()
+
     accounts = load_accounts()
     groups = group_by_identity(accounts)
+
+    # 过滤：只保留指定 phone 或 account
+    if args.phone:
+        groups = [g for g in groups if g["phone"] == args.phone]
+    elif args.account:
+        groups = [g for g in groups if any(a["id"] == args.account for a in g["accounts"])]
+
+    if not groups:
+        print(" ⚠️ 没有匹配的身份，跳过")
+        return
+
     BATCH_SIZE = 3
     total = len(groups)
     batches = (total + BATCH_SIZE - 1) // BATCH_SIZE
@@ -204,6 +222,25 @@ async def main():
         print(f"\n 📊 批次完成: 累计 {len(all_results)}/{total}")
 
     # 先写输出文件（保证前端轮询到 completed 时数据已就绪）
+    # 保留旧数据：如果某个平台新数据为空，保留旧值
+    old_data = {}
+    if OUTPUT_FILE.exists():
+        try: old_data = json.loads(OUTPUT_FILE.read_text())
+        except: pass
+    old_results = {r.get("phone",""): r for r in old_data.get("results", [])}
+
+    for r in all_results:
+        phone = r.get("phone", "")
+        old = old_results.get(phone, {})
+        for plat in ["douyin", "xiaohongshu"]:
+            new_plat = r.get(plat) or {}
+            # 如果新数据为空（无昵称），且旧数据有值，保留旧的
+            if not new_plat.get("nickname"):
+                old_plat = old.get(plat) or {}
+                if old_plat.get("nickname"):
+                    r[plat] = old_plat
+                    print(f"   ↩️ 保留旧数据: {phone} {plat} = {old_plat['nickname']}")
+
     output = {
         "collected_at": datetime.now().isoformat(),
         "total_identities": total,
@@ -216,13 +253,15 @@ async def main():
     # ── 归档历史快照 ──
     now = datetime.now()
     ts = now.strftime("%Y%m%d_%H%M%S")
-    snapshot_file = HISTORY_DIR / f"homepage_info_{ts}.json"
+    # 文件名加上成功数，方便辨认
+    suc = progress.get("success", 0)
+    snapshot_file = HISTORY_DIR / f"homepage_{ts}_ok{suc}({total}).json"
     try:
         with open(snapshot_file, "w", encoding="utf-8") as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
         # 追加到时间线
         timeline_entry = {
-            "snapshot": f"homepage_info_{ts}.json",
+            "snapshot": f"homepage_{ts}_ok{suc}({total}).json",
             "collected_at": now.isoformat(),
             "total_identities": total,
             "total_accounts": len(accounts),

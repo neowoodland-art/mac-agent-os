@@ -1016,6 +1016,36 @@ def api_matrix_start_collect():
     return {"status": "started", "message": "采集任务已启动"}
 
 
+@app.post("/api/matrix/collect-homepage/phone")
+def api_matrix_start_collect_phone(data: dict):
+    """启动指定手机号的主页信息采集（只采集该身份）"""
+    import subprocess
+    phone = (data or {}).get("phone", "")
+    if not phone:
+        return {"error": "phone required"}
+    
+    global _COLLECT_PROCESS
+    if _COLLECT_PROCESS and _COLLECT_PROCESS.poll() is None:
+        return {"status": "already_running", "message": "采集任务已在运行中"}
+
+    script = Path.home() / "workbuddy-agent-os" / "agent-sync" / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
+    if not script.exists():
+        return {"error": f"采集脚本不存在: {script}"}
+
+    progress_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "collect_progress.json"
+    try:
+        if progress_path.exists(): progress_path.unlink()
+    except: pass
+
+    _COLLECT_PROCESS = subprocess.Popen(
+        [sys.executable, str(script), "--phone", phone],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=str(script.parent),
+    )
+    return {"status": "started", "message": "采集任务已启动"}
+
+
 @app.get("/api/matrix/collect-homepage/status")
 def api_matrix_collect_status():
     """查询采集进度"""

@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 2.17
+    "load_1m": 2.13
   },
   "memory": {
     "total_gb": 0,
@@ -14,28 +14,17 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 91.1,
-    "available_gb": 154.0
+    "used_gb": 91.4,
+    "available_gb": 153.7
   },
-  "last_seen": "2026-06-14T15:44:37.239009+00:00",
+  "last_seen": "2026-06-14T16:00:06.657342+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-14T15:44:37.318296+00:00",
+  "_received_at": "2026-06-14T16:00:06.727005+00:00",
   "_uid": "d19759cf-2159-4fe7-b6ff-db14ccf379f5",
   "_hostname": "7kecheng",
-  "_events": [
-    {
-      "id": "5d281358-89bf-43f2-91d9-bd80858847c5",
-      "type": "sync_updated",
-      "hostname": "7kecheng",
-      "timestamp": "2026-06-14T15:09:21.760127+00:00",
-      "payload": {
-        "summary": "Updating 66679c06a5..775bc2b6a5\nCreated autostash: 6c2a7eb6dd\nFast-forward\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      | 15 +++++++\n .../ave/f13b03d1-7310-433c-ba35-368c51edb1d0.json  | 49 ++++++++++++++++++++++\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      | 18 ++++++++\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      | 29 +++++++++++++\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      | 19 +++++++++\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      | 36 ++++++++++++++++\n .",
-        "hostname": "7kecheng"
-      }
-    }
-  ],
+  "_events": [],
   "_uptime": 0
 }
