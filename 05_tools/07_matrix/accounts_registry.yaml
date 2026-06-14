@@ -174,26 +174,6 @@ accounts:
   platform: douyin
 <<<<<<< Updated upstream
 - assigned_machine: 192.168.31.180
-  id: douyin_03
-  identity_hint: douyin_03
-  notes: douyin 185****9569
-  phone_mask: 185****9569
-=======
-- assigned_machine: 192.168.31.226
-  id: douyin_03
-  identity_hint: douyin_03
-  notes: douyin 153****5900
-  phone_mask: 153****5900
->>>>>>> Stashed changes
-  platform: douyin
-  window:
-  - 702
-  - 783
-  window_position:
-  - 0
-  - 0
-<<<<<<< Updated upstream
-- assigned_machine: 192.168.31.180
   id: xhs_07
   identity_hint: xhs_07
   notes: xiaohongshu 185****9569
@@ -205,33 +185,35 @@ accounts:
   window_position:
   - 0
   - 0
-- id: douyin_07
-  platform: douyin
-  phone_mask: 153****7926
-  assigned_machine: 192.168.31.180
-  identity_hint: douyin_07
-=======
-- assigned_machine: 192.168.31.226
+- assigned_machine: 192.168.31.180
   id: douyin_07
   identity_hint: douyin_07
-  notes: douyin 138****8100
-  phone_mask: 138****8100
+  notes: douyin 153****7926
+  phone_mask: 153****7926
   platform: douyin
->>>>>>> Stashed changes
   window:
   - 702
   - 783
   window_position:
   - 0
   - 0
-<<<<<<< Updated upstream
-  notes: douyin 153****7926
-=======
-- assigned_machine: 192.168.31.226
+- assigned_machine: 192.168.31.180
+  id: xhs_08
+  identity_hint: xhs_08
+  notes: xiaohongshu 153****7926
+  phone_mask: 153****7926
+  platform: xiaohongshu
+  window:
+  - 702
+  - 783
+  window_position:
+  - 0
+  - 0
+- assigned_machine: 192.168.31.180
   id: douyin_08
   identity_hint: douyin_08
-  notes: douyin 138****8200
-  phone_mask: 138****8200
+  notes: douyin 185****9569
+  phone_mask: 185****9569
   platform: douyin
   window:
   - 702
@@ -239,22 +221,4 @@ accounts:
   window_position:
   - 0
   - 0
-- assigned_machine: 192.168.31.226
-  id: douyin_09
-  identity_hint: douyin_09
-  notes: douyin 138****8300
-  phone_mask: 138****8300
-  platform: douyin
-  window:
-  - 702
-  - 783
-  window_position:
-  - 0
-  - 0
-- assigned_machine: chengzigedeAir
-  display_name: 测试小红书
-  id: xhs_7
-  phone: '13800138400'
-  platform: xiaohongshu
->>>>>>> Stashed changes
 version: '1.0'
