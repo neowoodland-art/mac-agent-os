@@ -2532,18 +2532,21 @@ async function loadSmsAccounts() {
           const platRow = (a) => {
             const icon = a.platform === 'xiaohongshu' ? '📕' : '🎵';
             const platName = a.platform === 'xiaohongshu' ? '小红书' : '抖音';
-            // 模拟设备信息
-            const deviceMap = {douyin:'iPad Pro (iOS)', xiaohongshu:'iPhone 15 (iOS)'};
-            const device = deviceMap[a.platform] || 'Windows Chrome';
+            // 指纹模拟信息
+            const fp = a.fingerprint || {};
+            const fpPlatform = fp.platform || 'Win32';
+            const fpScreen = fp.screen || '1920x1080';
+            const fpGPU = fp.gpu || 'Intel Iris';
+            const fpSummary = fpPlatform + ' | ' + fpScreen + ' | ' + fpGPU;
             return '<div style="display:flex;align-items:center;gap:3px;padding:3px 0;border-bottom:1px solid #1e2035">'+
               '<span style="width:38px;font-size:10px">'+icon+' '+platName+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_cookie)+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_profile)+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_registry)+'</span>'+
               '<span style="width:28px;font-size:9px;color:#8b8fa3;text-align:center">'+(recStats[a.id]||0)+'次</span>'+
-              '<span style="flex:1;font-size:10px;color:#8b8fa3;overflow:hidden;text-overflow:ellipsis" title="'+device+'">'+a.nickname+'</span>'+
+              '<span style="flex:1;font-size:10px;color:#8b8fa3;overflow:hidden;text-overflow:ellipsis" title="指纹: '+fpSummary+'">'+a.nickname+'</span>'+
               '<span style="width:36px;font-size:9px;color:#8b8fa3;text-align:center" title="粉丝">📊'+fmtNum(a.fans)+'</span>'+
-              '<span style="width:30px;font-size:8px;color:#6366f1;text-align:center;overflow:hidden" title="模拟: '+device+'">'+(a.platform==='douyin'?'🅸🅿':'📱')+'</span>'+
+              '<span style="width:60px;font-size:8px;color:#6366f1;text-align:center;overflow:hidden" title="指纹模拟: '+fpSummary+'">'+fpPlatform.slice(0,6)+'</span>'+
               '<button onclick="accountLogin(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="登录">🔑</button>'+
               '<button onclick="clearCookies(\''+a.id+'\',\''+a.platform+'\')" style="background:#5c1a1a;color:#f87171;border:1px solid #5c1a1a;padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="清除登录">🚫</button>'+
               '<button onclick="deleteAccount(\''+a.id+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="删除">🗑</button>'+
@@ -2557,8 +2560,8 @@ async function loadSmsAccounts() {
               '<span style="font-size:9px;color:#8b8fa3">🍪 '+(accts.reduce((s,a)=>s+(a.has_cookie?1:0),0))+'已登录 | 📦 '+recCount+'次录制</span>'+
             '</div>'+
             (interests ? '<div style="font-size:10px;color:#8b8fa3;margin-bottom:4px">🎯 '+interests+(style?' | 💬 '+style:'')+'</div>' : '')+
-            '<div style="display:grid;grid-template-columns:38px 18px 18px 18px 28px 1fr 36px 30px 22px 22px;gap:2px;font-size:9px;color:#8b8fa3;padding:2px 0;border-bottom:1px solid #2a2d3e;margin-bottom:2px">'+
-              '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>录制</span><span>名称</span><span>粉丝</span><span>模拟</span><span></span><span></span>'+
+            '<div style="display:grid;grid-template-columns:38px 18px 18px 18px 28px 1fr 36px 60px 22px 22px;gap:2px;font-size:9px;color:#8b8fa3;padding:2px 0;border-bottom:1px solid #2a2d3e;margin-bottom:2px">'+
+              '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>录制</span><span>名称</span><span>粉丝</span><span>指纹</span><span></span><span></span>'+
             '</div>'+
             accts.map(platRow).join('')+
             '<div style="margin-top:6px;display:flex;gap:4px">'+

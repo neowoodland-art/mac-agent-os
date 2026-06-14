@@ -375,6 +375,18 @@ def api_sms_accounts():
                 following = p.get("following", "?")
 
             st = _account_status(a)
+
+            # 读取指纹信息
+            fingerprint = {}
+            ident_name = a.get("identity_dir") or a.get("identity_hint") or aid
+            cfg_path = IDENTITIES_ROOT / ident_name.replace("identities/", "") / "config.yaml"
+            if cfg_path.exists():
+                try:
+                    import yaml
+                    cfg = yaml.safe_load(cfg_path.read_text())
+                    fingerprint = cfg.get("fingerprint_summary", {}) or {}
+                except: pass
+
             result.append({
                 "id": aid, "phone": phone,
                 "nickname": nick, "platform": a.get("platform", ""),
@@ -388,6 +400,7 @@ def api_sms_accounts():
                 "following": following,
                 "likes": hp_plat.get("likes") or p.get("likes", "?"),
                 "identity_dir": a.get("identity_dir", ""),
+                "fingerprint": fingerprint,
             })
         return {"accounts": result}
     except Exception as e:
