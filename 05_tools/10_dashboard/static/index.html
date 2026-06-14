@@ -258,6 +258,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     <div class="cmd-tab" data-tab="cmd-comment" onclick="switchCmdTab('cmd-comment',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">💬 定向评论</div>
     <div class="cmd-tab" data-tab="cmd-schedule" onclick="switchCmdTab('cmd-schedule',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">⏰ 定时任务</div>
     <div class="cmd-tab" data-tab="cmd-collect" onclick="switchCmdTab('cmd-collect',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">👤 信息采集</div>
+    <div class="cmd-tab" data-tab="cmd-corpus" onclick="switchCmdTab('cmd-corpus',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">📚 语料库</div>
   </div>
   <div id="cmd-run-content" style="display:block">
     <div id="matrixRunContent2"></div>
@@ -308,6 +309,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
       <div id="collectLog" style="font-size:11px;background:#1a1d2e;border-radius:6px;padding:8px;margin-top:4px;max-height:150px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
     </div>
   </div>
+  <div id="cmd-corpus-content" style="display:none"><div id="corpusContent3"></div></div>
   <div id="cmd-comment-content" style="display:none">
     <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">💬 定向评论</div>
@@ -1292,7 +1294,6 @@ async function loadPlugins() {
         {view:'matrix-settings', label:'⚙️ 矩阵设置', sub: [
           {view:'matrix-export', label:'导入导出'},
           {view:'matrix-backup', label:'备份恢复'},
-          {view:'matrix-corpus', label:'语料库'},
         ]},
       ]},
       '智能系统设置': { icon: '⚙️', items: [
@@ -3244,7 +3245,7 @@ function switchCmdTab(tab, el) {
   });
   el.style.borderBottom = '2px solid #6366f1';
   el.style.color = '#e1e4f0';
-  ['cmd-run-content','cmd-comment-content','cmd-schedule-content','cmd-collect-content'].forEach(id => {
+  ['cmd-run-content','cmd-comment-content','cmd-schedule-content','cmd-collect-content','cmd-corpus-content'].forEach(id => {
     document.getElementById(id).style.display = id === tab+'-content' ? 'block' : 'none';
   });
 }
@@ -3280,6 +3281,21 @@ async function loadMatrixCommands() {
         (d.accounts||[]).filter(a => a.is_local).map(a =>
           '<option value="'+a.id+'">'+(a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
     } catch(e) { /* ignore */ }
+  }
+
+  // 语料库 TAB 绑定（同步原始 corpusContent 到 corpusContent3）
+  const corpusEl3 = document.getElementById('corpusContent3');
+  const corpusOrig = document.getElementById('corpusContent');
+  if (corpusEl3 && corpusOrig && !window._corpusObs3) {
+    window._corpusObs3 = new MutationObserver(() => {
+      document.getElementById('corpusContent3').innerHTML = document.getElementById('corpusContent').innerHTML;
+    });
+    window._corpusObs3.observe(corpusOrig, { childList: true, subtree: true, characterData: true });
+    // 首次加载
+    if (typeof loadCorpus === 'function' && !corpusOrig.innerHTML.includes('加载语料库')) {
+      loadCorpus();
+    }
+    corpusEl3.innerHTML = corpusOrig.innerHTML || '<div class="loading">加载语料库...</div>';
   }
 
   // 加载采集模块账号列表
