@@ -62,6 +62,7 @@ class CDPConnector:
         self.window_position = window_position
         
         self._playwright = None
+        self._camoufox = None          # AsyncCamoufox 实例（防止 GC 回收导致连接断开）
         self._camoufox_browser = None  # Camoufox native browser handle
         self.browser = None
         self.context = None
@@ -97,8 +98,8 @@ class CDPConnector:
         
         print(f"🦊 启动 Camoufox (Firefox 135, OS=Windows, headless={self.headless})")
         
-        cf = AsyncCamoufox(**kwargs)
-        self._camoufox_browser = await cf.start()
+        self._camoufox = AsyncCamoufox(**kwargs)
+        self._camoufox_browser = await self._camoufox.start()
         self._is_camoufox_native = True
         
         # Get browser context and page
@@ -257,9 +258,9 @@ class CDPConnector:
         except Exception as e:
             print(f"   ⚠️ xulstore: {e}")
 
-        cf = AsyncCamoufox(**kwargs)
+        self._camoufox = AsyncCamoufox(**kwargs)
         # persistent_context=True 返回的是 BrowserContext（包含已保存状态）
-        ctx = await cf.start()
+        ctx = await self._camoufox.start()
         self._camoufox_browser = ctx
         self._is_camoufox_native = True
         self.context = ctx
@@ -507,7 +508,10 @@ class CDPConnector:
     # ─── 清理 ───────────────────────────────────────────────────
 
     async def close(self):
-        if self._camoufox_browser:
+        # 优先通过 AsyncCamoufox 实例优雅关闭（会依次关浏览器+Playwright驱动）
+        if hasattr(self, '_camoufox') and self._camoufox:
+            await self._camoufox.stop()
+        elif self._camoufox_browser:
             await self._camoufox_browser.close()
         if self._playwright:
             await self._playwright.stop()
