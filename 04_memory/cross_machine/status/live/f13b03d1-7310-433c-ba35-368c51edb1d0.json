@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.54
+    "load_1m": 1.25
   },
   "memory": {
     "total_gb": 0,
@@ -17,12 +17,12 @@
     "used_gb": 92.4,
     "available_gb": 152.7
   },
-  "last_seen": "2026-06-14T04:32:58.121184+00:00",
+  "last_seen": "2026-06-14T04:38:05.879472+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-14T04:32:58.150661+00:00",
+  "_received_at": "2026-06-14T04:38:05.904919+00:00",
   "_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
   "_hostname": "5kechengdeAir",
   "_events": [
@@ -73,6 +73,16 @@
       "timestamp": "2026-06-14T03:52:11.508193+00:00",
       "payload": {
         "summary": "Created autostash: cc10de9693\nMerge made by the 'ort' strategy.\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |   2 +-\n .../ave/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json  |   2 +-\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |   2 +-\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |   6 +-\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      |   2 +-\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json      | 154 ++++++++++++++++-----\n .../d19759cf-2159-4fe7-b6ff-db14ccf379f5.json     ",
+        "hostname": "5kechengdeAir"
+      }
+    },
+    {
+      "id": "ea5cc259-dc63-48a1-9cd4-7b78d964cc93",
+      "type": "sync_updated",
+      "hostname": "5kechengdeAir",
+      "timestamp": "2026-06-14T04:33:05.758690+00:00",
+      "payload": {
+        "summary": "Created autostash: 0094ad1a69\nMerge made by the 'ort' strategy.\n .../data/automation/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json       | 2 +-\n .../data/ave/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json              | 2 +-\n .../data/collector/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json        | 2 +-\n .../data/guardd/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json           | 2 +-\n .../data/knowledge/d19759cf-2159-4fe7-b6ff-db14ccf379f5.json        | 2 +-\n .../data/matrix/d19759cf-2159-4fe7-b6ff-db14ccf379f5.js",
         "hostname": "5kechengdeAir"
       }
     },
