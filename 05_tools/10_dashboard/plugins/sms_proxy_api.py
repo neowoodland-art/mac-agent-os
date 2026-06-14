@@ -310,6 +310,24 @@ def api_sms_accounts():
             try:
                 profiles = json.loads(profiles_path.read_text())
             except: pass
+
+        # ══════════════════════════════════════════════════
+        # 读 homepage_info.json（新采集系统的数据，按 phone 匹配）
+        # ══════════════════════════════════════════════════
+        hp_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "homepage_info.json"
+        hp_map = {}  # phone → {douyin: {}, xiaohongshu: {}}
+        if hp_path.exists():
+            try:
+                hp_data = json.loads(hp_path.read_text())
+                for r in hp_data.get("results", []):
+                    phone = r.get("phone", "")
+                    if phone:
+                        hp_map[phone] = {
+                            "douyin": r.get("douyin") or {},
+                            "xiaohongshu": r.get("xiaohongshu") or {},
+                        }
+            except: pass
+
         result = []
         for a in accounts:
             aid = a["id"]
@@ -319,20 +337,41 @@ def api_sms_accounts():
             profile_plat = p.get("platform", "")
             if profile_plat and profile_plat != acct_plat:
                 p = {}  # 平台不匹配，忽略此 profile
-            nick = p.get("nickname") or a.get("display_name") or aid
+
+            # 优先用 homepage_info.json 的数据（新采集系统）
+            phone = a.get("phone", "")
+            hp_entry = hp_map.get(phone, {})
+            hp_plat = hp_entry.get(acct_plat, {})
+            hp_nick = hp_plat.get("nickname", "")
+            # 过滤无效昵称
+            if hp_nick and ("登录后" in hp_nick or "问点点" in hp_nick or "推荐" in hp_nick):
+                hp_nick = ""
+
+            nick = hp_nick or p.get("nickname") or a.get("display_name") or aid
+            fans = hp_plat.get("fans") or p.get("fans", "?")
+            if fans == "" or fans is None:
+                fans = p.get("fans", "?")
+            posts = hp_plat.get("posts") or p.get("posts", "?")
+            if posts == "" or posts is None:
+                posts = p.get("posts", "?")
+            following = hp_plat.get("following") or p.get("following", "?")
+            if following == "" or following is None:
+                following = p.get("following", "?")
+
             st = _account_status(a)
             result.append({
-                "id": aid, "phone": a.get("phone", ""),
+                "id": aid, "phone": phone,
                 "nickname": nick, "platform": a.get("platform", ""),
                 "is_local": a.get("is_local", False),
                 "has_identity": st["has_identity"],
                 "has_cookie": st["has_cookie"],
                 "has_profile": st["has_profile"],
                 "has_registry": st["has_registry"],
-                "fans": p.get("fans", "?"),
-                "posts": p.get("posts", "?"),
-                "following": p.get("following", "?"),
-                "likes": p.get("likes", "?"),
+                "fans": fans,
+                "posts": posts,
+                "following": following,
+                "likes": hp_plat.get("likes") or p.get("likes", "?"),
+                "identity_dir": a.get("identity_dir", ""),
             })
         return {"accounts": result}
     except Exception as e:
