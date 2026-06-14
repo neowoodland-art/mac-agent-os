@@ -696,6 +696,41 @@ def cmd_login(args):
 
 
 # ════════════════════════════════════════════════════════════
+# 平台插件命令路由
+# ════════════════════════════════════════════════════════════
+
+def cmd_platform(args, plat_name, plat_inst):
+    """路由 mc [platform] [action] 到插件实现"""
+    action = args.action
+    account = args.account or "default"
+    
+    # 参数映射
+    kwargs = {"account_name": account}
+    if action == "publish":
+        kwargs["file_path"] = args.file
+        kwargs["title"] = args.title
+        kwargs["desc"] = args.desc
+    if action == "nurture":
+        kwargs["blueprint"] = args.blueprint
+    
+    # 调用插件方法
+    method = getattr(plat_inst, action, None)
+    if not method:
+        print(f"❌ {plat_name} 不支持 {action}")
+        return
+    
+    result = method(**kwargs)
+    
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False))
+    else:
+        status = result.get("status", "error")
+        icon = "✅" if status == "ok" else "❌"
+        msg = result.get("message") or result.get("output", "")[:100] or status
+        print(f"{icon} [{plat_name}] {action}: {msg}")
+
+
+# ════════════════════════════════════════════════════════════
 # 主解析器
 # ════════════════════════════════════════════════════════════
 
@@ -859,6 +894,27 @@ def build_parser():
     p_login.add_argument("--account", default="", help="按账号ID登录")
     p_login.add_argument("--platform", default="auto", choices=["auto", "douyin", "xiaohongshu"], help="平台")
     p_login.set_defaults(func=cmd_login)
+
+    # ══════════════════════════════════════════════════════
+    # 动态发现平台插件: mc [platform] [action] --account <name>
+    # ══════════════════════════════════════════════════════
+    try:
+        TOOL_DIR = SCRIPTS_DIR.parent
+        sys.path.insert(0, str(TOOL_DIR))
+        from platforms import discover_platforms
+        platforms = discover_platforms()
+        for plat_name, plat_inst in platforms.items():
+            p_plat = sub.add_parser(plat_name, help=f"{plat_inst.display_name} 操作")
+            p_plat.add_argument("action", choices=["login", "collect", "status", "publish", "nurture"],
+                                help="操作类型")
+            p_plat.add_argument("--account", default="", help="账号ID或手机号")
+            p_plat.add_argument("--file", default="", help="发布文件路径")
+            p_plat.add_argument("--title", default="", help="发布标题")
+            p_plat.add_argument("--desc", default="", help="发布描述")
+            p_plat.add_argument("--blueprint", default="daily", help="养号蓝图")
+            p_plat.set_defaults(func=lambda a, pn=plat_name, pi=plat_inst: cmd_platform(a, pn, pi))
+    except Exception as e:
+        pass  # 插件加载失败不影响其他命令
 
     return parser
 
