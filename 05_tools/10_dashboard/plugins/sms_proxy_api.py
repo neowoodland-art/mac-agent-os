@@ -655,6 +655,21 @@ RECORDINGS_DIR = AGENT_LOCAL / "tools" / "matrix" / "recordings"
 _recording_process = None
 
 
+@router.get("/recordings/stats")
+def api_recording_stats():
+    """按账号统计录制包数量"""
+    try:
+        from mc.recorder import RecordingSession
+        recordings = RecordingSession.list_recordings()
+        stats = {}
+        for r in recordings:
+            acct = r.get("account", "unknown")
+            stats[acct] = stats.get(acct, 0) + 1
+        return {"stats": stats}
+    except Exception as e:
+        return {"stats": {}, "error": str(e)}
+
+
 @router.post("/recordings/start")
 def api_recording_start(data: dict = None):
     """启动录制"""

@@ -2409,6 +2409,7 @@ async function loadSmsAccounts() {
       return;
     }
     const accounts = d.accounts || [];
+    window._lastSmsAccounts = d.accounts || [];
     // 下拉框
     sel.innerHTML = '<option value="">— 选择账号 —</option>' +
       accounts.map(a => '<option value="'+a.id+'" data-phone="'+(a.phone||'')+'" data-nick="'+(a.nickname||'')+'">'+
@@ -2429,9 +2430,17 @@ async function loadSmsAccounts() {
           (a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
     }
 
-    // 账号管理卡片（以手机号为单位）
+    // 账号管理卡片（以手机号为单位，含身份信息+录制统计）
     if (overview) {
       const dot = (ok) => ok ? '✅' : '❌';
+      // 加载录制统计
+      let recStats = {};
+      try {
+        const rr = await fetch('/api/matrix/recordings/stats');
+        const rd = await rr.json();
+        recStats = rd.stats || {};
+      } catch(e) { /* ignore */ }
+
       // 按手机号分组
       const groups = {};
       accounts.filter(a => a.is_local).forEach(a => {
@@ -2441,44 +2450,52 @@ async function loadSmsAccounts() {
       });
       const personaData = personas || {};
 
-      overview.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:10px">'+
+      overview.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:10px">'+
         Object.entries(groups).map(([phone, accts]) => {
-          // 取第一个有 identity_dir 的作为共享身份名
           const sharedIdent = accts.find(a => (a.identity_dir||'').startsWith('phone_'))?.identity_dir
             || accts.find(a => a.has_identity)?.id
             || accts[0]?.id;
-          // 取该手机号的人设
           const pid = accts[0]?.id || '';
           const pdata = personaData[pid] || {};
           const interests = (pdata.interests||[]).slice(0,3).join('·');
           const style = (pdata.comment_style||[]).slice(0,2).join('/');
+          // 该身份下录制次数
+          const acctIds = accts.map(a => a.id);
+          const recCount = acctIds.reduce((s, id) => s + (recStats[id] || 0), 0);
 
           const platRow = (a) => {
             const icon = a.platform === 'xiaohongshu' ? '📕' : '🎵';
             const platName = a.platform === 'xiaohongshu' ? '小红书' : '抖音';
-            return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #1e2035">'+
-              '<span style="width:60px">'+icon+' '+platName+'</span>'+
-              '<span style="width:20px">'+dot(a.has_cookie)+'</span>'+
-              '<span style="width:20px">'+dot(a.has_profile)+'</span>'+
-              '<span style="width:20px">'+dot(a.has_registry)+'</span>'+
+            return '<div style="display:flex;align-items:center;gap:4px;padding:3px 0;border-bottom:1px solid #1e2035">'+
+              '<span style="width:50px;font-size:10px">'+icon+' '+platName+'</span>'+
+              '<span style="width:18px;font-size:10px">'+dot(a.has_cookie)+'</span>'+
+              '<span style="width:18px;font-size:10px">'+dot(a.has_profile)+'</span>'+
+              '<span style="width:18px;font-size:10px">'+dot(a.has_registry)+'</span>'+
+              '<span style="width:30px;font-size:9px;color:#8b8fa3;text-align:center">'+(recStats[a.id]||0)+'次</span>'+
               '<span style="flex:1;font-size:10px;color:#8b8fa3;overflow:hidden;text-overflow:ellipsis">'+a.nickname+'</span>'+
-              '<button onclick="accountLogin(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">🔑</button>'+
-              '<button onclick="collectProfile(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">👤</button>'+
-              '<button onclick="clearCookies(\''+a.id+'\',\''+a.platform+'\')" style="background:#5c1a1a;color:#f87171;border:1px solid #5c1a1a;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">🚫</button>'+
-              '<button onclick="deleteAccount(\''+a.id+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">🗑</button>'+
+              '<button onclick="accountLogin(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 5px;border-radius:3px;cursor:pointer;font-size:9px" title="登录">🔑</button>'+
+              '<button onclick="collectProfile(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 5px;border-radius:3px;cursor:pointer;font-size:9px" title="采集">👤</button>'+
+              '<button onclick="clearCookies(\''+a.id+'\',\''+a.platform+'\')" style="background:#5c1a1a;color:#f87171;border:1px solid #5c1a1a;padding:2px 5px;border-radius:3px;cursor:pointer;font-size:9px" title="清除登录">🚫</button>'+
+              '<button onclick="deleteAccount(\''+a.id+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:2px 5px;border-radius:3px;cursor:pointer;font-size:9px" title="删除">🗑</button>'+
             '</div>';
           };
 
           return '<div style="background:#232740;border-radius:8px;padding:10px;border:1px solid #2a2d3e">'+
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
-              '<div><span style="font-weight:700;font-size:14px">📱 '+phone+'</span></div>'+
-              '<span style="font-size:9px;color:#8b8fa3">身份: '+sharedIdent+'</span>'+
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
+              '<div><span style="font-weight:700;font-size:14px">📱 '+phone+'</span>'+
+              '<span style="font-size:9px;color:#8b8fa3;margin-left:6px">🆔 '+sharedIdent+'</span></div>'+
+              '<span style="font-size:9px;color:#8b8fa3">🍪 '+(accts.reduce((s,a)=>s+(a.has_cookie?1:0),0))+'已登录 | 📦 '+recCount+'次录制</span>'+
             '</div>'+
             (interests ? '<div style="font-size:10px;color:#8b8fa3;margin-bottom:4px">🎯 '+interests+(style?' | 💬 '+style:'')+'</div>' : '')+
-            '<div style="display:grid;grid-template-columns:60px 20px 20px 20px 1fr 24px 24px 24px;gap:2px;font-size:9px;color:#8b8fa3;padding:2px 0;border-bottom:1px solid #2a2d3e;margin-bottom:2px">'+
-              '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>名称</span><span></span><span></span><span></span>'+
+            '<div style="display:grid;grid-template-columns:50px 18px 18px 18px 30px 1fr 22px 22px 22px 22px;gap:2px;font-size:9px;color:#8b8fa3;padding:2px 0;border-bottom:1px solid #2a2d3e;margin-bottom:2px">'+
+              '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>录制</span><span>名称</span><span></span><span></span><span></span><span></span>'+
             '</div>'+
             accts.map(platRow).join('')+
+            '<div style="margin-top:6px;display:flex;gap:4px">'+
+              '<button onclick="loginAllPlatforms(\''+phone+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 全部登录</button>'+
+              '<button onclick="collectAllPlatforms(\''+phone+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">👤 全部采集</button>'+
+              '<button onclick="deleteIdentityByPhone(\''+phone+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除整个身份</button>'+
+            '</div>'+
           '</div>';
         }).join('')+'</div>';
     }
@@ -2944,6 +2961,55 @@ async function clearCookies(accountId, platform) {
   } catch(e) {
     if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
+}
+
+// ── 全部登录 / 全部采集 / 删除整个身份 ──
+async function loginAllPlatforms(phone) {
+  const accts = (window._lastSmsAccounts || []).filter(a => a.is_local && a.phone === phone);
+  if (!accts.length) return;
+  if (!confirm('打开浏览器登录 '+phone+' 下所有平台（共 '+accts.length+' 个）？')) return;
+  const statusEl = document.getElementById('collectProfileStatus');
+  for (const a of accts) {
+    if (statusEl) statusEl.innerHTML = '⏳ 正在登录 '+a.id+'...';
+    try {
+      await fetch('/api/matrix/accounts/'+a.id+'/login', { method:'POST' });
+      await new Promise(r => setTimeout(r, 3000));
+    } catch(e) { /* ignore */ }
+  }
+  if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 全部登录已启动</span>';
+}
+
+async function collectAllPlatforms(phone) {
+  const accts = (window._lastSmsAccounts || []).filter(a => a.is_local && a.phone === phone);
+  if (!accts.length) return;
+  if (!confirm('采集 '+phone+' 下所有平台的昵称？')) return;
+  const statusEl = document.getElementById('collectProfileStatus');
+  for (const a of accts) {
+    if (statusEl) statusEl.innerHTML = '⏳ 正在采集 '+a.id+'...';
+    try {
+      await fetch('/api/matrix/accounts/'+a.id+'/collect-profile', { method:'POST' });
+      await new Promise(r => setTimeout(r, 3000));
+    } catch(e) { /* ignore */ }
+  }
+  if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 全部采集已启动，稍后刷新查看</span>';
+  setTimeout(loadSmsAccounts, 10000);
+}
+
+async function deleteIdentityByPhone(phone) {
+  const accts = (window._lastSmsAccounts || []).filter(a => a.is_local && a.phone === phone);
+  if (!accts.length) return;
+  const msg = '⚠️ 确定要删除 '+phone+' 下的所有账号？\n\n将删除 '+accts.length+' 个账号:\n' + accts.map(a => '  - '+a.id+' ('+a.platform+')').join('\n')+'\n\n以及共享身份目录。';
+  if (!confirm(msg)) return;
+  const statusEl = document.getElementById('collectProfileStatus');
+  for (const a of accts) {
+    if (statusEl) statusEl.innerHTML = '⏳ 正在删除 '+a.id+'...';
+    try {
+      await fetch('/api/matrix/accounts/'+a.id+'?delete_identity=true', { method:'DELETE' });
+      await fetch('/api/matrix/accounts/'+a.id+'/cleanup', { method:'POST' });
+    } catch(e) { /* ignore */ }
+  }
+  if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 已删除 '+phone+' 下所有账号</span>';
+  loadSmsAccounts();
 }
 
 // ── 删除账号 ──
