@@ -5,9 +5,12 @@
 用法:
   python publish_video.py douyin --account my_name --file video.mp4 --title "标题" --desc "描述"
   python publish_video.py xiaohongshu --account my_name --file image.jpg --title "标题"
+
+  # 也可调用 social-auto-upload CLI (需先安装)
+  python publish_video.py douyin --account my_name --file video.mp4 --title "标题" --sau
 """
 
-import sys, os, json, asyncio, argparse, logging
+import sys, os, json, asyncio, argparse, logging, subprocess
 from pathlib import Path
 
 # 路径
@@ -189,6 +192,69 @@ async def publish_xiaohongshu(conn, file_path, title, desc):
     return {"status": "ok", "message": "发布流程已启动，请在浏览器中确认"}
 
 
+# ═══════════════════════════════════════════════════════════════
+# social-auto-upload 集成 (sau CLI 调用)
+# ═══════════════════════════════════════════════════════════════
+
+def _find_sau():
+    """查找 sau 可执行文件"""
+    # 1. 本地 path
+    import shutil
+    sau = shutil.which("sau") or shutil.which("sau_cli")
+    if sau:
+        return sau
+    # 2. pip 安装的脚本
+    for p in [Path(sys.prefix) / "bin" / "sau",
+              Path(sys.prefix) / "Scripts" / "sau.exe",
+              Path.home() / ".local" / "bin" / "sau"]:
+        if p.exists():
+            return str(p)
+    return None
+
+
+async def publish_via_sau(args):
+    """通过 social-auto-upload CLI 发布"""
+    sau_path = _find_sau()
+    if not sau_path:
+        return {"status": "error", "message": "social-auto-upload 未安装 (需要: cd social-auto-upload && pip install -e .)"}
+
+    # 构建命令
+    platform_map = {"douyin": "douyin", "xiaohongshu": "xiaohongshu"}
+    action_map = {".mp4": "upload-video", ".avi": "upload-video", ".mov": "upload-video",
+                  ".jpg": "upload-note", ".jpeg": "upload-note", ".png": "upload-note", ".gif": "upload-note"}
+
+    ext = Path(args.file).suffix.lower()
+    action = action_map.get(ext, "upload-video")
+    plat = platform_map.get(args.platform, args.platform)
+
+    cmd = [sys.executable, sau_path, plat, action,
+           "--account", args.account,
+           "--file", args.file if action == "upload-video" else None,
+           "--images", args.file if action == "upload-note" else None,
+           "--title", args.title or "无标题"]
+
+    # 清理 None 参数
+    cmd = [c for c in cmd if c is not None]
+
+    if args.desc:
+        cmd += ["--note" if action == "upload-note" else "--desc", args.desc]
+
+    log.info(f"  🚀 通过 social-auto-upload 发布 ({plat} {action})")
+    log.info(f"  command: {' '.join(str(c) for c in cmd[:8])}...")
+
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        out = p.stdout[-1000:] if p.stdout else ""
+        err = p.stderr[-500:] if p.stderr else ""
+        if p.returncode == 0:
+            return {"status": "ok", "output": out}
+        return {"status": "error", "message": err or out or f"退出码 {p.returncode}"}
+    except subprocess.TimeoutExpired:
+        return {"status": "error", "message": "发布超时 (600s)"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 async def main():
     parser = argparse.ArgumentParser(description="视频/图文发布")
     parser.add_argument("platform", choices=["douyin", "xiaohongshu"], help="平台")
@@ -197,7 +263,12 @@ async def main():
     parser.add_argument("--title", default="", help="标题")
     parser.add_argument("--desc", default="", help="描述/正文")
     parser.add_argument("--json", action="store_true", help="JSON 输出")
+    parser.add_argument("--sau", action="store_true", help="使用 social-auto-upload 引擎 (代替 Camoufox)")
     args = parser.parse_args()
+
+    # 如果启用 social-auto-upload，调用 sau CLI
+    if args.sau:
+        return await publish_via_sau(args)
 
     identity_dir = IDENTITIES_ROOT / args.account
     if not identity_dir.exists():
