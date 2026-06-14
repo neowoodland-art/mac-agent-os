@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.6
+    "load_1m": 1.52
   },
   "memory": {
     "total_gb": 0,
@@ -14,18 +14,28 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 111.6,
-    "available_gb": 133.5
+    "used_gb": 111.7,
+    "available_gb": 133.4
   },
-  "last_seen": "2026-06-14T05:39:05.391600+00:00",
+  "last_seen": "2026-06-14T05:49:36.630082+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-14T05:39:05.416466+00:00",
+  "_received_at": "2026-06-14T05:49:36.654989+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "chengzigedeAir",
   "_events": [
+    {
+      "id": "0a2af149-e857-402b-8be6-5a27f6a2c2d4",
+      "type": "sync_updated",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-14T05:39:21.491528+00:00",
+      "payload": {
+        "summary": "Updating 198cc181b3..8b7014a5d0\nCreated autostash: afae276977\nFast-forward\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../ave/f13b03d1-7310-433c-ba35-368c51edb1d0.json  |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  6 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  8 +--\n .../f13b03d1-7310-433c-ba35-368c51edb1d0.json      |  2 +-\n ...",
+        "hostname": "chengzigedeAir"
+      }
+    },
     {
       "id": "4dfe43d6-b2fc-4d9a-b8c6-8c9c1aa9f123",
       "type": "sync_updated",
