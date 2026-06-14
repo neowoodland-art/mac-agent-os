@@ -1287,86 +1287,19 @@ async def api_matrix_register(data: dict):
     return result
 
 
+# 已迁移至 sms_proxy_api.py — 新版登录/采集 API
 @app.post("/api/matrix/accounts/{account_id}/login")
 async def api_matrix_login(account_id: str):
-    """登录账号 — 启动 Camoufox 浏览器以供手动登录"""
-    try:
-        from matrix_mgmt import MatrixManager
-        mgr = MatrixManager()
-        acct = mgr.get_account(account_id)
-        if not acct:
-            raise HTTPException(404, detail=f"账号 {account_id} 不存在")
-
-        identity_hint = acct.get("identity_hint") or acct.get("identity_dir", "").replace("identities/", "")
-        if not identity_hint:
-            raise HTTPException(400, detail="账号无身份目录")
-        platform = acct.get("platform", "douyin")
-
-        # 后台启动浏览器
-        import asyncio, os
-        MATRIX_DIR = Path(__file__).resolve().parent.parent / "07_matrix"
-        SCRIPTS_DIR = MATRIX_DIR / "scripts"
-        async def _launch():
-            proc = await asyncio.create_subprocess_exec(
-                sys.executable, str(SCRIPTS_DIR / "login_identity.py"),
-                identity_hint, "--platform", platform,
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
-            )
-            await proc.wait()
-        asyncio.create_task(_launch())
-
-        return {"status": "ok", "account_id": account_id, "message": "浏览器已启动，请手动登录"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, detail=str(e))
+    """登录账号（转发到新版 API）"""
+    from plugins.sms_proxy_api import api_account_login
+    return api_account_login(account_id)
 
 
 @app.post("/api/matrix/accounts/{account_id}/collect-profile")
 async def api_matrix_collect_profile(account_id: str):
-    """采集账号主页信息"""
-    try:
-        from matrix_mgmt import MatrixManager
-        mgr = MatrixManager()
-        acct = mgr.get_account(account_id)
-        if not acct:
-            raise HTTPException(404, detail=f"账号 {account_id} 不存在")
-
-        platform = acct.get("platform", "douyin")
-        identity_hint = acct.get("identity_hint") or acct.get("identity_dir", "").replace("identities/", "")
-
-        # 后台运行 mc 采集
-        import asyncio
-        MATRIX_DIR = Path(__file__).resolve().parent.parent / "07_matrix"
-        mc_bin = str(MATRIX_DIR / "mc")
-        blueprint = "douyin_read_profile" if platform == "douyin" else "xiaohongshu_read_profile"
-
-        async def _collect():
-            proc = await asyncio.create_subprocess_exec(
-                "bash", mc_bin, "run",
-                "--accounts", account_id,
-                "--blueprints", blueprint,
-                "--rounds", "1",
-                "--interval", "0-0",
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
-            )
-            await proc.wait()
-        asyncio.create_task(_collect())
-
-        return {"status": "ok", "account_id": account_id, "message": f"采集任务已启动 ({blueprint})"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, detail=str(e))
-
-
-# ═══════════════════════════════════════════
-# 工作流引擎 API
-# ═══════════════════════════════════════════
-
-from workflows import NODE_DEFINITIONS, WORKFLOW_TEMPLATES, get_runner, get_node_categories
+    """采集账号主页信息（转发到新版 API）"""
+    from plugins.sms_proxy_api import api_collect_profile
+    return api_collect_profile(account_id)
 
 
 @app.get("/api/workflow/nodes")

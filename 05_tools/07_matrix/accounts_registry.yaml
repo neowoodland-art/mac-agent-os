@@ -3,6 +3,7 @@ accounts:
   id: douyin_01
   identity_hint: douyin_01_camo
   notes: 测试备注
+  phone: '18513308610'
   phone_mask: 185****8610
   platform: douyin
   window:
@@ -11,11 +12,11 @@ accounts:
   window_position:
   - 0
   - 0
-  phone: '18513308610'
 - assigned_machine: 5kechengdeAir
   id: douyin_02
   identity_hint: douyin_02_camo
   notes: 抖音副号
+  phone: '18500003366'
   phone_mask: 185****3366
   platform: douyin
   window:
@@ -24,11 +25,11 @@ accounts:
   window_position:
   - 400
   - 0
-  phone: '18500003366'
 - assigned_machine: 5kechengdeAir
   id: douyin_camo01
   identity_hint: douyin_camo01
   notes: 抖音三号
+  phone: '15370108283'
   phone_mask: 153****8283
   platform: douyin
   window:
@@ -37,11 +38,11 @@ accounts:
   window_position:
   - 750
   - 0
-  phone: '15370108283'
 - assigned_machine: 5kechengdeAir
   id: xhs_01
   identity_hint: douyin_01_camo
   notes: 小红书（复用 douyin_01 指纹）
+  phone: '18513308610'
   phone_mask: 185****8610
   platform: xiaohongshu
   window:
@@ -50,11 +51,11 @@ accounts:
   window_position:
   - 0
   - 800
-  phone: '18513308610'
 - assigned_machine: 5kechengdeAir
   id: xhs_02
   identity_hint: douyin_02_camo
   notes: 小红书（复用 douyin_02 指纹）
+  phone: '18500003366'
   phone_mask: 185****3366
   platform: xiaohongshu
   window:
@@ -63,11 +64,11 @@ accounts:
   window_position:
   - 400
   - 800
-  phone: '18500003366'
 - assigned_machine: 5kechengdeAir
   id: xhs_03
   identity_hint: douyin_camo01
   notes: 小红书（复用 douyin_camo01 指纹）
+  phone: '15370108283'
   phone_mask: 153****8283
   platform: xiaohongshu
   window:
@@ -76,7 +77,6 @@ accounts:
   window_position:
   - 750
   - 800
-  phone: '15370108283'
 - assigned_machine: 5kechengdeAir
   id: zhihu_01
   identity_hint: ''
@@ -93,6 +93,7 @@ accounts:
   id: douyin_04
   identity_hint: douyin_04
   notes: 抖音四号
+  phone: 185****9083
   phone_mask: 185****9083
   platform: douyin
   window:
@@ -101,11 +102,11 @@ accounts:
   window_position:
   - 1150
   - 0
-  phone: 185****9083
 - assigned_machine: 5kechengdeAir
   id: xhs_04
   identity_hint: douyin_04
   notes: 小红书（共享 douyin_04 身份）
+  phone: 185****9083
   phone_mask: 185****9083
   platform: xiaohongshu
   window:
@@ -114,11 +115,11 @@ accounts:
   window_position:
   - 1150
   - 800
-  phone: 185****9083
 - assigned_machine: 5kechengdeAir
   id: douyin_05
   identity_hint: douyin_05
   notes: 抖音五号
+  phone: 185****9224
   phone_mask: 185****9224
   platform: douyin
   window:
@@ -127,11 +128,11 @@ accounts:
   window_position:
   - 0
   - 1600
-  phone: 185****9224
 - assigned_machine: 5kechengdeAir
   id: xhs_05
   identity_hint: douyin_05
   notes: 小红书（共享 douyin_05 身份）
+  phone: 185****9224
   phone_mask: 185****9224
   platform: xiaohongshu
   window:
@@ -140,11 +141,11 @@ accounts:
   window_position:
   - 400
   - 1600
-  phone: 185****9224
 - assigned_machine: 5kechengdeAir
   id: douyin_06
   identity_hint: douyin_06
   notes: 抖音六号
+  phone: 137****6808
   phone_mask: 137****6808
   platform: douyin
   window:
@@ -153,11 +154,11 @@ accounts:
   window_position:
   - 750
   - 1600
-  phone: 137****6808
 - assigned_machine: 5kechengdeAir
   id: xhs_06
   identity_hint: douyin_06
   notes: 小红书（共享 douyin_06 身份）
+  phone: 137****6808
   phone_mask: 137****6808
   platform: xiaohongshu
   window:
@@ -166,17 +167,24 @@ accounts:
   window_position:
   - 1150
   - 1600
-  phone: 137****6808
 - assigned_machine: chengzigedeAir
   display_name: 测试
   id: douyin_134
   phone: '13800138000'
   platform: douyin
+<<<<<<< Updated upstream
 - assigned_machine: 192.168.31.180
   id: douyin_03
   identity_hint: douyin_03
   notes: douyin 185****9569
   phone_mask: 185****9569
+=======
+- assigned_machine: 192.168.31.226
+  id: douyin_03
+  identity_hint: douyin_03
+  notes: douyin 153****5900
+  phone_mask: 153****5900
+>>>>>>> Stashed changes
   platform: douyin
   window:
   - 702
@@ -184,6 +192,7 @@ accounts:
   window_position:
   - 0
   - 0
+<<<<<<< Updated upstream
 - assigned_machine: 192.168.31.180
   id: xhs_07
   identity_hint: xhs_07
@@ -201,11 +210,51 @@ accounts:
   phone_mask: 153****7926
   assigned_machine: 192.168.31.180
   identity_hint: douyin_07
+=======
+- assigned_machine: 192.168.31.226
+  id: douyin_07
+  identity_hint: douyin_07
+  notes: douyin 138****8100
+  phone_mask: 138****8100
+  platform: douyin
+>>>>>>> Stashed changes
   window:
   - 702
   - 783
   window_position:
   - 0
   - 0
+<<<<<<< Updated upstream
   notes: douyin 153****7926
+=======
+- assigned_machine: 192.168.31.226
+  id: douyin_08
+  identity_hint: douyin_08
+  notes: douyin 138****8200
+  phone_mask: 138****8200
+  platform: douyin
+  window:
+  - 702
+  - 783
+  window_position:
+  - 0
+  - 0
+- assigned_machine: 192.168.31.226
+  id: douyin_09
+  identity_hint: douyin_09
+  notes: douyin 138****8300
+  phone_mask: 138****8300
+  platform: douyin
+  window:
+  - 702
+  - 783
+  window_position:
+  - 0
+  - 0
+- assigned_machine: chengzigedeAir
+  display_name: 测试小红书
+  id: xhs_7
+  phone: '13800138400'
+  platform: xiaohongshu
+>>>>>>> Stashed changes
 version: '1.0'
