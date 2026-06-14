@@ -257,6 +257,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
       <div class="cmd-tab active" data-tab="cmd-run" onclick="switchCmdTab('cmd-run',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:#e1e4f0;margin-bottom:-2px">🚀 批量执行</div>
     <div class="cmd-tab" data-tab="cmd-comment" onclick="switchCmdTab('cmd-comment',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">💬 定向评论</div>
     <div class="cmd-tab" data-tab="cmd-schedule" onclick="switchCmdTab('cmd-schedule',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">⏰ 定时任务</div>
+    <div class="cmd-tab" data-tab="cmd-collect" onclick="switchCmdTab('cmd-collect',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">👤 信息采集</div>
   </div>
   <div id="cmd-run-content" style="display:block">
     <div id="matrixRunContent2"></div>
@@ -280,6 +281,18 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
       </div>
       <div id="scheduleList" style="font-size:12px">加载中...</div>
       <div id="scheduleStatus" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
+    </div>
+  </div>
+  <div id="cmd-collect-content" style="display:none">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">👤 信息采集</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <select id="collectAccount" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:160px"><option value="">选择账号</option></select>
+        <button onclick="cmdCollectProfile()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">👤 执行采集</button>
+        <button onclick="cmdCollectAll()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📋 全部采集</button>
+      </div>
+      <div id="collectStatus" style="font-size:11px;color:#8b8fa3;margin-bottom:4px"></div>
+      <div id="collectLog" style="font-size:11px;background:#1a1d2e;border-radius:6px;padding:8px;max-height:200px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
     </div>
   </div>
   <div id="cmd-comment-content" style="display:none">
@@ -2454,7 +2467,6 @@ async function loadSmsAccounts() {
               '<span style="width:30px;font-size:9px;color:#8b8fa3;text-align:center">'+(recStats[a.id]||0)+'次</span>'+
               '<span style="flex:1;font-size:10px;color:#8b8fa3;overflow:hidden;text-overflow:ellipsis">'+a.nickname+'</span>'+
               '<button onclick="accountLogin(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 5px;border-radius:3px;cursor:pointer;font-size:9px" title="登录">🔑</button>'+
-              '<button onclick="collectProfile(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 5px;border-radius:3px;cursor:pointer;font-size:9px" title="采集">👤</button>'+
               '<button onclick="clearCookies(\''+a.id+'\',\''+a.platform+'\')" style="background:#5c1a1a;color:#f87171;border:1px solid #5c1a1a;padding:2px 5px;border-radius:3px;cursor:pointer;font-size:9px" title="清除登录">🚫</button>'+
               '<button onclick="deleteAccount(\''+a.id+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:2px 5px;border-radius:3px;cursor:pointer;font-size:9px" title="删除">🗑</button>'+
             '</div>';
@@ -2467,11 +2479,12 @@ async function loadSmsAccounts() {
               '<span style="font-size:9px;color:#8b8fa3">🍪 '+(accts.reduce((s,a)=>s+(a.has_cookie?1:0),0))+'已登录 | 📦 '+recCount+'次录制</span>'+
             '</div>'+
             (interests ? '<div style="font-size:10px;color:#8b8fa3;margin-bottom:4px">🎯 '+interests+(style?' | 💬 '+style:'')+'</div>' : '')+
-            '<div style="display:grid;grid-template-columns:50px 18px 18px 18px 30px 1fr 22px 22px 22px 22px;gap:2px;font-size:9px;color:#8b8fa3;padding:2px 0;border-bottom:1px solid #2a2d3e;margin-bottom:2px">'+
-              '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>录制</span><span>名称</span><span></span><span></span><span></span><span></span>'+
+            '<div style="display:grid;grid-template-columns:50px 18px 18px 18px 30px 1fr 22px 22px 22px;gap:2px;font-size:9px;color:#8b8fa3;padding:2px 0;border-bottom:1px solid #2a2d3e;margin-bottom:2px">'+
+              '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>录制</span><span>名称</span><span></span><span></span><span></span>'+
             '</div>'+
             accts.map(platRow).join('')+
             '<div style="margin-top:6px;display:flex;gap:4px">'+
+              '<button onclick="loadSmsAccounts()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新展示</button>'+
               '<button onclick="loginAllPlatforms(\''+phone+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 全部登录</button>'+
               '<button onclick="collectAllPlatforms(\''+phone+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">👤 全部采集</button>'+
               '<button onclick="deleteIdentityByPhone(\''+phone+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除整个身份</button>'+
@@ -3215,7 +3228,7 @@ function switchCmdTab(tab, el) {
   });
   el.style.borderBottom = '2px solid #6366f1';
   el.style.color = '#e1e4f0';
-  ['cmd-run-content','cmd-comment-content','cmd-schedule-content'].forEach(id => {
+  ['cmd-run-content','cmd-comment-content','cmd-schedule-content','cmd-collect-content'].forEach(id => {
     document.getElementById(id).style.display = id === tab+'-content' ? 'block' : 'none';
   });
 }
@@ -3248,6 +3261,18 @@ async function loadMatrixCommands() {
       const r = await fetch('/api/matrix/sms/accounts');
       const d = await r.json();
       schedAcct.innerHTML = '<option value="">选账号</option>' +
+        (d.accounts||[]).filter(a => a.is_local).map(a =>
+          '<option value="'+a.id+'">'+(a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
+    } catch(e) { /* ignore */ }
+  }
+
+  // 填充采集任务账号下拉
+  const collectSel = document.getElementById('collectAccount');
+  if (collectSel) {
+    try {
+      const r = await fetch('/api/matrix/sms/accounts');
+      const d = await r.json();
+      collectSel.innerHTML = '<option value="">选择账号</option>' +
         (d.accounts||[]).filter(a => a.is_local).map(a =>
           '<option value="'+a.id+'">'+(a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
     } catch(e) { /* ignore */ }
@@ -3288,6 +3313,71 @@ async function cmdRunCommentTask() {
       }
     }
   } catch(e) { if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>'; }
+}
+
+// ════════════════════════════════════════════════════════
+// 信息采集
+// ════════════════════════════════════════════════════════
+
+async function cmdCollectProfile() {
+  const sel = document.getElementById('collectAccount');
+  const statusEl = document.getElementById('collectStatus');
+  const logEl = document.getElementById('collectLog');
+  if (!sel || !sel.value) { alert('请选择要采集的账号'); return; }
+  const aid = sel.value;
+  if (statusEl) statusEl.innerHTML = '⏳ 正在采集 ' + aid + '...';
+  if (logEl) logEl.textContent = '⏳ 启动采集...\n';
+  try {
+    const r = await fetch('/api/matrix/accounts/' + aid + '/collect-profile', { method: 'POST' });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 采集已启动 (PID ' + d.pid + ')，浏览器打开中...</span>';
+      if (logEl) logEl.textContent += '✅ 采集进程已启动\n⏳ 等待采集完成（约30-60秒）...\n';
+      // 轮询采集结果
+      setTimeout(async () => {
+        if (logEl) logEl.textContent += '🔄 检查采集结果...\n';
+        if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 采集完成！查看下方数据</span>';
+        // 刷新账号列表以显示最新数据
+        if (typeof loadSmsAccounts === 'function') loadSmsAccounts();
+      }, 30000);
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + (d.error || '采集失败') + '</span>';
+      if (logEl) logEl.textContent += '❌ ' + (d.error || '采集失败') + '\n';
+    }
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + e.message + '</span>';
+    if (logEl) logEl.textContent += '❌ ' + e.message + '\n';
+  }
+}
+
+async function cmdCollectAll() {
+  const statusEl = document.getElementById('collectStatus');
+  const logEl = document.getElementById('collectLog');
+  if (statusEl) statusEl.innerHTML = '⏳ 正在采集所有账号...';
+  if (logEl) logEl.textContent = '';
+  try {
+    const r = await fetch('/api/matrix/sms/accounts');
+    const d = await r.json();
+    const local = (d.accounts || []).filter(a => a.is_local);
+    if (logEl) logEl.textContent += '📋 共 ' + local.length + ' 个本机账号\n';
+    for (const a of local) {
+      if (logEl) logEl.textContent += '⏳ 采集 ' + a.id + '...\n';
+      try {
+        const rr = await fetch('/api/matrix/accounts/' + a.id + '/collect-profile', { method: 'POST' });
+        const dd = await rr.json();
+        if (logEl) logEl.textContent += (dd.status === 'ok' ? '✅ 已启动' : '❌ ' + (dd.error || '失败')) + '\n';
+        await new Promise(r => setTimeout(r, 5000));
+      } catch (e) {
+        if (logEl) logEl.textContent += '❌ ' + e.message + '\n';
+      }
+    }
+    if (logEl) logEl.textContent += '✅ 全部采集完成！（等待30秒后刷新数据）\n';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 全部采集完成</span>';
+    setTimeout(() => { if (typeof loadSmsAccounts === 'function') loadSmsAccounts(); }, 30000);
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + e.message + '</span>';
+    if (logEl) logEl.textContent += '❌ ' + e.message + '\n';
+  }
 }
 
 // ════════════════════════════════════════════════════════
