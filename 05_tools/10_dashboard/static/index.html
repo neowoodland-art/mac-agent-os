@@ -1632,6 +1632,7 @@ function batchPreview() {
     if (mix) cmd += ' --mix';
     if (corpus.length) cmd += ` --corpus ${corpus.join(',')}`;
     cmd += ` --proxy ${proxy}`;
+    cmd += ` --keep`;
 
     // 保存到全局，供 batchExecute 使用
     _lastPreview.accts = accts;

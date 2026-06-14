@@ -555,6 +555,22 @@ def api_schedule_history():
     return {"history": read_history(limit=20)}
 
 
+@router.get("/corpus/personas")
+def api_corpus_personas():
+    """列出语料库中的身份（v2格式）"""
+    from mc.corpus import CorpusManager
+    cm = CorpusManager()
+    return {"personas": cm.list_personas()}
+
+
+@router.get("/corpus/scenes")
+def api_corpus_scenes(persona: str = ""):
+    """列出语料库中的场景（v2格式）"""
+    from mc.corpus import CorpusManager
+    cm = CorpusManager()
+    return {"scenes": cm.list_scenes(persona) if not persona else cm.list_scenes(persona)}
+
+
 @router.get("/personas")
 def api_personas():
     pf = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"

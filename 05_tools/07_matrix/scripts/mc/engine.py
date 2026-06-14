@@ -199,6 +199,18 @@ class BatchEngine:
             if "@url" in v:
                 url = self.task_params.get("url", "")
                 resolved[k] = v.replace("@url", url)
+            if "@scene" in v:
+                scene = self.task_params.get("scene", "first_comment")
+                from mc.corpus import CorpusManager
+                cm = CorpusManager()
+                text = cm.get_comment_for_scene(
+                    persona=self.task_params.get("persona", ""),
+                    scene=scene,
+                    keyword=self.task_params.get("keyword", ""),
+                    round_num=self.task_params.get("round_num", 1),
+                )
+                if text:
+                    resolved[k] = v.replace("@scene", text)
         return resolved
 
     async def _run_acct_on_conn(self, account_info: dict, blueprint_name: str,

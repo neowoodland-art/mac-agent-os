@@ -354,6 +354,77 @@ class CorpusManager:
             return persona.get("search_keywords", [])
         return []
 
+    # ── v2 格式支持 ────────────────────────────────────────
+
+    def list_personas(self) -> list:
+        """列出所有身份（v2格式）"""
+        result = []
+        for platform in ["douyin", "xiaohongshu"]:
+            data = self._load(platform)
+            for pid, info in data.get("personas", {}).items():
+                result.append({
+                    "platform": platform,
+                    "id": pid,
+                    "name": info.get("name", pid),
+                    "tags": info.get("tags", []),
+                    "style": info.get("style", ""),
+                })
+        return result
+
+    def list_scenes(self, persona_id: str = None) -> list:
+        """列出所有场景（v2格式）"""
+        scenes_set = {}
+        for platform in ["douyin", "xiaohongshu"]:
+            data = self._load(platform)
+            for pid, pinfo in data.get("personas", {}).items():
+                if persona_id and pid != persona_id:
+                    continue
+                for scene_id, sinfo in data.get("scenes", {}).items():
+                    key = f"{pid}.{scene_id}"
+                    if key not in scenes_set:
+                        scenes_set[key] = {
+                            "persona": pid,
+                            "id": scene_id,
+                            "label": sinfo.get("label", scene_id),
+                            "rounds": sinfo.get("rounds", 1),
+                        }
+        return list(scenes_set.values())
+
+    def get_comment_for_scene(self, persona: str, scene: str,
+                               keyword: str = "", round_num: int = 1) -> Optional[str]:
+        """根据身份和场景获取评论（v2格式）
+
+        Args:
+            persona: 身份ID（如 health_lover）
+            scene: 场景ID（如 first_comment）
+            keyword: 关键词
+            round_num: 多轮对话第几轮
+
+        Returns:
+            评论文本，或 None
+        """
+        for platform in ["douyin", "xiaohongshu"]:
+            data = self._load(platform)
+            content = data.get("content", {})
+            # 尝试精确匹配 persona.scene
+            key = f"{persona}.{scene}"
+            if key in content:
+                items = content[key]
+                if isinstance(items, list):
+                    return random.choice(items).replace("{keyword}", keyword) if items else None
+                # 多轮格式
+                round_key = f"round_{round_num}"
+                if isinstance(items, dict) and round_key in items:
+                    round_items = items[round_key]
+                    if round_items:
+                        return random.choice(round_items).replace("{keyword}", keyword)
+            # 尝试匹配 scene 但不限定 persona
+            for ck, cv in content.items():
+                if ck.endswith(f".{scene}"):
+                    if isinstance(cv, list) and cv:
+                        return random.choice(cv).replace("{keyword}", keyword)
+        return None
+
     # ── 语料查询 ──────────────────────────────────────────
 
     def list_categories(self) -> list:
