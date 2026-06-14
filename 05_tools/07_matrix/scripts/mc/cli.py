@@ -380,17 +380,39 @@ def cmd_status(args):
     from matrix_mgmt import MatrixManager
     mgr = MatrixManager()
 
+    # 读取主页采集信息
+    hp_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "homepage_info.json"
+    hp_data = {}
+    if hp_path.exists():
+        try:
+            hp_data = json.loads(hp_path.read_text())
+        except: pass
+
+    info = mgr.system_info()
+    
+    if args.json:
+        # JSON 输出: 整合系统信息 + 采集信息 + 账号列表
+        result = {
+            "system": info,
+            "collected_at": hp_data.get("collected_at", ""),
+            "accounts": mgr.list_accounts(),
+            "homepage": hp_data.get("results", []),
+        }
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+
+    # 文本输出
     if args.action in ("all", "accounts"):
-        info = mgr.system_info()
         print(f"\n📊 系统状态:")
         print(f"   总账号: {info['total_accounts']}")
         print(f"   已启用: {info['enabled_accounts']}")
         print(f"   已登录: {info['logged_in_accounts']}")
         print(f"   身份目录: {info['identity_dirs']}")
         print(f"   蓝图: {info['blueprints']}")
+        if hp_data.get("collected_at"):
+            print(f"   最后采集: {hp_data['collected_at'][:19]}")
 
     if args.action in ("all", "browsers"):
-        # 检查残留浏览器进程
         import subprocess
         result = subprocess.run(["pgrep", "-fl", "camoufox|firefox"], capture_output=True, text=True)
         procs = [l for l in result.stdout.split("\n") if l.strip()]
@@ -848,7 +870,8 @@ def main():
     # ── 关闭 FastAPI logger 的噪音 ──
     logging.getLogger().setLevel(logging.INFO if args.verbose else logging.WARNING)
 
-    print_banner()
+    if not args.json:
+        print_banner()
     if hasattr(args, "func"):
         args.func(args)
     else:
