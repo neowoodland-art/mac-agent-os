@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 1.74
+    "load_1m": 1.13
   },
   "memory": {
     "total_gb": 0,
@@ -17,12 +17,20 @@
     "used_gb": 113.1,
     "available_gb": 132.0
   },
+<<<<<<< Updated upstream
   "last_seen": "2026-06-14T10:46:04.774933+00:00",
+=======
+  "last_seen": "2026-06-14T14:03:30.103234+00:00",
+>>>>>>> Stashed changes
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
+<<<<<<< Updated upstream
   "_received_at": "2026-06-14T10:46:04.799933+00:00",
+=======
+  "_received_at": "2026-06-14T14:03:30.127762+00:00",
+>>>>>>> Stashed changes
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "chengzigedeAir",
   "_events": [
