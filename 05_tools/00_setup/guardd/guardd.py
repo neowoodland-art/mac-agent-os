@@ -28,7 +28,8 @@ _guardd_start_time = time.time()
 # ── 路径常量 ──────────────────────────────────────────────
 AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
 AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
-DIR_CROSS = AGENT_SYNC / "04_memory" / "cross_machine"
+# ── 改造: 心跳数据写本机 local 目录, 不再污染 Gitee ──
+DIR_CROSS = AGENT_LOCAL / "runtime" / "guardd"
 HOSTNAME = os.uname().nodename
 
 # ── 缓存 hostname 到文件, 防止 IP 变化导致身份漂移 ──
@@ -420,7 +421,9 @@ def module_heartbeat():
     _push_to_dashboard(heartbeat)
 
     # ── Git 同步: 将本机数据推送到远程, 拉取其他机器的数据 ──
-    _git_sync()
+    # ── 不再往 Gitee 写心跳文件, 改用本机 local 存储 ──
+    # _git_sync()
+    # ── 改为写本地状态文件 ──
 
     # ── Override 同步: 检查本机新账号并自动补全 ──
     _sync_account_override()

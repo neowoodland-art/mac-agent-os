@@ -7,7 +7,7 @@ import json, os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from plugins.base import DashboardPlugin, CROSS_MACHINE, MACHINE_UID, HOSTNAME
+from plugins.base import DashboardPlugin, CROSS_MACHINE, MACHINE_UID, HOSTNAME, AGENT_LOCAL
 from plugins._registry import get_machine_list
 
 # ── WPRA v2.0 路径 ────────────────────────────────
@@ -140,11 +140,12 @@ class GuarddPlugin(DashboardPlugin):
         return machines
 
     def _read_plugin_data(self):
-        """补充数据源: cross_machine/data/*/{uid}.json"""
-        data_dir = CROSS_MACHINE / "data"
+        """补充数据源: 本机 guardd 状态 (local) + 旧 cross_machine/data/ (兼容)"""
+        # 新: 本机 local 目录
+        local_guardd = AGENT_LOCAL / "runtime" / "guardd" / "data"
         machines = {}
-        if data_dir.exists():
-            for plugin_dir in data_dir.iterdir():
+        if local_guardd.exists():
+            for plugin_dir in local_guardd.iterdir():
                 if not plugin_dir.is_dir():
                     continue
                 for f in plugin_dir.iterdir():
@@ -155,9 +156,23 @@ class GuarddPlugin(DashboardPlugin):
                             hn = d.get("hostname", "")
                             if uid and hn:
                                 if uid not in machines:
-                                    machines[uid] = {"hostname": hn, "uid": uid, "source": "plugin_data"}
-                        except:
-                            pass
+                                    machines[uid] = {"hostname": hn, "uid": uid, "source": "local_guardd"}
+                        except: pass
+        # 旧: cross_machine/data/ (兼容旧数据)
+        data_dir = CROSS_MACHINE / "data"
+        if data_dir.exists():
+            for plugin_dir in data_dir.iterdir():
+                if not plugin_dir.is_dir():
+                    continue
+                for f in plugin_dir.iterdir():
+                    if f.suffix == ".json":
+                        try:
+                            d = json.loads(f.read_text())
+                            uid = d.get("machine_uid", "")
+                            hn = d.get("hostname", "")
+                            if uid and hn and uid not in machines:
+                                machines[uid] = {"hostname": hn, "uid": uid, "source": "legacy_cross_machine"}
+                        except: pass
         return list(machines.values())
 
     # ═══════════════════════════════════════════════════════

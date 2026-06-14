@@ -110,3 +110,6 @@ agent-os.code-workspace
 
 # 多机共享注册表（已迁移到 machines/*/ 方式，旧文件冲突不断，排除）
 04_memory/cross_machine/status/live/_registry.json
+
+# guardd 心跳数据 (已迁移到本机 local 目录, 不再提交 Gitee)
+04_memory/cross_machine/data/
