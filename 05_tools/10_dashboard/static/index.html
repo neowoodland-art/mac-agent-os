@@ -286,6 +286,10 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
       <div style="font-weight:600;font-size:13px;margin-bottom:6px">📊 执行历史 <span style="font-size:11px;color:#8b8fa3;font-weight:400">最近10条</span></div>
       <div id="scheduleHistory" style="font-size:11px">加载中...</div>
     </div>
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:8px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px">🤖 WorkBuddy 自动化任务 <span style="font-size:11px;color:#8b8fa3;font-weight:400">（跨机器智能体任务）</span></div>
+      <div id="autoTasksSummary" style="font-size:12px">加载中...</div>
+    </div>
     <div style="display:flex;gap:6px;font-size:11px;color:#8b8fa3">
       <span>调度器状态：<span id="scheduleStatus">检查中...</span></span>
       <button onclick="refreshScheduleList()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新</button>
@@ -3458,6 +3462,28 @@ async function cmdRunCommentTask() {
   } catch(e) { if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>'; }
 }
 
+// ── 从定时任务页面创建 WorkBuddy 任务 ──
+async function createAutoTaskFromSchedule() {
+  const target = document.getElementById('autoNewTarget')?.value;
+  const prompt = document.getElementById('autoNewPrompt')?.value.trim();
+  if (!target) { alert('请选择目标机器'); return; }
+  if (!prompt) { alert('请输入提示词'); return; }
+  try {
+    const r = await fetch('/api/kb/automations', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({target, type:'custom', params:prompt})
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      alert('✅ 任务已创建');
+      document.getElementById('autoNewPrompt').value = '';
+      refreshScheduleList();
+    } else {
+      alert('❌ ' + (d.error || '创建失败'));
+    }
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
 // ════════════════════════════════════════════════════════
 // 信息采集（三维选择）
 // ════════════════════════════════════════════════════════
@@ -3653,6 +3679,56 @@ async function refreshScheduleList() {
   }
   // 调度器状态
   if (statusEl) statusEl.innerHTML = '<span style="color:#8b8fa3">需手动启动: mc schedule start</span>';
+  // 加载 WorkBuddy 自动化任务
+  const autoEl = document.getElementById('autoTasksSummary');
+  if (autoEl) {
+    try {
+      const r = await fetch('/api/kb/automations');
+      const d = await r.json();
+      const machines = d.machines || {};
+      const entries = Object.entries(machines);
+      if (!entries.length) {
+        autoEl.innerHTML = '<div style="color:#8b8fa3;font-size:11px;padding:4px 0">暂无自动化任务</div>' +
+          '<div style="margin-top:8px;display:flex;gap:6px"><select id="autoNewTarget" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 8px;border-radius:4px;font-size:11px">' +
+          '<option value="">选目标机器</option>' +
+          Object.keys(machines).map(m => '<option value="'+m+'">'+m+'</option>').join('') +
+          '</select>' +
+          '<input id="autoNewPrompt" placeholder="输入提示词..." style="flex:1;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 8px;border-radius:4px;font-size:11px">' +
+          '<button onclick="createAutoTaskFromSchedule()" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">+ 创建任务</button></div>';
+      } else {
+        let html = entries.map(([machine, tasks]) => {
+          const wbTasks = tasks.filter(t => t.source_type === 'workbuddy');
+          if (!wbTasks.length) return '';
+          return '<div style="margin-bottom:6px">' +
+            '<div style="font-weight:600;font-size:11px;color:#6366f1;margin-bottom:3px">💻 ' + machine + '</div>' +
+            wbTasks.map(t => {
+              const prompt = t.prompt || t.name || '';
+              return '<div style="padding:3px 6px;font-size:10px;background:#232740;border-radius:4px;margin-bottom:3px;border:1px solid #2a2d3e">' +
+                '<div style="display:flex;justify-content:space-between">' +
+                '<span style="color:' + (t.status === 'ACTIVE' ? '#22c55e' : '#8b8fa3') + '">' + (t.status === 'ACTIVE' ? '▶ 运行中' : '⏸ 暂停') + '</span>' +
+                '<span style="color:#8b8fa3">' + (t.rrule || t.scheduleType || '即时') + '</span>' +
+                '</div>' +
+                '<div style="margin-top:2px;color:#e1e4f0;word-break:break-all">' + (prompt.slice(0, 120) + (prompt.length > 120 ? '...' : '')) + '</div>' +
+                '</div>';
+            }).join('') +
+            '</div>';
+        }).filter(Boolean).join('');
+        if (!html) html = '<div style="color:#8b8fa3;font-size:11px;padding:4px 0">无 WorkBuddy 任务</div>';
+        // 新建任务表单
+        html += '<div style="margin-top:8px;padding:6px;background:#1e2035;border-radius:4px">' +
+          '<div style="font-size:11px;font-weight:600;margin-bottom:4px">✏️ 新建自动化任务</div>' +
+          '<div style="display:flex;gap:6px">' +
+          '<select id="autoNewTarget" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 8px;border-radius:3px;font-size:10px;width:120px">' +
+          '<option value="">选目标</option>' +
+          Object.keys(machines).map(m => '<option value="'+m+'">'+m+'</option>').join('') +
+          '</select>' +
+          '<input id="autoNewPrompt" placeholder="输入提示词，描述要执行的任务..." style="flex:1;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 8px;border-radius:3px;font-size:10px">' +
+          '<button onclick="createAutoTaskFromSchedule()" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:10px">+ 创建</button>' +
+          '</div></div>';
+        autoEl.innerHTML = html;
+      }
+    } catch(e) { autoEl.innerHTML = '<span style="color:#8b8fa3;font-size:11px">自动化任务API不可用</span>'; }
+  }
 }
 
 async function scheduleAdd() {
