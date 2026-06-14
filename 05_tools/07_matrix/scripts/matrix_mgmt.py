@@ -187,6 +187,136 @@ class MatrixManager:
         return result
 
     # ═══════════════════════════════════════════════════════════
+    # 身份管理（v5.2 新增）
+    # ═══════════════════════════════════════════════════════════
+
+    def get_identities(self) -> list[dict]:
+        """返回本机所有身份的聚合视图
+        
+        一个身份 = 一个 identity_dir，可包含多个平台账号
+        按 身份目录 分组，展示手机号/平台账号/登录状态
+        """
+        accounts = self.list_accounts()
+        # 只聚合本机账号
+        local_accounts = [a for a in accounts if a.get("is_local")]
+        
+        # 按 identity_dir 分组
+        groups = {}
+        for a in local_accounts:
+            aid = a["id"]
+            identity_dir = None
+            
+            # 从本地 accounts.yaml 读 identity_dir
+            legacy_accounts = self._read_accounts_yaml()
+            for la in legacy_accounts:
+                if la["id"] == aid:
+                    id_dir = la.get("identity_dir", "")
+                    if id_dir:
+                        identity_dir = id_dir.replace("identities/", "")
+                    break
+            
+            if not identity_dir:
+                identity_dir = a.get("identity_hint", aid)
+            
+            if identity_dir not in groups:
+                groups[identity_dir] = {
+                    "identity_dir": identity_dir,
+                    "phone": "",
+                    "accounts": [],
+                    "has_cookie": False,
+                }
+            
+            phone = a.get("phone", a.get("phone_mask", ""))
+            if phone and not groups[identity_dir]["phone"]:
+                groups[identity_dir]["phone"] = phone
+            
+            # 检查身份目录是否存在和有 Cookie
+            id_path = MATRIX_IDENTITIES / identity_dir
+            cookie_file = id_path / "user_data" / "cookies.sqlite"
+            has_cookie = cookie_file.exists() and cookie_file.stat().st_size > 0
+            if has_cookie:
+                groups[identity_dir]["has_cookie"] = True
+            
+            groups[identity_dir]["accounts"].append({
+                "id": aid,
+                "platform": a.get("platform", ""),
+                "status": a.get("_status", "unknown"),
+                "phone": a.get("phone", a.get("phone_mask", "")),
+            })
+        
+        return list(groups.values())
+
+    def unbind_account(self, account_id: str) -> dict:
+        """从身份中解绑单个平台账号（保留 Cookie/身份目录）
+        
+        适用场景: 同一身份下有多个平台账号，只想移除其中一个
+        """
+        accounts = self._read_accounts_yaml()
+        found = None
+        for acct in accounts:
+            if acct["id"] == account_id:
+                found = acct
+                break
+        if not found:
+            raise ValueError(f"账号 {account_id} 不存在")
+        
+        # 从本机配置移除
+        accounts.remove(found)
+        self._write_accounts_yaml(accounts)
+        
+        # 同步 WPRA
+        self._write_self_accounts()
+        
+        return {
+            "status": "ok",
+            "account_id": account_id,
+            "identity_preserved": True,
+            "note": "账号已解绑，身份目录和Cookie已保留",
+        }
+
+    def delete_identity(self, identity_dir: str) -> dict:
+        """删除整个身份（身份目录 + 旗下所有账号）
+        
+        适用场景: 彻底移除一个手机号的所有账号和浏览器指纹
+        """
+        # 1. 获取该身份下的所有账号
+        accounts = self._read_accounts_yaml()
+        to_remove = []
+        for acct in accounts:
+            id_dir = acct.get("identity_dir", "").replace("identities/", "")
+            if id_dir == identity_dir or acct["id"] == identity_dir:
+                to_remove.append(acct)
+        
+        removed_ids = [a["id"] for a in to_remove]
+        
+        # 2. 从配置中移除
+        accounts = [a for a in accounts if a["id"] not in removed_ids]
+        self._write_accounts_yaml(accounts)
+        
+        # 3. 同步 WPRA
+        self._write_self_accounts()
+        
+        # 4. 删除身份目录
+        id_path = MATRIX_IDENTITIES / identity_dir
+        identity_deleted = False
+        if id_path.exists():
+            shutil.rmtree(id_path)
+            identity_deleted = True
+        
+        # 5. 删除 Cookie 备份
+        backup_dir = MATRIX_BACKUPS / "cookies" / identity_dir
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
+        
+        return {
+            "status": "ok",
+            "identity_dir": identity_dir,
+            "removed_accounts": removed_ids,
+            "account_count": len(to_remove),
+            "identity_deleted": identity_deleted,
+        }
+
+    # ═══════════════════════════════════════════════════════════
     # 账号操作
     # ═══════════════════════════════════════════════════════════
 

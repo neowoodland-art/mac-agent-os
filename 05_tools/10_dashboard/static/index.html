@@ -57,6 +57,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .kb-tab:hover { background: #232740; color: #e1e4f0; }
 .kb-tab.active { background: #6366f1; color: #fff; border-color: #6366f1; }
 .kb-tab-body { min-height: 200px; }
+
+/* Account management tabs */
+.acct-tab { padding: 5px 12px; border-radius: 5px; cursor: pointer; background: #1a1d2e; color: #8b8fa3; border: 1px solid #2a2d3e; font-size: 12px; transition: .15s; }
+.acct-tab:hover { background: #232740; color: #e1e4f0; }
+.acct-tab.active { background: #6366f1; color: #fff; border-color: #6366f1; }
 .main { flex: 1; padding: 24px 32px; overflow-y: auto; max-height: 100vh; }
 
 /* Stats */
@@ -302,11 +307,16 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 
 <!-- Matrix account management view -->
 <div id="view-matrix-accounts" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">👤 账号总览</h2>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="font-size:18px">👤 账号管理</h2>
     <button class="btn btn-primary btn-sm" onclick="showCreateAccount()">+ 新建账号</button>
   </div>
-  <div id="matrixAccountsContent"><div class="loading">加载中...</div></div>
+  <div style="display:flex;gap:4px;margin-bottom:12px">
+    <div class="acct-tab active" onclick="acctSwitchTab('list',this)">📋 账号列表</div>
+    <div class="acct-tab" onclick="acctSwitchTab('identity',this)">🔑 身份管理</div>
+  </div>
+  <div id="acct-tab-list"><div id="matrixAccountsContent"><div class="loading">加载中...</div></div></div>
+  <div id="acct-tab-identity" style="display:none"><div id="matrixIdentityContent"><div class="loading">加载中...</div></div></div>
 </div>
 
 <!-- Matrix blueprints view -->
@@ -1661,6 +1671,83 @@ async function batchExecute() {
 
 async function loadMatrixAccounts() {
   const el = document.getElementById('matrixAccountsContent');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/matrix/accounts');
+    const data = await r.json();
+    renderAccountsTable(data, el);
+  } catch(e) { el.innerHTML = `<span style="color:#ef4444">${e.message}</span>`; }
+}
+
+// ── 身份管理 ──
+async function loadIdentities() {
+  const el = document.getElementById('matrixIdentityContent');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/matrix/identities');
+    const d = await r.json();
+    const identities = d.identities || [];
+    if (!identities.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:13px;padding:20px;text-align:center">暂无本地身份</div>'; return; }
+    el.innerHTML = identities.map(id => {
+      const idName = id.identity_dir;
+      const phone = id.phone || '未知';
+      const cookieStatus = id.has_cookie ? '🍪 已就绪' : '❌ 无Cookie';
+      return `<div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div><span style="font-size:14px">📱</span> <strong style="font-size:14px">${phone}</strong>
+            <span style="color:#8b8fa3;font-size:11px;margin-left:6px">${idName}</span>
+            <span style="font-size:11px;margin-left:6px;color:${id.has_cookie?'#22c55e':'#ef4444'}">${cookieStatus}</span>
+          </div>
+          <button onclick="deleteIdentity('${idName}')" style="background:#ef4444;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🗑 删除身份</button>
+        </div>
+        <div style="margin-top:6px">
+          ${id.accounts.map(a => `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:#232740;border-radius:4px;margin-bottom:3px;font-size:12px">
+            <span style="color:${a.status==='logged_in'?'#22c55e':'#8b8fa3'}">${a.status==='logged_in'?'✅':'⏸'}</span>
+            <span style="font-weight:600;width:100px">${a.id}</span>
+            <span style="color:#8b8fa3;width:70px;font-size:11px">${a.platform}</span>
+            <span style="font-size:11px;color:${a.status==='logged_in'?'#22c55e':'#f59e0b'}">${a.status}</span>
+            <span style="flex:1"></span>
+            ${id.accounts.length > 1 ? `<button onclick="unbindAccount('${a.id}')" style="background:transparent;color:#f59e0b;border:1px solid #2a2d3e;padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px">解绑</button>` : ''}
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { if (el) el.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
+}
+
+function acctSwitchTab(tab, el) {
+  document.querySelectorAll('.acct-tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('acct-tab-list').style.display = tab === 'list' ? 'block' : 'none';
+  document.getElementById('acct-tab-identity').style.display = tab === 'identity' ? 'block' : 'none';
+  if (tab === 'identity') loadIdentities();
+}
+
+async function deleteIdentity(identityDir) {
+  const accts = document.querySelector('#acct-tab-identity .loading');
+  const msg = '⚠️ 确定要删除此身份吗？\\n\\n将删除以下内容:';
+  if (!confirm(msg + '\\n- 身份目录: ' + identityDir)) return;
+  try {
+    const r = await fetch('/api/matrix/identities/' + encodeURIComponent(identityDir), {method:'DELETE'});
+    const res = await r.json();
+    if (res.status === 'ok') {
+      alert('✅ 已删除身份: ' + identityDir + '\\n移除账号: ' + (res.removed_accounts||[]).join(', '));
+      loadIdentities();
+    } else alert('❌ ' + (res.detail||res.error));
+  } catch(e) { alert('❌ '+e.message); }
+}
+
+async function unbindAccount(accountId) {
+  if (!confirm('⚠️ 解除 ' + accountId + ' 的绑定？\\nCookie 将保留，以后可重新绑定。')) return;
+  try {
+    const r = await fetch('/api/matrix/accounts/' + encodeURIComponent(accountId) + '/unbind', {method:'POST'});
+    const res = await r.json();
+    if (res.status === 'ok') {
+      alert('✅ ' + accountId + ' 已解绑');
+      loadIdentities();
+    } else alert('❌ ' + (res.detail||res.error));
+  } catch(e) { alert('❌ '+e.message); }
+}
   el.innerHTML = '<div class="loading">加载中...</div>';
   try {
     // 多机摘要

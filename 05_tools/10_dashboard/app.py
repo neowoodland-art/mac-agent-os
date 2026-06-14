@@ -908,6 +908,46 @@ def api_matrix_delete_account(account_id: str, delete_identity: bool = False):
 @app.get("/api/matrix/accounts/{account_id}/login-status")
 def api_matrix_login_status(account_id: str):
     """检查登录状态"""
+
+
+# ═════════════════════════════════════════════════════════
+# 身份管理 API（v5.2 新增）
+# ═════════════════════════════════════════════════════════
+
+@app.get("/api/matrix/identities")
+def api_matrix_identities():
+    """获取所有身份的聚合视图"""
+    try:
+        mgr = _get_matrix_mgr()
+        return {"identities": mgr.get_identities()}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.delete("/api/matrix/identities/{identity_dir:path}")
+def api_matrix_delete_identity(identity_dir: str):
+    """删除整个身份（身份目录 + 旗下所有账号）"""
+    try:
+        mgr = _get_matrix_mgr()
+        logger.info(f"Matrix: 删除身份 {identity_dir}")
+        return mgr.delete_identity(identity_dir)
+    except ValueError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@app.post("/api/matrix/accounts/{account_id}/unbind")
+def api_matrix_unbind_account(account_id: str):
+    """从身份中解绑单个平台账号"""
+    try:
+        mgr = _get_matrix_mgr()
+        logger.info(f"Matrix: 解绑账号 {account_id}")
+        return mgr.unbind_account(account_id)
+    except ValueError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
     try:
         mgr = _get_matrix_mgr()
         return mgr.check_login_status(account_id)
