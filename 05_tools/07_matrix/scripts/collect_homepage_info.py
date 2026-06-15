@@ -29,6 +29,7 @@ SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 from cdp_connector import CDPConnector
 
 DOUYIN_URL = "https://www.douyin.com/"
+DOUYIN_PROFILE_URL = "https://www.douyin.com/user/self"
 XHS_URL = "https://www.xiaohongshu.com/explore"
 
 def load_accounts():
@@ -67,41 +68,38 @@ async def take_screenshot(page, prefix, identity_name):
         print(f"   📸 {path.name}")
     except: pass
 
-# ── 抖音：主页提取全部信息（不跳转个人页） ──
+# ── 抖音：个人中心页提取（导航到 /user/self, 不限于首页） ──
 
 async def extract_douyin(page, identity_name, phone):
     info = {"platform":"douyin","phone":phone,"status":"pending","url":"",
             "nickname":"","fans":"","following":"","likes":"","posts":"","bio":""}
     try:
-        print(f"   📍 抖音首页...")
-        ok = await safe_goto(page, DOUYIN_URL)
+        print(f"   📍 抖音个人中心...")
+        ok = await safe_goto(page, DOUYIN_PROFILE_URL, timeout=60000)
         if not ok: info["status"]="nav_error"; return info
         await asyncio.sleep(5)
         info["url"] = page.url
         await take_screenshot(page, "dy", identity_name)
 
-        # 1. 深度 DOM 扫描：提取所有可见文本+属性
+        # 深度 DOM 扫描：提取所有可见文本+属性
         dom_data = await page.evaluate("""() => {
             const results = {texts:[], profile:{}, links:[], stats:[]};
-            // 所有可见文本
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
             let n; while(n=walker.nextNode()){
                 const t=n.textContent.trim();
                 if(t){let el=n.parentElement; if(el&&el.offsetParent!==null) results.texts.push(t);}
             }
-            // 所有链接
             document.querySelectorAll('a').forEach(a=>{
                 if(a.href && a.offsetParent!==null) results.links.push({href:a.href,text:a.textContent.trim()});
             });
-            // 找统计数字
             document.querySelectorAll('span,div,p,strong').forEach(el=>{
                 const t=el.textContent.trim();
                 if(/^\\d+[.,\\d]*[万wW]?$/.test(t) && t.length<=12 && el.offsetParent!==null)
                     results.stats.push(t);
             });
-            // 找我的信息
-            const myInfo = document.querySelector('[class*="user-info"], [class*="profile-info"], [class*="my-info"], [class*="personal"], [class*="header-info"]');
-            if(myInfo) results.profile.html = myInfo.innerHTML.slice(0,5000);
+            // 找个人页特有的 profile 区域
+            const profileArea = document.querySelector('[class*="profile"], [class*="user-info"], [class*="personal"], [class*="author"], [class*="header-info"]');
+            if(profileArea) results.profile.html = profileArea.innerHTML.slice(0,8000);
             return results;
         }""")
 
@@ -111,38 +109,51 @@ async def extract_douyin(page, identity_name, phone):
         try: info["_title"] = await page.title()
         except: pass
 
-        # 昵称 — 从 DOM 深度扫描或者文本里找
-        # 先看 page.evaluate 的 text 前面部分（通常 nickname 在页面靠前位置）
-        nickname = ""
+        # 昵称 — 个人页昵称通常在页面靠前位置的非标签文本
         skip_words = {"精选","推荐","搜索","关注","朋友","我的","直播","放映厅","短剧",
                      "小游戏","抖音","首页","通知","私信","投稿","登录","开启读屏标签",
                      "读屏标签已关闭","未登录","壁纸","更多","热点",
                      "登录后即可观看喜欢、收藏作品","登录后即可查看收藏、点赞"}
-        for line in lines[:80]:
-            line = line.strip()
-            if 1 < len(line) <= 18 and line not in skip_words and \
-               not line.startswith("@") and not line.startswith("http") and \
-               not re.match(r'^[\d:,.万w]+$', line) and \
-               line not in ("全部","公开课","游戏","二次元","音乐","影视","美食",
-                           "知识","小剧场","生活vlog","体育","旅行","亲子","动物",
-                           "三农","汽车","美妆穿搭"):
-                nickname = line
-                break
+        # 在个人页, 优先从 profile.html 中找昵称
+        nickname = ""
+        profile_html = dom_data.get("profile", {}).get("html", "")
+        if profile_html:
+            import re as _re
+            # 提取 profile 区域中第一个长度合适的文本
+            prof_texts = _re.findall(r'>([^<]{2,18})<', profile_html)
+            for t in prof_texts:
+                t = t.strip()
+                if t and len(t) <= 18 and t not in skip_words and \
+                   not _re.match(r'^[\d:,.万w]+$', t) and \
+                   not t.startswith("@") and not t.startswith("http"):
+                    nickname = t
+                    break
+
+        if not nickname:
+            for line in lines[:80]:
+                line = line.strip()
+                if 1 < len(line) <= 18 and line not in skip_words and \
+                   not line.startswith("@") and not line.startswith("http") and \
+                   not re.match(r'^[\d:,.万w]+$', line) and \
+                   line not in ("全部","公开课","游戏","二次元","音乐","影视","美食",
+                               "知识","小剧场","生活vlog","体育","旅行","亲子","动物",
+                               "三农","汽车","美妆穿搭"):
+                    nickname = line
+                    break
 
         info["nickname"] = nickname
 
-        # 统计数字 — 从文本和 stats list 里找
+        # 统计数字 — 个人页的粉丝/关注/获赞/作品有明确标签
         text_for_nums = "\n".join(lines[:200])
 
-        # 按标签找
-        for pat, key in [(r'(?:粉丝?)\s*[：:]\s*([\d,.万wW]+)', "fans"),
-                         (r'(?:关注)\s*[：:]\s*([\d,.万wW]+)', "following"),
-                         (r'(?:获赞|点赞)\s*[：:]\s*([\d,.万wW]+)', "likes"),
-                         (r'(?:作品)\s*[：:]\s*([\d,.万wW]+)', "posts")]:
+        for pat, key in [(r'(?:粉丝)\s*[：:]?\s*([\d,.万wW]+)', "fans"),
+                         (r'(?:关注)\s*[：:]?\s*([\d,.万wW]+)', "following"),
+                         (r'(?:获赞|点赞)\s*[：:]?\s*([\d,.万wW]+)', "likes"),
+                         (r'(?:作品)\s*[：:]?\s*([\d,.万wW]+)', "posts")]:
             m = re.search(pat, text_for_nums)
             if m: info[key] = m.group(1)
 
-        # 备用：找 "粉丝 数字" 的模式
+        # 备用：找纯数字, 个人页常用的 4 个数字排列: 关注 粉丝 获赞 作品
         if not info["fans"]:
             m = re.search(r'粉丝\s*(\d+[\.\d]*[万w]?)', text_for_nums)
             if m: info["fans"] = m.group(1)
@@ -150,16 +161,15 @@ async def extract_douyin(page, identity_name, phone):
             m = re.search(r'关注\s*(\d+[\.\d]*[万w]?)', text_for_nums)
             if m: info["following"] = m.group(1)
 
-        # 最后手段：找数组匹配
         stats = dom_data.get("stats", [])
         links = dom_data.get("links", [])
 
         info["_raw_len"] = len(lines)
         info["_stats_found"] = stats[:20]
         info["status"] = "loaded"
-        print(f"   ✅ 抖音: {info['nickname'] or '?'}  粉丝:{info['fans'] or '?'}  关注:{info.get('following','?')}")
+        print(f"   ✅ 抖音: {info['nickname'] or '?'}  粉丝:{info['fans'] or '?'}  关注:{info.get('following','?')}  获赞:{info.get('likes','?')}")
         if not info["fans"] and not info["nickname"]:
-            print(f"   ⚠️ 可能未登录或页面结构异常 (lines={len(lines)})")
+            print(f"   ⚠️ 可能未登录或页面结构异常 (lines={len(lines)}, url={page.url[:60]})")
         return info
     except Exception as e:
         print(f"   ❌ 抖音异常: {e}")
@@ -172,11 +182,43 @@ async def extract_xiaohongshu(page, identity_name, phone):
     info = {"platform":"xiaohongshu","phone":phone,"status":"pending","url":"",
             "nickname":"","fans":"","following":"","notes":"","bio":""}
     try:
-        print(f"   📍 小红书首页...")
-        ok = await safe_goto(page, XHS_URL, timeout=60000)
-        if not ok: info["status"]="nav_error"; return info
-        # 小红书在 Firefox 中加载极慢，多等一会儿
-        await asyncio.sleep(10)
+        # 小红书加载失败重试: 最多 3 次, 指数退避 (不用 Chrome CDP, 统一用 Camoufox)
+        # 每次重试前跳转 bing.com 清理缓存/状态, 方便视觉确认
+        BING_URL = "https://www.bing.com/"
+        MAX_RETRIES = 3
+        xhs_loaded = False
+        for retry in range(MAX_RETRIES):
+            try:
+                suffix = f' (重试 {retry+1}/{MAX_RETRIES})' if retry > 0 else ''
+                print(f"   📍 小红书首页...{suffix}")
+                ok = await safe_goto(page, XHS_URL, timeout=60000)
+                if ok:
+                    await asyncio.sleep(10)
+                    xhs_loaded = True
+                    break
+                # 失败: 先跳转 bing.com 清理浏览器缓存/重定向状态
+                wait = 5 * (2 ** retry)
+                print(f"   ⚠️ 导航失败, 跳转 bing.com 清理缓存...")
+                await safe_goto(page, BING_URL, timeout=30000)
+                await asyncio.sleep(2)
+                print(f"   ⏳ {wait}s 后重试...")
+                await asyncio.sleep(wait)
+            except Exception as e:
+                if retry < MAX_RETRIES - 1:
+                    wait = 5 * (2 ** retry)
+                    print(f"   ⚠️ 异常({e}), 跳转 bing.com 清理缓存...")
+                    try: await safe_goto(page, BING_URL, timeout=30000)
+                    except: pass
+                    await asyncio.sleep(2)
+                    print(f"   ⏳ {wait}s 后重试...")
+                    await asyncio.sleep(wait)
+                else:
+                    info["status"]="nav_error"; info["_error"]=str(e)
+                    return info
+        if not xhs_loaded:
+            info["status"]="nav_error"
+            return info
+
         info["url"] = page.url
         await take_screenshot(page, "xhs", identity_name)
 

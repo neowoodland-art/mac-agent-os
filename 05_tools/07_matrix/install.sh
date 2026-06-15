@@ -111,23 +111,23 @@ else
     exit 1
 fi
 
-# ── Step 5: 账号配置检查 ────────────────────────────────────
-echo "▶ [5/5] 检查账号配置..."
-CONFIG_FILE="$LOCAL_DIR/config/accounts.yaml"
-TEMPLATE_FILE="$TOOL_DIR/config_template/accounts.yaml"
+# ── Step 5: 配置模板初始化 (统一跨机模板) ──────────────────
+echo "▶ [5/5] 初始化配置模板..."
+CONFIG_DIR="$LOCAL_DIR/config"
+TEMPLATE_DIR="$TOOL_DIR/config_template"
+mkdir -p "$CONFIG_DIR"
 
-if [ -f "$CONFIG_FILE" ]; then
-    echo "   ✅ 账号配置已存在: $CONFIG_FILE"
-else
-    if [ -f "$TEMPLATE_FILE" ]; then
-        cp "$TEMPLATE_FILE" "$CONFIG_FILE"
-        echo "   📋 已从模板复制配置，请编辑填入本机账号信息:"
-        echo "      $CONFIG_FILE"
+# 从模板复制所有配置（不覆盖已有文件）
+for tmpl in "$TEMPLATE_DIR"/*; do
+    fname=$(basename "$tmpl")
+    target="$CONFIG_DIR/$fname"
+    if [ ! -f "$target" ]; then
+        cp "$tmpl" "$target"
+        echo "   📋 已安装: $fname"
     else
-        echo "   ⚠️  未找到配置模板，请手动创建:"
-        echo "      $CONFIG_FILE"
+        echo "   ✅ 已存在: $fname"
     fi
-fi
+done
 
 # ── 初始化数据库 ────────────────────────────────────────────
 DB_FILE="$LOCAL_DIR/data/matrix.db"

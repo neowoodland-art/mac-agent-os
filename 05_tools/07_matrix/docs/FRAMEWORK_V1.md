@@ -610,8 +610,20 @@ tailscale up                    # 登录同一账号, 获得 100.x.x.x IP
 - [x] 采集历史版本化 (时间戳快照 + timeline.json)
 - [x] Tailscale 已安装 (brew install tailscale)
 - [ ] `tailscale up` 配置 Tailscale 网络
-- [ ] 新增平台: 快手 / 微博 / 视频号 / 直播
 - [ ] MCP Server: 每个插件自动生成 MCP 工具
+
+### 第五阶段: 模板统一 + 采集稳定化 (新增)
+**目标: 跨机模板一致, 采集结果可靠, 禁用 Chrome 引擎。**
+
+- [x] 决策记录: Chrome CDP 禁用 (养号/采集只能用 Camoufox)
+- [x] 决策记录: 采集改为导航到个人中心页 (/user/self)
+- [x] 决策记录: 配置模板统一存入仓库
+- [ ] config_template/ 全面审核: accounts.yaml / ai.yaml / schedule.yaml / profiles.json / screen_layout.yaml / sms.yaml / tasks.yaml
+- [ ] 采集脚本: xiaohongshu 增加重试逻辑 (最多 3 次, 指数退避)
+- [ ] 采集脚本: 抖音改为导航到 /user/self 个人页提取准确数据
+- [ ] 展示层统一: mc account list 合并 display_name + 采集昵称/粉丝
+- [ ] Dashboard 合并: 身份账号 tab 和采集信息 tab 统一为一个数据源
+- [ ] 新机部署: install.sh 从 config_template 初始化本地配置
 
 ---
 
@@ -626,6 +638,9 @@ tailscale up                    # 登录同一账号, 获得 100.x.x.x IP
 | 采集历史 | 快照/新覆盖 | **快照** | 看得出变化趋势 |
 | 改造范围 | 先本机/全改 | **先本机** | 跑通再同步 |
 | 仓库策略 | 同仓库/单独仓库 | **同仓库** | 矩阵系统嵌入 agent-sync 仓库内, 与 agent-os 共享工具链和同步机制; 降低管理成本, 避免双仓库冲突 |
+| 浏览器引擎 | Chrome CDP / Camoufox | **Camoufox** | Chrome CDP 经实测会触发平台反爬封号, 所有养号/采集/发布操作统一使用 Camoufox (Firefox 内核) ; **Chrome 仅限调试**, 禁止用于生产操作 |
+| 采集方式 | 个人页/首页 | **个人页** | 首页 DOM 扫描提取的粉丝数/关注数不可靠, 改为导航到 `/user/self` 个人中心页提取准确数据 |
+| 跨机模板 | 独立管理/仓库统一 | **仓库统一** | 所有配置模板 (config_template/)、蓝图 (blueprints/)、平台插件 (platforms/) 统一存放在 agent-sync 仓库, 各机器 git pull 同步, 避免机器间模板不一致导致的运行差异 |
 
 ---
 
@@ -638,3 +653,5 @@ tailscale up                    # 登录同一账号, 获得 100.x.x.x IP
 | 多机 SSH 配置复杂 | 低 | 远程执行用不了 | HTTP API 兜底, 不强制 SSH |
 | 录制回放兼容性 | 中 | 跨版本录制包失效 | 录制包带版本号, 向前兼容 |
 | Dashboard 合并工作量 | 中 | 阶段投入多 | 最后阶段再做, 先用两个 |
+| Chrome CDP 封号 | 已发生 | 账号被封 | **全面禁止 Chrome CDP** 用于生产操作, 所有养号/采集/发布统一使用 Camoufox (Firefox) ; Chrome 仅限开发调试 |
+| 跨机模板不一致 | 中 | 行为差异/配置错误 | 模板统一存入 agent-sync 仓库, 新机 deploy 从模板初始化, install.sh 自动复制 |
