@@ -141,9 +141,51 @@ else
     echo ""
 fi
 
-# ── 步骤6: 同步 ORACLE 和授权 ──
+# ── 步骤6: 检查 Python 代码签名（新增：解决 macOS 代码签名问题）──
 echo ""
-info "步骤6/6: 同步配置..."
+info "步骤6/7: 检查 Python 代码签名..."
+
+# 找到 WorkBuddy 管理的 Python
+for PY_BIN in "$HOME/.workbuddy/binaries/python/versions/3.13.12/bin/python3" \
+              "$HOME/.workbuddy/binaries/python/versions/"*/bin/python3; do
+    if [ -x "$PY_BIN" ]; then
+        break
+    fi
+done
+
+if [ -x "$PY_BIN" ]; then
+    # 检查是否有 Team ID（腾讯签名会导致 orjson 无法加载）
+    TEAM_ID=$(codesign -dvv "$PY_BIN" 2>&1 | grep "TeamIdentifier" | awk '{print $2}')
+    if [ -n "$TEAM_ID" ] && [ "$TEAM_ID" != "not set" ]; then
+        warn "Python 带有 Team ID 签名: $TEAM_ID → 可能导致 orjson 加载失败"
+        info "正在修复: codesign -f -s - ..."
+        codesign -f -s - "$PY_BIN" 2>&1 && ok "Python 代码签名已修复" || warn "修复失败，需手动执行"
+    else
+        ok "Python 代码签名正常（adhoc）"
+    fi
+    
+    # 验证 orjson
+    OK=$("$PY_BIN" -c "import orjson; print(orjson.__version__)" 2>/dev/null)
+    if [ -n "$OK" ]; then
+        ok "orjson $OK ✅"
+    else
+        warn "orjson 不可用，尝试安装依赖..."
+        "$PY_BIN" -m pip install -r "$SCRIPT_DIR/requirements.txt" 2>&1 | tail -2
+    fi
+    
+    # 验证 Camoufox
+    C_OK=$("$PY_BIN" -c "from camoufox import Camoufox; print(1)" 2>/dev/null)
+    if [ "$C_OK" = "1" ]; then
+        ok "Camoufox ✅"
+    else
+        warn "Camoufox 不可用，安装中..."
+        "$PY_BIN" -m pip install camoufox 2>&1 | tail -2
+    fi
+fi
+
+# ── 步骤7: 同步 ORACLE 和授权 ──
+echo ""
+info "步骤7/7: 同步配置..."
 
 # 确保 ORACLE.yaml 可读
 if [ -f "$AGENT_SYNC/ORACLE.yaml" ]; then
