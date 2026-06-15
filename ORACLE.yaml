@@ -19,6 +19,7 @@ machines:
     hostname: chengzigedeAir
     tailscale_host: macbook-air
     tailscale_ip: 100.111.43.6
+    ssh_user: chengzige
     uid_prefix: 4cf443bc
     role: master
     os: macOS 26.4 arm64
@@ -28,6 +29,7 @@ machines:
     hostname: 5kechengdeAir
     tailscale_host: 5macbook-air
     tailscale_ip: 100.72.182.121
+    ssh_user: 5kecheng
     uid_prefix: f13b03d1
     role: worker
     os: macOS 25.4 arm64
@@ -37,6 +39,7 @@ machines:
     hostname: 7kecheng
     tailscale_host: 7macbook-air
     tailscale_ip: 100.65.35.28
+    ssh_user: 7kecheng
     uid_prefix: d19759cf
     role: worker
     os: macOS arm64

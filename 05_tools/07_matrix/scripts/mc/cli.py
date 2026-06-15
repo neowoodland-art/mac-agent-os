@@ -29,8 +29,8 @@ from pathlib import Path
 # ── 路径 ──
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 TOOL_DIR = SCRIPTS_DIR.parent
-AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
-AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
+AGENT_SYNC = Path(os.environ.get("AGENT_SYNC", str(Path.home() / "workbuddy-agent-os" / "agent-sync")))
+AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(Path.home() / "workbuddy-agent-os" / "agent-local")))
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 __version__ = "1.0.0"
@@ -739,7 +739,8 @@ def _lookup_machines():
     
     数据来源 (优先级):
     1. agent-local/runtime/machines.json  (手动注册)
-    2. 04_memory/cross_machine/machines/ (git 同步)
+    2. ORACLE.yaml (联邦宪法，机器定义的一级来源)
+    3. 04_memory/cross_machine/machines/ (git 同步的心跳数据)
     """
     machines = {}
     
@@ -750,16 +751,47 @@ def _lookup_machines():
             machines.update(json.loads(local_reg.read_text()))
         except: pass
     
-    # 来源2: cross_machine 目录 (从 Gitee 同步的远程机器信息)
-    cross_dir = Path.home() / "workbuddy-agent-os" / "agent-sync" / "04_memory" / "cross_machine" / "machines"
+    # 来源2: ORACLE.yaml (最高优先级的机器定义)
+    oracle_path = _find_oracle()
+    if oracle_path:
+        try:
+            import yaml
+            with open(oracle_path) as f:
+                oracle = yaml.safe_load(f)
+            for name, info in oracle.get("machines", {}).items():
+                hn = info.get("hostname", name)
+                if hn not in machines:
+                    machines[hn] = {
+                        "hostname": hn,
+                        "ip": info.get("tailscale_ip", ""),
+                        "port": info.get("dashboard_port", 9988),
+                        "user": info.get("ssh_user", ""),
+                        "via": "ssh",
+                        "oracle_name": name,
+                    }
+        except Exception:
+            pass  # ORACLE 可选的，无报错
+    
+    # 来源3: cross_machine 目录 (从 Gitee 同步的远程心跳信息)
+    cross_dir = AGENT_SYNC / "04_memory" / "cross_machine" / "machines"
     if cross_dir.exists():
-        for f in sorted(cross_dir.glob("*.json")):
-            try:
-                d = json.loads(f.read_text())
-                hn = d.get("hostname", f.stem)
-                if hn and hn not in machines:
-                    machines[hn] = d
-            except: pass
+        for uid_dir in sorted(cross_dir.iterdir()):
+            if uid_dir.is_dir():
+                hb = uid_dir / "heartbeat.json"
+                if hb.exists():
+                    try:
+                        d = json.loads(hb.read_text())
+                        hn = d.get("machine_name", d.get("hostname", ""))
+                        if hn and hn not in machines:
+                            machines[hn] = {
+                                "hostname": hn,
+                                "machine_uid": d.get("machine_uid", ""),
+                                "ip": "127.0.0.1",
+                                "port": 9988,
+                                "user": d.get("ssh_user", d.get("user", "")),
+                                "status": d.get("status", "unknown"),
+                            }
+                    except: pass
     
     # 没找到则返回本机
     if not machines:
@@ -773,6 +805,26 @@ def _lookup_machines():
         }
     
     return machines
+
+
+def _find_oracle():
+    """查找 ORACLE.yaml 文件位置"""
+    # 尝试多个可能的位置
+    candidates = [
+        AGENT_SYNC / "ORACLE.yaml",
+        AGENT_SYNC / "oracle.yaml",
+        Path.home() / "workbuddy-agent-os" / "agent-sync" / "ORACLE.yaml",
+    ]
+    # 如果 AGENT_SYNC 未设置，也尝试工作目录的父目录
+    if not AGENT_SYNC:
+        cwd = Path.cwd()
+        for p in [cwd, cwd.parent, cwd.parent.parent]:
+            candidates.insert(0, p / "ORACLE.yaml")
+    
+    for p in candidates:
+        if p.exists():
+            return str(p)
+    return None
 
 
 def _http_call(host_info, path, method="GET", data=None):
@@ -815,8 +867,14 @@ def _ssh_call(host_info, command):
     ip = host_info.get("ip", host_info.get("hostname", ""))
     ssh_target = f"{user}@{ip}" if user else ip
     
+    # 自动设置环境变量（每台机器可能不同，从 ORACLE 获取路径）
+    # 远程运行时会先 source 环境变量再执行命令
+    env_setup = "export AGENT_SYNC=\"$HOME/workbuddy-agent-os/agent-sync\"; "
+    env_setup += "export AGENT_LOCAL=\"$HOME/workbuddy-agent-os/agent-local\"; "
+    wrapped_cmd = f"{env_setup} {command}"
+    
     full_cmd = ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
-                ssh_target, command]
+                ssh_target, wrapped_cmd]
     
     try:
         r = subprocess.run(full_cmd, capture_output=True, text=True, timeout=60)
