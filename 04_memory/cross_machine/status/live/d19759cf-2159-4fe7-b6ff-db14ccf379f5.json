@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 2.3
+    "load_1m": 1.53
   },
   "memory": {
     "total_gb": 0,
@@ -14,17 +14,28 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 91.7,
-    "available_gb": 153.4
+    "used_gb": 91.0,
+    "available_gb": 154.1
   },
-  "last_seen": "2026-06-14T16:35:16.782460+00:00",
+  "last_seen": "2026-06-15T02:55:16.689588+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-14T16:35:16.846196+00:00",
+  "_received_at": "2026-06-15T02:55:16.774033+00:00",
   "_uid": "d19759cf-2159-4fe7-b6ff-db14ccf379f5",
   "_hostname": "7kecheng",
-  "_events": [],
+  "_events": [
+    {
+      "id": "a8df3a8c-db66-48c9-b07e-c2ae14dd03b1",
+      "type": "sync_updated",
+      "hostname": "7kecheng",
+      "timestamp": "2026-06-15T02:50:16.444356+00:00",
+      "payload": {
+        "summary": "Updating 6e80c94a12..e2d5fae356\nCreated autostash: 3e3331fb00\nFast-forward\n 05_tools/10_dashboard/app.py            | 34 ++++++++++++++++-----------------\n 05_tools/10_dashboard/static/index.html |  2 +-\n 2 files changed, 18 insertions(+), 18 deletions(-)",
+        "hostname": "7kecheng"
+      }
+    }
+  ],
   "_uptime": 0
 }

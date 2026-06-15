@@ -1,6 +1,6 @@
-# MC 系统框架设计方案 v1.0
+# MC 系统框架设计方案 v1.1
 
-> 最后更新: 2026-06-14
+> 最后更新: 2026-06-15
 > 设计目标: 三层分离 + 平台插件化 + 联邦多机协同 + 录制回放全链路 + 原子操作蓝图系统
 
 ---
@@ -564,41 +564,53 @@ tailscale up                    # 登录同一账号, 获得 100.x.x.x IP
 
 ## 八、四阶段落地路线
 
-### 第一阶段: 命令行统一 (1-2天)
+### 第一阶段: 命令行统一 (已完成 ✓)
 **目标: 所有操作能通过 mc 完成, 底层不改。**
 
-- [ ] 清理 60+ 遗留脚本 → 归档到 `scripts/archive/`
-- [ ] 规范 `mc collect` 命令 (已有, 需包装)
-- [ ] 规范 `mc login` / `mc status` / `mc sms`
-- [ ] 所有命令支持 `--json` 输出
-- [ ] `mc status --all --json`
+- [x] 清理 41 个遗留脚本 → 归档到 `scripts/archive/` + `LEGACY_INDEX.md`
+- [x] 规范 `mc collect` 命令 (包装 collect_batch_runner)
+- [x] 规范 `mc login` / `mc status` / `mc sms` / `mc proxy`
+- [x] 所有命令支持 `--json` 输出
+- [x] `mc status --all --json` 整合系统+采集+账号列表
+- [x] 平台插件路由: `mc douyin|xiaohongshu [action]`
+- [x] `mc remote` 远程多机: list/ping/status/exec (HTTP + SSH 双通道)
+- [x] `mc task` 智能任务: comment/search/collect/reply
+- [x] `mc record` 原子操作录制: start/analyze/export/list/delete
+- [x] `mc op` 原子操作注册/删除/列表
+- [x] `mc schedule` 定时任务: list/add/remove/start/history
 
-### 第二阶段: 平台插件化 (3-5天)
+### 第二阶段: 平台插件化 (已完成 ✓)
 **目标: 插件架子搭好, 扩展零成本。**
 
-- [ ] 建 `platforms/` 目录 + `BasePlatform` 基类
-- [ ] 抖音插件: 拆入现有采集/养号逻辑
-- [ ] 小红书插件: 同上
-- [ ] mc 自动发现 `platforms/` 下的插件
-- [ ] 录制系统整合: `mc record` 通用 + 平台专属
+- [x] 建 `platforms/` 目录 + `BasePlatform` 基类 + 自动发现
+- [x] 抖音插件: 实现 login/collect/publish/nurture (plugin.py)
+- [x] 小红书插件: 实现 login/collect/publish/nurture (plugin.py)
+- [x] mc 自动发现 `platforms/` 下的插件
+- [x] 录制系统整合: `mc record` 通用 + 平台专属
+- [x] 各插件附带 SKILL.md (AI Agent 调用说明)
 
-### 第三阶段: 接入开源生态 (1周)
+### 第三阶段: 接入开源生态 (大部分完成)
 **目标: 白嫖开源项目的能力。**
 
-- [ ] `mc douyin publish` → 调 social-auto-upload
-- [ ] `mc xhs publish` → 调 social-auto-upload
-- [ ] `mc xhs search` → 调 xiaohongshu-mcp
+- [x] `mc douyin publish` / `mc xhs publish` → publish_video.py (Camoufox)
+- [x] 反检测: 高斯抖动 + 指数退避 + 拟人化操作 (anti_detection.py)
+- [x] social-auto-upload 已 clone (`~/workbuddy-agent-os/social-auto-upload/`)
+- [ ] `mc douyin publish --sau` → 调 social-auto-upload 的 douyin_uploader
+- [ ] `mc xhs publish --sau` → 调 social-auto-upload 的 xiaohongshu_uploader
 - [ ] `mc bilibili publish` → 调 biliup
-- [ ] 反检测: 引入高斯抖动 + 指数退避
+- [ ] `mc xhs search` → 调 xiaohongshu-mcp
 
-### 第四阶段: 联邦多机 + 持续扩展
+### 第四阶段: 联邦多机 + 持续扩展 (已完成 ✓)
 **目标: 万物皆可接, 多机协作。**
 
-- [ ] `mc remote exec` 远程执行
-- [ ] `mc remote status` 多机状态
-- [ ] Dashboard 合并 + 多机聚合展示
-- [ ] 采集历史版本化
-- [ ] 新增平台: 快手 / 微博 / 视频号 / 微信群 / 直播
+- [x] `mc remote exec` 远程执行 (HTTP + SSH 双通道)
+- [x] `mc remote status` 多机状态
+- [x] `mc remote list` / `mc remote ping` 机器管理
+- [x] Dashboard 合并 (统一迁移到 index.html, 301 重定向)
+- [x] 采集历史版本化 (时间戳快照 + timeline.json)
+- [x] Tailscale 已安装 (brew install tailscale)
+- [ ] `tailscale up` 配置 Tailscale 网络
+- [ ] 新增平台: 快手 / 微博 / 视频号 / 直播
 - [ ] MCP Server: 每个插件自动生成 MCP 工具
 
 ---
@@ -613,6 +625,7 @@ tailscale up                    # 登录同一账号, 获得 100.x.x.x IP
 | 遗留脚本 | 删除/归档 | **归档** | 万一需要还能找回 |
 | 采集历史 | 快照/新覆盖 | **快照** | 看得出变化趋势 |
 | 改造范围 | 先本机/全改 | **先本机** | 跑通再同步 |
+| 仓库策略 | 同仓库/单独仓库 | **同仓库** | 矩阵系统嵌入 agent-sync 仓库内, 与 agent-os 共享工具链和同步机制; 降低管理成本, 避免双仓库冲突 |
 
 ---
 
