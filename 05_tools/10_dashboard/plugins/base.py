@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Optional, Any
 
 # ── 路径常量（所有插件用这些, 禁止硬编码）──────────────────
+# 优先级: 环境变量 > Path.home()
+# 其他机器只需 export AGENT_SYNC=... 和 AGENT_LOCAL=... 即可
 HOME = Path.home()
-AGENT_SYNC = HOME / "workbuddy-agent-os" / "agent-sync"
-AGENT_LOCAL = HOME / "workbuddy-agent-os" / "agent-local"
+AGENT_SYNC = Path(os.environ.get("AGENT_SYNC", str(HOME / "workbuddy-agent-os" / "agent-sync")))
+AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(HOME / "workbuddy-agent-os" / "agent-local")))
 CROSS_MACHINE = AGENT_SYNC / "04_memory" / "cross_machine"
 DASHBOARD_LOCAL = AGENT_LOCAL / "runtime" / "dashboard"
 

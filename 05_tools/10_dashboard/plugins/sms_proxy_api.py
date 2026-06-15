@@ -9,8 +9,8 @@ from pathlib import Path
 from datetime import datetime
 
 HOME = Path.home()
-AGENT_SYNC = HOME / "workbuddy-agent-os" / "agent-sync"
-AGENT_LOCAL = HOME / "workbuddy-agent-os" / "agent-local"
+AGENT_SYNC = Path(os.environ.get("AGENT_SYNC", str(HOME / "workbuddy-agent-os" / "agent-sync")))
+AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(HOME / "workbuddy-agent-os" / "agent-local")))
 
 SCRIPTS_DIR = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
 IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"

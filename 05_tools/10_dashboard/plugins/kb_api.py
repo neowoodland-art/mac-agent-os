@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Optional
 
 HOME = Path.home()
-AGENT_SYNC = HOME / "workbuddy-agent-os" / "agent-sync"
-AGENT_LOCAL = HOME / "workbuddy-agent-os" / "agent-local"
+AGENT_SYNC = Path(os.environ.get("AGENT_SYNC", str(HOME / "workbuddy-agent-os" / "agent-sync")))
+AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(HOME / "workbuddy-agent-os" / "agent-local")))
 KNOWLEDGE = AGENT_SYNC / "03_knowledge"
 TASKS_DIR = AGENT_SYNC / "04_memory" / "cross_machine" / "tasks"
 

@@ -26,8 +26,8 @@ from pathlib import Path
 _guardd_start_time = time.time()
 
 # ── 路径常量 ──────────────────────────────────────────────
-AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
-AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
+AGENT_SYNC = Path(os.environ.get("AGENT_SYNC", str(Path.home() / "workbuddy-agent-os" / "agent-sync")))
+AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(Path.home() / "workbuddy-agent-os" / "agent-local")))
 # ── 改造: 心跳数据写本机 local 目录, 不再污染 Gitee ──
 DIR_CROSS = AGENT_LOCAL / "runtime" / "guardd"
 HOSTNAME = os.uname().nodename
