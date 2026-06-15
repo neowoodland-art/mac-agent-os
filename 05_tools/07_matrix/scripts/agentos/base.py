@@ -14,6 +14,19 @@ class AgentOSPlugin:
 
     name: str = ""          # 插件名称（对应子命令名）
     description: str = ""   # 插件描述
+    nav: dict = None        # 看板导航定义
+    """
+    nav 格式:
+    {
+        'group': '社交矩阵',
+        'icon': '📡',
+        'order': 1,              # 排序，小的在前
+        'items': [
+            {'view': 'matrix-accounts', 'label': '账号管理'},
+            {'view': 'matrix-exec', 'label': '运维执行'},
+        ]
+    }
+    """
 
     def register(self, subparsers) -> argparse.ArgumentParser:
         """注册插件的子命令解析器

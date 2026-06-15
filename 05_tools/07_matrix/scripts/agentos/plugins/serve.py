@@ -20,6 +20,14 @@ AGENT_SYNC = Path(__file__).resolve().parent.parent.parent.parent.parent
 class ServePlugin(AgentOSPlugin):
     name = "serve"
     description = "服务管理 — MCP/Dashboard/调度"
+    nav = {
+        'group': '系统设置',
+        'icon': '⚙️',
+        'order': 5,
+        'items': [
+            {'view': 'kb', 'label': '知识库'},
+        ]
+    }
 
     def register(self, subparsers):
         p = subparsers.add_parser("serve", help=self.description)

@@ -18,6 +18,18 @@ sys.path.insert(0, str(MC_DIR.parent))
 class MatrixPlugin(AgentOSPlugin):
     name = "matrix"
     description = "社交矩阵 — 抖音/小红书账号运营、养号、采集、发布"
+    nav = {
+        'group': '社交矩阵',
+        'icon': '📡',
+        'order': 2,
+        'items': [
+            {'view': 'matrix-sms-proxy', 'label': '账号管理'},
+            {'view': 'matrix-commands', 'label': '运维执行'},
+            {'view': 'matrix-blueprints', 'label': '内容编排'},
+            {'view': 'matrix-c2', 'label': '任务调度'},
+            {'view': 'matrix-settings', 'label': '系统设置'},
+        ]
+    }
 
     def register(self, subparsers):
         """委托给 mc 的 build_parser()"""

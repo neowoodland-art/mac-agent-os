@@ -1361,25 +1361,47 @@ async function loadPlugins() {
       ]},
     };
 
-    for (const [gname, g] of Object.entries(groups)) {
-      html += `<div class="nav-group-header" onclick="toggleGroup(this)" data-collapsed="true">${g.icon} ${gname} <span style="float:right;font-size:10px;opacity:.5">▶</span></div>`;
-      html += `<div class="nav-group-body collapsed">`;
-      for (const item of g.items) {
-        if (item.sub) {
-          html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
-          for (const sub of item.sub) {
-            html += `<div class="nav-sub" data-group="${item.view.replace('plugin-','')}" data-view="${sub.view}" onclick="switchView('${sub.view}')" style="display:none">${sub.label}</div>`;
-          }
-        } else {
-          html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
+    // ── 从 API 加载 agentos 插件注册的导航 ──
+    // agentos 导航覆盖同名的 fallback 分组，或新增分组
+    async function loadNavFromAPI() {
+      try {
+        const r = await fetch('/api/plugins/nav');
+        const d = await r.json();
+        const nav = d.nav || [];
+        for (const g of nav) {
+          groups[g.group] = { icon: g.icon, items: g.items };
         }
+      } catch(e) {
+        // API 不可用时使用纯 fallback
       }
-      html += `</div>`;
+      // 重新渲染导航
+      _renderNav();
     }
-
-    html += `<div class="nav-item" data-view="timeline" onclick="switchView('timeline')" style="display:none">📈 时间线</div>`;
-
-    nav.innerHTML = html;
+    
+    function _renderNav() {
+      let html = '';
+      for (const [gname, g] of Object.entries(groups)) {
+        html += `<div class="nav-group-header" onclick="toggleGroup(this)" data-collapsed="true">${g.icon} ${gname} <span style="float:right;font-size:10px;opacity:.5">▶</span></div>`;
+        html += `<div class="nav-group-body collapsed">`;
+        for (const item of g.items) {
+          if (item.sub) {
+            html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
+            for (const sub of item.sub) {
+              html += `<div class="nav-sub" data-group="${item.view.replace('plugin-','')}" data-view="${sub.view}" onclick="switchView('${sub.view}')" style="display:none">${sub.label}</div>`;
+            }
+          } else {
+            html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
+          }
+        }
+        html += '</div>';
+      }
+      html += '<div class="nav-item" data-view="timeline" onclick="switchView(\'timeline\')" style="display:none">📈 时间线</div>';
+      nav.innerHTML = html;
+    }
+    
+    // 先渲染 fallback 导航，再加载 API 覆盖
+    _renderNav();
+    loadNavFromAPI();
     // 构建完成后恢复当前视图的激活状态
     switchView(currentView);
   } catch(e) {

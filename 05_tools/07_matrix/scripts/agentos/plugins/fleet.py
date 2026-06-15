@@ -21,6 +21,15 @@ AGENT_SYNC = Path(__file__).resolve().parent.parent.parent.parent.parent
 class FleetPlugin(AgentOSPlugin):
     name = "fleet"
     description = "联邦管理 — 多机协同、同步、对账"
+    nav = {
+        'group': '联邦管理',
+        'icon': '🖥️',
+        'order': 4,
+        'items': [
+            {'view': 'matrix-summary', 'label': '集群概览'},
+            {'view': 'machines', 'label': '机器状态'},
+        ]
+    }
 
     def register(self, subparsers):
         p = subparsers.add_parser("fleet", help=self.description)

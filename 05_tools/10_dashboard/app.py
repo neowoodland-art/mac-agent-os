@@ -123,6 +123,41 @@ def api_plugins():
     return {"plugins": result, "total": len(result), "source_hostname": HOSTNAME}
 
 
+# ═════════════════════════════════════════════════════════
+# 插件导航 API（agentos 插件注册导航）
+# ═════════════════════════════════════════════════════════
+
+def _load_agentos_nav():
+    """从 agentos 插件读取导航定义"""
+    import sys as _sys
+    from pathlib import Path as _Path
+    
+    agentos_dir = _Path(__file__).resolve().parent.parent / "07_matrix" / "scripts" / "agentos"
+    if not agentos_dir.exists():
+        return []
+    
+    _sys.path.insert(0, str(agentos_dir.parent))
+    try:
+        from agentos.base import discover_plugins
+        plugins = discover_plugins()
+        nav_data = []
+        for plugin_cls in plugins:
+            inst = plugin_cls()
+            if inst.nav:
+                nav_data.append(inst.nav)
+        # 按 order 排序
+        nav_data.sort(key=lambda x: x.get('order', 99))
+        return nav_data
+    except Exception as e:
+        return []
+
+
+@app.get("/api/plugins/nav")
+def api_plugins_nav():
+    """返回 agentos 插件注册的导航结构"""
+    return {"nav": _load_agentos_nav()}
+
+
 @app.get("/api/plugins/{name}/summary")
 def api_plugin_summary(name: str):
     """返回指定插件的概览数据"""
