@@ -68,18 +68,34 @@ async def take_screenshot(page, prefix, identity_name):
         print(f"   📸 {path.name}")
     except: pass
 
-# ── 抖音：个人中心页提取（导航到 /user/self, 不限于首页） ──
+# ── 抖音：双段导航（先首页确认，再个人页提取） ──
 
 async def extract_douyin(page, identity_name, phone):
     info = {"platform":"douyin","phone":phone,"status":"pending","url":"",
             "nickname":"","fans":"","following":"","likes":"","posts":"","bio":""}
     try:
+        # ── 第1段：导航到首页，确认页面能加载 ──
+        print(f"   📍 抖音首页...")
+        ok = await safe_goto(page, DOUYIN_URL, timeout=60000)
+        if ok:
+            await asyncio.sleep(3)  # 至少等3秒，让用户看清页面
+            print(f"   ✅ 首页加载成功，停留3秒确认...")
+            await take_screenshot(page, "dy_home", identity_name)
+        else:
+            print(f"   ⚠️ 首页加载异常，等3秒后仍尝试个人页...")
+            await asyncio.sleep(3)  # 失败也等3秒，让用户看到问题
+
+        # ── 第2段：导航到个人中心页提取数据 ──
         print(f"   📍 抖音个人中心...")
-        ok = await safe_goto(page, DOUYIN_PROFILE_URL, timeout=60000)
-        if not ok: info["status"]="nav_error"; return info
-        await asyncio.sleep(5)
+        ok2 = await safe_goto(page, DOUYIN_PROFILE_URL, timeout=60000)
+        if not ok2:
+            print(f"   ⚠️ 个人页加载失败，保留首页截图")
+            info["url"] = page.url
+            info["status"] = "nav_error"
+            return info
+        await asyncio.sleep(5)  # 个人页停留5秒，让页面完全渲染+用户可见
         info["url"] = page.url
-        await take_screenshot(page, "dy", identity_name)
+        await take_screenshot(page, "dy_profile", identity_name)
 
         # 深度 DOM 扫描：提取所有可见文本+属性
         dom_data = await page.evaluate("""() => {
@@ -176,13 +192,14 @@ async def extract_douyin(page, identity_name, phone):
         info["status"]="error"; info["_error"]=str(e)
         return info
 
-# ── 小红书：主页提取 ──
+# ── 小红书：双段导航（先首页确认，再个人页提取） ──
 
 async def extract_xiaohongshu(page, identity_name, phone):
     info = {"platform":"xiaohongshu","phone":phone,"status":"pending","url":"",
             "nickname":"","fans":"","following":"","notes":"","bio":""}
     try:
-        # 小红书加载失败重试: 最多 3 次, 指数退避 (不用 Chrome CDP, 统一用 Camoufox)
+        # ── 第1段：导航到探索页，确认页面能加载 ──
+        # 加载失败重试: 最多 3 次, 指数退避 (不用 Chrome CDP, 统一用 Camoufox)
         # 每次重试前跳转 bing.com 清理缓存/状态, 方便视觉确认
         BING_URL = "https://www.bing.com/"
         MAX_RETRIES = 3
@@ -193,7 +210,9 @@ async def extract_xiaohongshu(page, identity_name, phone):
                 print(f"   📍 小红书首页...{suffix}")
                 ok = await safe_goto(page, XHS_URL, timeout=60000)
                 if ok:
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(5)  # 至少等5秒让页面渲染+用户可见
+                    print(f"   ✅ 小红书首页加载成功，停留5秒确认...")
+                    await take_screenshot(page, "xhs", identity_name)
                     xhs_loaded = True
                     break
                 # 失败: 先跳转 bing.com 清理浏览器缓存/重定向状态
@@ -219,8 +238,8 @@ async def extract_xiaohongshu(page, identity_name, phone):
             info["status"]="nav_error"
             return info
 
+        # ── 第2段：尝试进入个人主页─
         info["url"] = page.url
-        await take_screenshot(page, "xhs", identity_name)
 
         # 深度 DOM 扫描（首次：探索页，看看有没有已登录用户信息）
         dom_data = await page.evaluate("""() => {

@@ -984,36 +984,66 @@ def api_matrix_homepage_history():
         return {"error": str(e), "history": [], "total": 0}
 
 
-_COLLECT_PROCESS = None  # 全局保存采集子进程引用
+# ── 采集进程管理（PID文件替代全局变量，防止Dashboard重启后丢失追踪）──
+_COLLECT_PID_FILE = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect.pid"
+
+def _is_collect_running() -> bool:
+    """通过PID文件+进程表检测采集是否在运行（不受Dashboard重启影响）"""
+    if not _COLLECT_PID_FILE.exists():
+        return False
+    try:
+        pid = int(_COLLECT_PID_FILE.read_text().strip())
+        # 检查进程是否存在（POSIX kill 0）
+        import os
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, ValueError, OSError):
+        # 进程已不存在 → 清理孤儿PID文件
+        try: _COLLECT_PID_FILE.unlink()
+        except: pass
+        return False
+    except Exception:
+        return False
+
+def _write_collect_pid(pid: int):
+    _COLLECT_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _COLLECT_PID_FILE.write_text(str(pid))
+
+def _clean_collect_progress():
+    """清理采集进度文件（包括PID文件和进度JSON）"""
+    for f in [_COLLECT_PID_FILE,
+              AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"]:
+        try:
+            if f.exists(): f.unlink()
+        except: pass
 
 @app.post("/api/matrix/collect-homepage")
 def api_matrix_start_collect():
     """启动主页信息采集（后台运行，分批并行）"""
     import subprocess
-    global _COLLECT_PROCESS
 
-    # 检查是否已在运行
-    if _COLLECT_PROCESS and _COLLECT_PROCESS.poll() is None:
+    if _is_collect_running():
         return {"status": "already_running", "message": "采集任务已在运行中"}
 
     script = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
     if not script.exists():
         return {"error": f"采集脚本不存在: {script}"}
 
-    # 重置进度文件
-    progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
-    try:
-        if progress_path.exists():
-            progress_path.unlink()
-    except: pass
+    # 清理旧进度文件
+    _clean_collect_progress()
 
-    _COLLECT_PROCESS = subprocess.Popen(
-        [sys.executable, str(script)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        cwd=str(script.parent),
-    )
-    return {"status": "started", "message": "采集任务已启动"}
+    # 启动进程（保留 stdout 到日志文件，便于排查）
+    log_file = AGENT_LOCAL / "logs" / "collect_run.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(str(log_file), "w") as lf:
+        proc = subprocess.Popen(
+            [sys.executable, str(script)],
+            stdout=lf,
+            stderr=subprocess.STDOUT,
+            cwd=str(script.parent),
+        )
+    _write_collect_pid(proc.pid)
+    return {"status": "started", "pid": proc.pid, "message": "采集任务已启动"}
 
 
 @app.post("/api/matrix/collect-homepage/phone")
@@ -1024,64 +1054,81 @@ def api_matrix_start_collect_phone(data: dict):
     if not phone:
         return {"error": "phone required"}
     
-    global _COLLECT_PROCESS
-    if _COLLECT_PROCESS and _COLLECT_PROCESS.poll() is None:
+    if _is_collect_running():
         return {"status": "already_running", "message": "采集任务已在运行中"}
 
     script = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
     if not script.exists():
         return {"error": f"采集脚本不存在: {script}"}
 
-    progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
-    try:
-        if progress_path.exists(): progress_path.unlink()
-    except: pass
+    _clean_collect_progress()
 
-    _COLLECT_PROCESS = subprocess.Popen(
-        [sys.executable, str(script), "--phone", phone],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        cwd=str(script.parent),
-    )
-    return {"status": "started", "message": "采集任务已启动"}
+    log_file = AGENT_LOCAL / "logs" / "collect_run.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(str(log_file), "w") as lf:
+        proc = subprocess.Popen(
+            [sys.executable, str(script), "--phone", phone],
+            stdout=lf,
+            stderr=subprocess.STDOUT,
+            cwd=str(script.parent),
+        )
+    _write_collect_pid(proc.pid)
+    return {"status": "started", "pid": proc.pid, "message": "采集任务已启动"}
 
 
 @app.get("/api/matrix/collect-homepage/status")
 def api_matrix_collect_status():
-    """查询采集进度"""
-    import subprocess
-    global _COLLECT_PROCESS
-
+    """查询采集进度（含日志回显）"""
     progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
+
+    # 1. 有进度文件 → 返回进度
     if progress_path.exists():
         try:
             data = json.loads(progress_path.read_text())
+            # 如已完成, 清理PID文件
+            if data.get("status") == "completed" or data.get("status") == "error":
+                _clean_collect_progress()
             return data
         except: pass
 
-    # 无进度文件时判断进程状态
-    if _COLLECT_PROCESS:
-        ret = _COLLECT_PROCESS.poll()
-        if ret is None:
-            return {"status": "running", "message": "采集进行中...", "completed": 0, "total_identities": 0}
-        elif ret == 0:
-            return {"status": "completed", "message": "采集完成", "completed": 0, "total_identities": 0}
-        else:
-            return {"status": "error", "message": f"采集进程异常退出 (code {ret})"}
+    # 2. 无进度文件但PID在运行 → 正在启动
+    if _is_collect_running():
+        return {"status": "running", "message": "采集中...", "completed": 0, "total_identities": 0}
 
-    return {"status": "idle", "message": "暂无采集任务"}
+    # 3. 带日志回显: 读最近的日志行
+    log_file = AGENT_LOCAL / "logs" / "collect_run.log"
+    log_tail = ""
+    if log_file.exists():
+        try:
+            lines = log_file.read_text().splitlines()
+            log_tail = "\n".join(lines[-20:])
+        except: pass
+
+    # 清理过期文件
+    _clean_collect_progress()
+    return {"status": "idle", "message": "暂无采集任务", "log_tail": log_tail}
 
 
 @app.post("/api/matrix/collect-homepage/cancel")
 def api_matrix_cancel_collect():
     """取消正在运行的采集"""
-    global _COLLECT_PROCESS
-    if _COLLECT_PROCESS and _COLLECT_PROCESS.poll() is None:
-        _COLLECT_PROCESS.terminate()
+    if not _is_collect_running():
+        return {"status": "idle", "message": "没有正在运行的采集任务"}
+    try:
+        pid = int(_COLLECT_PID_FILE.read_text().strip())
+        import signal
+        os.kill(pid, signal.SIGTERM)
         try:
-            _COLLECT_PROCESS.wait(timeout=5)
-        except:
-            _COLLECT_PROCESS.kill()
+            import time
+            time.sleep(2)
+            os.kill(pid, 0)  # still alive?
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        _clean_collect_progress()
+        return {"status": "cancelled", "message": "采集任务已取消"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
         _COLLECT_PROCESS = None
         return {"status": "cancelled", "message": "采集已取消"}
         return {"status": "idle", "message": "没有运行中的采集"}
