@@ -1,0 +1,240 @@
+# ORACLE.yaml — AgentOS 联邦智能体宪法（只读）
+# 版本: 1.0.0 | 最后更新: 2026-06-15
+#
+# 本文件是系统最高级别的声明式配置。
+# - **只读**：所有机器只能读取，禁止写入。修改由 ghai 完成并 git push。
+# - **对账依据**：各机器的 guardd 读取此文件，与实际运行状态对比，不一致则纠正。
+# - **source of truth**：账号分配、任务计划、全局规则—以本文件为准。
+#
+# 机器本地覆盖（agent-local/config.yaml）可覆盖端口/代理/屏幕偏移等本机参数。
+
+schema_version: '1.0'
+last_updated: '2026-06-15 14:40'
+
+# ═══════════════════════════════════════════════════════════
+# 一、机器定义
+# ═══════════════════════════════════════════════════════════
+machines:
+  chengzigedeAir:
+    hostname: chengzigedeAir
+    uid_prefix: 4cf443bc
+    role: master
+    os: macOS 26.4 arm64
+    note: 主控机器，运行 Dashboard + 养号 + 知识库
+
+  5kechengdeAir:
+    hostname: 5kechengdeAir
+    uid_prefix: f13b03d1
+    role: worker
+    os: macOS 25.4 arm64
+    note: 养号工人机器
+
+  7kecheng:
+    hostname: 7kecheng
+    uid_prefix: d19759cf
+    role: worker
+    os: macOS arm64
+    note: 养号工人机器（大量账号）
+
+# ═══════════════════════════════════════════════════════════
+# 二、账号分配（身份 → 平台账号 → 所属机器）
+# ═══════════════════════════════════════════════════════════
+# 一个身份 = 一个手机号 = 一个浏览器指纹，可绑定多个平台账号
+
+accounts:
+  # ── chengzigedeAir 的账号 ──
+  - identity: phone_15370103682
+    phone: '15370103682'
+    machine: chengzigedeAir
+    platforms:
+      douyin: douyin_test
+      xiaohongshu: xhs_01
+
+  - identity: douyin_133
+    phone: '13382504284'
+    machine: chengzigedeAir
+    platforms:
+      douyin: douyin_133
+
+  - identity: douyin_133_2
+    phone: '13382501975'
+    machine: chengzigedeAir
+    platforms:
+      douyin: douyin_133_2
+
+  - identity: douyin_134
+    phone: '13382502745'
+    machine: chengzigedeAir
+    platforms:
+      douyin: douyin_134
+
+  # ── 5kechengdeAir 的账号 ──
+  - identity: douyin_01_camo
+    phone: '18513308610'
+    machine: 5kechengdeAir
+    platforms:
+      douyin: douyin_01
+      xiaohongshu: xhs_01
+
+  - identity: douyin_02_camo
+    phone: '18500003366'
+    machine: 5kechengdeAir
+    platforms:
+      douyin: douyin_02
+      xiaohongshu: xhs_02
+
+  - identity: douyin_camo01
+    phone: '15370108283'
+    machine: 5kechengdeAir
+    platforms:
+      douyin: douyin_camo01
+      xiaohongshu: xhs_03
+
+  # ── 7kecheng 的账号（13 个身份，26 个平台账号）──
+  - identity: phone_18550099569
+    phone: '18550099569'
+    machine: 7kecheng
+    platforms:
+      douyin: douyin_136
+      xiaohongshu: xhs_7
+
+  - identity: phone_15358497926
+    phone: '15358497926'
+    machine: 7kecheng
+    platforms:
+      douyin: douyin_137
+      xiaohongshu: xhs_8
+
+  - identity: phone_13382504673
+    phone: '13382504673'
+    machine: 7kecheng
+    platforms:
+      douyin: douyin_139
+      xiaohongshu: xhs_9
+
+  - identity: phone_15345247890
+    phone: '15345247890'
+    machine: 7kecheng
+    platforms:
+      douyin: douyin_140
+      xiaohongshu: xhs_10
+
+  - identity: phone_18550099363
+    phone: '18550099363'
+    machine: 7kecheng
+    platforms:
+      douyin: douyin_141
+      xiaohongshu: xhs_11
+
+  - identity: phone_13382502194
+    phone: '13382502194'
+    machine: 7kecheng
+    platforms:
+      douyin: douyin_142
+      xiaohongshu: xhs_12
+
+  - identity: phone_13382502334
+    phone: '13382502334'
+    machine: 7kecheng
+    platforms:
+      douyin: douyin_143
+      xiaohongshu: xhs_13
+
+  - identity: phone_13382504570
+    phone: '13382504570'
+    machine: 7kecheng
+    platforms:
+      douyin: douyin_144
+      xiaohongshu: xhs_14
+
+  - identity: phone_18550099050
+    phone: '18550099050'
+    machine: 7kecheng
+    platforms:
+      douyin: douyin_145
+      xiaohongshu: xhs_15
+
+  - identity: phone_15370109706
+    phone: '15370109706'
+    machine: 7kecheng
+    platforms:
+      douyin: douyin_146
+      xiaohongshu: xhs_16
+
+# ═══════════════════════════════════════════════════════════
+# 三、任务计划
+# ═══════════════════════════════════════════════════════════
+# cron 格式: 分 时 日 月 周
+# on_machines: 指定在哪些机器上执行（* 表示所有）
+
+tasks:
+  # ── 养号任务 ──
+  - name: nurture_morning
+    schedule: "30 9 * * *"
+    on_machines: [chengzigedeAir, 5kechengdeAir, 7kecheng]
+    action: mc run
+    params:
+      blueprint: douyin_daily
+      rounds: 3
+      interval: "45-90"
+      duration_minutes: 15
+
+  - name: nurture_evening
+    schedule: "0 20 * * *"
+    on_machines: [chengzigedeAir, 5kechengdeAir, 7kecheng]
+    action: mc run
+    params:
+      blueprint: douyin_daily
+      rounds: 3
+      interval: "45-90"
+      duration_minutes: 15
+
+  - name: xhs_nurture_evening
+    schedule: "30 20 * * *"
+    on_machines: [chengzigedeAir, 5kechengdeAir, 7kecheng]
+    action: mc run
+    params:
+      blueprint: xhs_daily
+      rounds: 2
+      interval: "30-60"
+
+  # ── 采集任务 ──
+  - name: collect_profiles
+    schedule: "0 3 * * *"
+    on_machines: [chengzigedeAir, 5kechengdeAir, 7kecheng]
+    action: collect
+    params:
+      accounts: all
+
+  # ── 系统任务 ──
+  - name: git_sync
+    schedule: "*/15 * * * *"
+    on_machines: "*"
+    action: git pull
+    params: {}
+
+  - name: vector_rebuild
+    schedule: "30 3 * * *"
+    on_machines: [chengzigedeAir]
+    action: rebuild_vector
+    params:
+      mode: incremental
+
+  - name: knowledge_inbox_refine
+    schedule: "0 4 * * *"
+    on_machines: [chengzigedeAir]
+    action: inbox_refine
+    params: {}
+
+# ═══════════════════════════════════════════════════════════
+# 四、全局配置
+# ═══════════════════════════════════════════════════════════
+global:
+  timezone: Asia/Shanghai
+  git_sync_interval_minutes: 15
+  heartbeat_interval_minutes: 5
+  # 各机器的 agent-local/config.yaml 可覆盖以下参数
+  defaults:
+    proxy: "socks5://127.0.0.1:10800"
+    dashboard_port: 9988
+    camouflage_port_base: 9200
