@@ -64,6 +64,58 @@ else
     warn "未检测到 Python，部分技能将不可用"
 fi
 
+# ---------- 检测环境变量 AGENT_SYNC / AGENT_LOCAL ----------
+if [ -z "$AGENT_SYNC" ]; then
+    export AGENT_SYNC="$HOME/workbuddy-agent-os/agent-sync"
+    warn "AGENT_SYNC 未设置，默认: $AGENT_SYNC"
+    # 写入 .zshrc（如果存在）
+    if [ -f "$HOME/.zshrc" ]; then
+        if ! grep -q "export AGENT_SYNC" "$HOME/.zshrc" 2>/dev/null; then
+            echo "" >> "$HOME/.zshrc"
+            echo "# AgentOS 路径变量" >> "$HOME/.zshrc"
+            echo "export AGENT_SYNC=\"\$HOME/workbuddy-agent-os/agent-sync\"" >> "$HOME/.zshrc"
+            echo "export AGENT_LOCAL=\"\$HOME/workbuddy-agent-os/agent-local\"" >> "$HOME/.zshrc"
+            ok "已写入 .zshrc: AGENT_SYNC / AGENT_LOCAL"
+        fi
+    fi
+else
+    ok "AGENT_SYNC=$AGENT_SYNC"
+fi
+if [ -z "$AGENT_LOCAL" ]; then
+    export AGENT_LOCAL="$HOME/workbuddy-agent-os/agent-local"
+    warn "AGENT_LOCAL 未设置，默认: $AGENT_LOCAL"
+fi
+
+# ---------- 检测或创建 agent-local/config.yaml ----------
+LOCAL_CONFIG="$AGENT_LOCAL/config.yaml"
+if [ ! -f "$LOCAL_CONFIG" ]; then
+    mkdir -p "$AGENT_LOCAL" 2>/dev/null
+    cat > "$LOCAL_CONFIG" << 'CONFEOF'
+# agent-local/config.yaml — 本机唯一配置入口
+# 此文件每台机器独立，不同步到 Git。覆盖 ORACLE.yaml 中的默认值。
+
+hostname: "$(hostname)"
+machine_uid: ""
+
+# 代理设置（各机器不同）
+proxy:
+  socks5: "socks5://127.0.0.1:10800"
+  http: ""
+
+# 浏览器窗口偏移（多账号同屏时避免重叠）
+screen_offsets:
+  default: {x: 0, y: 0, width: 702, height: 783}
+
+# 端口分配（避免多机器端口冲突）
+ports:
+  dashboard: 9988
+  camouflage_base: 9200
+CONFEOF
+    ok "已创建: $LOCAL_CONFIG"
+else
+    ok "本地配置已存在: $LOCAL_CONFIG"
+fi
+
 # ---------- 检测 Node.js ----------
 NODE_CMD=""
 if command -v node &>/dev/null; then
