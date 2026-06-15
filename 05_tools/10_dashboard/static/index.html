@@ -1724,7 +1724,7 @@ async function batchExecute() {
   const mix = _lastPreview.mix;
 
   try {
-    const r = await fetch('/api/matrix/nurture/start', {
+    const r = await fetch('/api/matrix/batch-run', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({accounts: accts, blueprints: bps, rounds, interval, stagger, mix})
     });

@@ -44,7 +44,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from plugins.base import DashboardPlugin
+from plugins.base import DashboardPlugin, AGENT_SYNC, AGENT_LOCAL
 
 # ── 联邦路径 ───────────────────────────────────────────────
 _CROSS_MACHINE_DIR = Path(__file__).resolve().parent.parent.parent / "04_memory" / "cross_machine"
@@ -579,7 +579,7 @@ def api_machine_status():
         accounts = []
 
     # 主页采集信息
-    hp_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "homepage_info.json"
+    hp_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "homepage_info.json"
     hp_data = {}
     if hp_path.exists():
         try: hp_data = json.loads(hp_path.read_text())
@@ -951,7 +951,7 @@ def api_matrix_accounts():
 def api_matrix_account_profiles():
     """读取已保存的账号主页信息"""
     try:
-        path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+        path = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
         if path.exists():
             return json.loads(path.read_text())
         return {}
@@ -963,10 +963,10 @@ def api_matrix_account_profiles():
 def api_matrix_homepage_info():
     """读取已采集的主页信息（从 homepage_info.json，不开浏览器）"""
     try:
-        path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "homepage_info.json"
+        path = AGENT_LOCAL / "tools" / "matrix" / "data" / "homepage_info.json"
         if path.exists():
             return json.loads(path.read_text())
-        return {"error": "尚未采集主页信息", "hint": "请先运行: cd ~/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts && python collect_homepage_info.py"}
+        return {"error": "尚未采集主页信息", "hint": f"请先运行: cd {AGENT_SYNC/'05_tools/07_matrix/scripts'} && python collect_homepage_info.py"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -975,7 +975,7 @@ def api_matrix_homepage_info():
 def api_matrix_homepage_history():
     """读取采集历史时间线"""
     try:
-        history_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "homepage" / "history" / "timeline.json"
+        history_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "homepage" / "history" / "timeline.json"
         if history_path.exists():
             data = json.loads(history_path.read_text())
             return {"history": data, "total": len(data)}
@@ -996,12 +996,12 @@ def api_matrix_start_collect():
     if _COLLECT_PROCESS and _COLLECT_PROCESS.poll() is None:
         return {"status": "already_running", "message": "采集任务已在运行中"}
 
-    script = Path.home() / "workbuddy-agent-os" / "agent-sync" / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
+    script = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
     if not script.exists():
         return {"error": f"采集脚本不存在: {script}"}
 
     # 重置进度文件
-    progress_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "collect_progress.json"
+    progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
     try:
         if progress_path.exists():
             progress_path.unlink()
@@ -1028,11 +1028,11 @@ def api_matrix_start_collect_phone(data: dict):
     if _COLLECT_PROCESS and _COLLECT_PROCESS.poll() is None:
         return {"status": "already_running", "message": "采集任务已在运行中"}
 
-    script = Path.home() / "workbuddy-agent-os" / "agent-sync" / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
+    script = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
     if not script.exists():
         return {"error": f"采集脚本不存在: {script}"}
 
-    progress_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "collect_progress.json"
+    progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
     try:
         if progress_path.exists(): progress_path.unlink()
     except: pass
@@ -1052,7 +1052,7 @@ def api_matrix_collect_status():
     import subprocess
     global _COLLECT_PROCESS
 
-    progress_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "collect_progress.json"
+    progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
     if progress_path.exists():
         try:
             data = json.loads(progress_path.read_text())
@@ -1100,7 +1100,7 @@ def api_nurture_preview(phone: str = "", mins: int = 10, concur: int = 3, stagge
     try:
         # 直接从 accounts.yaml 读取
         import yaml
-        acct_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "config" / "accounts.yaml"
+        acct_path = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.yaml"
         if acct_path.exists():
             with open(acct_path) as f:
                 data = yaml.safe_load(f)
@@ -1139,7 +1139,7 @@ def api_nurture_start(data: dict):
     if _NURTURE_PROCESS and _NURTURE_PROCESS.poll() is None:
         return {"status": "already_running", "message": "养号任务已在运行"}
 
-    script = Path.home() / "workbuddy-agent-os" / "agent-sync" / "05_tools" / "07_matrix" / "scripts" / "nurture_daily.py"
+    script = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "nurture_daily.py"
     if not script.exists():
         return {"error": f"脚本不存在: {script}"}
 
@@ -1284,9 +1284,9 @@ def api_matrix_unbind_account(account_id: str):
         raise HTTPException(500, detail=str(e))
 
 
-@app.post("/api/matrix/nurture/start")
-async def api_matrix_nurture_start(data: dict):
-    """启动批量养号（通过 mc CLI 执行）"""
+@app.post("/api/matrix/batch-run")
+async def api_matrix_batch_run(data: dict):
+    """启动批量执行（通过 mc CLI）"""
     try:
         accounts = data.get("accounts", [])
         blueprints = data.get("blueprints", [])
@@ -1300,7 +1300,7 @@ async def api_matrix_nurture_start(data: dict):
             raise HTTPException(400, detail="accounts 和 blueprints 必填")
 
         import subprocess
-        mc_path = str(Path(__file__).resolve().parent.parent.parent / "05_tools" / "07_matrix" / "mc")
+        mc_path = str(AGENT_SYNC / "05_tools" / "07_matrix" / "mc")
         cmd = [mc_path, "run", f"--accounts={','.join(accounts)}", f"--blueprints={','.join(blueprints)}", f"--rounds={rounds}", f"--interval={interval}", f"--stagger={stagger}"]
         if mix:
             cmd.append("--mix")
