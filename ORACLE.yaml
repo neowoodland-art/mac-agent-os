@@ -35,16 +35,12 @@ machines:
 
   7kecheng:
     hostname: 7kecheng
-    tailscale_hosts:
-      - 7kechengdemacbook-air
-      - 7macbook-air
-    tailscale_ips:
-      - 100.79.89.25
-      - 100.65.35.28
+    tailscale_host: 7macbook-air
+    tailscale_ip: 100.65.35.28
     uid_prefix: d19759cf
     role: worker
     os: macOS arm64
-    note: 养号工人机器（大量账号，两台 Tailscale 客户端：brew版+官方版）
+    note: 养号工人机器（大量账号）
 
 # ═══════════════════════════════════════════════════════════
 # 二、账号分配（身份 → 平台账号 → 所属机器）
