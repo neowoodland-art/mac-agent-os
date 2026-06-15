@@ -1,50 +1,20 @@
-# AgentOS Python 依赖
-# 安装命令（固定路径，不要改）：
-#   /Users/chengzige/.workbuddy/binaries/python/versions/3.13.12/bin/python3 -m venv /Users/chengzige/.workbuddy/binaries/python/envs/agent-os
-#   /Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/pip install -r requirements.txt
-#
-# 使用命令（所有 agent-os 脚本都用这个 Python）：
-#   /Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/python3 <script.py>
+# AgentOS 核心依赖
+# 版本: 1.0 | 最后更新: 2026-06-15
+# 安装: pip install -r requirements.txt
 
-# ─── 核心依赖 ──────────────────────────────────────────────────
-# 网页内容抓取与提取（kb_ingest.py / web-clipper 使用）
-trafilatura>=2.0.0
-
-# SQLite 增强工具（facts.db 便捷操作）
-sqlite-utils>=3.35
-
-# RSS 解析（auto_collector 使用）
-feedparser>=6.0.0
-
-# 定时任务（auto_collector 使用）
-schedule>=1.2.0
-
-# ─── 抓取与反爬 ────────────────────────────────────────────────
-# 三引擎自适应反爬抓取（web_crawler 使用）
-scrapling>=0.1.0
-
-# LLM 友好结构化抓取+智能过滤（web_crawler 使用）
-crawl4ai[all]>=0.1.0
-
-# 浏览器自动化（web_crawler / Playwright Scraper 使用）
-playwright>=1.50.0
-playwright-stealth>=1.0.0
-
-# 复杂页面自然语言交互
-stagehand>=0.1.0
-
-# ─── AI 与向量 ─────────────────────────────────────────────────
-# 向量数据库（L2 语义检索 / kb_manager 使用）
-chromadb>=1.0.0
-
-# 语音转文字（voice-summary 使用）
-openai-whisper>=20231117
-
-# ─── Dashboard ─────────────────────────────────────────────────
-# 系统监控面板（05_tools/10_dashboard/ 使用）
-fastapi>=0.110.0
-uvicorn>=0.27.0
-
-# ─── 安装后必须执行 ────────────────────────────────────────────
-# Playwright 浏览器引擎下载（需网络通畅）：
-#   /Users/chengzige/.workbuddy/binaries/python/envs/agent-os/bin/playwright install chromium
+camoufox==0.4.11
+Crawl4AI==0.8.6
+orjson==3.11.9
+playwright==1.58.0
+playwright-stealth==2.0.3
+rebrowser_playwright==1.52.0
+chromadb==1.5.8
+yarl==1.20.1
+trafilatura==2.0.0
+sqlite-utils==3.39
+feedparser==6.0.11
+schedule==1.2.2
+gradio==6.13.0
+yt-dlp==2026.3.9
+requests==2.32.3
+PyYAML==6.0.3
