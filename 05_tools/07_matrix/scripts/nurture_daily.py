@@ -56,10 +56,11 @@ def gaussian_sleep(base):
 
 
 def load_accounts():
-    import yaml
-    with open(CONFIG_DIR / "accounts.yaml") as f:
-        data = yaml.safe_load(f)
-    return [a for a in data.get("accounts", []) if a.get("enabled", True)]
+    """从 registry + override 读取本机所有账号（跨机兼容）"""
+    from matrix_mgmt import MatrixManager
+    mgr = MatrixManager()
+    all_accts = mgr.list_accounts()
+    return [a for a in all_accts if a.get("is_local") and a.get("enabled", True)]
 
 
 def load_blueprints():
@@ -139,13 +140,15 @@ def pick_blueprint(blueprints, platform):
 
 
 def build_nurture_command(phone, display_name, account, blueprint_name, rounds=1):
-    """构建养号命令"""
-    runner = SCRIPTS_DIR / "yanghao_runner.py"
+    """构建养号命令 — 用 mc run（新引擎，跨机兼容）"""
+    mc_path = TOOL_DIR / "mc"
     return [
-        sys.executable, str(runner),
-        "--account", account["id"],
-        "--blueprint", blueprint_name,
+        "bash", str(mc_path), "run",
+        "--accounts", account["id"],
+        "--blueprints", blueprint_name,
         "--rounds", str(rounds),
+        "--mix",
+        "--interval", "45-90",
     ]
 
 

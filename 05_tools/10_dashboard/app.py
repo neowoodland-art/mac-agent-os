@@ -1098,16 +1098,12 @@ _NURTURE_LOG = ""
 def api_nurture_preview(phone: str = "", mins: int = 10, concur: int = 3, stagger: int = 15):
     """预览养号排期"""
     try:
-        # 直接从 accounts.yaml 读取
-        import yaml
-        acct_path = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.yaml"
-        if acct_path.exists():
-            with open(acct_path) as f:
-                data = yaml.safe_load(f)
-            accounts = [a for a in data.get("accounts", []) if a.get("enabled", True)]
-        else:
-            accounts = []
-        phones = sorted(set(a.get("phone", "") for a in accounts if a.get("phone")))
+        # 从 MatrixManager 读取（覆盖 registry + override，跨机兼容）
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        all_accts = mgr.list_accounts()
+        local = [a for a in all_accts if a.get("is_local") and a.get("enabled", True)]
+        phones = sorted(set(a.get("phone", "") for a in local if a.get("phone")))
         if phone:
             phones = [p for p in phones if p == phone]
         identities = len(phones)
