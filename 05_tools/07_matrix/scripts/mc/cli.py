@@ -1020,12 +1020,19 @@ def cmd_remote(args):
 # 主解析器
 # ════════════════════════════════════════════════════════════
 
-def build_parser():
-    parser = argparse.ArgumentParser(
-        prog="mc",
-        description="Matrix Console — 矩阵养号统一命令入口",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+def build_parser(subparsers=None, plugin_name="mc"):
+    """构建参数解析器
+    
+    Args:
+        subparsers: 如果提供，作为 agentos 插件的子命令注册
+        plugin_name: 插件名（默认 mc）
+    """
+    if subparsers:
+        parser = subparsers.add_parser(
+            plugin_name,
+            help="Matrix Console — 矩阵养号统一命令入口",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
 示例:
   mc run --accounts douyin_01,douyin_04 --blueprints browse_v2 --rounds 10
   mc run --accounts douyin_01 --blueprints browse_v2,comment --rounds 5 --mix
@@ -1035,7 +1042,23 @@ def build_parser():
   mc proxy list
   mc corpus list
         """,
-    )
+        )
+    else:
+        parser = argparse.ArgumentParser(
+            prog="mc",
+            description="Matrix Console — 矩阵养号统一命令入口",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
+示例:
+  mc run --accounts douyin_01,douyin_04 --blueprints browse_v2 --rounds 10
+  mc run --accounts douyin_01 --blueprints browse_v2,comment --rounds 5 --mix
+  mc account list
+  mc account login douyin_04
+  mc status all
+  mc proxy list
+  mc corpus list
+        """,
+        )
     parser.add_argument("-v", "--verbose", action="store_true", help="详细输出")
     parser.add_argument("--json", action="store_true", help="JSON 输出格式")
     parser.add_argument("--log", default="", help="日志文件路径")

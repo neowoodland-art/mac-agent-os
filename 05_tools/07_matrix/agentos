@@ -1,7 +1,7 @@
 #!/bin/bash
-# mc — Matrix Console 快捷命令（agentos matrix 的别名）
-# mc = agentos matrix
-# 安装: chmod +x mc && sudo ln -s $(pwd)/mc /usr/local/bin/mc
+# agentos — AgentOS 联邦智能体统一命令入口
+# 安装: chmod +x agentos && sudo ln -s $(pwd)/agentos /usr/local/bin/agentos
+# 或: alias agentos='$(pwd)/agentos'
 
 _SRC="${BASH_SOURCE[0]}"
 while [ -L "$_SRC" ]; do _SRC="$(readlink "$_SRC")"; done
@@ -20,4 +20,4 @@ else
 fi
 
 cd "$SCRIPT_DIR/scripts"
-exec "$PYTHON" -m agentos matrix "$@"
+exec "$PYTHON" -m agentos "$@"
