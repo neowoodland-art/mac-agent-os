@@ -82,9 +82,17 @@ system-check-report-*.md
 # Matrix 浏览器 Profile（每台机器独立，含 Cookie 和缓存）
 05_tools/07_matrix/profiles/
 05_tools/07_matrix/logs/
+05_tools/07_matrix/scripts/archive/
 
 # 本机 Matrix 路径配置（每台机器独立）
 05_tools/07_matrix/local.yaml
+
+# SMS 验证码配置（含API Key，每台机器独立）
+05_tools/07_matrix/scripts/config/sms.yaml
+
+# ======== longcat 爬虫（浏览器数据，不入库）========
+05_tools/05_crawl/longcat/profiles/
+05_tools/05_crawl/longcat/.local_packages/
 
 # SMS 验证码配置（含API Key，每台机器独立）
 05_tools/07_matrix/scripts/config/sms.yaml
