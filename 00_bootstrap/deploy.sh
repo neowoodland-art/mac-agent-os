@@ -123,9 +123,27 @@ if [ "$PYTHON_OK" = true ]; then
     done
 fi
 
-# ── 步骤5: 同步 ORACLE 和授权 ──
+# ── 步骤5: 检查 Tailscale（远程连接）──
 echo ""
-info "步骤5/5: 同步配置..."
+info "步骤5/6: 检查远程连接..."
+
+if command -v tailscale &>/dev/null; then
+    TS_STATUS=$(tailscale status 2>/dev/null | head -3)
+    if [ -n "$TS_STATUS" ]; then
+        ok "Tailscale 已连接"
+        echo "$TS_STATUS" | while read line; do echo "    $line"; done
+    else
+        warn "Tailscale 已安装但未登录，请运行: tailscale up"
+    fi
+else
+    warn "Tailscale 未安装。远程连接需要 Tailscale 实现跨局域网通信。"
+    warn "安装方法: brew install --cask tailscale 或从 https://tailscale.com/download 下载"
+    echo ""
+fi
+
+# ── 步骤6: 同步 ORACLE 和授权 ──
+echo ""
+info "步骤6/6: 同步配置..."
 
 # 确保 ORACLE.yaml 可读
 if [ -f "$AGENT_SYNC/ORACLE.yaml" ]; then
@@ -139,11 +157,16 @@ echo ""
 echo "============================================"
 ok "部署完成!"
 echo ""
-echo "  环境变量已写入 shell 配置文件"
-echo "  请执行: source ~/.zshrc"
+echo "  ✅ 环境变量: AGENT_SYNC/AGENT_LOCAL 已写入 shell 配置文件"
+echo "  ✅ 目录结构: $AGENT_LOCAL 已创建"
+echo "  ✅ 本地配置: $AGENT_LOCAL/config.yaml"
+echo "  ✅ ORACLE 宪法: $AGENT_SYNC/ORACLE.yaml"
 echo ""
-echo "  后续步骤:"
-echo "  1. 编辑本机配置: vim $AGENT_LOCAL/config.yaml"
-echo "  2. 运行 setup_env.sh (如环境变量未生效):"
-echo "     source ~/.zshrc && bash $AGENT_SYNC/00_bootstrap/setup_env.sh"
+echo "  后续手动步骤:"
+echo "  1. 使环境变量生效: source ~/.zshrc"
+echo "  2. （如未安装 Tailscale）安装并登录:"
+echo "       brew install --cask tailscale"
+echo "       或从 https://tailscale.com/download 下载"
+echo "  3. 开启远程登录（每台机器一次）:"
+echo "       sudo systemsetup -setremotelogin on"
 echo "============================================"
