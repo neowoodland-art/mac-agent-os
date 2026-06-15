@@ -17,6 +17,8 @@ last_updated: '2026-06-15 14:40'
 machines:
   chengzigedeAir:
     hostname: chengzigedeAir
+    tailscale_host: macbook-air
+    tailscale_ip: 100.111.43.6
     uid_prefix: 4cf443bc
     role: master
     os: macOS 26.4 arm64
@@ -24,6 +26,8 @@ machines:
 
   5kechengdeAir:
     hostname: 5kechengdeAir
+    tailscale_host: 5macbook-air
+    tailscale_ip: 100.72.182.121
     uid_prefix: f13b03d1
     role: worker
     os: macOS 25.4 arm64
@@ -31,6 +35,8 @@ machines:
 
   7kecheng:
     hostname: 7kecheng
+    tailscale_host: 7kechengdemacbook-air
+    tailscale_ip: 100.79.89.25
     uid_prefix: d19759cf
     role: worker
     os: macOS arm64
