@@ -342,10 +342,11 @@ class CDPConnector:
         2. camoufox 类型 → Camoufox 原生（临时 profile）
         3. 其他 → CDP 连接（Chrome/Firefox）
         """
-        # 先杀残留 Camoufox 进程 + 清理锁文件
+        # 清理锁文件（不杀 Camoufox 进程！并发场景下有多个身份同时运行浏览器，
+        # pkill -f 会杀死同批次其他身份的浏览器，导致采集失败）
         import subprocess
-        subprocess.run(['pkill', '-f', 'camoufox'], capture_output=True, timeout=5)
-        await asyncio.sleep(2)
+        # 不再执行 pkill -f camoufox
+        await asyncio.sleep(0.5)
 
         if self.identity_dir:
             # 清理锁文件

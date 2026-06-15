@@ -116,7 +116,8 @@ async def extract_douyin(page, identity_name, phone):
         nickname = ""
         skip_words = {"精选","推荐","搜索","关注","朋友","我的","直播","放映厅","短剧",
                      "小游戏","抖音","首页","通知","私信","投稿","登录","开启读屏标签",
-                     "读屏标签已关闭","未登录","壁纸","更多","热点"}
+                     "读屏标签已关闭","未登录","壁纸","更多","热点",
+                     "登录后即可观看喜欢、收藏作品","登录后即可查看收藏、点赞"}
         for line in lines[:80]:
             line = line.strip()
             if 1 < len(line) <= 18 and line not in skip_words and \
@@ -207,7 +208,7 @@ async def extract_xiaohongshu(page, identity_name, phone):
         # 第1步: 先在探索页提取（已登录时右上角有用户信息）
         skip_words = {"探索","发现","首页","推荐","关注","附近","消息","我","笔记","收藏",
                      "赞过","编辑资料","创作中心","小红书","登录","注册","发布","直播",
-                     "打开App","打开小红书"}
+                     "打开App","打开小红书","问点点"}
         for line in texts[:80]:
             line = line.strip()
             if 1 < len(line) <= 18 and line not in skip_words and \
