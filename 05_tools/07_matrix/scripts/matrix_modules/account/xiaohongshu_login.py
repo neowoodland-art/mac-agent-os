@@ -110,27 +110,16 @@ async def xiaohongshu_login(account_id: str, phone: str = "", timeout_minutes: i
     except Exception:
         pass
 
-    # ── 检测登录面板 ──
+    # ── 检测登录面板（小红书无cookie时自动弹出登录弹窗）──
     log("📱 检测登录面板...")
     panel_detected = False
     
-    # 小红书登录面板可能通过点击"登录"按钮触发
-    # 尝试多种方式定位登录入口
-    for attempt in range(5):
-        # 方式1: 检测登录弹窗/面板
+    for attempt in range(8):
         panel_found = await conn.page.evaluate("""() => {
-            var selectors = [
-                '.login-container', '.login-dialog', '.login-panel',
-                '[class*=login]', '#login-panel', '.auth-container',
-                'div[class*=login]', '.phone-login', '.sms-login',
-                'input[placeholder*=\"手机\"]', 'input[type=\"tel\"]',
-                // 小红书特有的登录弹窗
-                '.reds-login', '.login-modal', '.login-wrapper'
-            ];
-            for (var s of selectors) {
-                var el = document.querySelector(s);
-                if (el && el.offsetParent) return s;
-            }
+            var sels = ['.login-container','.reds-modal-open','.login-modal',
+                        'input[placeholder*=\"手机\"]','.phone-login'];
+            for (var s of sels) { var el = document.querySelector(s);
+                if (el && el.offsetParent) return s; }
             return null;
         }""")
         

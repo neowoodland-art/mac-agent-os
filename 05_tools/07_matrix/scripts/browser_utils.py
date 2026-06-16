@@ -225,22 +225,33 @@ class GracefulBrowser:
         
         print("  🧹 正在清理浏览器资源...")
         try:
-            # 1. 先移除 PID 文件（避免被其他进程误用）
+            # 1. 先移除 PID 文件
             if self.account_id:
                 remove_pid_file(self.account_id)
             
-            # 2. 优雅关闭 Camoufox (先关页面 → 再关 context → 再关 browser)
-            if hasattr(self.conn, '_camoufox') and self.conn._camoufox:
-                print("  🦊 关闭 Camoufox...")
-                await self.conn._camoufox.stop()
-            elif hasattr(self.conn, '_camoufox_browser') and self.conn._camoufox_browser:
-                print("  🦊 关闭浏览器...")
-                await self.conn._camoufox_browser.close()
-            
-            # 3. 关闭 Playwright
-            if hasattr(self.conn, '_playwright') and self.conn._playwright:
-                print("  🎭 关闭 Playwright...")
-                await self.conn._playwright.stop()
+            # 2. 委托给 cdp_connector 的 close 方法（它包含了正确的关闭顺序）
+            if hasattr(self.conn, 'close'):
+                print("  🦊 委托 cdp_connector 优雅关闭...")
+                await self.conn.close()
+            else:
+                # 3. 兜底：尝试各种关闭方式
+                if hasattr(self.conn, '_camoufox') and self.conn._camoufox:
+                    print("  🦊 关闭 Camoufox...")
+                    try:
+                        await self.conn._camoufox.stop()
+                    except AttributeError:
+                        pass
+                    try:
+                        if hasattr(self.conn._camoufox, 'browser') and self.conn._camoufox.browser:
+                            await self.conn._camoufox.browser.close()
+                    except Exception:
+                        pass
+                if hasattr(self.conn, '_camoufox_browser') and self.conn._camoufox_browser:
+                    print("  🦊 关闭浏览器...")
+                    await self.conn._camoufox_browser.close()
+                if hasattr(self.conn, '_playwright') and self.conn._playwright:
+                    print("  🎭 关闭 Playwright...")
+                    await self.conn._playwright.stop()
             
             print("  ✅ 浏览器已优雅关闭")
         except Exception as e:
