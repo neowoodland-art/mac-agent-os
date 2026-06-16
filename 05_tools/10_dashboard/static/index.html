@@ -3831,43 +3831,99 @@ async function accountRegister() {
   }
 }
 
-// ── 账号登录 ──
-async function accountLogin(accountId) {
-  if (!accountId) return;
-  if (!confirm('打开浏览器登录 '+accountId+' ？')) return;
-  const statusEl = document.getElementById('collectProfileStatus');
-  if (statusEl) statusEl.innerHTML = '⏳ 正在打开浏览器...';
+// ════════════════════════════════════════════════════════
+// Operation Router — 统一操作路由 (本地/远程)
+// ════════════════════════════════════════════════════════
+
+function _getAccountById(accountId) {
+  return (window._lastSmsAccounts || []).find(function(a){return a.id===accountId;});
+}
+
+async function _getMachineStatus(machineName) {
   try {
-    const r = await fetch('/api/matrix/accounts/'+accountId+'/login', { method:'POST' });
-    const d = await r.json();
-    if (d.status === 'ok') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ '+d.message+'</span>';
-    } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(d.error||'失败')+'</span>';
-    }
+    var r = await fetch('/api/federation/machine-status/'+encodeURIComponent(machineName));
+    return await r.json();
   } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    return {status: 'error', message: '查询失败'};
   }
 }
 
-// ── 清除登录状态 ──
+async function _routeOperation(accountId, opType, params) {
+  var account = _getAccountById(accountId);
+  if (!account) return {status: 'error', message: '账号不存在'};
+
+  var targetMachine = account.owner_machine || (account.is_local ? window.location.hostname : '远程');
+  var isLocal = !targetMachine || targetMachine === window.location.hostname;
+  var statusEl = document.getElementById('collectProfileStatus');
+
+  if (!isLocal) {
+    // 远程执行
+    if (statusEl) statusEl.innerHTML = '⏳ 通过 '+targetMachine+' 远程执行...';
+    var ep = '';
+    var body = {machine: targetMachine, account: accountId};
+    if (opType === 'login') ep = '/api/federation/login';
+    else if (opType === 'logout') ep = '/api/federation/logout';
+    else if (opType === 'comment') { ep = '/api/federation/comment'; body.url = params.url; if (params.direction) body.direction = params.direction; }
+    else if (opType === 'nurture') { ep = '/api/federation/nurture'; body.accounts = [accountId]; body.blueprints = params.blueprints || ['douyin_daily']; body.rounds = params.rounds || 3; }
+    else if (opType === 'collect') { ep = '/api/federation/collect'; body.phone = params.phone || ''; }
+    else return {status: 'error', message: '未知操作类型: '+opType};
+
+    try {
+      var r = await fetch(ep, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+      return await r.json();
+    } catch(e) {
+      return {status: 'error', message: e.message};
+    }
+  }
+
+  // 本地执行
+  if (statusEl) statusEl.innerHTML = '⏳ 正在执行...';
+  if (opType === 'login') {
+    var r = await fetch('/api/matrix/accounts/'+accountId+'/login', {method:'POST'});
+    return await r.json();
+  }
+  if (opType === 'logout') {
+    var r = await fetch('/api/matrix/accounts/'+accountId+'/clear-cookies', {method:'POST'});
+    return await r.json();
+  }
+  return {status: 'error', message: '本地不支持操作: '+opType};
+}
+
+// ── 账号登录（带操作路由）──
+async function accountLogin(accountId) {
+  if (!accountId) return;
+  var account = _getAccountById(accountId);
+  if (!account) return;
+  var machine = account.owner_machine || (account.is_local ? '本机' : '远程');
+  if (!confirm('打开浏览器登录 '+accountId+' ？('+machine+')')) return;
+  var result = await _routeOperation(accountId, 'login', {});
+  var statusEl = document.getElementById('collectProfileStatus');
+  if (statusEl) {
+    if (result.status === 'ok' || result.returncode === 0) {
+      statusEl.innerHTML = '<span style="color:var(--green)">✅ 登录命令已发送到 '+machine+'</span>';
+    } else {
+      statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(result.message||result.error||'失败')+'</span>';
+    }
+  }
+}
+
+// ── 清除登录状态（带操作路由）──
 async function clearCookies(accountId, platform) {
   if (!accountId) return;
-  const platName = platform === 'xiaohongshu' ? '小红书' : '抖音';
-  if (!confirm('清除 '+accountId+' ('+platName+') 的登录状态？\n清除后需要重新登录，不影响同手机号的其他平台。')) return;
-  const statusEl = document.getElementById('collectProfileStatus');
-  if (statusEl) statusEl.innerHTML = '⏳ 清除中...';
-  try {
-    const r = await fetch('/api/matrix/accounts/'+accountId+'/clear-cookies', { method:'POST' });
-    const d = await r.json();
-    if (d.status === 'ok') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ '+d.message+'</span>';
-      loadSmsAccounts().catch(e => {});
+  var account = _getAccountById(accountId);
+  if (!account) return;
+  var machine = account.owner_machine || (account.is_local ? '本机' : '远程');
+  var platName = platform === 'xiaohongshu' ? '小红书' : '抖音';
+  if (!confirm('清除 '+accountId+' ('+platName+') 的登录状态？('+machine+')')) return;
+  var result = await _routeOperation(accountId, 'logout', {});
+  var statusEl = document.getElementById('collectProfileStatus');
+  if (statusEl) {
+    if (result.status === 'ok' || result.returncode === 0) {
+      statusEl.innerHTML = '<span style="color:var(--green)">✅ 清除命令已发送到 '+machine+'</span>';
+      loadSmsAccounts().catch(function(){});
     } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(d.error||'清除失败')+'</span>';
+      statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(result.message||result.error||'清除失败')+'</span>';
     }
-  } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
   }
 }
 
