@@ -368,17 +368,26 @@ class RecordingSession:
 
 
 # ── 独立运行（热键监听模式）──
-async def _run_interactive(account_id: str, platform: str):
-    """交互式录制——监听键盘数字键"""
+async def _run_interactive(account_id: str, platform: str, timeout_minutes: int = 60):
+    """交互式录制——监听键盘数字键
+    
+    Args:
+        account_id: 账号 ID
+        platform: 平台 (douyin/xiaohongshu)
+        timeout_minutes: 无操作超时分钟 (默认 60，超时自动退出清理)
+    """
     session = RecordingSession(account_id, platform)
     await session.start()
     loop = asyncio.get_running_loop()
+    timeout_seconds = timeout_minutes * 60
+    last_activity = loop.time()
 
     try:
         from pynput import keyboard
         DIGIT_VK = {18:1, 19:2, 20:3, 21:4, 23:5, 22:6, 26:7, 28:8, 25:9, 29:0}
 
         def on_release(key):
+            nonlocal last_activity
             try:
                 n = None
                 if hasattr(key, 'vk') and key.vk in DIGIT_VK:
@@ -388,6 +397,8 @@ async def _run_interactive(account_id: str, platform: str):
 
                 if n is None:
                     return True
+
+                last_activity = loop.time()  # 更新最后活动时间
 
                 if 1 <= n <= 8:
                     asyncio.run_coroutine_threadsafe(
@@ -404,30 +415,68 @@ async def _run_interactive(account_id: str, platform: str):
 
         listener = keyboard.Listener(on_release=on_release)
         listener.start()
-        print("⌨️ 数字键 1-8 标记步骤, 0 结束\n")
+        print(f"⌨️ 数字键 1-8 标记步骤, 0 结束 (无操作 {timeout_minutes} 分钟自动退出)\n")
 
         while session._is_recording:
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1)
+            # 超时检查
+            if loop.time() - last_activity > timeout_seconds:
+                print(f"\n⏰ 无操作超过 {timeout_minutes} 分钟，自动退出")
+                await session.stop()
+                break
 
         listener.stop()
         print("✅ 录制结束")
 
     except ImportError:
         print("⚠️ pynput 不可用，使用终端输入模式")
-        while True:
-            try:
-                cmd = input("步骤? ").strip()
-                if not cmd: continue
-                n = int(cmd)
-                if 1 <= n <= 8:
-                    await session.record_step(n)
-                elif n == 0:
-                    await session.stop()
+        try:
+            while True:
+                try:
+                    cmd = input("步骤? ").strip()
+                    if not cmd: continue
+                    n = int(cmd)
+                    if 1 <= n <= 8:
+                        await session.record_step(n)
+                    elif n == 0:
+                        await session.stop()
+                        break
+                except (ValueError, KeyboardInterrupt):
                     break
-            except (ValueError, KeyboardInterrupt):
-                break
+        finally:
+            await session.stop()
+            print("✅ 录制已停止，资源已清理")
 
-    return session._steps
+    except Exception:
+        # 异常时也确保清理
+        await session.stop()
+        raise
+    finally:
+        # 无论如何，确保 Playwright driver 被清理
+        await session.stop()
+        _cleanup_playwright_drivers()
+
+
+def _cleanup_playwright_drivers():
+    """清理残留的 Playwright driver 进程（运行超过1小时的）"""
+    import subprocess, os
+    try:
+        result = subprocess.run(
+            ["ps", "aux"], capture_output=True, text=True, timeout=10
+        )
+        for line in result.stdout.split("\n"):
+            if "playwright/driver" in line and "node" in line:
+                parts = line.split()
+                if len(parts) > 1:
+                    pid = parts[1]
+                    try:
+                        # 只杀掉非当前进程的 playwright driver
+                        if pid != str(os.getpid()):
+                            subprocess.run(["kill", pid], capture_output=True, timeout=5)
+                    except:
+                        pass
+    except:
+        pass
 
 
 if __name__ == "__main__":
