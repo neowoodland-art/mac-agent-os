@@ -32,13 +32,46 @@ class MatrixPlugin(AgentOSPlugin):
     }
 
     def register(self, subparsers):
-        """委托给 mc 的 build_parser()"""
+        """委托给 mc 的 build_parser()，再加 publish 子命令"""
+        import subprocess
         from mc.cli import build_parser
-        return build_parser(subparsers, plugin_name="matrix")
+        parser = build_parser(subparsers, plugin_name="matrix")
+
+        # 在 matrix 下添加 publish 子命令
+        if parser and hasattr(parser, 'add_subparsers'):
+            pub_parsers = parser.add_subparsers(dest="matrix_publish_action")
+            p_pub = pub_parsers.add_parser("publish", help="视频/图文发布")
+            p_pub.add_argument("platform", choices=["douyin", "xiaohongshu"], help="平台")
+            p_pub.add_argument("--account", required=True, help="账号ID")
+            p_pub.add_argument("--file", required=True, help="文件路径")
+            p_pub.add_argument("--title", help="标题")
+            p_pub.add_argument("--desc", help="描述")
+            p_pub.set_defaults(matrix_publish_func=self.cmd_publish)
+
+        return parser
 
     def dispatch(self, args):
-        """委托给 mc 的命令分发"""
+        """委托给 mc 的命令分发 + publish 命令"""
+        if hasattr(args, 'matrix_publish_func'):
+            return args.matrix_publish_func(args)
         if hasattr(args, 'func'):
             return args.func(args)
         print("未知命令，请使用 --help 查看帮助")
         return 1
+
+    def cmd_publish(self, args):
+        """调用 publish_video.py 发布内容"""
+        import subprocess, sys
+        publish_script = MC_DIR.parent / "publish_video.py"
+        if not publish_script.exists():
+            print(f"发布脚本不存在: {publish_script}")
+            return 1
+        cmd = [sys.executable, str(publish_script), args.platform,
+               "--account", args.account, "--file", args.file]
+        if args.title:
+            cmd += ["--title", args.title]
+        if args.desc:
+            cmd += ["--desc", args.desc]
+        print(f"📤 发布到 {args.platform}: {args.file}")
+        result = subprocess.run(cmd)
+        return result.returncode
