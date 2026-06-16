@@ -1165,6 +1165,67 @@ except Exception as e:
     print(f"  ⏸ 短信/代理管理 API 未加载: {e}")
 
 
+# ═════════════════════════════════════════════════════════
+# 联邦 API
+# ═════════════════════════════════════════════════════════
+
+@app.get("/api/federation/accounts")
+def api_federation_accounts():
+    """聚合所有机器的账号列表"""
+    from services.data_aggregator import aggregate_accounts
+    return aggregate_accounts()
+
+
+@app.get("/api/federation/status")
+def api_federation_status():
+    """聚合所有机器的详细状态"""
+    from services.data_aggregator import aggregate_status
+    return aggregate_status()
+
+
+@app.get("/api/federation/health")
+def api_federation_health():
+    """聚合所有机器的健康状态"""
+    from services.data_aggregator import aggregate_health
+    return aggregate_health()
+
+
+@app.post("/api/federation/exec")
+async def api_federation_exec(data: dict):
+    """在远程机器执行命令"""
+    from services.remote_exec import exec_remote
+    machine = data.get("machine", "")
+    command = data.get("command", "")
+    timeout = data.get("timeout", 60)
+    if not machine or not command:
+        return {"status": "error", "message": "machine 和 command 必填"}
+    return exec_remote(machine, command, timeout=timeout)
+
+
+@app.post("/api/federation/nurture")
+async def api_federation_nurture(data: dict):
+    """在远程机器启动养号"""
+    from services.remote_exec import exec_nurture
+    machine = data.get("machine", "")
+    accounts = data.get("accounts", [])
+    blueprints = data.get("blueprints", [])
+    rounds = data.get("rounds", 3)
+    if not machine or not accounts or not blueprints:
+        return {"status": "error", "message": "machine/accounts/blueprints 必填"}
+    return exec_nurture(machine, accounts, blueprints, rounds)
+
+
+@app.post("/api/federation/collect")
+async def api_federation_collect(data: dict):
+    """在远程机器启动采集"""
+    from services.remote_exec import exec_collect
+    machine = data.get("machine", "")
+    phone = data.get("phone", "")
+    if not machine:
+        return {"status": "error", "message": "machine 必填"}
+    return exec_collect(machine, phone)
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9988
