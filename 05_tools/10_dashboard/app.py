@@ -1316,7 +1316,125 @@ def api_federation_machine_status(machine: str):
     from services.remote_exec import exec_status
     return exec_status(machine)
 
-@ app.post("/api/fleet/sync")
+
+# ═════════════════════════════════════════════════════════
+# 操作队列 API (Phase 3.1: 状态机引擎)
+# ═════════════════════════════════════════════════════════
+
+@app.post("/api/operations/submit")
+def api_operation_submit(data: dict):
+    """提交操作"""
+    from services.operation_queue import submit_operation
+    op_type = data.get("type", "")
+    target = data.get("target_machine", "")
+    params = data.get("params", {})
+    if not op_type or not target:
+        return {"status": "error", "message": "type 和 target_machine 必填"}
+    op = submit_operation(op_type, target, params)
+    return {"status": "ok", "operation": op}
+
+
+@app.get("/api/operations/{op_id}")
+def api_operation_get(op_id: str):
+    """查询操作详情"""
+    from services.operation_queue import get_operation
+    op = get_operation(op_id)
+    if not op:
+        return {"status": "error", "message": "操作不存在"}
+    return {"status": "ok", "operation": op}
+
+
+@app.get("/api/operations")
+def api_operation_list(status: str = "", limit: int = 50):
+    """列出操作"""
+    from services.operation_queue import list_operations
+    ops = list_operations(status=status, limit=limit)
+    return {"status": "ok", "operations": ops, "total": len(ops)}
+
+
+@app.post("/api/operations/{op_id}/cancel")
+def api_operation_cancel(op_id: str):
+    """取消操作"""
+    from services.operation_queue import cancel_operation
+    if cancel_operation(op_id):
+        return {"status": "ok"}
+    return {"status": "error", "message": "取消失败"}
+
+
+@app.post("/api/operations/{op_id}/transition")
+def api_operation_transition(op_id: str, data: dict):
+    """手动转换状态 (调试/管理用)"""
+    from services.operation_queue import transition_state
+    new_state = data.get("state", "")
+    message = data.get("message", "")
+    if transition_state(op_id, new_state, message):
+        return {"status": "ok"}
+    return {"status": "error", "message": "状态转换失败，当前状态不允许"}
+
+
+# ═════════════════════════════════════════════════════════
+# 资源锁 API (Phase 3.2)
+# ═════════════════════════════════════════════════════════
+
+@app.post("/api/locks/acquire")
+def api_lock_acquire(data: dict):
+    """获取资源锁"""
+    from services.resource_lock import acquire_lock
+    rtype = data.get("resource_type", "")
+    rid = data.get("resource_id", "")
+    holder = data.get("holder", "")
+    ttl = data.get("ttl", 3600)
+    if not rtype or not rid or not holder:
+        return {"status": "error", "message": "resource_type/resource_id/holder 必填"}
+    return acquire_lock(rtype, rid, holder, ttl)
+
+
+@app.post("/api/locks/release")
+def api_lock_release(data: dict):
+    """释放资源锁"""
+    from services.resource_lock import release_lock
+    rtype = data.get("resource_type", "")
+    rid = data.get("resource_id", "")
+    holder = data.get("holder", "")
+    if not rtype or not rid:
+        return {"status": "error", "message": "resource_type/resource_id 必填"}
+    return {"success": release_lock(rtype, rid, holder)}
+
+
+@app.get("/api/locks/check/{resource_type}/{resource_id}")
+def api_lock_check(resource_type: str, resource_id: str):
+    """检查资源锁"""
+    from services.resource_lock import check_lock
+    return check_lock(resource_type, resource_id)
+
+
+@app.get("/api/locks")
+def api_lock_list():
+    """列出所有锁"""
+    from services.resource_lock import LOCKS_DIR
+    result = []
+    if not LOCKS_DIR.exists():
+        return {"locks": []}
+    for rtype_dir in LOCKS_DIR.iterdir():
+        if not rtype_dir.is_dir():
+            continue
+        for fp in rtype_dir.glob("*.json"):
+            try:
+                result.append(json.loads(fp.read_text()))
+            except:
+                pass
+    return {"locks": result}
+
+
+@app.post("/api/locks/cleanup")
+def api_lock_cleanup():
+    """清理过期锁"""
+    from services.operation_queue import cleanup_stale_locks
+    cleanup_stale_locks()
+    return {"status": "ok"}
+
+
+@app.post("/api/fleet/sync")
 def api_fleet_sync():
     """一键同步所有机器"""
     try:
