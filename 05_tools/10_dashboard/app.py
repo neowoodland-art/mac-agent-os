@@ -1226,6 +1226,40 @@ async def api_federation_collect(data: dict):
     return exec_collect(machine, phone)
 
 
+# ═════════════════════════════════════════════════════════
+# 联邦管理 API（供 Dashboard 前端 fleet-* 视图调用）
+# ═════════════════════════════════════════════════════════
+
+@ app.post("/api/fleet/sync")
+def api_fleet_sync():
+    """一键同步所有机器"""
+    try:
+        r = subprocess.run(
+            ["bash", str(_static_dir.parent.parent / "00_bootstrap" / "fleet_sync.sh")],
+            capture_output=True, text=True, timeout=120
+        )
+        return {"success": r.returncode == 0, "output": r.stdout[-3000:]}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "output": "⏰ 同步超时(120s)"}
+    except Exception as e:
+        return {"success": False, "output": f"❌ {str(e)}"}
+
+
+@app.post("/api/fleet/reconcile")
+def api_fleet_reconcile():
+    """对账检查"""
+    try:
+        r = subprocess.run(
+            ["bash", str(_static_dir.parent.parent / "00_bootstrap" / "fleet_reconcile.sh")],
+            capture_output=True, text=True, timeout=60
+        )
+        return {"success": r.returncode == 0, "output": r.stdout[-3000:]}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "output": "⏰ 对账超时(60s)"}
+    except Exception as e:
+        return {"success": False, "output": f"❌ {str(e)}"}
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9988

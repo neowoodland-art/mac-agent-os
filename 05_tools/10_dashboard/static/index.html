@@ -842,6 +842,62 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div id="workflowContent" style="min-height:400px">⏳ 加载中...</div>
 </div>
 
+<!-- ═══ 计划对齐导航视图（Shell占位 + 重定向）═══ -->
+
+<!-- 矩阵系列：养号执行（重定向到 matrix-commands 的养号tab） -->
+<div id="view-matrix-nurture" class="hidden"><div class="loading">⏳ 加载养号执行...</div></div>
+
+<!-- 矩阵系列：信息采集 -->
+<div id="view-matrix-collect" class="hidden"><div class="loading">⏳ 加载信息采集...</div></div>
+
+<!-- 矩阵系列：内容发布 -->
+<div id="view-matrix-publish" class="hidden"><div class="loading">⏳ 加载内容发布...</div></div>
+
+<!-- 矩阵系列：定向评论 -->
+<div id="view-matrix-comment" class="hidden"><div class="loading">⏳ 加载定向评论...</div></div>
+
+<!-- 矩阵系列：定时任务 -->
+<div id="view-matrix-schedule" class="hidden"><div class="loading">⏳ 加载定时任务...</div></div>
+
+<!-- 视频工厂系列：渲染任务 -->
+<div id="view-ave-render" class="hidden"><div class="loading">⏳ 加载渲染任务...</div></div>
+
+<!-- 视频工厂系列：脚本生成 -->
+<div id="view-ave-script" class="hidden"><div class="loading">⏳ 加载脚本生成...</div></div>
+
+<!-- 视频工厂系列：素材库 -->
+<div id="view-ave-materials" class="hidden"><div class="loading">⏳ 加载素材库...</div></div>
+
+<!-- 视频工厂系列：模板 -->
+<div id="view-ave-templates" class="hidden"><div class="loading">⏳ 加载模板...</div></div>
+
+<!-- 内容采集系列：采集任务（重定向到 plugin-collector） -->
+<div id="view-crawl-tasks" class="hidden"><div class="loading">⏳ 加载采集任务...</div></div>
+
+<!-- 内容采集系列：源管理 -->
+<div id="view-crawl-sources" class="hidden"><div class="loading">⏳ 加载源管理...</div></div>
+
+<!-- 内容采集系列：采集历史 -->
+<div id="view-crawl-history" class="hidden"><div class="loading">⏳ 加载采集历史...</div></div>
+
+<!-- 联邦系列：一键同步 -->
+<div id="view-fleet-sync" class="hidden"><div class="loading">⏳ 加载同步工具...</div></div>
+
+<!-- 联邦系列：对账检查 -->
+<div id="view-fleet-reconcile" class="hidden"><div class="loading">⏳ 加载对账工具...</div></div>
+
+<!-- 联邦系列：远程Shell -->
+<div id="view-fleet-exec" class="hidden"><div class="loading">⏳ 加载远程Shell...</div></div>
+
+<!-- 服务系列：MCP状态 -->
+<div id="view-serve-mcp" class="hidden"><div class="loading">⏳ 加载MCP状态...</div></div>
+
+<!-- 服务系列：Dashboard日志 -->
+<div id="view-serve-dashboard" class="hidden"><div class="loading">⏳ 加载Dashboard日志...</div></div>
+
+<!-- 服务系列：全局定时任务 -->
+<div id="view-serve-schedule" class="hidden"><div class="loading">⏳ 加载全局定时任务...</div></div>
+
 <!-- Production detail modal -->
 <div id="detailModal" class="hidden"></div>
 
@@ -918,14 +974,14 @@ function switchView(view) {
   });
 
   // 视频工厂：点击父级或子项时展开子菜单
-  const aveSubViews = ['characters', 'char-gen', 'capabilities', 'workflow'];
+  const aveSubViews = ['ave-render', 'ave-script', 'ave-materials', 'ave-templates'];
   const isAve = view === 'plugin-ave' || aveSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="ave"]').forEach(e => {
     e.style.display = isAve ? 'block' : 'none';
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-run','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-record','matrix-commands','matrix-settings'];
+  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -954,8 +1010,12 @@ function switchView(view) {
       e.classList.toggle('active', e.dataset.view === view);
     });
     // Hide ALL other views first
-    ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-     'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-record','matrix-commands','matrix-settings'].forEach(v => {
+    ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus',
+     'ave-render','ave-script','ave-materials','ave-templates',
+     'crawl-tasks','crawl-sources','crawl-history',
+     'machines','fleet-sync','fleet-reconcile','fleet-exec',
+     'serve-mcp','serve-dashboard','serve-schedule',
+     'productions','assets','costs','capabilities','workflow','kb'].forEach(v => {
       document.getElementById('view-' + v)?.classList.add('hidden');
     });
     document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.classList.add('hidden'));
@@ -976,8 +1036,13 @@ function switchView(view) {
   }
 
   // 视图显隐
-  const viewIds = ['productions','assets','costs','machines','characters','char-gen','capabilities','workflow',
-                   'matrix-summary','matrix-run','matrix-accounts','matrix-c2','matrix-blueprints','matrix-atom-ops','matrix-backup','matrix-export','matrix-corpus','matrix-sms-proxy','matrix-record','matrix-commands','matrix-settings','kb'];
+  // 视图显隐
+  const viewIds = ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus',
+                   'ave-render','ave-script','ave-materials','ave-templates',
+                   'crawl-tasks','crawl-sources','crawl-history',
+                   'machines','fleet-sync','fleet-reconcile','fleet-exec',
+                   'serve-mcp','serve-dashboard','serve-schedule',
+                   'productions','assets','costs','capabilities','workflow','kb'];
   viewIds.forEach(v => {
     document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
   });
@@ -993,25 +1058,30 @@ function switchView(view) {
   if (view === 'productions') loadProductions();
   if (view === 'assets') loadAssets();
   if (view === 'costs') loadCosts();
-  if (view === 'machines') loadMachines();
-  if (view === 'characters') loadCharacters();
-  if (view === 'char-gen') loadCharGen();
   if (view === 'capabilities') loadCapabilities();
   if (view === 'workflow') loadWorkflow();
-  if (view === 'matrix-summary') loadMatrixSummary();
-  if (view === 'matrix-run') loadMatrixRun();
-  if (view === 'matrix-accounts') loadMatrixAccounts();
+  if (view === 'machines') loadMachines();
+  if (view === 'matrix-sms-proxy') loadMatrixAccounts();
+  if (view === 'matrix-nurture') loadMatrixNurture();
+  if (view === 'matrix-collect') loadMatrixCollect();
+  if (view === 'matrix-publish') loadMatrixPublish();
   if (view === 'matrix-blueprints') loadMatrixBlueprints();
-  // matrix-register 已合并到 matrix-sms-proxy
-  if (view === 'matrix-atom-ops') loadMatrixAtomOps();
-  if (view === 'matrix-backup') loadMatrixBackup();
+  if (view === 'matrix-comment') loadMatrixComment();
+  if (view === 'matrix-schedule') loadMatrixSchedule();
   if (view === 'matrix-corpus') loadCorpus();
-  if (view === 'matrix-export') loadMatrixExport();
-  if (view === 'matrix-sms-proxy') loadSmsProxy();
-  if (view === 'matrix-record') loadMatrixRecord();
-  if (view === 'matrix-commands') loadMatrixCommands();
-  if (view === 'matrix-c2') loadC2Machines();
-  if (view === 'matrix-settings') loadMatrixSettings();
+  if (view === 'ave-render') loadAveRender();
+  if (view === 'ave-script') loadAveScript();
+  if (view === 'ave-materials') loadAveMaterials();
+  if (view === 'ave-templates') loadAveTemplates();
+  if (view === 'crawl-tasks') loadCrawlTasks();
+  if (view === 'crawl-sources') loadCrawlSources();
+  if (view === 'crawl-history') loadCrawlHistory();
+  if (view === 'fleet-sync') loadFleetSync();
+  if (view === 'fleet-reconcile') loadFleetReconcile();
+  if (view === 'fleet-exec') loadFleetExec();
+  if (view === 'serve-mcp') loadServeMCP();
+  if (view === 'serve-dashboard') loadServeDashboard();
+  if (view === 'serve-schedule') loadServeSchedule();
 }
 
 // ── Stats ──
@@ -1319,39 +1389,41 @@ async function loadPlugins() {
     const plugins = res.plugins || [];
     // 旧兼容: 忽略不存在的 pluginBadge/pluginCount
 
-    // 构建分组侧边栏 (可折叠) — 唯一导航来源，插件API不再覆盖
+    // 构建分组侧边栏 (可折叠) — 按 COMMAND-CENTER-PLAN 排列
     let html = '';
+    const S = (label, status) => `<span style="font-size:9px;margin-left:4px;padding:1px 5px;border-radius:3px;background:rgba(217,119,6,.12);color:#d97706;font-weight:500">${status}</span>`;
     const groups = {
-      '概览': { icon: '📊', items: [
-        {view:'machines', label:'机器状态'},
-        {view:'alerts', label:'告警中心'},
-        {view:'summary', label:'统计概览'},
-      ]},
-      '矩阵养号': { icon: '📱', items: [
-        {view:'matrix-sms-proxy', label:'身份与账号'},
-        {view:'matrix-commands', label:'命令与任务'},
-        {view:'matrix-c2', label:'远程控制'},
-        {view:'matrix-blueprints', label:'蓝图编排'},
-        {view:'matrix-atom-ops', label:'原子操作'},
-        {view:'matrix-record', label:'录制管理'},
-        {view:'matrix-settings', label:'设置'},
+      '矩阵': { icon: '📱', items: [
+        {view:'matrix-sms-proxy', label:'账号管理'},
+        {view:'matrix-nurture', label:'养号执行'},
+        {view:'matrix-collect', label:'信息采集'},
+        {view:'matrix-publish', label:'内容发布'},
+        {view:'matrix-blueprints', label:'蓝图管理'},
+        {view:'matrix-comment', label:'定向评论'},
+        {view:'matrix-schedule', label:'定时任务'},
+        {view:'matrix-corpus', label:'语料库'},
       ]},
       '视频工厂': { icon: '🎬', items: [
-        {view:'productions', label:'视频生产'},
-        {view:'characters', label:'角色管理'},
-        {view:'char-gen', label:'角色生成'},
-        {view:'capabilities', label:'原子能力'},
-        {view:'workflow', label:'工作流'},
+        {view:'ave-render', label:'渲染任务'},
+        {view:'ave-script', label:'脚本生成'},
+        {view:'ave-materials', label:'素材库'},
+        {view:'ave-templates', label:'模板'},
       ]},
       '内容采集': { icon: '📡', items: [
-        {view:'plugin-collector', label:'采集管理'},
+        {view:'crawl-tasks', label:'采集任务'},
+        {view:'crawl-sources', label:'源管理'},
+        {view:'crawl-history', label:'采集历史'},
       ]},
-      '系统': { icon: '⚙️', items: [
-        {view:'kb-knowledge', label:'知识库'},
-        {view:'kb-memory', label:'记忆库'},
-        {view:'kb-system', label:'联邦说明'},
-        {view:'kb-skills-int', label:'技能工具'},
-        {view:'plugin-automation', label:'自动任务'},
+      '联邦': { icon: '🖥️', items: [
+        {view:'machines', label:'机器状态'},
+        {view:'fleet-sync', label:'一键同步'},
+        {view:'fleet-reconcile', label:'对账检查'},
+        {view:'fleet-exec', label:'远程Shell'},
+      ]},
+      '服务': { icon: '⚙️', items: [
+        {view:'serve-mcp', label:'MCP状态'},
+        {view:'serve-dashboard', label:'Dashboard日志'},
+        {view:'serve-schedule', label:'全局定时任务'},
       ]},
     };
 
@@ -2465,6 +2537,216 @@ async function doImport() {
     if (el) el.innerHTML = `<div style="color:var(--green);font-size:13px">✅ 配置:${res.accounts_imported} 身份:${res.identities_imported}</div>`;
   } catch(e) { if (el) el.innerHTML = `<div class="error">${e.message}</div>`; }
 }
+
+// ═══ 计划对齐：Shell占位函数 + 重定向 ═══
+
+// 通用占位Shell — 创建一个带状态标签的占位页面
+function _renderShell(containerId, title, status, note) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const icons = {'无功能':'❌','无API':'🔌','无CLI':'🖥️','待集成':'⏳'};
+  const icon = icons[status] || '📋';
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center">
+      <div style="font-size:48px;margin-bottom:16px;opacity:.3">${icon}</div>
+      <h2 style="font-size:20px;margin-bottom:8px;color:var(--text)">${title}</h2>
+      <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:6px;background:rgba(217,119,6,.1);color:#d97706;font-size:12px;font-weight:600;margin-bottom:12px">
+        🏗️ ${status}
+      </div>
+      <p style="font-size:13px;color:var(--text2);max-width:400px;line-height:1.6">${note}</p>
+    </div>`;
+}
+
+// 矩阵系列 — 养号执行（重定向到命令与任务的养号tab）
+async function loadMatrixNurture() {
+  const el = document.getElementById('view-matrix-nurture');
+  el.innerHTML = `<div style="padding:20px">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:12px">🔄 正在跳转到命令与任务 → 养号执行...</p>
+    <div id="nurtureInline" style="margin-top:8px"></div>
+  </div>`;
+  // 内联加载全部养号面板
+  try {
+    const r = await fetch('/api/matrix/identities');
+    const d = await r.json();
+    const identities = d.identities || [];
+    const sel = document.createElement('select');
+    sel.id = 'nurturePhoneInline';
+    sel.innerHTML = '<option value="">所有身份</option>' + identities.map(i => `<option value="${i.phone||i.dir}">${i.display||i.dir}</option>`).join('');
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:12px;padding:12px">
+        <h2 style="font-size:18px">🌱 养号执行</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          身份: ${sel.outerHTML}
+          <label style="font-size:11px;color:var(--text2)">轮次: <input id="nurtureRoundsInline" type="number" value="10" style="width:50px;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px"></label>
+          <button onclick="runNurtureInline()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🚀 开始养号</button>
+        </div>
+        <div id="nurtureInlineLog" style="font-size:11px;color:var(--text2);font-family:monospace;white-space:pre-wrap;max-height:300px;overflow:auto"></div>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="error" style="padding:40px">❌ 无法加载身份列表: ${e.message}</div>`;
+  }
+}
+
+// 矩阵系列 — 信息采集（Shell）
+async function loadMatrixCollect() {
+  _renderShell('view-matrix-collect', '📱 信息采集', '待集成',
+    '此功能将整合现有「信息采集」能力。当前可以通过「矩阵 → 命令与任务」中的采集面板操作。');
+}
+
+// 矩阵系列 — 内容发布（Shell — 无CLI）
+async function loadMatrixPublish() {
+  _renderShell('view-matrix-publish', '📤 内容发布', '无CLI',
+    '发布模块的 CLI 封装尚未完成。现有的 publish_video.py 在 agent-os/agent-sync/05_tools/07_matrix/scripts/ 目录下。需要 agentos matrix publish CLI 封装。');
+}
+
+// 矩阵系列 — 定向评论（内联加载命令与任务面板）
+async function loadMatrixComment() {
+  const el = document.getElementById('view-matrix-comment');
+  el.innerHTML = `<div style="padding:20px">
+    <h2 style="font-size:18px;margin-bottom:12px">💬 定向评论</h2>
+    <div id="commentPanel"></div>
+  </div>`;
+  // 复用命令与任务中的定向评论面板内容（取API数据）
+  try {
+    const r = await fetch('/api/matrix/identities');
+    const d = await r.json();
+    const accounts = d.identities||d.accounts||[];
+    document.getElementById('commentPanel').innerHTML = `
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input id="commentUrl" placeholder="视频链接" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:280px">
+          <select id="commentDirection" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
+            <option value="">自动选方向</option>
+            <option value="称赞">👍 称赞</option>
+            <option value="提问">🤔 提问</option>
+            <option value="共鸣">💗 共鸣</option>
+            <option value="感慨">😌 感慨</option>
+            <option value="客观">📊 客观</option>
+          </select>
+          <select id="commentAccount" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
+            <option value="">自动选账号</option>
+            ${accounts.map(a => `<option value="${a.id||a.dir}">${a.display||a.dir}</option>`).join('')}
+          </select>
+          <button onclick="runComment()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🚀 执行评论</button>
+        </div>
+        <div id="commentResult" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
+      </div>`;
+  } catch(e) {
+    document.getElementById('commentPanel').innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
+}
+window.runComment = async function() {
+  const url = document.getElementById('commentUrl')?.value;
+  const dir = document.getElementById('commentDirection')?.value;
+  const acct = document.getElementById('commentAccount')?.value;
+  const el = document.getElementById('commentResult');
+  if (!url) { el.textContent = '请填写视频链接'; return; }
+  el.textContent = '⏳ 提交中...';
+  try {
+    const r = await fetch('/api/matrix/task/comment', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,direction:dir||null,account:acct||null})});
+    const d = await r.json();
+    el.innerHTML = d.error ? `<span style="color:var(--red)">❌ ${d.error}</span>` : `<span style="color:var(--green)">✅ 评论任务已提交: ${d.task_id||'OK'}</span>`;
+  } catch(e) { el.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`; }
+};
+
+// 矩阵系列 — 定时任务（Shell — 待集成）
+async function loadMatrixSchedule() {
+  _renderShell('view-matrix-schedule', '⏰ 定时任务', '待集成',
+    '定时任务功能已存在于命令与任务页面中。独立视图将在此处展示全局调度概览。');
+}
+
+// 视频工厂系列 — Shell（无API）
+async function loadAveRender()   { _renderShell('view-ave-render', '🎬 渲染任务', '无API', 'AVE 渲染任务的 API 尚未暴露。需要完成 agentos ave CLI 封装后对接。'); }
+async function loadAveScript()   { _renderShell('view-ave-script', '📝 脚本生成', '无API', '脚本生成模块的 API 尚未暴露。需要完成 agentos ave CLI 封装后对接。'); }
+async function loadAveMaterials(){ _renderShell('view-ave-materials', '📦 素材库', '无API', '素材管理模块的 API 尚未暴露。当前素材通过 SQLite 管理，需封装为 Dashboard API。'); }
+async function loadAveTemplates(){ _renderShell('view-ave-templates', '📋 模板', '无API', '模板管理模块的 API 尚未暴露。需要完成 agentos ave CLI 封装后对接。'); }
+
+// 内容采集系列
+async function loadCrawlTasks()  { _renderShell('view-crawl-tasks', '📡 采集任务', '无API', '采集任务的统一管理界面尚未完成。当前可通过 内容采集 → plugin-collector 访问现有采集功能。'); }
+async function loadCrawlSources(){ _renderShell('view-crawl-sources', '📡 源管理', '无CLI', '采集源管理需要 agentos crawl CLI 封装后实现。'); }
+async function loadCrawlHistory(){ _renderShell('view-crawl-history', '📜 采集历史', '无API', '采集历史的统一展示 API 尚未完成。'); }
+
+// 联邦系列 — 一键同步（有CLI）
+async function loadFleetSync() {
+  const el = document.getElementById('view-fleet-sync');
+  el.innerHTML = `
+    <div style="padding:20px">
+      <h2 style="font-size:18px;margin-bottom:12px">🔄 一键同步</h2>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">通过 Git 同步三台机器（本机 / 5kecheng / 7kecheng）的最新代码</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button onclick="doFleetSync()" style="background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">🔄 执行同步</button>
+      </div>
+      <div id="fleetSyncLog" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:400px;overflow:auto"></div>
+    </div>`;
+}
+window.doFleetSync = async function() {
+  const el = document.getElementById('fleetSyncLog');
+  el.textContent = '⏳ 执行中...\n';
+  try {
+    const r = await fetch('/api/fleet/sync', {method:'POST'});
+    const d = await r.json();
+    el.textContent = d.output || JSON.stringify(d, null, 2);
+  } catch(e) { el.textContent = '❌ ' + e.message; }
+};
+
+// 联邦系列 — 对账检查（有CLI）
+async function loadFleetReconcile() {
+  const el = document.getElementById('view-fleet-reconcile');
+  el.innerHTML = `
+    <div style="padding:20px">
+      <h2 style="font-size:18px;margin-bottom:12px">🔍 对账检查</h2>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">检查本机是否符合 ORACLE.yaml 宪法定义</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button onclick="doFleetReconcile()" style="background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">🔍 执行对账</button>
+      </div>
+      <div id="fleetReconcileLog" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:400px;overflow:auto"></div>
+    </div>`;
+}
+window.doFleetReconcile = async function() {
+  const el = document.getElementById('fleetReconcileLog');
+  el.textContent = '⏳ 执行中...\n';
+  try {
+    const r = await fetch('/api/fleet/reconcile', {method:'POST'});
+    const d = await r.json();
+    el.textContent = d.output || JSON.stringify(d, null, 2);
+  } catch(e) { el.textContent = '❌ ' + e.message; }
+};
+
+// 联邦系列 — 远程Shell（有CLI）
+async function loadFleetExec() {
+  const el = document.getElementById('view-fleet-exec');
+  el.innerHTML = `
+    <div style="padding:20px">
+      <h2 style="font-size:18px;margin-bottom:12px">💻 远程Shell</h2>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">在远程机器上执行命令（通过 mc remote exec）</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <select id="fleetExecMachine" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
+          <option value="5kechengdeAir">5kechengdeAir</option>
+          <option value="7kecheng">7kecheng</option>
+        </select>
+        <input id="fleetExecCmd" placeholder="输入命令..." style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
+        <button onclick="doFleetExec()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">➡ 执行</button>
+      </div>
+      <div id="fleetExecLog" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:400px;overflow:auto"></div>
+    </div>`;
+}
+window.doFleetExec = async function() {
+  const machine = document.getElementById('fleetExecMachine')?.value;
+  const cmd = document.getElementById('fleetExecCmd')?.value;
+  const el = document.getElementById('fleetExecLog');
+  if (!cmd) { el.textContent = '请输入命令'; return; }
+  el.textContent = '⏳ 执行中...\n';
+  try {
+    const r = await fetch('/api/federation/exec', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({machine,command:cmd,timeout:30})});
+    const d = await r.json();
+    el.textContent = d.output || JSON.stringify(d, null, 2);
+  } catch(e) { el.textContent = '❌ ' + e.message; }
+};
+
+// 服务系列 — Shell（无功能）
+async function loadServeMCP()      { _renderShell('view-serve-mcp', '🔌 MCP状态', '无功能', 'MCP 状态监控尚未实现。这是显示当前 MCP Server 连接状态和运行指标的页面。'); }
+async function loadServeDashboard(){ _renderShell('view-serve-dashboard', '📊 Dashboard日志', '无功能', 'Dashboard 日志聚合页面尚未实现。将汇总各模块的运行日志。'); }
+async function loadServeSchedule() { _renderShell('view-serve-schedule', '⏰ 全局定时任务', '无功能', '全局调度器管理页面尚未实现。将在 agentos serve schedule CLI 封装完成后对接。'); }
 
 // ── SMS & Proxy ──
 async function loadSmsProxy() {

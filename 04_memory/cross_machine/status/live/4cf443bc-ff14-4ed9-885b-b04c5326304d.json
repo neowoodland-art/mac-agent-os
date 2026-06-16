@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 2.04
+    "load_1m": 2.45
   },
   "memory": {
     "total_gb": 0,
@@ -14,15 +14,15 @@
   },
   "disk": {
     "total_gb": 245.1,
-    "used_gb": 123.6,
-    "available_gb": 121.5
+    "used_gb": 123.7,
+    "available_gb": 121.4
   },
-  "last_seen": "2026-06-16T06:29:14.484455+00:00",
+  "last_seen": "2026-06-16T06:39:17.223350+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-16T06:29:14.528087+00:00",
+  "_received_at": "2026-06-16T06:39:17.248985+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "chengzigedeAir",
   "_events": [
@@ -33,6 +33,61 @@
       "timestamp": "2026-06-16T06:24:13.489990+00:00",
       "payload": {
         "task_id": "382c3192-d751-4830-a0f7-c9ca1068317b",
+        "type": "check_environment",
+        "success": true
+      }
+    },
+    {
+      "id": "622612d3-2a2f-44c0-b812-9a26da97a157",
+      "type": "task_completed",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-16T06:34:16.317440+00:00",
+      "payload": {
+        "task_id": "bacf8beb-c07a-47fb-8767-1effaff5ea04",
+        "type": "check_environment",
+        "success": true
+      }
+    },
+    {
+      "id": "7f5c314d-aeb4-44e6-92d1-f62330c7df13",
+      "type": "task_completed",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-16T06:34:16.316323+00:00",
+      "payload": {
+        "task_id": "5c29b98f-4298-4c3a-8274-4d6351623e59",
+        "type": "check_environment",
+        "success": true
+      }
+    },
+    {
+      "id": "86419cd2-1571-4560-a3f5-75bdddce199a",
+      "type": "task_completed",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-16T06:34:16.315726+00:00",
+      "payload": {
+        "task_id": "3edac594-5f4b-4c0e-a688-a5c5891850d7",
+        "type": "check_environment",
+        "success": true
+      }
+    },
+    {
+      "id": "9c0b720c-cf83-4180-80c9-257daad257b9",
+      "type": "task_completed",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-16T06:34:16.319510+00:00",
+      "payload": {
+        "task_id": "d7e13732-bd54-42e4-9fdc-e39a66095cad",
+        "type": "check_environment",
+        "success": true
+      }
+    },
+    {
+      "id": "b268f85c-1268-4a72-8113-49c2f20112d9",
+      "type": "task_completed",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-16T06:34:16.318887+00:00",
+      "payload": {
+        "task_id": "d7dc20ca-ce10-4ce5-8d7e-afa106d0642a",
         "type": "check_environment",
         "success": true
       }
@@ -49,12 +104,34 @@
       }
     },
     {
+      "id": "d283a1ea-247e-4522-94ef-46200d596b50",
+      "type": "task_completed",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-16T06:34:16.320174+00:00",
+      "payload": {
+        "task_id": "fba2a066-e14a-4590-aa8b-70c2b9df3efb",
+        "type": "check_environment",
+        "success": true
+      }
+    },
+    {
       "id": "dad3a375-4218-4d46-8b1c-2a411f1f2513",
       "type": "task_completed",
       "hostname": "chengzigedeAir",
       "timestamp": "2026-06-16T06:24:13.490546+00:00",
       "payload": {
         "task_id": "67b12147-676c-48b9-90fe-be85fd6d53f8",
+        "type": "check_environment",
+        "success": true
+      }
+    },
+    {
+      "id": "f3885829-67f9-4125-90ab-2b6432fffa96",
+      "type": "task_completed",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-16T06:34:16.317922+00:00",
+      "payload": {
+        "task_id": "bdb3d83f-4fd3-478c-a274-f94712e180cd",
         "type": "check_environment",
         "success": true
       }
