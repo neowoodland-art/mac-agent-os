@@ -1,3 +1,15 @@
+---
+type: concept
+domain: system
+nature: architecture
+tags: [agentos, v3.0, federated, multi-machine, operations, orchestration]
+status: draft
+created: 2026-06-16
+updated: 2026-06-16
+version: 1.0.0
+supersedes: []
+---
+
 # AgentOS 联邦指挥台 — 操作架构设计 v1.0
 
 > 版本: 1.0.0-draft | 2026-06-16
@@ -277,7 +289,31 @@ locks = {
 
 ---
 
-## 十、关键设计决策记录
+## 附录: 参考的原始架构文档
+
+本文设计参考了以下原有系统文档中的思想:
+
+| 文档 | 关键借鉴 |
+|:-----|:---------|
+| `architecture/federated-multi-machine-architecture.md` | 7大协同子系统(心跳/事件/任务/加密/知识/升级/传输)、guardd 7模块、三层数据架构 |
+| `archive/CORE-ARCHITECTURE.md` | 目录职责边界、agent-local/agent-sync 分离原则、软链接映射、技能分类 |
+| `dashboard-v4-design.md` | cross_machine/data/ WPRA 写入规范、9个内置插件规范、机器感知设计、24h TTL 过期策略 |
+| `COMMAND-CENTER-PLAN.md` (99_system/) | 命名空间分层(agentos matrix/ave/crawl/fleet/serve) |
+| `cross_machine/ARCHITECTURE-v2.md` (04_memory/) | WPRA 写分区·读聚合模型、Git 冲突消除方案 |
+
+### 本次设计新增的概念
+
+| 概念 | 来源 | 说明 |
+|:-----|:-----|:------|
+| 操作状态机 | 新建 | pending→checking→preparing→running→completed→cleaning→done 完整生命周期 |
+| 资源锁 | 新建 | 浏览器级/账号级/身份级互斥,防止冲突操作 |
+| 状态归零 | 新建 | 操作前自动清理残留进程、释放锁、重置环境 |
+| 操作路由 | 新建 | 根据 owner_machine 将操作路由到对应机器执行 |
+| 双模对等 | 新建 | Dashboard 和 CLI 共享同一套底层 API |
+
+---
+
+## 十一、关键设计决策记录
 
 | 决策 | 选项 | 选择 | 理由 |
 |:-----|:-----|:-----|:------|
