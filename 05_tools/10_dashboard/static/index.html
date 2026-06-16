@@ -2588,10 +2588,87 @@ async function loadMatrixNurture() {
 }
 
 // 矩阵系列 — 信息采集（Shell）
+// 矩阵系列 — 信息采集（有完整 API → 集成）
 async function loadMatrixCollect() {
-  _renderShell('view-matrix-collect', '📱 信息采集', '待集成',
-    '此功能将整合现有「信息采集」能力。当前可以通过「矩阵 → 命令与任务」中的采集面板操作。');
+  const el = document.getElementById('view-matrix-collect');
+  el.innerHTML = '<div id="collectPanel" style="padding:20px"><div class="loading">⏳ 加载信息采集...</div></div>';
+  try {
+    const ri = await fetch('/api/matrix/identities');
+    const di = await ri.json();
+    const identities = di.identities || [];
+    const rs = await fetch('/api/matrix/collect-homepage/status');
+    const ds = await rs.json();
+    const isRunning = ds.running || false;
+    const statusText = isRunning ? '<span style="color:var(--green)">🟢 采集中</span>' : '<span style="color:var(--text2)">⏸️ 空闲</span>';
+    document.getElementById('collectPanel').innerHTML = `
+      <h2 style="font-size:18px;margin-bottom:12px">📱 信息采集</h2>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border);flex:1;min-width:280px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:8px">👤 按身份采集</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            ${identities.map(i => '<span onclick="collectByIdentity(\''+(i.dir||i.id||'')+'\')" style="cursor:pointer;padding:4px 8px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);font-size:11px;display:inline-block;margin:2px">'+(i.display||i.dir||i.id)+'</span>').join('')}
+          </div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border);flex:1;min-width:280px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:8px">📱 按手机号采集</div>
+          <div style="display:flex;gap:6px">
+            <input id="collectPhoneInput" placeholder="输入手机号" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
+            <button onclick="collectByPhone()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">👤 采集</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;font-size:12px">
+        <span>状态: ${statusText}</span>
+        <button onclick="cancelCollect()" style="background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.3);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">⏹ 停止</button>
+        <button onclick="loadCollectHistory()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📜 历史</button>
+      </div>
+      <div id="collectLog" style="background:var(--bg2);border-radius:var(--radius);padding:10px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:300px;overflow:auto"></div>`;
+  } catch(e) {
+    document.getElementById('collectPanel').innerHTML = '<div class="error">❌ '+e.message+'</div>';
+  }
 }
+window.collectByIdentity = async function(dir) {
+  const log = document.getElementById('collectLog');
+  if (!log) return;
+  log.textContent = '⏳ 开始采集身份: ' + dir + '\n';
+  try {
+    const r = await fetch('/api/matrix/collect-homepage', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity_dir:dir})});
+    const d = await r.json();
+    log.textContent += JSON.stringify(d, null, 2);
+  } catch(e) { log.textContent += '❌ ' + e.message; }
+};
+window.collectByPhone = async function() {
+  const phone = document.getElementById('collectPhoneInput')?.value;
+  const log = document.getElementById('collectLog');
+  if (!log) return;
+  if (!phone) { log.textContent = '请输入手机号'; return; }
+  log.textContent = '⏳ 开始采集手机号: ' + phone + '\n';
+  try {
+    const r = await fetch('/api/matrix/collect-homepage/phone', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone})});
+    const d = await r.json();
+    log.textContent += JSON.stringify(d, null, 2);
+  } catch(e) { log.textContent += '❌ ' + e.message; }
+};
+window.cancelCollect = async function() {
+  const log = document.getElementById('collectLog');
+  if (!log) return;
+  log.textContent = '⏳ 停止中...\n';
+  try {
+    const r = await fetch('/api/matrix/collect-homepage/cancel', {method:'POST'});
+    const d = await r.json();
+    log.textContent += JSON.stringify(d, null, 2);
+  } catch(e) { log.textContent += '❌ ' + e.message; }
+};
+window.loadCollectHistory = async function() {
+  const log = document.getElementById('collectLog');
+  if (!log) return;
+  log.textContent = '⏳ 加载历史...\n';
+  try {
+    const r = await fetch('/api/matrix/homepage-history');
+    const d = await r.json();
+    log.textContent += JSON.stringify(d, null, 2);
+  } catch(e) { log.textContent += '❌ ' + e.message; }
+};
 
 // 矩阵系列 — 内容发布（Shell — 无CLI）
 async function loadMatrixPublish() {
@@ -2650,9 +2727,37 @@ window.runComment = async function() {
 };
 
 // 矩阵系列 — 定时任务（Shell — 待集成）
+// 矩阵系列 — 定时任务（有 API → 集成）
 async function loadMatrixSchedule() {
-  _renderShell('view-matrix-schedule', '⏰ 定时任务', '待集成',
-    '定时任务功能已存在于命令与任务页面中。独立视图将在此处展示全局调度概览。');
+  const el = document.getElementById('view-matrix-schedule');
+  el.innerHTML = '<div id="schedPanel" style="padding:20px"><div class="loading">⏳ 加载定时任务...</div></div>';
+  try {
+    const ri = await fetch('/api/matrix/schedule/list');
+    const di = await ri.json();
+    const tasks = di.tasks || di || [];
+    document.getElementById('schedPanel').innerHTML = `
+      <h2 style="font-size:18px;margin-bottom:12px">⏰ 定时任务</h2>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px">📋 任务列表 (${Array.isArray(tasks)?tasks.length:0})</div>
+        <div style="font-size:12px">${Array.isArray(tasks) && tasks.length ? tasks.map(t =>
+          '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'+
+          '<span style="font-size:10px">'+(t.enabled?'🟢':'⚪')+'</span>'+
+          '<span>'+(t.account||t.id||'-')+'</span>'+
+          '<span style="font-size:11px;color:var(--text2)">'+(t.blueprint||'')+'</span>'+
+          '<span style="font-size:11px;color:var(--text2)">'+(t.time||'')+'</span>'+
+          '</div>'
+        ).join('') : '<span style="color:var(--text2)">暂无定时任务</span>'}</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);margin-bottom:8px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px">➕ 新建定时任务</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button onclick="switchView('matrix-commands')" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">→ 前往命令与任务页</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--text2)">完整调度管理在「矩阵 → 命令与任务」页面</div>`;
+  } catch(e) {
+    document.getElementById('schedPanel').innerHTML = '<div style="padding:20px"><h2 style="font-size:18px;margin-bottom:12px">⏰ 定时任务</h2><div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)"><div class="error">❌ '+e.message+'</div><p style="font-size:12px;color:var(--text2);margin-top:8px">完整调度管理在「矩阵 → 命令与任务」页面</p></div></div>';
+  }
 }
 
 // 视频工厂系列 — Shell（无API）
@@ -2661,8 +2766,38 @@ async function loadAveScript()   { _renderShell('view-ave-script', '📝 脚本�
 async function loadAveMaterials(){ _renderShell('view-ave-materials', '📦 素材库', '无API', '素材管理模块的 API 尚未暴露。当前素材通过 SQLite 管理，需封装为 Dashboard API。'); }
 async function loadAveTemplates(){ _renderShell('view-ave-templates', '📋 模板', '无API', '模板管理模块的 API 尚未暴露。需要完成 agentos ave CLI 封装后对接。'); }
 
-// 内容采集系列
-async function loadCrawlTasks()  { _renderShell('view-crawl-tasks', '📡 采集任务', '无API', '采集任务的统一管理界面尚未完成。当前可通过 内容采集 → plugin-collector 访问现有采集功能。'); }
+// 内容采集系列 — 采集任务（有 plugin-collector → 集成）
+async function loadCrawlTasks() {
+  const el = document.getElementById('view-crawl-tasks');
+  el.innerHTML = '<div id="crawlTaskPanel" style="padding:20px"><div class="loading">⏳ 加载采集管理...</div></div>';
+  try {
+    const rs = await fetch('/api/plugins/collector/summary');
+    const d = await rs.json();
+    document.getElementById('crawlTaskPanel').innerHTML = `
+      <h2 style="font-size:18px;margin-bottom:12px">📡 采集任务</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:12px">
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
+          <div style="font-size:12px;color:var(--text2)">总采集数</div>
+          <div style="font-size:24px;font-weight:700">${d.total||0}</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
+          <div style="font-size:12px;color:var(--text2)">今日新增</div>
+          <div style="font-size:24px;font-weight:700;color:var(--green)">${d.today||0}</div>
+        </div>
+      </div>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">🔧 操作</div>
+        <button onclick="switchView('plugin-collector')" style="background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">→ 打开采集管理器</button>
+        <span style="font-size:11px;color:var(--text2);margin-left:8px">完整采集管理界面</span>
+      </div>`;
+  } catch(e) {
+    document.getElementById('crawlTaskPanel').innerHTML = `<div style="padding:0"><h2 style="font-size:18px;margin-bottom:12px">📡 采集任务</h2>
+      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:8px">采集管理器可通过下方按钮访问</p>
+        <button onclick="switchView('plugin-collector')" style="background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">→ 打开采集管理器</button>
+      </div></div>`;
+  }
+}
 async function loadCrawlSources(){ _renderShell('view-crawl-sources', '📡 源管理', '无CLI', '采集源管理需要 agentos crawl CLI 封装后实现。'); }
 async function loadCrawlHistory(){ _renderShell('view-crawl-history', '📜 采集历史', '无API', '采集历史的统一展示 API 尚未完成。'); }
 
