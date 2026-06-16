@@ -60,10 +60,12 @@ def exec_remote(machine: str, command: str, timeout: int = 60) -> dict:
     ip = info["ip"]
     ssh_target = f"{user}@{ip}" if user else ip
     
-    # 自动设置环境变量
+    # 自动设置环境变量 + PYTHON 路径发现
+    py_discover = 'PY=$(ls $HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3 2>/dev/null || which python3); '
     env_setup = "export AGENT_SYNC=\"$HOME/workbuddy-agent-os/agent-sync\"; "
     env_setup += "export AGENT_LOCAL=\"$HOME/workbuddy-agent-os/agent-local\"; "
-    full_cmd = f"{env_setup} {command}"
+    env_setup += "export MC_PYTHON=\"$PY\"; "
+    full_cmd = f"{py_discover} {env_setup} {command}"
     
     try:
         r = subprocess.run(
@@ -95,7 +97,7 @@ def exec_nurture(machine: str, accounts: list, blueprints: list, rounds: int = 3
 
 def exec_collect(machine: str, phone: str = "") -> dict:
     """在远程机器启动采集"""
-    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && python3 -m mc collect"
+    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m mc collect"
     if phone:
         cmd += f" --phone {phone}"
     else:
@@ -105,20 +107,20 @@ def exec_collect(machine: str, phone: str = "") -> dict:
 
 def exec_login(machine: str, account_id: str) -> dict:
     """在远程机器登录账号"""
-    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && python3 -m mc account login {account_id}"
+    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m mc account login {account_id}"
     return exec_remote(machine, cmd, timeout=120)
 
 
 def exec_logout(machine: str, account_id: str) -> dict:
     """在远程机器清除账号登录状态"""
-    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && python3 -m mc account logout {account_id}"
+    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m mc account logout {account_id}"
     return exec_remote(machine, cmd, timeout=30)
 
 
 def exec_comment(machine: str, account_id: str, url: str, direction: str = "") -> dict:
     """在远程机器执行定向评论"""
     dir_flag = f" --direction {direction}" if direction else ""
-    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && python3 -m mc task comment --account={account_id} --url={url}{dir_flag}"
+    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m mc task comment --account={account_id} --url={url}{dir_flag}"
     return exec_remote(machine, cmd, timeout=120)
 
 

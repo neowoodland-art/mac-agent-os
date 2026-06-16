@@ -3052,18 +3052,57 @@ async function loadSmsAccounts() {
             '</div></div>';
         }).join('')+'</div>';
 
-      // ═══ 下部: 账号列表（表格 - 所有账号平铺）═══
+      // ═══ 下部: 账号列表（可排序表格 + 搜索 + 统计）═══
+      // 统计信息
+      var phoneSet = {}; accounts.forEach(function(a){if(a.phone)phoneSet[a.phone]=true;});
+      var identitySet = {}; accounts.forEach(function(a){if(a.identity_dir)identitySet[a.identity_dir]=true;});
+      var phoneCount = Object.keys(phoneSet).length;
+      var identityCount = Object.keys(identitySet).length;
+      var totalCount = accounts.length;
+      var localCount = accounts.filter(function(a){return a.is_local;}).length;
+      var loggedIn = accounts.filter(function(a){return a.has_cookie;}).length;
+
+      var tableId = 'acctTableBody';
+      var sortState = {col:'账号', asc:true};
+
       var tableHtml = '<div style="background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);padding:10px;box-shadow:var(--shadow)">'+
-        '<div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 全部账号列表</div>'+
+        '<div style="font-size:13px;font-weight:600;margin-bottom:6px">📋 全部账号列表</div>'+
+        '<div style="display:flex;gap:12px;font-size:11px;color:var(--text2);margin-bottom:8px">'+
+          '<span>📱 <strong style="color:var(--text)">'+phoneCount+'</strong> 个手机号</span>'+
+          '<span>🆔 <strong style="color:var(--text)">'+identityCount+'</strong> 个身份</span>'+
+          '<span>👤 <strong style="color:var(--text)">'+totalCount+'</strong> 个账号</span>'+
+          '<span>🎯 <strong style="color:var(--text)">'+localCount+'/'+totalCount+'</strong> 本机</span>'+
+          '<span>✅ <strong style="color:var(--green)">'+loggedIn+'</strong> 已登录</span>'+
+        '</div>'+
+        '<div style="display:flex;gap:6px;margin-bottom:8px">'+
+          '<input id="acctSearchInput" placeholder="🔍 搜索账号/手机/昵称..." oninput="filterAcctTable()" style="flex:1;min-width:150px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:5px;font-size:12px">'+
+          '<select id="acctPlatformFilter" onchange="filterAcctTable()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:11px">'+
+            '<option value="">全部平台</option>'+
+            '<option value="douyin">🎵 抖音</option>'+
+            '<option value="xiaohongshu">📕 小红书</option>'+
+          '</select>'+
+          '<select id="acctMachineFilter" onchange="filterAcctTable()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:11px">'+
+            '<option value="">全部机器</option>'+
+            '<option value="local">本机</option>'+
+            '<option value="remote">远程</option>'+
+          '</select>'+
+          '<select id="acctStatusFilter" onchange="filterAcctTable()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:11px">'+
+            '<option value="">全部状态</option>'+
+            '<option value="logged_in">已登录</option>'+
+            '<option value="not_logged">未登录</option>'+
+          '</select>'+
+        '</div>'+
+        '<div style="max-height:400px;overflow-y:auto">'+
         '<table style="width:100%;font-size:12px"><thead><tr>'+
-          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">账号</th>'+
-          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">平台</th>'+
-          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">手机</th>'+
-          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">机器</th>'+
-          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">状态</th>'+
-          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">昵称</th>'+
-          '<th style="padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">操作</th></tr></thead><tbody>'+
-        accounts.map(function(a) {
+          '<th onclick="sortAcctTable(0)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">账号 <span style="font-size:9px">▲</span></th>'+
+          '<th onclick="sortAcctTable(1)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">平台</th>'+
+          '<th onclick="sortAcctTable(2)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">手机</th>'+
+          '<th onclick="sortAcctTable(3)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">机器</th>'+
+          '<th onclick="sortAcctTable(4)" style="cursor:pointer;text-align:center;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">状态</th>'+
+          '<th onclick="sortAcctTable(5)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">昵称</th>'+
+          '<th style="padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">操作</th></tr></thead>'+
+          '<tbody id="'+tableId+'">'+
+        accounts.map(function(a, idx) {
           var ml = machineLabel(a);
           var icon = a.platform==='xiaohongshu'?'📕':'🎵';
           var platName = a.platform==='xiaohongshu'?'小红书':'抖音';
@@ -3071,7 +3110,7 @@ async function loadSmsAccounts() {
           var lop = ld?'':"accountLogin('"+a.id+"')";
           var cop = ld?'':"clearCookies('"+a.id+"','"+a.platform+"')";
           var dop = ld?'':"deleteAccount('"+a.id+"')";
-          return '<tr>'+
+          return '<tr data-idx="'+idx+'" data-phone="'+(a.phone||'')+'" data-platform="'+a.platform+'" data-machine="'+(a.is_local?'local':'remote')+'" data-login="'+(a.has_cookie?'yes':'no')+'" data-search="'+(a.id+' '+(a.phone||'')+' '+a.nickname).toLowerCase()+'">'+
             '<td style="padding:3px 6px;font-size:11px">'+a.id+'</td>'+
             '<td style="padding:3px 6px;font-size:11px">'+icon+' '+platName+'</td>'+
             '<td style="padding:3px 6px;font-size:10px;color:var(--text2)">'+(a.phone||'')+'</td>'+
@@ -3083,7 +3122,9 @@ async function loadSmsAccounts() {
               '<button onclick="'+cop+'" style="background:transparent;border:none;cursor:pointer;'+btnStyle(a,ld)+'" title="'+clearTitle(a)+'">🚫</button>'+
               '<button onclick="'+dop+'" style="background:transparent;border:none;cursor:pointer;'+btnStyle(a,ld)+'" title="'+delTitle(a)+'">🗑</button>'+
             '</td></tr>';
-        }).join('')+'</tbody></table></div>';
+        }).join('')+'</tbody></table></div></div>';
+      // 保存accounts数据供排序筛选用
+      window._acctTableData = accounts;
 
       overview.innerHTML = cardsHtml + tableHtml;
     }
@@ -6870,6 +6911,56 @@ switchView = function(view) {
   __origSwitchView(view);
   if (view === 'kb') { kbLoadStats(); memLoadStats(); sysLoadDocs(); }
 };
+
+// ═══ 账号表格：排序 + 筛选 ═══
+var _acctSortCol = 0, _acctSortAsc = true;
+function sortAcctTable(colIdx) {
+  if (_acctSortCol === colIdx) _acctSortAsc = !_acctSortAsc;
+  else { _acctSortCol = colIdx; _acctSortAsc = true; }
+  var tbody = document.getElementById('acctTableBody');
+  if (!tbody) return;
+  var rows = Array.from(tbody.querySelectorAll('tr'));
+  var colSelectors = ['td:nth-child(1)','td:nth-child(2)','td:nth-child(3)','td:nth-child(4)','td:nth-child(5)','td:nth-child(6)'];
+  var sel = colSelectors[colIdx] || colSelectors[0];
+  rows.sort(function(a,b){
+    var va = (a.querySelector(sel)||{}).textContent||'';
+    var vb = (b.querySelector(sel)||{}).textContent||'';
+    if (!isNaN(parseFloat(va)) && !isNaN(parseFloat(vb))) return parseFloat(va)-parseFloat(vb);
+    return va.localeCompare(vb, 'zh');
+  });
+  if (!_acctSortAsc) rows.reverse();
+  rows.forEach(function(r){tbody.appendChild(r);});
+  // 更新表头箭头
+  var headers = document.querySelectorAll('#acctTableBody');
+  if (headers.length > 0) {
+    var headerRow = (headers[0].previousElementSibling || {}).querySelectorAll ? headers[0].previousElementSibling.querySelectorAll('th') : [];
+    headerRow.forEach(function(th,i){
+      var arrow = th.querySelector('span');
+      if (arrow) arrow.textContent = i===colIdx ? (_acctSortAsc ? '▲' : '▼') : '';
+    });
+  }
+}
+function filterAcctTable() {
+  var q = (document.getElementById('acctSearchInput')||{}).value||'';
+  var platform = (document.getElementById('acctPlatformFilter')||{}).value||'';
+  var machine = (document.getElementById('acctMachineFilter')||{}).value||'';
+  var status = (document.getElementById('acctStatusFilter')||{}).value||'';
+  q = q.toLowerCase().trim();
+  document.querySelectorAll('#acctTableBody tr').forEach(function(tr){
+    var search = tr.getAttribute('data-search')||'';
+    var p = tr.getAttribute('data-platform')||'';
+    var m = tr.getAttribute('data-machine')||'';
+    var l = tr.getAttribute('data-login')||'';
+    var show = true;
+    if (q && !search.includes(q)) show = false;
+    if (platform && p !== platform) show = false;
+    if (machine === 'local' && m !== 'local') show = false;
+    if (machine === 'remote' && m !== 'remote') show = false;
+    if (status === 'logged_in' && l !== 'yes') show = false;
+    if (status === 'not_logged' && l !== 'no') show = false;
+    tr.style.display = show ? '' : 'none';
+  });
+}
 </script>
 </body>
 </html>

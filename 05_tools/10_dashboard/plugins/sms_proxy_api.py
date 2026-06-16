@@ -527,7 +527,7 @@ async def api_account_register(request: Request):
 @router.post("/accounts/{account_id}/login")
 def api_account_login(account_id: str):
     """重新打开浏览器登录"""
-    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
     import subprocess
     try:
         p = subprocess.Popen(
@@ -554,7 +554,7 @@ def api_collect_profile(account_id: str):
     except: pass
     # 根据平台选择采集蓝图
     bp_name = "xiaohongshu_read_profile" if platform == "xiaohongshu" else "douyin_read_profile"
-    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
+    agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
     import subprocess
     try:
         p = subprocess.Popen(

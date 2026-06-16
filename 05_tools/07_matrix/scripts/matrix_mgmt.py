@@ -29,7 +29,7 @@ MATRIX_BLUEPRINTS = MATRIX_CODE / "blueprints"
 MATRIX_CONFIG_TEMPLATE = MATRIX_CODE / "config_template"
 MATRIX_ACCOUNT_WORKSPACES = MATRIX_LOCAL / "accounts"
 
-PYTHON = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "matrix" / "bin" / "python3")
+PYTHON = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
 MATRIX_CLI = str(MATRIX_SCRIPTS / "matrix.py")
 
 
