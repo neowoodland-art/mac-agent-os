@@ -1,0 +1,119 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - heading "🖥 AgentOS v4" [level=1] [ref=e4] [cursor=pointer]:
+        - text: 🖥 AgentOS
+        - generic [ref=e5]: v4
+      - generic "折叠侧边栏" [ref=e6] [cursor=pointer]: ◀
+    - generic [ref=e7]:
+      - generic [ref=e51]: 📡 chengzigedeAir
+      - generic [ref=e52]: "UID: 4cf443bc-ff1... · 工作站 · mac-agent-os @ a816130"
+    - generic [ref=e8]:
+      - generic [ref=e53] [cursor=pointer]:
+        - text: 📊 概览
+        - generic [ref=e54]: ▶
+      - generic:
+        - generic [ref=e55] [cursor=pointer]: 机器状态
+        - generic [ref=e56] [cursor=pointer]: 告警中心
+        - generic [ref=e57] [cursor=pointer]: 统计概览
+      - generic [ref=e58] [cursor=pointer]:
+        - text: 📱 矩阵养号
+        - generic [ref=e59]: ▶
+      - generic:
+        - generic [ref=e60] [cursor=pointer]: 身份与账号
+        - generic [ref=e61] [cursor=pointer]: 命令与任务
+        - generic [ref=e62] [cursor=pointer]: 远程控制
+        - generic [ref=e63] [cursor=pointer]: 蓝图编排
+        - generic [ref=e64] [cursor=pointer]: 原子操作
+        - generic [ref=e65] [cursor=pointer]: 录制管理
+        - generic [ref=e66] [cursor=pointer]: 设置
+      - generic [ref=e67] [cursor=pointer]:
+        - text: 🎬 视频工厂
+        - generic [ref=e68]: ▶
+      - generic:
+        - generic [ref=e69] [cursor=pointer]: 角色管理
+        - generic [ref=e70] [cursor=pointer]: 角色生成
+        - generic [ref=e71] [cursor=pointer]: 原子能力
+        - generic [ref=e72] [cursor=pointer]: 工作流
+      - generic [ref=e73] [cursor=pointer]:
+        - text: 📡 内容采集
+        - generic [ref=e74]: ▶
+      - generic [ref=e75] [cursor=pointer]: 采集管理
+      - generic [ref=e76] [cursor=pointer]:
+        - text: ⚙️ 系统
+        - generic [ref=e77]: ▶
+      - generic:
+        - generic [ref=e78] [cursor=pointer]: 知识库
+        - generic [ref=e79] [cursor=pointer]: 记忆库
+        - generic [ref=e80] [cursor=pointer]: 联邦说明
+        - generic [ref=e81] [cursor=pointer]: 技能工具
+        - generic [ref=e82] [cursor=pointer]: 自动任务
+      - generic [ref=e83] [cursor=pointer]:
+        - text: 📡 社交矩阵
+        - generic [ref=e84]: ▶
+      - generic:
+        - generic [ref=e85] [cursor=pointer]: 账号管理
+        - generic [ref=e86] [cursor=pointer]: 运维执行
+        - generic [ref=e87] [cursor=pointer]: 内容编排
+        - generic [ref=e88] [cursor=pointer]: 任务调度
+        - generic [ref=e89] [cursor=pointer]: 系统设置
+      - generic [ref=e90] [cursor=pointer]:
+        - text: 🖥️ 联邦管理
+        - generic [ref=e91]: ▶
+      - generic:
+        - generic [ref=e92] [cursor=pointer]: 集群概览
+        - generic [ref=e93] [cursor=pointer]: 机器状态
+      - generic [ref=e94] [cursor=pointer]:
+        - text: ⚙️ 系统设置
+        - generic [ref=e95]: ▶
+      - generic [ref=e96] [cursor=pointer]: 知识库
+    - generic [ref=e40]:
+      - generic "折叠全部" [ref=e41] [cursor=pointer]: 📂
+      - generic [ref=e42] [cursor=pointer]: 🔄 同步
+      - generic [ref=e43] [cursor=pointer]: ⟳ 刷新
+  - main [ref=e44]:
+    - generic [ref=e97]:
+      - generic [ref=e98]:
+        - generic [ref=e99]: 机器数
+        - generic [ref=e100]: "2"
+        - generic [ref=e101]: 在线 0
+      - generic [ref=e102]:
+        - generic [ref=e103]: 模块
+        - generic [ref=e104]: "9"
+        - generic [ref=e105]: 已加载
+      - generic [ref=e106]:
+        - generic [ref=e107]: 主机
+        - generic [ref=e108]: 192.168.31.225
+      - generic [ref=e109]:
+        - generic [ref=e110]: 知识库
+        - generic [ref=e111]: "?"
+        - generic [ref=e112]: 篇
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - combobox [ref=e47]:
+          - option "全部策略" [selected]
+          - option "口播"
+          - option "卡点"
+          - option "数字人"
+          - option "test"
+        - combobox [ref=e48]:
+          - option "全部状态" [selected]
+          - option "已完成"
+          - option "失败"
+          - option "运行中"
+        - textbox "搜索脚本名称..." [ref=e49]
+        - button "查询" [ref=e50] [cursor=pointer]
+      - generic [ref=e114]:
+        - generic [ref=e115]:
+          - generic [ref=e116]: "5"
+          - generic [ref=e117]: 📱 本机账号
+        - generic [ref=e118]:
+          - generic [ref=e119]: "5"
+          - generic [ref=e120]: 🔑 已登录
+        - generic [ref=e121]:
+          - generic [ref=e122]: "5"
+          - generic [ref=e123]: 👤 已采集
+        - generic [ref=e124]:
+          - generic [ref=e125]: "30"
+          - generic [ref=e126]: 🌐 联邦账号
+      - generic [ref=e128]: 暂无生产记录

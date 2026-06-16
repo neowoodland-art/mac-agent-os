@@ -5,7 +5,7 @@
   "os": "macOS 25.4.0 (arm64)",
   "cpu": {
     "arch": "arm64",
-    "load_1m": 2.73
+    "load_1m": 2.04
   },
   "memory": {
     "total_gb": 0,
@@ -17,15 +17,26 @@
     "used_gb": 123.6,
     "available_gb": 121.5
   },
-  "last_seen": "2026-06-16T06:24:13.031099+00:00",
+  "last_seen": "2026-06-16T06:29:14.484455+00:00",
   "status": "online",
   "guardd_version": "2.3.0",
   "current_task": null,
   "_source": "push",
-  "_received_at": "2026-06-16T06:24:13.068455+00:00",
+  "_received_at": "2026-06-16T06:29:14.528087+00:00",
   "_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
   "_hostname": "chengzigedeAir",
   "_events": [
+    {
+      "id": "533aed6f-72af-4621-93f4-d4ab11fd3139",
+      "type": "task_completed",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-16T06:24:13.489990+00:00",
+      "payload": {
+        "task_id": "382c3192-d751-4830-a0f7-c9ca1068317b",
+        "type": "check_environment",
+        "success": true
+      }
+    },
     {
       "id": "c4c6cd04-ca4b-485b-a847-85665a7a4f82",
       "type": "task_completed",
@@ -33,6 +44,17 @@
       "timestamp": "2026-06-16T06:19:12.222397+00:00",
       "payload": {
         "task_id": "662d2af2-b2fe-4619-a2ae-372e8ece167e",
+        "type": "check_environment",
+        "success": true
+      }
+    },
+    {
+      "id": "dad3a375-4218-4d46-8b1c-2a411f1f2513",
+      "type": "task_completed",
+      "hostname": "chengzigedeAir",
+      "timestamp": "2026-06-16T06:24:13.490546+00:00",
+      "payload": {
+        "task_id": "67b12147-676c-48b9-90fe-be85fd6d53f8",
         "type": "check_environment",
         "success": true
       }

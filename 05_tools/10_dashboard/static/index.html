@@ -1355,21 +1355,10 @@ async function loadPlugins() {
     };
 
     // ── 从 API 加载 agentos 插件注册的导航 ──
-    // 只添加不存在的分组，不覆盖硬编码的导航结构
+    // 已停用：插件导航与硬编码导航重叠（联邦管理/社交矩阵/系统设置），
+    // 统一由硬编码导航控制，防止重复项
     async function loadNavFromAPI() {
-      try {
-        const r = await fetch('/api/plugins/nav');
-        const d = await r.json();
-        const nav = d.nav || [];
-        for (const g of nav) {
-          if (!groups[g.group]) {
-            groups[g.group] = { icon: g.icon, items: g.items };
-          }
-        }
-      } catch(e) {
-        // API 不可用时使用纯 fallback
-      }
-      // 重新渲染导航
+      // 直接渲染，不使用插件导航
       _renderNav();
     }
     
