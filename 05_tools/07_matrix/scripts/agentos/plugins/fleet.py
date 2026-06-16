@@ -98,3 +98,26 @@ class FleetPlugin(AgentOSPlugin):
             json = False
         cmd_remote(FakeArgs())
         return 0
+
+    def cmd_cleanup(self, args):
+        """清理所有机器残留的 Playwright 驱动进程"""
+        import subprocess
+        machines = [
+            ("本机", "127.0.0.1", ""),
+            ("5kechengdeAir", "100.72.182.121", "5kecheng"),
+            ("7kecheng", "100.65.35.28", "7kecheng"),
+        ]
+        for name, ip, user in machines:
+            print(f"\n  → {name} ({ip})...")
+            if name == "本机":
+                result = subprocess.run(
+                    ["pkill", "-f", "playwright/driver/node"], 
+                    capture_output=True, text=True)
+                print(f"    已清理" if result.returncode == 0 else "    无残留")
+            else:
+                result = subprocess.run(
+                    ["ssh", user, ip, "pkill -f playwright/driver/node"],
+                    capture_output=True, text=True)
+                print(f"    已清理" if result.returncode == 0 else "    无残留")
+        print("\n  ✅ 清理完成")
+        return 0
