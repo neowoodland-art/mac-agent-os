@@ -71,37 +71,63 @@ def fetch_machine_data(machine: dict, path: str, timeout: int = 5) -> dict:
 
 
 def aggregate_accounts():
-    """聚合所有机器的账号列表"""
+    """聚合所有机器的账号列表（含本机）"""
+    from plugins.base import HOSTNAME
     machines = _get_machines()
     all_accounts = []
+    
+    # 先加本机数据
+    try:
+        import urllib.request, json as _json
+        local_resp = urllib.request.urlopen("http://localhost:9988/api/matrix/accounts", timeout=5)
+        local_data = _json.loads(local_resp.read())
+        if isinstance(local_data, list):
+            for acct in local_data:
+                acct["_source_machine"] = HOSTNAME
+                acct["is_local"] = True
+                all_accounts.append(acct)
+    except Exception:
+        pass
     
     for m in machines:
         data = fetch_machine_data(m, "/api/matrix/accounts")
         if isinstance(data, list):
             for acct in data:
                 acct["_source_machine"] = m["name"]
+                # 非本机账号标记 is_local = False
+                acct["is_local"] = False
                 all_accounts.append(acct)
         elif isinstance(data, dict) and "error" not in data:
-            # 可能是 {"data": [...]} 格式
             accts = data.get("data", data.get("accounts", []))
             if isinstance(accts, list):
                 for acct in accts:
                     acct["_source_machine"] = m["name"]
+                    acct["is_local"] = False
                     all_accounts.append(acct)
         else:
             all_accounts.append({
                 "_source_machine": m["name"],
                 "_error": data.get("error", "未知错误"),
                 "machine_ip": m.get("ip", ""),
+                "is_local": False,
             })
     
     return all_accounts
 
 
 def aggregate_health():
-    """聚合所有机器的健康状态"""
+    """聚合所有机器的健康状态（含本机）"""
+    from plugins.base import HOSTNAME
     machines = _get_machines()
     results = {}
+    
+    # 先加本机健康
+    try:
+        import urllib.request, json as _json
+        local_resp = urllib.request.urlopen("http://localhost:9988/api/health", timeout=3)
+        results[HOSTNAME] = _json.loads(local_resp.read())
+    except Exception as e:
+        results[HOSTNAME] = {"status": "ok", "note": "本机直连"}
     
     for m in machines:
         data = fetch_machine_data(m, "/api/health")
@@ -111,12 +137,33 @@ def aggregate_health():
 
 
 def aggregate_status():
-    """聚合所有机器的详细状态"""
+    """聚合所有机器的详细状态（含本机）"""
+    from plugins.base import HOSTNAME
     machines = _get_machines()
     results = {}
     
+    # 本机状态
+    try:
+        import urllib.request, json as _json
+        lh = urllib.request.urlopen("http://localhost:9988/api/health", timeout=3)
+        local_health = _json.loads(lh.read())
+        ls = None
+        try:
+            ls_resp = urllib.request.urlopen("http://localhost:9988/api/machine/status", timeout=3)
+            ls = _json.loads(ls_resp.read())
+        except:
+            pass
+        results[HOSTNAME] = {
+            "status": "online",
+            "hostname": HOSTNAME,
+            "ip": "127.0.0.1",
+            "health": local_health,
+            "detail": ls,
+        }
+    except:
+        results[HOSTNAME] = {"status": "online", "hostname": HOSTNAME, "ip": "127.0.0.1"}
+    
     for m in machines:
-        # 先拿健康检查（快速）
         health = fetch_machine_data(m, "/api/health", timeout=3)
         if "error" in health:
             results[m["name"]] = {
@@ -126,8 +173,6 @@ def aggregate_status():
                 "ip": m["ip"],
             }
             continue
-        
-        # 再拿详细状态
         status = fetch_machine_data(m, "/api/machine/status", timeout=5)
         results[m["name"]] = {
             "status": "online",

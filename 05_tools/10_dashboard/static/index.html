@@ -6351,6 +6351,13 @@ async function loadMachineBar() {
   try {
     const rh = await fetch('/api/federation/health');
     const health = await rh.json();
+    // 补充本机健康（federation/health 只含远程机器）
+    try {
+      const lr = await fetch('/api/health');
+      const ld = await lr.json();
+      health['chengzigedeAir'] = ld;
+    } catch(e) {}
+    
     const rm = await fetch('/api/machines');
     const md = await rm.json();
     const machineList = md.machines || [];
