@@ -41,13 +41,14 @@ def _get_machine_info(machine_name: str) -> dict:
     return {}
 
 
-def exec_remote(machine: str, command: str, timeout: int = 60) -> dict:
+def exec_remote(machine: str, command: str, timeout: int = 60, fire_and_forget: bool = False) -> dict:
     """在远程机器执行命令
     
     Args:
         machine: 机器名（对应 ORACLE 中的定义）
         command: 要执行的命令
         timeout: 超时秒数
+        fire_and_forget: 是否立即返回（适合浏览器交互类命令）
     
     Returns:
         {"status": "ok"/"error", "stdout": "...", "stderr": "...", "returncode": 0}
@@ -65,8 +66,21 @@ def exec_remote(machine: str, command: str, timeout: int = 60) -> dict:
     env_setup = "export AGENT_SYNC=\"$HOME/workbuddy-agent-os/agent-sync\"; "
     env_setup += "export AGENT_LOCAL=\"$HOME/workbuddy-agent-os/agent-local\"; "
     env_setup += "export MC_PYTHON=\"$PY\"; "
-    full_cmd = f"{py_discover} {env_setup} {command}"
     
+    if fire_and_forget:
+        # 立即返回，不等待远程命令完成（适用浏览器登录等交互命令）
+        full_cmd = f"{py_discover} {env_setup} nohup {command} > /tmp/remote_exec.log 2>&1 &"
+        try:
+            subprocess.run(
+                ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
+                 ssh_target, full_cmd],
+                capture_output=True, text=True, timeout=15
+            )
+            return {"status": "ok", "message": "命令已发送", "fire_and_forget": True}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    
+    full_cmd = f"{py_discover} {env_setup} {command}"
     try:
         r = subprocess.run(
             ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
@@ -106,9 +120,9 @@ def exec_collect(machine: str, phone: str = "") -> dict:
 
 
 def exec_login(machine: str, account_id: str) -> dict:
-    """在远程机器登录账号"""
+    """在远程机器登录账号（交互式浏览器，立即返回）"""
     cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m mc account login {account_id}"
-    return exec_remote(machine, cmd, timeout=120)
+    return exec_remote(machine, cmd, timeout=120, fire_and_forget=True)
 
 
 def exec_logout(machine: str, account_id: str) -> dict:
