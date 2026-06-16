@@ -1434,6 +1434,46 @@ def api_lock_cleanup():
     return {"status": "ok"}
 
 
+# ═════════════════════════════════════════════════════════
+# Preflight Reset API (Phase 3.3)
+# ═════════════════════════════════════════════════════════
+
+@app.post("/api/preflight")
+def api_preflight(data: dict = {}):
+    """执行操作前状态归零检查"""
+    from services.preflight import run
+    machine = data.get("machine", "")
+    return run(machine)
+
+
+# ═════════════════════════════════════════════════════════
+# 日志聚合 API (Phase 3.4)
+# ═════════════════════════════════════════════════════════
+
+@app.post("/api/logs/push")
+def api_log_push(data: dict):
+    """推送操作日志"""
+    from services.log_aggregator import write_log
+    write_log(data)
+    return {"status": "ok"}
+
+
+@app.get("/api/logs")
+def api_logs(machine: str = "", type: str = "", status: str = "",
+             days: int = 7, limit: int = 200):
+    """查询操作日志"""
+    from services.log_aggregator import query_logs
+    logs = query_logs(machine=machine, op_type=type, status=status, days=days, limit=limit)
+    return {"logs": logs, "total": len(logs)}
+
+
+@app.get("/api/logs/stats")
+def api_log_stats(days: int = 7):
+    """日志统计"""
+    from services.log_aggregator import get_log_stats
+    return get_log_stats(days=days)
+
+
 @app.post("/api/fleet/sync")
 def api_fleet_sync():
     """一键同步所有机器"""
