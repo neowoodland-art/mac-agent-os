@@ -391,6 +391,7 @@ def api_sms_accounts():
                 "id": aid, "phone": phone,
                 "nickname": nick, "platform": a.get("platform", ""),
                 "is_local": a.get("is_local", False),
+                "owner_machine": a.get("owner_machine") or a.get("_source_machine_name", ""),
                 "has_identity": st["has_identity"],
                 "has_cookie": st["has_cookie"],
                 "has_profile": st["has_profile"],

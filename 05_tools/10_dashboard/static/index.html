@@ -2896,19 +2896,52 @@ async function loadSmsAccounts() {
   const overview = document.getElementById('smsAccountsOverview');
   if (!sel) return;
   try {
-    const r = await fetch('/api/matrix/sms/accounts');
-    const d = await r.json();
-    if (d.error) {
-      if (overview) overview.innerHTML = '<span style="color:var(--red)">❌ '+d.error+'</span>';
-      return;
+    // 用联邦API获取所有机器的账号，本地API作为下拉选择的数据源
+    let accounts = [];
+    let fedOk = false;
+    try {
+      const fr = await fetch('/api/federation/accounts');
+      const fd = await fr.json();
+      if (Array.isArray(fd) && fd.length) {
+        accounts = fd.map(a => ({
+          id: a.id,
+          phone: a.phone || a.phone_mask || '',
+          nickname: a.identity_hint || a.id,
+          platform: a.platform || '',
+          is_local: a.is_local || a.owner_machine === window.location.hostname,
+          owner_machine: a.owner_machine || a._source_machine_name || '',
+          has_cookie: a._status === 'logged_in',
+          has_identity: a.identity_dir ? true : false,
+          has_profile: false,
+          has_registry: false,
+          fans: a.fans || '?',
+          posts: a.posts || '?',
+          following: a.following || '?',
+          likes: a.likes || '?',
+          identity_dir: a.identity_dir || '',
+          fingerprint: a.fingerprint || {},
+        }));
+        fedOk = true;
+      }
+    } catch(e) { /* fallback to local API */ }
+
+    if (!fedOk) {
+      // 降级：使用本地 SMS API
+      const r = await fetch('/api/matrix/sms/accounts');
+      const d = await r.json();
+      if (d.error) {
+        if (overview) overview.innerHTML = '<span style="color:var(--red)">❌ '+d.error+'</span>';
+        return;
+      }
+      accounts = d.accounts || [];
     }
-    const accounts = d.accounts || [];
-    window._lastSmsAccounts = d.accounts || [];
+
+    window._lastSmsAccounts = accounts;
     // 下拉框（隐藏，用于存储完整选项数据）
     sel.innerHTML = '<option value="">— 选择账号 —</option>' +
       accounts.map(a => '<option value="'+a.id+'" data-phone="'+(a.phone||'')+'" data-nick="'+(a.nickname||'')+'" data-display="'+
-        ((a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+' '+(a.is_local?'(本机)':'')+' ('+a.phone+')').replace(/"/g,'&quot;')+'">'+
-        ((a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+' '+(a.is_local?'(本机)':'')+' ('+a.phone+')')+'</option>').join('');
+        ((a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+' '+(a.owner_machine||(a.is_local?'本机':'远程'))+' ('+a.phone+')').replace(/"/g,'&quot;')+'">'+
+        ((a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+' '+(a.owner_machine||(a.is_local?'本机':'远程'))+' ('+a.phone+')')+'</option>').join('');
     // 搜索框：存一份完整选项用于搜索
     window._smsAccountOptions = accounts;
     // 加载人设信息（供卡片渲染使用）
@@ -2930,17 +2963,21 @@ async function loadSmsAccounts() {
         recStats = rd.stats || {};
       } catch(e) { /* ignore */ }
 
-      // 按手机号分组
+      // 账号管理卡片 — 所有机器的账号（按机器+手机号分组）
       const groups = {};
-      accounts.filter(a => a.is_local).forEach(a => {
+      accounts.forEach(a => {
+        const machine = a.owner_machine || (a.is_local ? '本机' : '远程');
         const phone = a.phone || '未设置手机号';
-        if (!groups[phone]) groups[phone] = [];
-        groups[phone].push(a);
+        const groupKey = machine + '|' + phone;
+        if (!groups[groupKey]) {
+          groups[groupKey] = { machine, phone, accts: [], machineLabel: '' };
+        }
+        groups[groupKey].accts.push(a);
       });
       const personaData = personas || {};
 
       overview.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:10px">'+
-        Object.entries(groups).map(([phone, accts]) => {
+        Object.values(groups).map(({machine, phone, accts}) => {
           const sharedIdent = accts.find(a => (a.identity_dir||'').startsWith('phone_'))?.identity_dir
             || accts.find(a => a.has_identity)?.id
             || accts[0]?.id;
@@ -2958,19 +2995,21 @@ async function loadSmsAccounts() {
             const platName = a.platform === 'xiaohongshu' ? '小红书' : '抖音';
             // 指纹模拟信息
             const fp = a.fingerprint || {};
-            const fpPlatform = fp.platform || 'Win32';
-            const fpScreen = fp.screen || '1920x1080';
-            const fpGPU = fp.gpu || 'Intel Iris';
-            const fpSummary = fpPlatform + ' | ' + fpScreen + ' | ' + fpGPU;
+            const fpPlatform = fp.platform || '';
+            const fpScreen = fp.screen || '';
+            const fpGPU = fp.gpu || '';
+            const fpSummary = fpPlatform ? (fpPlatform + ' | ' + fpScreen + ' | ' + fpGPU) : '';
+            const machineLabel = a.owner_machine || (a.is_local ? '本机' : '远程');
             return '<div style="display:flex;align-items:center;gap:3px;padding:3px 0;border-bottom:1px solid var(--border)">'+
               '<span style="width:38px;font-size:10px">'+icon+' '+platName+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_cookie)+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_profile)+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_registry)+'</span>'+
               '<span style="width:28px;font-size:9px;color:var(--text2);text-align:center">'+(recStats[a.id]||0)+'次</span>'+
-              '<span style="flex:1;font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis" title="指纹: '+fpSummary+'">'+a.nickname+'</span>'+
+              '<span style="flex:1;font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis" title="'+machineLabel+'">'+a.nickname+'</span>'+
               '<span style="width:36px;font-size:9px;color:var(--text2);text-align:center" title="粉丝">📊'+fmtNum(a.fans)+'</span>'+
-              '<span style="width:60px;font-size:8px;color:#6366f1;text-align:center;overflow:hidden" title="指纹模拟: '+fpSummary+'">'+fpPlatform.slice(0,6)+'</span>'+
+              '<span style="width:60px;font-size:9px;color:var(--primary);text-align:center;overflow:hidden" title="'+machineLabel+'">'+machineLabel.slice(0,8)+'</span>'+
+              '<span style="width:20px;font-size:9px;color:var(--text2);text-align:center;overflow:hidden" title="指纹模拟: '+fpSummary+'">'+fpPlatform.slice(0,6)+'</span>'+
               '<button onclick="accountLogin(\''+a.id+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="登录">🔑</button>'+
               '<button onclick="clearCookies(\''+a.id+'\',\''+a.platform+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="清除登录">🚫</button>'+
               '<button onclick="deleteAccount(\''+a.id+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="删除">🗑</button>'+
@@ -2980,7 +3019,8 @@ async function loadSmsAccounts() {
           return '<div style="background:var(--bg3);border-radius:8px;padding:10px;border:1px solid var(--border)">'+
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
               '<div><span style="font-weight:700;font-size:14px">📱 '+phone+'</span>'+
-              '<span style="font-size:9px;color:var(--text2);margin-left:6px">🆔 '+sharedIdent+'</span></div>'+
+              '<span style="font-size:9px;color:var(--text2);margin-left:6px">🆔 '+sharedIdent+'</span>'+
+              '<span style="font-size:9px;color:var(--primary);margin-left:6px">🖥️ '+machine+'</span></div>'+
               '<span style="font-size:9px;color:var(--text2)">🍪 '+(accts.reduce((s,a)=>s+(a.has_cookie?1:0),0))+'已登录 | 📦 '+recCount+'次录制</span>'+
             '</div>'+
             (interests ? '<div style="font-size:10px;color:var(--text2);margin-bottom:4px">🎯 '+interests+(style?' | 💬 '+style:'')+'</div>' : '')+
