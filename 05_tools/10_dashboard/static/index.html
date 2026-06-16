@@ -142,6 +142,20 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   .main { padding: 16px; }
   .stats { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Machine status bar */
+.machines-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.machine-status-card { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; background: var(--bg2); border: 1px solid var(--border); font-size: 12px; box-shadow: var(--shadow); }
+.machine-status-card .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.machine-status-card.online .status-dot { background: var(--green); }
+.machine-status-card.busy .status-dot { background: var(--amber); }
+.machine-status-card.offline .status-dot { background: var(--text2); opacity: .3; }
+.machine-status-card .machine-name { font-weight: 600; color: var(--text); }
+.machine-status-card .machine-label { font-size: 10px; color: var(--text2); }
+.machine-status-card .machine-status { font-size: 10px; }
+.machine-status-card.online .machine-status { color: var(--green); }
+.machine-status-card.busy .machine-status { color: var(--amber); }
+.machine-status-card.offline .machine-status { color: var(--text2); opacity: .5; }
 </style>
 </head>
 <body>
@@ -166,6 +180,9 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 
 <!-- Stats bar -->
 <div class="stats" id="statsBar"></div>
+
+<!-- Machine status bar (全局) -->
+<div id="machineBar" class="machines-bar"><span style="font-size:11px;color:var(--text2)">⏳ 加载机器状态...</span></div>
 
 <!-- Production list view -->
 <div id="view-productions">
@@ -2720,7 +2737,7 @@ window.runComment = async function() {
   if (!url) { el.textContent = '请填写视频链接'; return; }
   el.textContent = '⏳ 提交中...';
   try {
-    const r = await fetch('/api/matrix/task/comment', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,direction:dir||null,account:acct||null})});
+    const r = await fetch('/api/matrix/task/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'comment',url,direction:dir||null,account:acct||null})});
     const d = await r.json();
     el.innerHTML = d.error ? `<span style="color:var(--red)">❌ ${d.error}</span>` : `<span style="color:var(--green)">✅ 评论任务已提交: ${d.task_id||'OK'}</span>`;
   } catch(e) { el.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`; }
@@ -2732,7 +2749,7 @@ async function loadMatrixSchedule() {
   const el = document.getElementById('view-matrix-schedule');
   el.innerHTML = '<div id="schedPanel" style="padding:20px"><div class="loading">⏳ 加载定时任务...</div></div>';
   try {
-    const ri = await fetch('/api/matrix/schedule/list');
+    const ri = await fetch('/api/matrix/schedules');
     const di = await ri.json();
     const tasks = di.tasks || di || [];
     document.getElementById('schedPanel').innerHTML = `
@@ -6245,6 +6262,70 @@ async function loadC2Machines() {
   } catch(e) {
     statusEl.innerHTML = '<div style="padding:20px;color:var(--red)">'+e.message+'</div>';
   }
+}
+
+// ════════════════════════════════════════════════════════
+// Machine Status Bar — 全局三台机器状态条
+// ════════════════════════════════════════════════════════
+
+let _machineBarTimer = null;
+
+async function loadMachineBar() {
+  const bar = document.getElementById('machineBar');
+  if (!bar) return;
+  try {
+    const rh = await fetch('/api/federation/health');
+    const health = await rh.json();
+    const rm = await fetch('/api/machines');
+    const md = await rm.json();
+    const machineList = md.machines || [];
+
+    const MACHINE_NAMES = {
+      'chengzigedeAir': { label: '主控', icon: '🖥️' },
+      '5kechengdeAir': { label: '养号', icon: '🖥️' },
+      '7kecheng': { label: '养号', icon: '🖥️' },
+    };
+
+    let html = '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+    for (const [name, info] of Object.entries(MACHINE_NAMES)) {
+      const h = health[name] || {};
+      const isOnline = h.status === 'ok';
+      const mData = machineList.find(function(m){return m.hostname===name || m.hostname===h.hostname;});
+      let statusClass = 'offline', statusText = '离线';
+      if (isOnline) {
+        statusClass = 'online';
+        statusText = '在线';
+        if (mData && mData.current_task) {
+          statusClass = 'busy';
+          statusText = '忙碌';
+        }
+      }
+      var dotColor = statusClass === 'online' ? 'var(--green)' : (statusClass === 'busy' ? 'var(--amber)' : 'var(--text2)');
+      var opacity = statusClass === 'offline' ? '0.3' : '1';
+      html += '<div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);font-size:12px;opacity:'+opacity+'">'+
+        '<span style="width:8px;height:8px;border-radius:50%;background:'+dotColor+'"></span>'+
+        '<span style="font-weight:600;color:var(--text)">'+name+'</span>'+
+        '<span style="font-size:10px;color:var(--text2)">'+info.label+'</span>'+
+        '<span style="font-size:10px;color:'+dotColor+'">'+statusText+'</span></div>';
+    }
+    html += '</div>';
+    bar.innerHTML = html;
+  } catch(e) {
+    // silent — status bar is not critical
+  }
+}
+
+function initMachineBar() {
+  if (_machineBarTimer) clearInterval(_machineBarTimer);
+  loadMachineBar();
+  _machineBarTimer = setInterval(loadMachineBar, 30000);
+}
+
+// 在页面加载完成后初始化
+if (document.readyState === 'complete') {
+  initMachineBar();
+} else {
+  window.addEventListener('load', initMachineBar);
 }
 
 async function sendC2Command() {
