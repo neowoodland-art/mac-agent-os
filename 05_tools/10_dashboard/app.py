@@ -1265,9 +1265,56 @@ async def api_federation_collect(data: dict):
     return exec_collect(machine, phone)
 
 
-# ═════════════════════════════════════════════════════════
-# 联邦管理 API（供 Dashboard 前端 fleet-* 视图调用）
-# ═════════════════════════════════════════════════════════
+@app.post("/api/federation/login")
+async def api_federation_login(data: dict):
+    """在远程机器登录账号"""
+    from services.remote_exec import exec_login
+    machine = data.get("machine", "")
+    account = data.get("account", "")
+    if not machine or not account:
+        return {"status": "error", "message": "machine 和 account 必填"}
+    return exec_login(machine, account)
+
+
+@app.post("/api/federation/logout")
+async def api_federation_logout(data: dict):
+    """在远程机器清除登录"""
+    from services.remote_exec import exec_logout
+    machine = data.get("machine", "")
+    account = data.get("account", "")
+    if not machine or not account:
+        return {"status": "error", "message": "machine 和 account 必填"}
+    return exec_logout(machine, account)
+
+
+@app.post("/api/federation/comment")
+async def api_federation_comment(data: dict):
+    """在远程机器执行定向评论"""
+    from services.remote_exec import exec_comment
+    machine = data.get("machine", "")
+    account = data.get("account", "")
+    url = data.get("url", "")
+    direction = data.get("direction", "")
+    if not machine or not account or not url:
+        return {"status": "error", "message": "machine/account/url 必填"}
+    return exec_comment(machine, account, url, direction)
+
+
+@app.post("/api/federation/nurture-stop")
+async def api_federation_nurture_stop(data: dict):
+    """停止远程机器的养号"""
+    from services.remote_exec import exec_nurture_stop
+    machine = data.get("machine", "")
+    if not machine:
+        return {"status": "error", "message": "machine 必填"}
+    return exec_nurture_stop(machine)
+
+
+@app.get("/api/federation/machine-status/{machine}")
+def api_federation_machine_status(machine: str):
+    """获取远程机器状态"""
+    from services.remote_exec import exec_status
+    return exec_status(machine)
 
 @ app.post("/api/fleet/sync")
 def api_fleet_sync():

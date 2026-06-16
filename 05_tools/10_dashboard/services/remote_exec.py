@@ -101,3 +101,34 @@ def exec_collect(machine: str, phone: str = "") -> dict:
     else:
         cmd += " --all"
     return exec_remote(machine, cmd, timeout=30)
+
+
+def exec_login(machine: str, account_id: str) -> dict:
+    """在远程机器登录账号"""
+    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && python3 -m mc account login {account_id}"
+    return exec_remote(machine, cmd, timeout=120)
+
+
+def exec_logout(machine: str, account_id: str) -> dict:
+    """在远程机器清除账号登录状态"""
+    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && python3 -m mc account logout {account_id}"
+    return exec_remote(machine, cmd, timeout=30)
+
+
+def exec_comment(machine: str, account_id: str, url: str, direction: str = "") -> dict:
+    """在远程机器执行定向评论"""
+    dir_flag = f" --direction {direction}" if direction else ""
+    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && python3 -m mc task comment --account={account_id} --url={url}{dir_flag}"
+    return exec_remote(machine, cmd, timeout=120)
+
+
+def exec_nurture_stop(machine: str) -> dict:
+    """停止远程机器的养号任务"""
+    cmd = "pkill -f 'mc run' 2>/dev/null; pkill -f camoufox 2>/dev/null; echo 'stopped'"
+    return exec_remote(machine, cmd, timeout=15)
+
+
+def exec_status(machine: str) -> dict:
+    """获取远程机器的完整状态"""
+    cmd = "echo '---guardd---'; pgrep -f guardd && echo 'running' || echo 'stopped'; echo '---camoufox---'; pgrep -f camoufox && echo 'running' || echo 'stopped'; echo '---disk---'; df -h / | tail -1 | awk '{print $3 \"/\" $2 \" (\" $5 \")\"}'; echo '---load---'; uptime | awk -F'load averages:' '{print $2}'"
+    return exec_remote(machine, cmd, timeout=10)
