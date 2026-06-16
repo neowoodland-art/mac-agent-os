@@ -253,7 +253,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h2 style="font-size:18px">🎯 命令与任务</h2>
   </div>
-  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid var(--border)">
+  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #2a2d3e">
       <div class="cmd-tab active" data-tab="cmd-run" onclick="switchCmdTab('cmd-run',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:var(--text);margin-bottom:-2px">🚀 批量执行</div>
     <div class="cmd-tab" data-tab="cmd-comment" onclick="switchCmdTab('cmd-comment',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">💬 定向评论</div>
     <div class="cmd-tab" data-tab="cmd-schedule" onclick="switchCmdTab('cmd-schedule',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">⏰ 定时任务</div>
@@ -409,7 +409,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h2 style="font-size:18px">⚙️ 矩阵设置</h2>
   </div>
-  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid var(--border)">
+  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #2a2d3e">
     <div class="set-tab active" data-tab="set-export" onclick="switchSetTab('set-export',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:var(--text);margin-bottom:-2px">📦 导入导出</div>
     <div class="set-tab" data-tab="set-backup" onclick="switchSetTab('set-backup',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">💾 备份恢复</div>
     <div class="set-tab" data-tab="set-corpus" onclick="switchSetTab('set-corpus',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">📚 语料库</div>
@@ -632,7 +632,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
     <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">📱 短信接收</div>
       <div id="smsConfigPanel" style="font-size:12px">加载中...</div>
-      <hr style="border-color:var(--border);margin:8px 0">
+      <hr style="border-color:#2a2d3e;margin:8px 0">
       <div style="font-size:11px;color:var(--text2);margin-bottom:4px">选择账号 <span style="font-size:10px;color:#6366f1">(输入手机号快速匹配)</span></div>
       <div style="display:flex;gap:4px;margin-bottom:4px">
         <div style="flex:1;position:relative">
@@ -2837,7 +2837,7 @@ async function loadHomepageInfoSms() {
       const xhs = r.xiaohongshu || {};
       const dyOk = dy.nickname && dy.nickname.indexOf('登录后') === -1;
       const xhsOk = xhs.nickname && xhs.nickname.indexOf('问点点') === -1 && xhs.nickname.indexOf('推荐') === -1;
-      html += '<tr style="border-top:1px solid var(--border)">';
+      html += '<tr style="border-top:1px solid #2a2d3e">';
       html += '<td style="padding:3px 6px">' + (r.display_name||'?') + '</td>';
       html += '<td style="padding:3px 6px;color:var(--text2);font-size:9px">' + (r.phone||'-') + '</td>';
       html += '<td style="padding:3px 6px">' + (dyOk ? dy.nickname : '<span style="color:var(--text2);font-style:italic">(无)</span>') + '</td>';
@@ -2904,7 +2904,7 @@ async function loadCollectHistory() {
     history.forEach(function(h, i) {
       const ts = (h.collected_at || '').replace('T',' ').slice(0,19);
       const bg = i % 2 === 0 ? '' : 'background:#1e2133';
-      html += '<tr style="border-top:1px solid var(--border);' + bg + '">';
+      html += '<tr style="border-top:1px solid #2a2d3e;' + bg + '">';
       html += '<td style="padding:3px 6px">' + (history.length - i) + '</td>';
       html += '<td style="padding:3px 6px;color:#6366f1">' + ts.slice(5,16) + '</td>';
       html += '<td style="padding:3px 6px;text-align:right">' + (h.total_identities||'?') + '</td>';
@@ -3804,7 +3804,7 @@ var _collectAccounts = [];
 function switchCollectMode(mode, el) {
   _collectMode = mode;
   document.querySelectorAll('.collect-mode').forEach(e => {
-    e.style.background = 'var(--bg3)';
+    e.style.background = '#232740';
     e.style.color = '#e1e4f0';
   });
   el.style.background = '#6366f1';
@@ -4055,7 +4055,7 @@ async function showCollectReport(filterIds, statusEl, logEl) {
       const dyOk = dy && dy.nickname && !dy.nickname.includes('登录后');
       const xhsOk = xhs && xhs.nickname && !xhs.nickname.includes('问点点') && !xhs.nickname.includes('推荐');
       const statusIcon = dyOk || xhsOk ? '✅' : '❌';
-      html += '<tr style="border-top:1px solid var(--border)">';
+      html += '<tr style="border-top:1px solid #2a2d3e">';
       html += '<td style="padding:3px 6px;white-space:nowrap">' + (r.display_name||'?') + '</td>';
       html += '<td style="padding:3px 6px;color:var(--text2);font-size:9px;white-space:nowrap">' + (r.phone||'-') + '</td>';
       html += '<td style="padding:3px 6px">' + dyName + '</td>';

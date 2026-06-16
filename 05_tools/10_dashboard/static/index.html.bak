@@ -148,7 +148,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 <nav class="sidebar" id="sidebar">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
     <h1 style="margin-bottom:0;cursor:pointer;font-size:14px" onclick="toggleSidebar()">🖥 AgentOS <span style="font-size:9px;margin-left:2px">v4</span></h1>
-    <div onclick="toggleSidebar()" style="cursor:pointer;padding:2px 6px;border-radius:4px;font-size:12px;color:var(--text2);transition:.15s" title="折叠侧边栏" id="sidebarToggleBtn">◀</div>
+    <div onclick="toggleSidebar()" style="cursor:pointer;padding:2px 6px;border-radius:4px;font-size:12px;color:#8b8fa3;transition:.15s" title="折叠侧边栏" id="sidebarToggleBtn">◀</div>
   </div>
   <div id="identityBar" style="margin-bottom:12px;padding:6px 10px;background:var(--bg3);border-radius:8px;font-size:10px;color:var(--text2);line-height:1.6">
     <div id="identityHostname"></div>
@@ -253,92 +253,92 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h2 style="font-size:18px">🎯 命令与任务</h2>
   </div>
-  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid var(--border)">
-      <div class="cmd-tab active" data-tab="cmd-run" onclick="switchCmdTab('cmd-run',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:var(--text);margin-bottom:-2px">🚀 批量执行</div>
-    <div class="cmd-tab" data-tab="cmd-comment" onclick="switchCmdTab('cmd-comment',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">💬 定向评论</div>
-    <div class="cmd-tab" data-tab="cmd-schedule" onclick="switchCmdTab('cmd-schedule',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">⏰ 定时任务</div>
-    <div class="cmd-tab" data-tab="cmd-collect" onclick="switchCmdTab('cmd-collect',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">👤 信息采集</div>
-    <div class="cmd-tab" data-tab="cmd-corpus" onclick="switchCmdTab('cmd-corpus',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">📚 语料库</div>
-    <div class="cmd-tab" data-tab="cmd-nurture" onclick="switchCmdTab('cmd-nurture',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">🌱 全部养号</div>
+  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #2a2d3e">
+      <div class="cmd-tab active" data-tab="cmd-run" onclick="switchCmdTab('cmd-run',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:#e1e4f0;margin-bottom:-2px">🚀 批量执行</div>
+    <div class="cmd-tab" data-tab="cmd-comment" onclick="switchCmdTab('cmd-comment',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">💬 定向评论</div>
+    <div class="cmd-tab" data-tab="cmd-schedule" onclick="switchCmdTab('cmd-schedule',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">⏰ 定时任务</div>
+    <div class="cmd-tab" data-tab="cmd-collect" onclick="switchCmdTab('cmd-collect',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">👤 信息采集</div>
+    <div class="cmd-tab" data-tab="cmd-corpus" onclick="switchCmdTab('cmd-corpus',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">📚 语料库</div>
+    <div class="cmd-tab" data-tab="cmd-nurture" onclick="switchCmdTab('cmd-nurture',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">🌱 全部养号</div>
   </div>
   <div id="cmd-run-content" style="display:block">
     <div id="matrixRunContent2"></div>
   </div>
   <div id="cmd-schedule-content" style="display:none">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-      <input id="schedId" placeholder="任务ID" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100px">
-      <select id="schedAccount" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:120px"><option value="">选账号</option></select>
-      <select id="schedBlueprint" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:120px">
+      <input id="schedId" placeholder="任务ID" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100px">
+      <select id="schedAccount" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:120px"><option value="">选账号</option></select>
+      <select id="schedBlueprint" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:120px">
         <option value="douyin_daily">douyin_daily</option>
         <option value="douyin_search">douyin_search</option>
         <option value="douyin_comment">douyin_comment</option>
         <option value="xhs_daily">xhs_daily</option>
       </select>
-      <input id="schedTime" placeholder="09:00" value="09:00" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:60px">
-      <input id="schedDays" placeholder="1-7" value="1,2,3,4,5,6,7" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:90px" title="运行日 1=周一..7=周日">
-      <input id="schedRounds" placeholder="轮数" value="3" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:45px">
+      <input id="schedTime" placeholder="09:00" value="09:00" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:60px">
+      <input id="schedDays" placeholder="1-7" value="1,2,3,4,5,6,7" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:90px" title="运行日 1=周一..7=周日">
+      <input id="schedRounds" placeholder="轮数" value="3" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:45px">
       <button onclick="scheduleAdd()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">➕ 添加</button>
     </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:8px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:6px">📋 任务列表 <span style="font-size:11px;color:var(--text2);font-weight:400">（点击🟢⚪切换启用/禁用）</span></div>
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:8px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px">📋 任务列表 <span style="font-size:11px;color:#8b8fa3;font-weight:400">（点击🟢⚪切换启用/禁用）</span></div>
       <div id="scheduleList" style="font-size:12px">加载中...</div>
     </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:8px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:6px">📊 执行历史 <span style="font-size:11px;color:var(--text2);font-weight:400">最近10条</span></div>
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:8px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px">📊 执行历史 <span style="font-size:11px;color:#8b8fa3;font-weight:400">最近10条</span></div>
       <div id="scheduleHistory" style="font-size:11px">加载中...</div>
     </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:8px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:6px">🤖 WorkBuddy 自动化任务 <span style="font-size:11px;color:var(--text2);font-weight:400">（跨机器智能体任务）</span></div>
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:8px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:6px">🤖 WorkBuddy 自动化任务 <span style="font-size:11px;color:#8b8fa3;font-weight:400">（跨机器智能体任务）</span></div>
       <div id="autoTasksSummary" style="font-size:12px">加载中...</div>
     </div>
-    <div style="display:flex;gap:6px;font-size:11px;color:var(--text2)">
+    <div style="display:flex;gap:6px;font-size:11px;color:#8b8fa3">
       <span>调度器状态：<span id="scheduleStatus">检查中...</span></span>
-      <button onclick="refreshScheduleList()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新</button>
+      <button onclick="refreshScheduleList()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新</button>
     </div>
   </div>
   <div id="cmd-collect-content" style="display:none">
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">👤 信息采集</div>
       <div style="display:flex;gap:6px;margin-bottom:8px;font-size:12px">
-        <span style="color:var(--text2)">选择范围：</span>
+        <span style="color:#8b8fa3">选择范围：</span>
         <span onclick="switchCollectMode('identity',this)" class="collect-mode active" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:#6366f1;color:#fff">📱 按身份</span>
-        <span onclick="switchCollectMode('platform',this)" class="collect-mode" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:var(--bg3);color:var(--text)">🎯 按平台</span>
-        <span onclick="switchCollectMode('account',this)" class="collect-mode" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:var(--bg3);color:var(--text)">👤 按账号</span>
+        <span onclick="switchCollectMode('platform',this)" class="collect-mode" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:#232740;color:#e1e4f0">🎯 按平台</span>
+        <span onclick="switchCollectMode('account',this)" class="collect-mode" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:#232740;color:#e1e4f0">👤 按账号</span>
       </div>
-      <div id="collectList" style="font-size:12px;max-height:200px;overflow-y:auto;margin-bottom:8px;background:var(--bg3);border-radius:6px;padding:6px">加载账号列表...</div>
+      <div id="collectList" style="font-size:12px;max-height:200px;overflow-y:auto;margin-bottom:8px;background:#1e2035;border-radius:6px;padding:6px">加载账号列表...</div>
       <div style="display:flex;gap:6px">
         <button onclick="cmdCollectSelected()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">👤 执行选中</button>
-        <button onclick="cmdCollectAll()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📋 全部采集</button>
+        <button onclick="cmdCollectAll()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📋 全部采集</button>
       </div>
-      <div id="collectStatus" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
-      <div id="collectLog" style="font-size:11px;background:var(--bg2);border-radius:6px;padding:8px;margin-top:4px;max-height:300px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
+      <div id="collectStatus" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
+      <div id="collectLog" style="font-size:11px;background:#1a1d2e;border-radius:6px;padding:8px;margin-top:4px;max-height:300px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
     </div>
   </div>
   <div id="cmd-corpus-content" style="display:none"><div id="corpusContent3"></div></div>
   <div id="cmd-nurture-content" style="display:none">
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">🌱 全部养号 <span style="font-size:10px;color:var(--text2);font-weight:400">日常养号调度器 v1.0</span></div>
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">🌱 全部养号 <span style="font-size:10px;color:#8b8fa3;font-weight:400">日常养号调度器 v1.0</span></div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-        <select id="nurturePhone" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
+        <select id="nurturePhone" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
           <option value="">所有身份</option>
         </select>
-        <label style="font-size:11px;color:var(--text2)">每身份分钟: <input id="nurtureMins" type="number" value="10" min="5" max="30" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px;width:50px"></label>
-        <label style="font-size:11px;color:var(--text2)">并发: <input id="nurtureConcur" type="number" value="3" min="1" max="5" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px;width:40px"></label>
-        <label style="font-size:11px;color:var(--text2)">间隔: <input id="nurtureStagger" type="number" value="15" min="5" max="60" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px;width:45px">秒</label>
-        <button onclick="nurturePreview()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📅 预览排期</button>
+        <label style="font-size:11px;color:#8b8fa3">每身份分钟: <input id="nurtureMins" type="number" value="10" min="5" max="30" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 6px;border-radius:4px;font-size:11px;width:50px"></label>
+        <label style="font-size:11px;color:#8b8fa3">并发: <input id="nurtureConcur" type="number" value="3" min="1" max="5" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 6px;border-radius:4px;font-size:11px;width:40px"></label>
+        <label style="font-size:11px;color:#8b8fa3">间隔: <input id="nurtureStagger" type="number" value="15" min="5" max="60" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 6px;border-radius:4px;font-size:11px;width:45px">秒</label>
+        <button onclick="nurturePreview()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📅 预览排期</button>
         <button onclick="nurtureStart()" style="background:#22c55e;color:#000;border:none;padding:6px 20px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🚀 开始养号</button>
       </div>
-      <div id="nurturePreview" style="font-size:11px;color:var(--text2);margin-bottom:4px;font-family:monospace;white-space:pre-wrap"></div>
-      <div id="nurtureStatus" style="font-size:12px;color:var(--text2);margin-bottom:4px"></div>
-      <div id="nurtureLog" style="font-size:11px;background:var(--bg2);border-radius:6px;padding:8px;margin-top:4px;max-height:400px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
+      <div id="nurturePreview" style="font-size:11px;color:#8b8fa3;margin-bottom:4px;font-family:monospace;white-space:pre-wrap"></div>
+      <div id="nurtureStatus" style="font-size:12px;color:#8b8fa3;margin-bottom:4px"></div>
+      <div id="nurtureLog" style="font-size:11px;background:#1a1d2e;border-radius:6px;padding:8px;margin-top:4px;max-height:400px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
     </div>
   </div>
   <div id="cmd-comment-content" style="display:none">
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">💬 定向评论</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="cmdTaskUrl" placeholder="视频链接" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:280px">
-        <select id="cmdTaskDirection" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
+        <input id="cmdTaskUrl" placeholder="视频链接" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:280px">
+        <select id="cmdTaskDirection" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px">
           <option value="">自动选方向</option>
           <option value="称赞">👍 称赞</option>
           <option value="提问">🤔 提问</option>
@@ -346,12 +346,12 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
           <option value="感慨">😌 感慨</option>
           <option value="客观">📊 客观</option>
         </select>
-        <select id="cmdTaskAccount" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
+        <select id="cmdTaskAccount" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
           <option value="">自动选账号</option>
         </select>
         <button onclick="cmdRunCommentTask()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🚀 执行评论</button>
       </div>
-      <div id="cmdTaskResult" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
+      <div id="cmdTaskResult" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
     </div>
   </div>
 </div>
@@ -392,14 +392,14 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h2 style="font-size:18px">🎬 录制管理</h2>
     <div style="display:flex;gap:6px">
-      <select id="recordAccountSelect" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:11px">
+      <select id="recordAccountSelect" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 8px;border-radius:4px;font-size:11px">
         <option value="">选择账号…</option>
       </select>
       <button id="recordStartBtn" onclick="recordingStart()" style="background:#6366f1;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">▶ 开始录制</button>
-      <button id="recordStopBtn" onclick="recordingStop()" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;display:none">⏹ 停止</button>
+      <button id="recordStopBtn" onclick="recordingStop()" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;display:none">⏹ 停止</button>
     </div>
   </div>
-  <div id="recordStatus" style="font-size:12px;color:var(--text2);margin-bottom:8px"></div>
+  <div id="recordStatus" style="font-size:12px;color:#8b8fa3;margin-bottom:8px"></div>
   <div id="recordList" style="font-size:12px"><div class="loading">加载录制包...</div></div>
   <div id="recordDetail" style="font-size:12px;margin-top:8px"></div>
 </div>
@@ -409,10 +409,10 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h2 style="font-size:18px">⚙️ 矩阵设置</h2>
   </div>
-  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid var(--border)">
-    <div class="set-tab active" data-tab="set-export" onclick="switchSetTab('set-export',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:var(--text);margin-bottom:-2px">📦 导入导出</div>
-    <div class="set-tab" data-tab="set-backup" onclick="switchSetTab('set-backup',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">💾 备份恢复</div>
-    <div class="set-tab" data-tab="set-corpus" onclick="switchSetTab('set-corpus',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">📚 语料库</div>
+  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #2a2d3e">
+    <div class="set-tab active" data-tab="set-export" onclick="switchSetTab('set-export',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:#e1e4f0;margin-bottom:-2px">📦 导入导出</div>
+    <div class="set-tab" data-tab="set-backup" onclick="switchSetTab('set-backup',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">💾 备份恢复</div>
+    <div class="set-tab" data-tab="set-corpus" onclick="switchSetTab('set-corpus',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#8b8fa3;margin-bottom:-2px">📚 语料库</div>
   </div>
   <div id="set-export-content" style="display:block"><div id="matrixExportContent2"></div></div>
   <div id="set-backup-content" style="display:none"><div id="matrixBackupContent2"></div></div>
@@ -424,8 +424,8 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h2 style="font-size:18px">📚 系统知识中心</h2>
     <div style="display:flex;gap:6px">
-      <button onclick="kbRefresh()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
-      <button onclick="kbLoadLogs()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">📋 日志</button>
+      <button onclick="kbRefresh()" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
+      <button onclick="kbLoadLogs()" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">📋 日志</button>
     </div>
   </div>
 
@@ -441,65 +441,65 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div id="kb-tab-knowledge" class="kb-tab-body">
     <div id="kbStats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:12px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
         <div style="font-size:13px;font-weight:600;margin-bottom:8px">⚡ 操作面板</div>
         <div style="display:grid;gap:6px">
-          <button onclick="kbShowRefine()" style="text-align:left;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">🧹 提纯收件箱</button>
-          <button onclick="kbShowCollect()" style="text-align:left;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">📥 汇聚到收件箱</button>
-          <button onclick="kbShowIngest()" style="text-align:left;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">📝 导入知识</button>
-          <button onclick="kbShowSearch()" style="text-align:left;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔍 搜索</button>
-          <button onclick="kbShowBackup()" style="text-align:left;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">💾 备份</button>
-          <button onclick="kbGitSync()" style="text-align:left;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 Git同步</button>
+          <button onclick="kbShowRefine()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">🧹 提纯收件箱</button>
+          <button onclick="kbShowCollect()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">📥 汇聚到收件箱</button>
+          <button onclick="kbShowIngest()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">📝 导入知识</button>
+          <button onclick="kbShowSearch()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔍 搜索</button>
+          <button onclick="kbShowBackup()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">💾 备份</button>
+          <button onclick="kbGitSync()" style="text-align:left;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 Git同步</button>
         </div>
       </div>
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
         <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 参数 / 结果</div>
-        <div id="kbResultPanel" style="font-size:12px;color:var(--text2)">点击操作设置参数</div>
+        <div id="kbResultPanel" style="font-size:12px;color:#8b8fa3">点击操作设置参数</div>
       </div>
     </div>
-    <div id="kbLogs" style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)"></div>
+    <div id="kbLogs" style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e"></div>
   </div>
 
   <!-- Tab 2: 记忆库 -->
   <div id="kb-tab-memory" class="kb-tab-body" style="display:none">
     <div id="memStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
         <div style="font-size:13px;font-weight:600;margin-bottom:8px">🧠 记忆层级</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-          <button onclick="memShowL1()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">🔑 L1 关键词</button>
-          <button onclick="memShowL2()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">📋 L2 事实</button>
-          <button onclick="memShowL3()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">📄 L3 原文</button>
+          <button onclick="memShowL1()" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">🔑 L1 关键词</button>
+          <button onclick="memShowL2()" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">📋 L2 事实</button>
+          <button onclick="memShowL3()" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">📄 L3 原文</button>
         </div>
-        <div id="memContent" style="font-size:12px;color:var(--text2)">点击按钮查看各层详情</div>
+        <div id="memContent" style="font-size:12px;color:#8b8fa3">点击按钮查看各层详情</div>
       </div>
-      <div id="memDetailPanel" style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);overflow-y:auto;max-height:400px">
+      <div id="memDetailPanel" style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;overflow-y:auto;max-height:400px">
         <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 详情</div>
-        <div id="memDetailContent" style="font-size:12px;color:var(--text2)">选择左侧查看</div>
+        <div id="memDetailContent" style="font-size:12px;color:#8b8fa3">选择左侧查看</div>
       </div>
     </div>
   </div>
 
   <!-- Tab 3: 联邦系统 -->
   <div id="kb-tab-system" class="kb-tab-body" style="display:none">
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:12px">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:12px">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">🤖 联邦系统文档</div>
-      <div id="sysDocsList" style="font-size:12px;color:var(--text2)">加载中...</div>
+      <div id="sysDocsList" style="font-size:12px;color:#8b8fa3">加载中...</div>
     </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 文档内容预览</div>
-      <div id="sysDocPreview" style="font-size:12px;color:var(--text2);max-height:400px;overflow-y:auto;white-space:pre-wrap;font-family:monospace">选择左侧文档查看</div>
+      <div id="sysDocPreview" style="font-size:12px;color:#8b8fa3;max-height:400px;overflow-y:auto;white-space:pre-wrap;font-family:monospace">选择左侧文档查看</div>
     </div>
   </div>
 
   <!-- Tab 4: 技能与工具 -->
   <div id="kb-tab-skills" class="kb-tab-body" style="display:none">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
         <div style="font-size:13px;font-weight:600;margin-bottom:8px">🧩 已安装技能</div>
         <div id="skillsList" style="font-size:12px">加载中...</div>
       </div>
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
         <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔧 工具目录</div>
         <div id="toolsList" style="font-size:12px">加载中...</div>
       </div>
@@ -509,25 +509,25 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <!-- Tab 5: Automation -->
   <div id="kb-tab-automation" class="kb-tab-body" style="display:none">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
         <div style="font-size:13px;font-weight:600;margin-bottom:8px">⏰ 跨机自动化任务</div>
         <div id="autoTaskList" style="font-size:12px">加载中...</div>
       </div>
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+      <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
         <div style="font-size:13px;font-weight:600;margin-bottom:8px">➕ 新建任务</div>
         <div style="margin-bottom:6px">
-          <select id="autoTarget" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+          <select id="autoTarget" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
             <option value="">目标机器...</option>
           </select>
-          <select id="autoType" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+          <select id="autoType" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
             <option value="nurture_run">启动养号</option>
             <option value="check_environment">环境检查</option>
             <option value="refresh_profiles">刷新资料</option>
             <option value="sync_only">Git同步</option>
             <option value="run_script">执行脚本</option>
           </select>
-          <input id="autoParams" placeholder='参数JSON (可选)' style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
-          <input id="autoSchedule" type="datetime-local" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+          <input id="autoParams" placeholder='参数JSON (可选)' style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+          <input id="autoSchedule" type="datetime-local" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
           <div style="display:flex;gap:6px">
             <button onclick="autoCreateTask()" style="flex:1;background:#6366f1;color:#fff;border:none;padding:6px;border-radius:6px;cursor:pointer;font-size:12px">➕ 创建</button>
             <button onclick="autoCreateLocal()" style="flex:1;background:#22c55e;color:#fff;border:none;padding:6px;border-radius:6px;cursor:pointer;font-size:12px">📝 创建本地自动化</button>
@@ -535,7 +535,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
         </div>
       </div>
     </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 执行历史</div>
       <div id="autoHistory" style="font-size:12px">加载中...</div>
     </div>
@@ -546,47 +546,47 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 <div id="view-matrix-c2" class="hidden">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <h2 style="font-size:18px">🎮 远程控制</h2>
-    <button class="btn btn-outline btn-sm" onclick="loadC2Machines()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer">⟳ 刷新</button>
+    <button class="btn btn-outline btn-sm" onclick="loadC2Machines()" style="background:#1a1d2e;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 12px;border-radius:6px;cursor:pointer">⟳ 刷新</button>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-    <div style="background:var(--bg2);border-radius:10px;padding:20px;border:1px solid var(--border)">
+    <div style="background:#1a1d2e;border-radius:10px;padding:20px;border:1px solid #2a2d3e">
       <div style="font-size:14px;font-weight:600;margin-bottom:12px">🎮 发送命令</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-        <div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">目标机器</label>
-          <select id="c2Target" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100%"><option>加载中...</option></select></div>
-        <div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">命令类型</label>
-          <select id="c2Type" onchange="toggleC2Params()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100%">
+        <div><label style="font-size:11px;color:#8b8fa3;display:block;margin-bottom:2px">目标机器</label>
+          <select id="c2Target" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100%"><option>加载中...</option></select></div>
+        <div><label style="font-size:11px;color:#8b8fa3;display:block;margin-bottom:2px">命令类型</label>
+          <select id="c2Type" onchange="toggleC2Params()" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100%">
             <option value="check_environment">环境检查</option>
             <option value="nurture_run">启动养号</option>
             <option value="nurture_stop">停止养号</option>
             <option value="refresh_profiles">刷新资料</option>
             <option value="sync_only">Git同步</option>
           </select></div>
-        <div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">定时</label>
-          <input id="c2Schedule" type="datetime-local" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
+        <div><label style="font-size:11px;color:#8b8fa3;display:block;margin-bottom:2px">定时</label>
+          <input id="c2Schedule" type="datetime-local" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
       </div>
       <div id="c2NurtureParams" class="hidden">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-          <div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">账号 (逗号分隔)</label>
-            <input id="c2Accounts" placeholder="douyin_01,xhs_01" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
-          <div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">轮次</label>
-            <input id="c2Rounds" type="number" value="10" min="1" max="50" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
+          <div><label style="font-size:11px;color:#8b8fa3;display:block;margin-bottom:2px">账号 (逗号分隔)</label>
+            <input id="c2Accounts" placeholder="douyin_01,xhs_01" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
+          <div><label style="font-size:11px;color:#8b8fa3;display:block;margin-bottom:2px">轮次</label>
+            <input id="c2Rounds" type="number" value="10" min="1" max="50" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
         </div>
       </div>
       <div style="display:flex;gap:8px">
         <button onclick="sendC2Command()" style="background:#6366f1;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">➡ 发送</button>
-        <button onclick="loadC2Machines()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">⟳ 刷新状态</button>
+        <button onclick="loadC2Machines()" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">⟳ 刷新状态</button>
       </div>
       <div id="c2Result" class="mt-4"></div>
     </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:20px;border:1px solid var(--border)">
+    <div style="background:#1a1d2e;border-radius:10px;padding:20px;border:1px solid #2a2d3e">
       <div style="font-size:14px;font-weight:600;margin-bottom:12px">💻 机器状态</div>
-      <div id="c2MachineStatus"><div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">加载中...</div></div>
+      <div id="c2MachineStatus"><div style="text-align:center;padding:20px;color:#8b8fa3;font-size:13px">加载中...</div></div>
     </div>
   </div>
-  <div style="background:var(--bg2);border-radius:10px;padding:20px;border:1px solid var(--border)">
+  <div style="background:#1a1d2e;border-radius:10px;padding:20px;border:1px solid #2a2d3e">
     <div style="font-size:14px;font-weight:600;margin-bottom:12px">📋 命令执行历史</div>
-    <div id="c2CommandHistory"><div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">暂无历史</div></div>
+    <div id="c2CommandHistory"><div style="text-align:center;padding:20px;color:#8b8fa3;font-size:13px">暂无历史</div></div>
   </div>
 </div>
 
@@ -595,7 +595,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <h2 style="font-size:18px">💾 备份恢复</h2>
     <div style="display:flex;gap:8px;align-items:center">
-      <input id="backupLabelHeader" placeholder="标签" style="width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px" value="manual">
+      <input id="backupLabelHeader" placeholder="标签" style="width:120px;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px" value="manual">
       <button class="btn btn-primary btn-sm" onclick="createBackup()">+ 创建备份</button>
     </div>
   </div>
@@ -624,44 +624,44 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 <div id="view-matrix-sms-proxy" class="hidden">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h2 style="font-size:18px">📡 短信与代理</h2>
-    <button onclick="loadSmsProxy()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
+    <button onclick="loadSmsProxy()" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
     <!-- 📱 SMS -->
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+    <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">📱 短信接收</div>
       <div id="smsConfigPanel" style="font-size:12px">加载中...</div>
-      <hr style="border-color:var(--border);margin:8px 0">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">选择账号 <span style="font-size:10px;color:#6366f1">(输入手机号快速匹配)</span></div>
+      <hr style="border-color:#2a2d3e;margin:8px 0">
+      <div style="font-size:11px;color:#8b8fa3;margin-bottom:4px">选择账号 <span style="font-size:10px;color:#6366f1">(输入手机号快速匹配)</span></div>
       <div style="display:flex;gap:4px;margin-bottom:4px">
         <div style="flex:1;position:relative">
           <input id="smsAccountSearch" placeholder="输入手机号/昵称搜索..." autocomplete="off"
             oninput="smsFilterAccounts()" onfocus="smsFilterAccounts()"
-            style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px">
+            style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px">
           <select id="smsAccountSelect" onchange="smsSelectAccount()" size="4"
-            style="display:none;position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--bg2);border:1px solid var(--primary);color:var(--text);padding:2px;border-radius:5px;font-size:11px;max-height:150px">
+            style="display:none;position:absolute;top:100%;left:0;right:0;z-index:10;background:#1a1d2e;border:1px solid #6366f1;color:#e1e4f0;padding:2px;border-radius:5px;font-size:11px;max-height:150px">
             <option value="">— 选择账号 —</option>
           </select>
         </div>
         <button onclick="smsCheckSelected()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📩 查短信</button>
-        <button onclick="collectProfile(document.getElementById('smsAccountSelect')?.value)" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">👤 采集昵称</button>
+        <button onclick="collectProfile(document.getElementById('smsAccountSelect')?.value)" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">👤 采集昵称</button>
       </div>
-      <div id="smsSelectedAccount" style="font-size:11px;color:var(--text2);margin-top:2px"></div>
+      <div id="smsSelectedAccount" style="font-size:11px;color:#8b8fa3;margin-top:2px"></div>
       <span id="smsTestResult" style="font-size:11px"></span>
-      <div id="smsMessages" style="font-size:11px;color:var(--text2);max-height:180px;overflow-y:auto;margin-top:6px"></div>
-      <div id="collectProfileStatus" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
+      <div id="smsMessages" style="font-size:11px;color:#8b8fa3;max-height:180px;overflow-y:auto;margin-top:6px"></div>
+      <div id="collectProfileStatus" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
     </div>
 
     <!-- 🔌 代理管理（可折叠） -->
-    <div style="background:var(--bg2);border-radius:10px;padding:0;border:1px solid var(--border)">
+    <div style="background:#1a1d2e;border-radius:10px;padding:0;border:1px solid #2a2d3e">
       <div onclick="toggleProxyPanel()" style="display:flex;justify-content:space-between;align-items:center;padding:12px;cursor:pointer;user-select:none">
         <span style="font-size:13px;font-weight:600">🔌 代理管理</span>
-        <span id="proxyToggleIcon" style="font-size:11px;color:var(--text2);transition:transform .2s">▶ 展开</span>
+        <span id="proxyToggleIcon" style="font-size:11px;color:#8b8fa3;transition:transform .2s">▶ 展开</span>
       </div>
       <div id="proxyPanelBody" style="display:none;padding:0 12px 12px">
         <div style="margin-bottom:8px;font-size:12px">
-          <input id="proxyTestInput" placeholder="代理地址 (如 http://127.0.0.1:7890)" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
+          <input id="proxyTestInput" placeholder="代理地址 (如 http://127.0.0.1:7890)" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
           <button onclick="proxyTest()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🔍 测试代理</button>
           <span id="proxyTestResult" style="font-size:11px;margin-left:6px"></span>
         </div>
@@ -671,33 +671,33 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   </div>
 
   <!-- 📝 注册新账号 & 账号总览 -->
-  <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:12px">
+  <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:12px">
     <div style="font-size:13px;font-weight:600;margin-bottom:8px">📝 注册新账号</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <select id="regPlatform" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
+      <select id="regPlatform" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px">
         <option value="douyin">🎵 抖音</option>
         <option value="xiaohongshu">📕 小红书</option>
       </select>
-      <input id="regPhone" placeholder="手机号" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
-      <input id="regNickname" placeholder="备注名（选填）" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
+      <input id="regPhone" placeholder="手机号" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
+      <input id="regNickname" placeholder="备注名（选填）" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
       <button onclick="accountRegister()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">✅ 确认注册</button>
     </div>
-    <div id="regStatus" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
+    <div id="regStatus" style="font-size:11px;color:#8b8fa3;margin-top:4px"></div>
   </div>
 
   <!-- 🎯 定向评论任务已合并到「命令与任务」页面 -->
 
   <!-- 📊 账号手机号总览 -->
-  <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+  <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e">
     <div style="font-size:13px;font-weight:600;margin-bottom:8px">📊 账号手机号总览</div>
     <div id="smsAccountsOverview" style="font-size:12px">加载中...</div>
   </div>
 
   <!-- 📊 已采集主页信息 -->
-  <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-top:12px">
+  <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-top:12px">
     <div onclick="toggleHomepageInfo()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none">
-      <div style="font-size:13px;font-weight:600">📊 主页信息 <span id="hpInfoBadge" style="font-size:10px;color:var(--text2);font-weight:normal"></span></div>
-      <span id="hpInfoToggle" style="font-size:11px;color:var(--text2)">▶ 展开</span>
+      <div style="font-size:13px;font-weight:600">📊 主页信息 <span id="hpInfoBadge" style="font-size:10px;color:#8b8fa3;font-weight:normal"></span></div>
+      <span id="hpInfoToggle" style="font-size:11px;color:#8b8fa3">▶ 展开</span>
     </div>
     <div id="hpInfoBody" style="display:none;margin-top:8px;font-size:12px">
       <div id="hpInfoContent">
@@ -707,10 +707,10 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   </div>
 
   <!-- 📜 采集历史 -->
-  <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-top:12px">
+  <div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-top:12px">
     <div onclick="toggleCollectHistory()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none">
       <div style="font-size:13px;font-weight:600">📜 采集历史</div>
-      <span id="chToggle" style="font-size:11px;color:var(--text2)">▶ 展开</span>
+      <span id="chToggle" style="font-size:11px;color:#8b8fa3">▶ 展开</span>
     </div>
     <div id="chBody" style="display:none;margin-top:8px;font-size:12px">
       <div id="chContent">
@@ -847,7 +847,7 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 
 <!-- Blueprint Execute Modal -->
 <div id="bpExecModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.7);align-items:center;justify-content:center" onclick="if(event.target===this)closeBpModal()">
-  <div style="background:var(--bg2);border-radius:12px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto" id="bpExecContent" onclick="event.stopPropagation()"></div>
+  <div style="background:#1a1d2e;border-radius:12px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto" id="bpExecContent" onclick="event.stopPropagation()"></div>
 </div>
 
 </main>
@@ -1064,13 +1064,13 @@ async function loadProductions(page) {
         '<div style="font-size:24px;font-weight:700;color:#6366f1">'+accts.length+'</div>'+
         '<div style="font-size:11px;color:var(--text2)">📱 本机账号</div></div>'+
       '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
-        '<div style="font-size:24px;font-weight:700;color:var(--green)">'+online.length+'</div>'+
+        '<div style="font-size:24px;font-weight:700;color:#22c55e">'+online.length+'</div>'+
         '<div style="font-size:11px;color:var(--text2)">🔑 已登录</div></div>'+
       '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
-        '<div style="font-size:24px;font-weight:700;color:var(--amber)">'+profiled.length+'</div>'+
+        '<div style="font-size:24px;font-weight:700;color:#f59e0b">'+profiled.length+'</div>'+
         '<div style="font-size:11px;color:var(--text2)">👤 已采集</div></div>'+
       '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
-        '<div style="font-size:24px;font-weight:700;color:var(--text2)">'+sd.accounts.length+'</div>'+
+        '<div style="font-size:24px;font-weight:700;color:#8b8fa3">'+sd.accounts.length+'</div>'+
         '<div style="font-size:11px;color:var(--text2)">🌐 联邦账号</div></div>'+
     '</div>';
   } catch(e) { /* ignore */ }
@@ -1764,32 +1764,32 @@ async function loadIdentities() {
     const r = await fetch('/api/matrix/identities');
     const d = await r.json();
     const identities = d.identities || [];
-    if (!identities.length) { el.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:20px;text-align:center">暂无本地身份</div>'; return; }
+    if (!identities.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:13px;padding:20px;text-align:center">暂无本地身份</div>'; return; }
     el.innerHTML = identities.map(id => {
       const idName = id.identity_dir;
       const phone = id.phone || '未知';
       const cookieStatus = id.has_cookie ? '🍪 已就绪' : '❌ 无Cookie';
-      return `<div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:10px">
+      return `<div style="background:#1a1d2e;border-radius:10px;padding:12px;border:1px solid #2a2d3e;margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <div><span style="font-size:14px">📱</span> <strong style="font-size:14px">${phone}</strong>
-            <span style="color:var(--text2);font-size:11px;margin-left:6px">${idName}</span>
+            <span style="color:#8b8fa3;font-size:11px;margin-left:6px">${idName}</span>
             <span style="font-size:11px;margin-left:6px;color:${id.has_cookie?'#22c55e':'#ef4444'}">${cookieStatus}</span>
           </div>
           <button onclick="deleteIdentity('${idName}')" style="background:#ef4444;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🗑 删除身份</button>
         </div>
         <div style="margin-top:6px">
-          ${id.accounts.map(a => `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--bg3);border-radius:4px;margin-bottom:3px;font-size:12px">
+          ${id.accounts.map(a => `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:#232740;border-radius:4px;margin-bottom:3px;font-size:12px">
             <span style="color:${a.status==='logged_in'?'#22c55e':'#8b8fa3'}">${a.status==='logged_in'?'✅':'⏸'}</span>
             <span style="font-weight:600;width:100px">${a.id}</span>
-            <span style="color:var(--text2);width:70px;font-size:11px">${a.platform}</span>
+            <span style="color:#8b8fa3;width:70px;font-size:11px">${a.platform}</span>
             <span style="font-size:11px;color:${a.status==='logged_in'?'#22c55e':'#f59e0b'}">${a.status}</span>
             <span style="flex:1"></span>
-            ${id.accounts.length > 1 ? `<button onclick="unbindAccount('${a.id}')" style="background:transparent;color:var(--amber);border:1px solid var(--border);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px">解绑</button>` : ''}
+            ${id.accounts.length > 1 ? `<button onclick="unbindAccount('${a.id}')" style="background:transparent;color:#f59e0b;border:1px solid #2a2d3e;padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px">解绑</button>` : ''}
           </div>`).join('')}
         </div>
       </div>`;
     }).join('');
-  } catch(e) { if (el) el.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
+  } catch(e) { if (el) el.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
 }
 
 async function loadMatrixAccounts() {
@@ -1805,7 +1805,7 @@ async function loadMatrixAccounts() {
         machinesInfo = '<div style="display:flex;gap:12px;margin-bottom:12px;font-size:12px;color:var(--text2);background:var(--bg2);border-radius:var(--radius);padding:8px 12px;border:1px solid var(--border)">'+
           '<span>🖥️ 机器: <strong>'+md.total_machines+'</strong></span>'+
           '<span>👤 账号: <strong>'+md.total_accounts+'</strong></span>'+
-          '<span>📡 在线: <strong style="color:var(--green)">'+md.online_machines+'</strong></span>'+
+          '<span>📡 在线: <strong style="color:#22c55e">'+md.online_machines+'</strong></span>'+
         '</div>';
       }
     } catch(e) { /* ignore */ }
@@ -1815,7 +1815,7 @@ async function loadMatrixAccounts() {
     if (!_accountsData.length) { el.innerHTML = machinesInfo+'<div class="error">暂无账号</div>'; return; }
     el.innerHTML = machinesInfo;
     renderAccountsTable();
-  } catch(e) { el.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
+  } catch(e) { el.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
 }
 
 function acctSwitchTab(tab, el) {
@@ -1879,38 +1879,38 @@ function renderAccountsTable() {
     ${th('id','ID')}${th('platform','平台')}${th('phone','手机')}${th('machine','归属机器')}${th('status','状态')}${th('display_name','昵称')}
     ${th('identity_dir','身份目录')}<th>备注</th><th>操作</th>
   </tr></thead><tbody>${sorted.map(a => {
-    const s = a._status === 'logged_in' ? '<span class="badge badge-green" style="background:rgba(5,150,105,.1);color:var(--green);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">✅ 已登录</span>'
-      : a._status === 'remote' ? '<span class="badge badge-gray" style="background:rgba(107,114,128,.1);color:var(--text2);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">📡 远程</span>'
-      : a._status === 'disabled' ? '<span class="badge badge-gray" style="background:rgba(107,114,128,.1);color:var(--text2);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⏸ 停用</span>'
-      : `<span class="badge badge-amber" style="background:rgba(217,119,6,.1);color:var(--amber);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⚠️ ${a._status}</span>`;
+    const s = a._status === 'logged_in' ? '<span class="badge badge-green" style="background:rgba(34,197,94,.15);color:#22c55e;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">✅ 已登录</span>'
+      : a._status === 'remote' ? '<span class="badge badge-gray" style="background:rgba(139,143,163,.15);color:#8b8fa3;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">📡 远程</span>'
+      : a._status === 'disabled' ? '<span class="badge badge-gray" style="background:rgba(139,143,163,.15);color:#8b8fa3;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⏸ 停用</span>'
+      : `<span class="badge badge-amber" style="background:rgba(245,158,11,.15);color:#f59e0b;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⚠️ ${a._status}</span>`;
     const platformIcon = a.platform === 'douyin' ? '🎵' : (a.platform === 'xiaohongshu' ? '📕' : '🌐');
     const machineLabel = a.is_local
       ? '<span style="color:#6366f1;font-size:12px">💻 本机</span>'
-      : '<span style="color:var(--text2);font-size:12px">📡 '+(a.owner_machine||'远程')+'</span>';
+      : '<span style="color:#8b8fa3;font-size:12px">📡 '+(a.owner_machine||'远程')+'</span>';
     return `<tr>
       <td><strong>${a.id}</strong></td>
       <td>${platformIcon} ${a.platform}</td>
       <td style="font-family:monospace;font-size:12px">${String(a.phone||a.phone_mask||'-').slice(0,11)}</td>
       <td>${machineLabel}</td>
       <td>${s}</td>
-      <td style="font-size:12px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis">${a.display_name || '-'}</td>
-      <td style="font-size:11px;color:var(--text2)">${a.identity_dir ? a.identity_dir.split('/').pop() : '-'}</td>
+      <td style="font-size:12px;color:#8b8fa3;max-width:120px;overflow:hidden;text-overflow:ellipsis">${a.display_name || '-'}</td>
+      <td style="font-size:11px;color:#8b8fa3">${a.identity_dir ? a.identity_dir.split('/').pop() : '-'}</td>
       <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
         <span class="notes-display" data-account="${a.id}">${(a.notes||'-').slice(0,10)}</span>
         <span class="notes-edit" style="display:none">
-          <input class="notes-input" data-account="${a.id}" value="${a.notes||''}" style="width:70px;font-size:10px;padding:2px 4px;background:var(--bg2);border:1px solid var(--primary);border-radius:4px;color:var(--text)">
-          <span style="cursor:pointer;color:var(--green);font-size:12px" onclick="saveNote('${a.id}')">✓</span>
+          <input class="notes-input" data-account="${a.id}" value="${a.notes||''}" style="width:70px;font-size:10px;padding:2px 4px;background:#1a1d2e;border:1px solid #6366f1;border-radius:4px;color:#e1e4f0">
+          <span style="cursor:pointer;color:#22c55e;font-size:12px" onclick="saveNote('${a.id}')">✓</span>
         </span>
-        <span style="cursor:pointer;color:var(--text2);font-size:10px;margin-left:2px" onclick="editNote('${a.id}')">✏️</span>
+        <span style="cursor:pointer;color:#8b8fa3;font-size:10px;margin-left:2px" onclick="editNote('${a.id}')">✏️</span>
       </td>
       <td>${a.is_local
-        ? `<button class="btn btn-sm" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px" onclick="alert('编辑: ${a.id}')">编辑</button>
+        ? `<button class="btn btn-sm" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px" onclick="alert('编辑: ${a.id}')">编辑</button>
            <button class="btn btn-sm" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;margin-left:4px" onclick="c2Nurture('${a.id}')">养号</button>`
-        : '<span style="font-size:11px;color:var(--text2)">-</span>'}
+        : '<span style="font-size:11px;color:#8b8fa3">-</span>'}
       </td>
     </tr>`;
   }).join('')}</tbody></table>
-  <div style="font-size:11px;color:var(--text2);margin-top:6px">共 ${_accountsData.length} 个账号 · 点击表头排序</div>`;
+  <div style="font-size:11px;color:#8b8fa3;margin-top:6px">共 ${_accountsData.length} 个账号 · 点击表头排序</div>`;
 }
 
 async function loadMatrixBlueprints() {
@@ -1932,24 +1932,24 @@ async function loadMatrixBlueprints() {
     let html = '';
 
     // ── 可折叠蓝图列表 (默认折叠) ──
-    html += `<div style="margin-bottom:10px;background:var(--bg2);border-radius:10px;border:1px solid var(--border);overflow:hidden">`;
+    html += `<div style="margin-bottom:10px;background:#1a1d2e;border-radius:10px;border:1px solid #2a2d3e;overflow:hidden">`;
     html += `<div onclick="bpToggleList()" style="padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span style="font-weight:600;font-size:13px">📋 蓝图库 <span class="badge badge-blue" style="font-size:10px;background:rgba(37,99,235,.1);color:var(--blue);padding:2px 6px;border-radius:6px">${bps.length}</span></span>
-      <span id="bp-list-arrow" style="color:var(--text2);font-size:12px">▶ 展开</span>
+      <span style="font-weight:600;font-size:13px">📋 蓝图库 <span class="badge badge-blue" style="font-size:10px;background:rgba(59,130,246,.15);color:#3b82f6;padding:2px 6px;border-radius:6px">${bps.length}</span></span>
+      <span id="bp-list-arrow" style="color:#8b8fa3;font-size:12px">▶ 展开</span>
     </div>`;
     html += `<div id="bp-list-body" style="display:none;padding:0 14px 10px">`;
     if (!bps.length) {
-      html += '<div style="padding:6px 0;color:var(--text2);font-size:13px">暂无蓝图</div>';
+      html += '<div style="padding:6px 0;color:#8b8fa3;font-size:13px">暂无蓝图</div>';
     } else {
       bps.forEach(b => {
         const stepsPreview = (b.steps||[]).slice(0,3).map(s => window._matrixOps?.[s.name]?.label||s.name).join(' → ');
-        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px">
-          <span style="flex:1"><strong>${b.name}</strong> <span style="color:var(--text2);font-size:11px">${b.step_count}步 · ${b.platform||'douyin'}</span>
-            ${stepsPreview ? `<br><span style="color:var(--text2);font-size:11px">${stepsPreview}</span>` : ''}</span>
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #2a2d3e;font-size:13px">
+          <span style="flex:1"><strong>${b.name}</strong> <span style="color:#8b8fa3;font-size:11px">${b.step_count}步 · ${b.platform||'douyin'}</span>
+            ${stepsPreview ? `<br><span style="color:#8b8fa3;font-size:11px">${stepsPreview}</span>` : ''}</span>
           <span style="display:flex;gap:4px;flex-shrink:0">
             <button class="btn btn-sm" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();bpExecute('${b.name}')">▶ 执行</button>
-            <button class="btn btn-sm" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();showBpEditor('${b.name}')">✏️</button>
-            <button class="btn btn-sm" style="background:transparent;color:var(--red);border:1px solid rgba(239,68,68,.3);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();delBp('${b.name}')">🗑</button>
+            <button class="btn btn-sm" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();showBpEditor('${b.name}')">✏️</button>
+            <button class="btn btn-sm" style="background:transparent;color:#ef4444;border:1px solid rgba(239,68,68,.3);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();delBp('${b.name}')">🗑</button>
           </span>
         </div>`;
       });
@@ -2280,20 +2280,20 @@ function bpExecute(name) {
     content.innerHTML = `
       <div style="margin-bottom:12px"><strong style="font-size:15px">▶ 执行蓝图: ${name}</strong></div>
       <div style="margin-bottom:10px">
-        <label style="display:block;font-size:12px;color:var(--text2);margin-bottom:4px">选择身份</label>
-        <select id="bpExecIdentity" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px">
+        <label style="display:block;font-size:12px;color:#8b8fa3;margin-bottom:4px">选择身份</label>
+        <select id="bpExecIdentity" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px 10px;border-radius:6px;font-size:13px">
           ${accts.map(a => `<option value="${a.id}">${a.id} (${a.platform})</option>`).join('')}
           ${accts.length ? '' : '<option value="">暂无已登录账号</option>'}
         </select>
       </div>
       <div style="margin-bottom:10px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b8fa3;cursor:pointer">
           <input type="checkbox" id="bpExecProxy" checked> 使用代理
         </label>
       </div>
       <div style="display:flex;gap:8px">
         <button onclick="bpDoExec()" style="background:#6366f1;color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:13px">▶ 执行</button>
-        <button onclick="closeBpModal()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:8px 20px;border-radius:6px;cursor:pointer;font-size:13px">取消</button>
+        <button onclick="closeBpModal()" style="background:transparent;color:#e1e4f0;border:1px solid #2a2d3e;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:13px">取消</button>
       </div>
       <div id="bpExecResult" style="margin-top:10px;font-size:13px"></div>`;
     modal.style.display = 'flex';
@@ -2304,8 +2304,8 @@ async function bpDoExec() {
   const sel = document.getElementById('bpExecIdentity');
   const proxy = document.getElementById('bpExecProxy')?.checked;
   const resultEl = document.getElementById('bpExecResult');
-  if (!sel || !sel.value) { resultEl.innerHTML = '<span style="color:var(--red)">请选择身份</span>'; return; }
-  resultEl.innerHTML = '<span style="color:var(--text2)">⏳ 执行中...</span>';
+  if (!sel || !sel.value) { resultEl.innerHTML = '<span style="color:#ef4444">请选择身份</span>'; return; }
+  resultEl.innerHTML = '<span style="color:#8b8fa3">⏳ 执行中...</span>';
   try {
     const r = await fetch('/api/matrix/blueprints/'+encodeURIComponent(_bpExecName)+'/execute', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -2313,10 +2313,10 @@ async function bpDoExec() {
     });
     const res = await r.json();
     resultEl.innerHTML = r.ok
-      ? '<span style="color:var(--green)">✅ 已启动 · 日志: '+(res.log||'N/A')+'</span>'
-      : '<span style="color:var(--red)">❌ '+(res.detail||'执行失败')+'</span>';
+      ? '<span style="color:#22c55e">✅ 已启动 · 日志: '+(res.log||'N/A')+'</span>'
+      : '<span style="color:#ef4444">❌ '+(res.detail||'执行失败')+'</span>';
   } catch(e) {
-    resultEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    resultEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 
@@ -2361,13 +2361,13 @@ async function loadMatrixAtomOps() {
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;margin-bottom:6px">${sub.map(o => {
             let reqHtml = '';
             if (o.requires && o.requires.length && o.requires[0] !== '*') {
-              reqHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(37,99,235,.1);color:var(--blue);margin-top:4px">← 需前序: '+o.requires.slice(0,3).join(',')+(o.requires.length>3?'…':'')+'</span>';
+              reqHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:var(--blue);margin-top:4px">← 需前序: '+o.requires.slice(0,3).join(',')+(o.requires.length>3?'…':'')+'</span>';
             } else if (o.can_be_first) {
-              reqHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(5,150,105,.1);color:var(--green);margin-top:4px">✅ 可为首步</span>';
+              reqHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,.15);color:var(--green);margin-top:4px">✅ 可为首步</span>';
             }
             let nextHtml = '';
             if (o.allows && o.allows.length && o.allows[0] !== '*') {
-              nextHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(107,114,128,.1);color:var(--text2);margin-top:2px">→ 后继: '+o.allows.slice(0,4).join(',')+(o.allows.length>4?'…':'')+'</span>';
+              nextHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(139,143,163,.15);color:var(--text2);margin-top:2px">→ 后继: '+o.allows.slice(0,4).join(',')+(o.allows.length>4?'…':'')+'</span>';
             }
             const pt = o.platform==='通用'?'⚙️通用':(o.platform==='douyin'?'🎵抖音':'📕小红书');
             return '<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">'
@@ -2435,13 +2435,13 @@ async function createBackup() {
   // Try header result area first, fallback to inline
   let el = document.getElementById('backupResultHeader');
   if (!el) el = document.getElementById('backupResultInline');
-  if (el) el.innerHTML = '<span style="color:var(--text2)">⏳ 备份中...</span>';
+  if (el) el.innerHTML = '<span style="color:#8b8fa3">⏳ 备份中...</span>';
   try {
     const r = await fetch('/api/matrix/backup', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({label})});
     const res = await r.json();
-    if (el) el.innerHTML = `<span style="color:var(--green)">✅ ${res.backup_count||0} 个身份已备份 (${label})</span>`;
+    if (el) el.innerHTML = `<span style="color:#22c55e">✅ ${res.backup_count||0} 个身份已备份 (${label})</span>`;
     loadMatrixBackup();
-  } catch(e) { if (el) el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+  } catch(e) { if (el) el.innerHTML = `<span style="color:#ef4444">${e.message}</span>`; }
 }
 
 async function restoreBackup(identity, path) {
@@ -2492,7 +2492,7 @@ async function loadSmsAccounts() {
     const r = await fetch('/api/matrix/sms/accounts');
     const d = await r.json();
     if (d.error) {
-      if (overview) overview.innerHTML = '<span style="color:var(--red)">❌ '+d.error+'</span>';
+      if (overview) overview.innerHTML = '<span style="color:#ef4444">❌ '+d.error+'</span>';
       return;
     }
     const accounts = d.accounts || [];
@@ -2555,43 +2555,43 @@ async function loadSmsAccounts() {
             const fpScreen = fp.screen || '1920x1080';
             const fpGPU = fp.gpu || 'Intel Iris';
             const fpSummary = fpPlatform + ' | ' + fpScreen + ' | ' + fpGPU;
-            return '<div style="display:flex;align-items:center;gap:3px;padding:3px 0;border-bottom:1px solid var(--border)">'+
+            return '<div style="display:flex;align-items:center;gap:3px;padding:3px 0;border-bottom:1px solid #1e2035">'+
               '<span style="width:38px;font-size:10px">'+icon+' '+platName+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_cookie)+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_profile)+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_registry)+'</span>'+
-              '<span style="width:28px;font-size:9px;color:var(--text2);text-align:center">'+(recStats[a.id]||0)+'次</span>'+
-              '<span style="flex:1;font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis" title="指纹: '+fpSummary+'">'+a.nickname+'</span>'+
-              '<span style="width:36px;font-size:9px;color:var(--text2);text-align:center" title="粉丝">📊'+fmtNum(a.fans)+'</span>'+
+              '<span style="width:28px;font-size:9px;color:#8b8fa3;text-align:center">'+(recStats[a.id]||0)+'次</span>'+
+              '<span style="flex:1;font-size:10px;color:#8b8fa3;overflow:hidden;text-overflow:ellipsis" title="指纹: '+fpSummary+'">'+a.nickname+'</span>'+
+              '<span style="width:36px;font-size:9px;color:#8b8fa3;text-align:center" title="粉丝">📊'+fmtNum(a.fans)+'</span>'+
               '<span style="width:60px;font-size:8px;color:#6366f1;text-align:center;overflow:hidden" title="指纹模拟: '+fpSummary+'">'+fpPlatform.slice(0,6)+'</span>'+
-              '<button onclick="accountLogin(\''+a.id+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="登录">🔑</button>'+
-              '<button onclick="clearCookies(\''+a.id+'\',\''+a.platform+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="清除登录">🚫</button>'+
-              '<button onclick="deleteAccount(\''+a.id+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="删除">🗑</button>'+
+              '<button onclick="accountLogin(\''+a.id+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="登录">🔑</button>'+
+              '<button onclick="clearCookies(\''+a.id+'\',\''+a.platform+'\')" style="background:#5c1a1a;color:#f87171;border:1px solid #5c1a1a;padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="清除登录">🚫</button>'+
+              '<button onclick="deleteAccount(\''+a.id+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="删除">🗑</button>'+
             '</div>';
           };
 
-          return '<div style="background:var(--bg3);border-radius:8px;padding:10px;border:1px solid var(--border)">'+
+          return '<div style="background:#232740;border-radius:8px;padding:10px;border:1px solid #2a2d3e">'+
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
               '<div><span style="font-weight:700;font-size:14px">📱 '+phone+'</span>'+
-              '<span style="font-size:9px;color:var(--text2);margin-left:6px">🆔 '+sharedIdent+'</span></div>'+
-              '<span style="font-size:9px;color:var(--text2)">🍪 '+(accts.reduce((s,a)=>s+(a.has_cookie?1:0),0))+'已登录 | 📦 '+recCount+'次录制</span>'+
+              '<span style="font-size:9px;color:#8b8fa3;margin-left:6px">🆔 '+sharedIdent+'</span></div>'+
+              '<span style="font-size:9px;color:#8b8fa3">🍪 '+(accts.reduce((s,a)=>s+(a.has_cookie?1:0),0))+'已登录 | 📦 '+recCount+'次录制</span>'+
             '</div>'+
-            (interests ? '<div style="font-size:10px;color:var(--text2);margin-bottom:4px">🎯 '+interests+(style?' | 💬 '+style:'')+'</div>' : '')+
-            '<div style="display:grid;grid-template-columns:38px 18px 18px 18px 28px 1fr 36px 60px 22px 22px;gap:2px;font-size:9px;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border);margin-bottom:2px">'+
+            (interests ? '<div style="font-size:10px;color:#8b8fa3;margin-bottom:4px">🎯 '+interests+(style?' | 💬 '+style:'')+'</div>' : '')+
+            '<div style="display:grid;grid-template-columns:38px 18px 18px 18px 28px 1fr 36px 60px 22px 22px;gap:2px;font-size:9px;color:#8b8fa3;padding:2px 0;border-bottom:1px solid #2a2d3e;margin-bottom:2px">'+
               '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>录制</span><span>名称</span><span>粉丝</span><span>指纹</span><span></span><span></span>'+
             '</div>'+
             accts.map(platRow).join('')+
             '<div style="margin-top:6px;display:flex;gap:4px">'+
-              '<button onclick="loadSmsAccounts()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新展示</button>'+
-              '<button onclick="loginAllPlatforms(\''+phone+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 全部登录</button>'+
-              '<button onclick="collectAllPlatforms(\''+phone+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">👤 全部采集</button>'+
-              '<button onclick="deleteIdentityByPhone(\''+phone+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除整个身份</button>'+
+              '<button onclick="loadSmsAccounts()" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新展示</button>'+
+              '<button onclick="loginAllPlatforms(\''+phone+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 全部登录</button>'+
+              '<button onclick="collectAllPlatforms(\''+phone+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">👤 全部采集</button>'+
+              '<button onclick="deleteIdentityByPhone(\''+phone+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除整个身份</button>'+
             '</div>'+
           '</div>';
         }).join('')+'</div>';
     }
   } catch(e) {
-    if (overview) overview.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    if (overview) overview.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 
@@ -2659,7 +2659,7 @@ function smsSelectAccount() {
   if (!opt || !opt.value) { info.innerHTML = ''; return; }
   const nick = opt.getAttribute('data-nick') || opt.value;
   const phone = opt.getAttribute('data-phone') || '';
-  info.innerHTML = '<span style="color:var(--green)">'+nick+'</span> <span style="color:var(--text2)">('+phone+')</span>';
+  info.innerHTML = '<span style="color:#22c55e">'+nick+'</span> <span style="color:#8b8fa3">('+phone+')</span>';
   // 同步更新搜索框
   if (input) {
     input.value = phone || opt.textContent.trim();
@@ -2698,14 +2698,14 @@ async function smsCheckSelected() {
     const d = await r.json();
     if (el) el.innerHTML = d.status==='ok' ? '✅ '+d.total+'条消息' : '❌ '+d.error;
     if (msgEl) {
-      if (d.status !== 'ok') { msgEl.innerHTML = '<span style="color:var(--red)">'+d.error+'</span>'; return; }
-      msgEl.innerHTML = (d.messages||[]).map(m => '<div style="padding:3px 0;border-bottom:1px solid var(--border);font-size:11px">'+
-        (m.code ? '<span style="color:var(--green)">✅ 验证码 '+m.code+'</span>' : '📩')+
-        ' <span style="color:var(--text2);font-size:10px">'+((m.content||'').slice(0,60))+'</span>'+
+      if (d.status !== 'ok') { msgEl.innerHTML = '<span style="color:#ef4444">'+d.error+'</span>'; return; }
+      msgEl.innerHTML = (d.messages||[]).map(m => '<div style="padding:3px 0;border-bottom:1px solid #2a2d3e;font-size:11px">'+
+        (m.code ? '<span style="color:#22c55e">✅ 验证码 '+m.code+'</span>' : '📩')+
+        ' <span style="color:#8b8fa3;font-size:10px">'+((m.content||'').slice(0,60))+'</span>'+
         '<span style="color:#6366f1;font-size:9px;float:right">'+fmtSmsTime(m.time)+'</span>'+
-      '</div>').join('') || '<div style="color:var(--text2);font-size:11px;padding:4px 0">无短信记录</div>';
+      '</div>').join('') || '<div style="color:#8b8fa3;font-size:11px;padding:4px 0">无短信记录</div>';
     }
-  } catch(e) { if (msgEl) msgEl.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
+  } catch(e) { if (msgEl) msgEl.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
 }
 
 async function loadPhonePresets() {
@@ -2729,11 +2729,11 @@ async function loadSmsConfig() {
   try {
     const r = await fetch('/api/matrix/sms/config');
     const d = await r.json();
-    el.innerHTML = `<div style="margin-bottom:4px"><span style="color:var(--text2)">API:</span> <code>${(d.base_url||'').slice(0,35)}</code></div>
-      <div style="margin-bottom:4px"><span style="color:var(--text2)">当前手机号:</span> <strong style="color:var(--green)">${d.phone||'-'}</strong></div>
-      <div><span style="color:var(--text2)">Key:</span> <code>${d.api_key||'-'}</code> | 轮询 ${d.poll_interval||3}s</div>`;
+    el.innerHTML = `<div style="margin-bottom:4px"><span style="color:#8b8fa3">API:</span> <code>${(d.base_url||'').slice(0,35)}</code></div>
+      <div style="margin-bottom:4px"><span style="color:#8b8fa3">当前手机号:</span> <strong style="color:#22c55e">${d.phone||'-'}</strong></div>
+      <div><span style="color:#8b8fa3">Key:</span> <code>${d.api_key||'-'}</code> | 轮询 ${d.poll_interval||3}s</div>`;
     if (d.phone) smsQuery(d.phone);
-  } catch(e) { el.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
+  } catch(e) { el.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
 }
 
 async function smsUpdateAndTest() {
@@ -2749,20 +2749,20 @@ async function smsUpdateAndTest() {
     if (res.status !== 'ok') { if (el) el.innerHTML = '❌ '+res.error; return; }
   } catch(e) { if (el) el.innerHTML = '❌ '+e.message; return; }
   loadSmsConfig();
-  if (msgEl) msgEl.innerHTML = '<span style="color:var(--text2)">⏳ 查询...';
+  if (msgEl) msgEl.innerHTML = '<span style="color:#8b8fa3">⏳ 查询...';
   try {
     const r2 = await fetch('/api/matrix/sms/test/'+encodeURIComponent(phone));
     const d2 = await r2.json();
     if (el) el.innerHTML = d2.status==='ok' ? '✅ 已切换, '+d2.total+'条消息' : '❌ '+d2.error;
     if (msgEl) {
-      if (d2.status !== 'ok') { msgEl.innerHTML = '<span style="color:var(--red)">'+d2.error+'</span>'; return; }
-      msgEl.innerHTML = (d2.messages||[]).map(m => `<div style="padding:3px 0;border-bottom:1px solid var(--border);font-size:11px">
-        ${m.code ? '<span style="color:var(--green)">✅ 验证码 '+m.code+'</span>' : '📩'}
-        <span style="color:var(--text2);font-size:10px;margin-left:4px">${(m.content||'').slice(0,60)}</span>
+      if (d2.status !== 'ok') { msgEl.innerHTML = '<span style="color:#ef4444">'+d2.error+'</span>'; return; }
+      msgEl.innerHTML = (d2.messages||[]).map(m => `<div style="padding:3px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
+        ${m.code ? '<span style="color:#22c55e">✅ 验证码 '+m.code+'</span>' : '📩'}
+        <span style="color:#8b8fa3;font-size:10px;margin-left:4px">${(m.content||'').slice(0,60)}</span>
         <span style="color:#6366f1;font-size:9px;float:right">${fmtSmsTime(m.time)}</span>
-      </div>`).join('') || '<div style="color:var(--text2);font-size:11px;padding:4px 0">无短信记录</div>';
+      </div>`).join('') || '<div style="color:#8b8fa3;font-size:11px;padding:4px 0">无短信记录</div>';
     }
-  } catch(e) { if (msgEl) msgEl.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
+  } catch(e) { if (msgEl) msgEl.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
 }
 
 async function smsQuery(phone) {
@@ -2772,11 +2772,11 @@ async function smsQuery(phone) {
     const r = await fetch('/api/matrix/sms/test/'+encodeURIComponent(phone));
     const d = await r.json();
     if (d.status !== 'ok') return;
-    msgEl.innerHTML = (d.messages||[]).map(m => `<div style="padding:3px 0;border-bottom:1px solid var(--border);font-size:11px">
-      ${m.code ? '<span style="color:var(--green)">✅ '+m.code+'</span>' : '📩'}
-      <span style="color:var(--text2);font-size:10px;margin-left:4px">${(m.content||'').slice(0,60)}</span>
+    msgEl.innerHTML = (d.messages||[]).map(m => `<div style="padding:3px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
+      ${m.code ? '<span style="color:#22c55e">✅ '+m.code+'</span>' : '📩'}
+      <span style="color:#8b8fa3;font-size:10px;margin-left:4px">${(m.content||'').slice(0,60)}</span>
       <span style="color:#6366f1;font-size:9px;float:right">${fmtSmsTime(m.time)}</span>
-    </div>`).join('') || '<div style="color:var(--text2);font-size:11px;padding:4px 0">无短信记录</div>';
+    </div>`).join('') || '<div style="color:#8b8fa3;font-size:11px;padding:4px 0">无短信记录</div>';
   } catch(e) { /* silent */ }
 }
 
@@ -2811,7 +2811,7 @@ async function loadHomepageInfoSms() {
     const r = await fetch('/api/matrix/homepage-info');
     const data = await r.json();
     if (data.error) {
-      el.innerHTML = '<div style="color:var(--amber);font-size:11px">' + data.error + '</div>';
+      el.innerHTML = '<div style="color:#f59e0b;font-size:11px">' + data.error + '</div>';
       return;
     }
 
@@ -2823,7 +2823,7 @@ async function loadHomepageInfoSms() {
     if (badge) badge.textContent = '(' + results.length + ' 个身份 · ' + ts.slice(5,16) + ')';
 
     let html = '<div style="color:#6366f1;font-size:10px;margin-bottom:4px">🕐 采集时间: ' + ts + '</div>';
-    html += '<table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr style="background:var(--bg3)">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr style="background:#232740">';
     html += '<th style="padding:3px 6px;text-align:left">身份</th>';
     html += '<th style="padding:3px 6px;text-align:left">手机</th>';
     html += '<th style="padding:3px 6px;text-align:left">🎵 抖音</th>';
@@ -2837,13 +2837,13 @@ async function loadHomepageInfoSms() {
       const xhs = r.xiaohongshu || {};
       const dyOk = dy.nickname && dy.nickname.indexOf('登录后') === -1;
       const xhsOk = xhs.nickname && xhs.nickname.indexOf('问点点') === -1 && xhs.nickname.indexOf('推荐') === -1;
-      html += '<tr style="border-top:1px solid var(--border)">';
+      html += '<tr style="border-top:1px solid #2a2d3e">';
       html += '<td style="padding:3px 6px">' + (r.display_name||'?') + '</td>';
-      html += '<td style="padding:3px 6px;color:var(--text2);font-size:9px">' + (r.phone||'-') + '</td>';
-      html += '<td style="padding:3px 6px">' + (dyOk ? dy.nickname : '<span style="color:var(--text2);font-style:italic">(无)</span>') + '</td>';
-      html += '<td style="padding:3px 6px;text-align:right;color:var(--text2)">' + (dyOk ? (dy.fans||'-') : '-') + '</td>';
-      html += '<td style="padding:3px 6px">' + (xhsOk ? xhs.nickname : '<span style="color:var(--text2);font-style:italic">(无)</span>') + '</td>';
-      html += '<td style="padding:3px 6px;text-align:right;color:var(--text2)">' + (xhsOk ? (xhs.fans||'-') : '-') + '</td>';
+      html += '<td style="padding:3px 6px;color:#8b8fa3;font-size:9px">' + (r.phone||'-') + '</td>';
+      html += '<td style="padding:3px 6px">' + (dyOk ? dy.nickname : '<span style="color:#8b8fa3;font-style:italic">(无)</span>') + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right;color:#8b8fa3">' + (dyOk ? (dy.fans||'-') : '-') + '</td>';
+      html += '<td style="padding:3px 6px">' + (xhsOk ? xhs.nickname : '<span style="color:#8b8fa3;font-style:italic">(无)</span>') + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right;color:#8b8fa3">' + (xhsOk ? (xhs.fans||'-') : '-') + '</td>';
       html += '</tr>';
     });
 
@@ -2857,11 +2857,11 @@ async function loadHomepageInfoSms() {
         suc++;
       }
     });
-    html += '<div style="margin-top:4px;font-size:9px;color:var(--text2)">✅ 成功: ' + suc + '/' + results.length + '  &nbsp; 采集: mc collect --all</div>';
+    html += '<div style="margin-top:4px;font-size:9px;color:#8b8fa3">✅ 成功: ' + suc + '/' + results.length + '  &nbsp; 采集: mc collect --all</div>';
 
     el.innerHTML = html;
   } catch(e) {
-    el.innerHTML = '<div style="color:var(--red);font-size:11px">' + e.message + '</div>';
+    el.innerHTML = '<div style="color:#ef4444;font-size:11px">' + e.message + '</div>';
   }
 }
 
@@ -2885,14 +2885,14 @@ async function loadCollectHistory() {
     const data = await r.json();
     const history = data.history || [];
     if (!history.length) {
-      el.innerHTML = '<div style="color:var(--text2);font-size:11px">暂无采集历史</div>';
+      el.innerHTML = '<div style="color:#8b8fa3;font-size:11px">暂无采集历史</div>';
       return;
     }
 
     // 时间倒序
     history.reverse();
 
-    let html = '<table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr style="background:var(--bg3)">';
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr style="background:#232740">';
     html += '<th style="padding:3px 6px;text-align:left">#</th>';
     html += '<th style="padding:3px 6px;text-align:left">采集时间</th>';
     html += '<th style="padding:3px 6px;text-align:right">身份</th>';
@@ -2904,22 +2904,22 @@ async function loadCollectHistory() {
     history.forEach(function(h, i) {
       const ts = (h.collected_at || '').replace('T',' ').slice(0,19);
       const bg = i % 2 === 0 ? '' : 'background:#1e2133';
-      html += '<tr style="border-top:1px solid var(--border);' + bg + '">';
+      html += '<tr style="border-top:1px solid #2a2d3e;' + bg + '">';
       html += '<td style="padding:3px 6px">' + (history.length - i) + '</td>';
       html += '<td style="padding:3px 6px;color:#6366f1">' + ts.slice(5,16) + '</td>';
       html += '<td style="padding:3px 6px;text-align:right">' + (h.total_identities||'?') + '</td>';
       html += '<td style="padding:3px 6px;text-align:right">' + (h.total_accounts||'?') + '</td>';
-      html += '<td style="padding:3px 6px;text-align:right;color:var(--green)">' + (h.success||0) + '</td>';
-      html += '<td style="padding:3px 6px;text-align:right;color:var(--red)">' + (h.failed||0) + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right;color:#22c55e">' + (h.success||0) + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right;color:#ef4444">' + (h.failed||0) + '</td>';
       html += '</tr>';
     });
 
     html += '</tbody></table>';
-    html += '<div style="margin-top:4px;font-size:9px;color:var(--text2)">📜 共 ' + history.length + ' 次采集记录</div>';
+    html += '<div style="margin-top:4px;font-size:9px;color:#8b8fa3">📜 共 ' + history.length + ' 次采集记录</div>';
 
     el.innerHTML = html;
   } catch(e) {
-    el.innerHTML = '<div style="color:var(--red);font-size:11px">' + e.message + '</div>';
+    el.innerHTML = '<div style="color:#ef4444;font-size:11px">' + e.message + '</div>';
   }
 }
 
@@ -2928,15 +2928,15 @@ async function proxyTest() {
   const proxy = document.getElementById('proxyTestInput')?.value;
   const el = document.getElementById('proxyTestResult');
   if (!proxy) { alert('输入代理地址'); return; }
-  if (el) el.innerHTML = '<span style="color:var(--text2)">⏳ 测试中...</span>';
+  if (el) el.innerHTML = '<span style="color:#8b8fa3">⏳ 测试中...</span>';
   try {
     const r = await fetch('/api/matrix/proxies/test', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proxy})});
     const d = await r.json();
     if (el) {
-      if (d.status === 'ok') el.innerHTML = `<span style="color:var(--green)">✅ ${d.ip||'?'} | ${d.type||'HTTP'} | ${d.elapsed||'?'}</span>`;
-      else el.innerHTML = `<span style="color:var(--red)">❌ ${d.error}</span>`;
+      if (d.status === 'ok') el.innerHTML = `<span style="color:#22c55e">✅ ${d.ip||'?'} | ${d.type||'HTTP'} | ${d.elapsed||'?'}</span>`;
+      else el.innerHTML = `<span style="color:#ef4444">❌ ${d.error}</span>`;
     }
-  } catch(e) { if (el) el.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>'; }
+  } catch(e) { if (el) el.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>'; }
 }
 
 async function loadProxyList() {
@@ -2946,22 +2946,22 @@ async function loadProxyList() {
     const r = await fetch('/api/matrix/proxies');
     const d = await r.json();
     const proxies = d.proxies||[];
-    if (!proxies.length) { el.innerHTML = '<div style="color:var(--text2);font-size:12px">无本地账号</div>'; return; }
-    el.innerHTML = proxies.map(p => `<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);margin-bottom:6px;font-size:12px">
+    if (!proxies.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无本地账号</div>'; return; }
+    el.innerHTML = proxies.map(p => `<div style="background:#232740;border-radius:6px;padding:8px;border:1px solid #2a2d3e;margin-bottom:6px;font-size:12px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><strong>${p.account}</strong> <span style="color:var(--text2);font-size:10px">${p.platform}</span>
+        <div><strong>${p.account}</strong> <span style="color:#8b8fa3;font-size:10px">${p.platform}</span>
           <span style="font-size:10px;margin-left:6px;color:${p.login_status==='logged_in'?'#22c55e':(p.login_status==='remote'?'#8b8fa3':'#f59e0b')}">${p.login_status}</span>
         </div>
         <div><span style="color:${p.has_proxy?'#22c55e':'#8b8fa3'};font-size:10px">${p.proxy||'无代理'}</span></div>
       </div>
       <div style="margin-top:4px;display:flex;gap:4px;align-items:center">
-        <input placeholder="绑定代理地址" style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px" id="proxy_${p.account}">
+        <input placeholder="绑定代理地址" style="flex:1;background:#1a1d2e;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 6px;border-radius:4px;font-size:11px" id="proxy_${p.account}">
         <button onclick="setProxy('${p.account}')" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">绑定</button>
-        <button onclick="testAccountProxy('${p.account}')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">测试</button>
+        <button onclick="testAccountProxy('${p.account}')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">测试</button>
         <span id="proxyResult_${p.account}" style="font-size:10px"></span>
       </div>
     </div>`).join('');
-  } catch(e) { el.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
+  } catch(e) { el.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
 }
 
 async function setProxy(account) {
@@ -3089,16 +3089,16 @@ async function loadCorpus() {
         <button class="btn btn-primary btn-sm" onclick="corpusBatchImport()">📥 导入</button>
         <span id="corpusBatchResult" style="font-size:12px"></span>
       </div>
-      <textarea id="corpusBatchTexts" placeholder="每行一条评论，直接粘贴即可&#10;例：&#10;讲得太好了，受益匪浅！&#10;这个观点很新颖，学习了&#10;干货满满，感谢分享" style="width:100%;height:100px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:5px;font-size:12px;font-family:monospace"></textarea>
-      <div style="font-size:10px;color:var(--text2);margin-top:4px">支持粘贴、拖入 txt 文件（点击下方「选择文件」或直接粘贴内容）</div>
+      <textarea id="corpusBatchTexts" placeholder="每行一条评论，直接粘贴即可&#10;例：&#10;讲得太好了，受益匪浅！&#10;这个观点很新颖，学习了&#10;干货满满，感谢分享" style="width:100%;height:100px;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:8px;border-radius:5px;font-size:12px;font-family:monospace"></textarea>
+      <div style="font-size:10px;color:#8b8fa3;margin-top:4px">支持粘贴、拖入 txt 文件（点击下方「选择文件」或直接粘贴内容）</div>
     </div>
     <!-- 格式模板 -->
     <div style="margin-top:8px;background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-weight:600;font-size:13px">📋 格式模板</div>
-        <span style="font-size:10px;color:var(--text2);cursor:pointer" onclick="copyTemplate()">📋 复制模板</span>
+        <span style="font-size:10px;color:#8b8fa3;cursor:pointer" onclick="copyTemplate()">📋 复制模板</span>
       </div>
-      <pre style="font-size:10px;background:var(--bg2);padding:8px;border-radius:4px;margin-top:6px;overflow-x:auto;white-space:pre-wrap;color:var(--text2)">
+      <pre style="font-size:10px;background:#1a1d2e;padding:8px;border-radius:4px;margin-top:6px;overflow-x:auto;white-space:pre-wrap;color:#8b8fa3">
 # 语料库格式模板 v2.0
 # 支持身份(Persona)×场景(Scene)×内容(Content) 三维结构
 # 也兼容当前的一维分类格式（categories）
@@ -3327,7 +3327,7 @@ async function accountRegister() {
   const nick = document.getElementById('regNickname')?.value;
   const statusEl = document.getElementById('regStatus');
   if (!phone) { alert('请输入手机号'); return; }
-  if (statusEl) statusEl.innerHTML = '<span style="color:var(--text2)">⏳ 注册中...</span>';
+  if (statusEl) statusEl.innerHTML = '<span style="color:#8b8fa3">⏳ 注册中...</span>';
   try {
     const r = await fetch('/api/matrix/accounts/register', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -3335,16 +3335,16 @@ async function accountRegister() {
     });
     const d = await r.json();
     if (d.status === 'ok') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ '+d.message+'</span>'+
-        '<div style="margin-top:4px;font-size:10px;color:var(--text2)">账号ID: '+d.account_id+' | 登录后可以采集昵称</div>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ '+d.message+'</span>'+
+        '<div style="margin-top:4px;font-size:10px;color:#8b8fa3">账号ID: '+d.account_id+' | 登录后可以采集昵称</div>';
       document.getElementById('regPhone').value = '';
       document.getElementById('regNickname').value = '';
       setTimeout(loadSmsAccounts, 2000);
     } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(d.error||'注册失败')+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'注册失败')+'</span>';
     }
   } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 
@@ -3358,12 +3358,12 @@ async function accountLogin(accountId) {
     const r = await fetch('/api/matrix/accounts/'+accountId+'/login', { method:'POST' });
     const d = await r.json();
     if (d.status === 'ok') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ '+d.message+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ '+d.message+'</span>';
     } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(d.error||'失败')+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'失败')+'</span>';
     }
   } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 
@@ -3378,13 +3378,13 @@ async function clearCookies(accountId, platform) {
     const r = await fetch('/api/matrix/accounts/'+accountId+'/clear-cookies', { method:'POST' });
     const d = await r.json();
     if (d.status === 'ok') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ '+d.message+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ '+d.message+'</span>';
       loadSmsAccounts().catch(e => {});
     } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(d.error||'清除失败')+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'清除失败')+'</span>';
     }
   } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 
@@ -3401,7 +3401,7 @@ async function loginAllPlatforms(phone) {
       await new Promise(r => setTimeout(r, 3000));
     } catch(e) { /* ignore */ }
   }
-  if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 全部登录已启动</span>';
+  if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 全部登录已启动</span>';
 }
 
 async function collectAllPlatforms(phone) {
@@ -3430,16 +3430,16 @@ async function collectAllPlatforms(phone) {
             if (statusEl) statusEl.innerHTML = '⏳ 采集中... ' + (ps.completed||0) + '/' + (ps.total_identities||'?');
           } else {
             clearInterval(poll);
-            if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 采集完成</span>';
+            if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 采集完成</span>';
             loadSmsAccounts();
           }
         } catch(e) { /* silent */ }
       }, 5000);
     } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + (data.error||data.message) + '</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + (data.error||data.message) + '</span>';
     }
   } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + e.message + '</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + e.message + '</span>';
   }
 }
 
@@ -3456,7 +3456,7 @@ async function deleteIdentityByPhone(phone) {
       await fetch('/api/matrix/accounts/'+a.id+'/cleanup', { method:'POST' });
     } catch(e) { /* ignore */ }
   }
-  if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 已删除 '+phone+' 下所有账号</span>';
+  if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 已删除 '+phone+' 下所有账号</span>';
   loadSmsAccounts();
 }
 
@@ -3473,15 +3473,15 @@ async function deleteAccount(accountId) {
     // 补清理 accounts.yaml + registry
     await fetch('/api/matrix/accounts/'+accountId+'/cleanup', { method:'POST' });
     if (d.status === 'ok') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 已删除，刷新中...</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 已删除，刷新中...</span>';
       // 立即刷新 + 1秒后重试保障
       loadSmsAccounts().catch(e => console.error('refresh err', e));
       setTimeout(() => loadSmsAccounts().catch(e => {}), 1000);
     } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(d.error||'失败')+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'失败')+'</span>';
     }
   } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 
@@ -3494,15 +3494,15 @@ async function collectProfile(accountId) {
     const r = await fetch('/api/matrix/accounts/'+accountId+'/collect-profile', { method:'POST' });
     const d = await r.json();
     if (d.status === 'ok') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ '+d.message+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ '+d.message+'</span>';
       // 立即刷新 + 3秒后重试保障
       loadSmsAccounts().catch(e => {});
       setTimeout(() => loadSmsAccounts().catch(e => {}), 3000);
     } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(d.error||'采集失败')+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||'采集失败')+'</span>';
     }
   } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 
@@ -3550,32 +3550,32 @@ async function refreshRecordingList() {
     // 更新录制状态
     if (statusEl) {
       if (stat.status === 'running') {
-        statusEl.innerHTML = '<span style="color:var(--green)">🔴 录制中 (PID '+stat.pid+')</span>';
+        statusEl.innerHTML = '<span style="color:#22c55e">🔴 录制中 (PID '+stat.pid+')</span>';
         document.getElementById('recordStartBtn').style.display = 'none';
         document.getElementById('recordStopBtn').style.display = '';
       } else {
-        statusEl.innerHTML = '<span style="color:var(--text2)">⏸ 空闲</span>';
+        statusEl.innerHTML = '<span style="color:#8b8fa3">⏸ 空闲</span>';
         document.getElementById('recordStartBtn').style.display = '';
         document.getElementById('recordStopBtn').style.display = 'none';
       }
     }
 
     if (!recordings.length) {
-      listEl.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:20px;text-align:center">暂无录制包<br><span style="font-size:11px">选择一个账号点击「开始录制」，在浏览器中操作并按数字键 1-8 标记，按 0 结束</span></div>';
+      listEl.innerHTML = '<div style="color:#8b8fa3;font-size:13px;padding:20px;text-align:center">暂无录制包<br><span style="font-size:11px">选择一个账号点击「开始录制」，在浏览器中操作并按数字键 1-8 标记，按 0 结束</span></div>';
       return;
     }
     listEl.innerHTML = '<div style="display:grid;gap:6px">'+
-      recordings.map(r => '<div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'+
+      recordings.map(r => '<div style="background:#232740;border-radius:6px;padding:8px 10px;border:1px solid #2a2d3e;display:flex;justify-content:space-between;align-items:center">'+
         '<div><span style="font-weight:600;font-size:12px">'+(r.account||'?')+'</span> '+
-        '<span style="color:var(--text2);font-size:10px">'+r.steps+'步 '+(r.duration||0)+'s</span>'+
-        '<span style="color:var(--text2);font-size:9px;margin-left:6px">'+(r.created||'').slice(0,16)+'</span></div>'+
+        '<span style="color:#8b8fa3;font-size:10px">'+r.steps+'步 '+(r.duration||0)+'s</span>'+
+        '<span style="color:#8b8fa3;font-size:9px;margin-left:6px">'+(r.created||'').slice(0,16)+'</span></div>'+
         '<div style="display:flex;gap:4px">'+
-          '<button onclick="recordingAnalyze(\''+r.file+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔍 分析</button>'+
-          '<button onclick="recordingExport(\''+r.file+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">📦 导出</button>'+
-          '<button onclick="recordingDelete(\''+r.file+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除</button>'+
+          '<button onclick="recordingAnalyze(\''+r.file+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔍 分析</button>'+
+          '<button onclick="recordingExport(\''+r.file+'\')" style="background:#232740;color:#e1e4f0;border:1px solid #2a2d3e;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">📦 导出</button>'+
+          '<button onclick="recordingDelete(\''+r.file+'\')" style="background:#7f1d1d;color:#ef4444;border:1px solid #7f1d1d;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除</button>'+
         '</div></div>').join('')+'</div>';
   } catch(e) {
-    listEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    listEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 
@@ -3612,26 +3612,26 @@ async function recordingAnalyze(name) {
   try {
     const r = await fetch('/api/matrix/recordings/'+encodeURIComponent(name));
     const d = await r.json();
-    if (d.error) { detailEl.innerHTML = '<span style="color:var(--red)">❌ '+d.error+'</span>'; return; }
+    if (d.error) { detailEl.innerHTML = '<span style="color:#ef4444">❌ '+d.error+'</span>'; return; }
     const actions = d.actions || [];
     const suggestions = d.blueprint_suggestions || [];
-    let html = '<div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border);margin-top:6px">'+
+    let html = '<div style="background:#1a1d2e;border-radius:8px;padding:10px;border:1px solid #2a2d3e;margin-top:6px">'+
       '<div style="font-weight:600;font-size:13px;margin-bottom:6px">🔍 分析结果 ('+d.steps_analyzed+'步)</div>';
     if (actions.length) {
-      html += '<div style="font-size:11px;margin-bottom:6px;color:var(--text2)">操作序列:</div>'+
-        actions.slice(0,15).map(a => '<div style="font-size:11px;padding:2px 0;border-bottom:1px solid var(--border)">'+
+      html += '<div style="font-size:11px;margin-bottom:6px;color:#8b8fa3">操作序列:</div>'+
+        actions.slice(0,15).map(a => '<div style="font-size:11px;padding:2px 0;border-bottom:1px solid #1e2035">'+
           '<span style="color:#6366f1">'+(a.action_type||'?')+'</span> '+
-          '<span style="color:var(--text2)">→ '+(a.action_desc||'')+'</span>'+
+          '<span style="color:#8b8fa3">→ '+(a.action_desc||'')+'</span>'+
         '</div>').join('');
     }
     if (suggestions.length) {
-      html += '<div style="font-size:11px;margin-top:6px;color:var(--text2)">蓝图建议:</div>'+
+      html += '<div style="font-size:11px;margin-top:6px;color:#8b8fa3">蓝图建议:</div>'+
         suggestions.slice(0,5).map(s => '<div style="font-size:11px;padding:2px 0">'+
-          '<span style="color:var(--green)">步骤'+s.step+'</span>: '+(s.suggested_op||'')+'</div>').join('');
+          '<span style="color:#22c55e">步骤'+s.step+'</span>: '+(s.suggested_op||'')+'</div>').join('');
     }
     html += '</div>';
     detailEl.innerHTML = html;
-  } catch(e) { detailEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>'; }
+  } catch(e) { detailEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>'; }
 }
 
 async function recordingExport(name) {
@@ -3641,16 +3641,16 @@ async function recordingExport(name) {
   try {
     const r = await fetch('/api/matrix/recordings/'+encodeURIComponent(name)+'/export', { method:'POST' });
     const d = await r.json();
-    if (d.error) { detailEl.innerHTML = '<span style="color:var(--red)">❌ '+d.error+'</span>'; return; }
-    let html = '<div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border);margin-top:6px">'+
+    if (d.error) { detailEl.innerHTML = '<span style="color:#ef4444">❌ '+d.error+'</span>'; return; }
+    let html = '<div style="background:#1a1d2e;border-radius:8px;padding:10px;border:1px solid #2a2d3e;margin-top:6px">'+
       '<div style="font-weight:600;font-size:13px;margin-bottom:6px">📦 导出结果</div>'+
       '<div style="font-size:11px">蓝图: <code>'+(d.blueprint_name||'?')+'</code> ('+d.steps+'步)</div>'+
       '<div style="font-size:11px">代码: <code>'+(d.script_name||'?')+'</code></div>'+
-      '<div style="font-size:11px;margin-top:4px;color:var(--text2)">导出位置: blueprints/ 和 scripts/recorded_ops/</div>'+
+      '<div style="font-size:11px;margin-top:4px;color:#8b8fa3">导出位置: blueprints/ 和 scripts/recorded_ops/</div>'+
     '</div>';
     detailEl.innerHTML = html;
     refreshRecordingList();
-  } catch(e) { detailEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>'; }
+  } catch(e) { detailEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>'; }
 }
 
 async function recordingDelete(name) {
@@ -3763,13 +3763,13 @@ async function cmdRunCommentTask() {
     const d = await r.json();
     if (resultEl) {
       if (d.status === 'ok') {
-        resultEl.innerHTML = '<span style="color:var(--green)">✅ 完成！成功 '+d.success+'/'+d.total+' 步 ('+d.duration+'s)</span>'+
-          '<div style="font-size:10px;color:var(--text2);margin-top:2px">'+d.task_summary+'</div>';
+        resultEl.innerHTML = '<span style="color:#22c55e">✅ 完成！成功 '+d.success+'/'+d.total+' 步 ('+d.duration+'s)</span>'+
+          '<div style="font-size:10px;color:#8b8fa3;margin-top:2px">'+d.task_summary+'</div>';
       } else {
-        resultEl.innerHTML = '<span style="color:var(--red)">❌ '+(d.errors||[d.detail||'失败']).join('; ')+'</span>';
+        resultEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.errors||[d.detail||'失败']).join('; ')+'</span>';
       }
     }
-  } catch(e) { if (resultEl) resultEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>'; }
+  } catch(e) { if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>'; }
 }
 
 // ── 从定时任务页面创建 WorkBuddy 任务 ──
@@ -3804,7 +3804,7 @@ var _collectAccounts = [];
 function switchCollectMode(mode, el) {
   _collectMode = mode;
   document.querySelectorAll('.collect-mode').forEach(e => {
-    e.style.background = 'var(--bg3)';
+    e.style.background = '#232740';
     e.style.color = '#e1e4f0';
   });
   el.style.background = '#6366f1';
@@ -3816,7 +3816,7 @@ function renderCollectList() {
   const listEl = document.getElementById('collectList');
   if (!listEl) return;
   const accts = _collectAccounts.filter(a => a.is_local);
-  if (!accts.length) { listEl.innerHTML = '<div style="color:var(--text2);padding:6px">暂无本机账号</div>'; return; }
+  if (!accts.length) { listEl.innerHTML = '<div style="color:#8b8fa3;padding:6px">暂无本机账号</div>'; return; }
 
   if (_collectMode === 'identity') {
     // 按手机号分组显示
@@ -3831,7 +3831,7 @@ function renderCollectList() {
       '<label style="cursor:pointer;font-size:12px">' +
       '<input type="checkbox" class="collect-id-item" data-phone="'+phone+'" onchange="toggleCollectIdentity(this)"> ' +
       '📱 ' + phone + ' (' + list.length + '个平台)</label>' +
-      list.map(a => '<div style="margin-left:20px;font-size:11px;color:var(--text2)">' +
+      list.map(a => '<div style="margin-left:20px;font-size:11px;color:#8b8fa3">' +
         (a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.id+' ('+a.nickname+')</div>').join('') +
       '</div>'
     ).join('');
@@ -3844,7 +3844,7 @@ function renderCollectList() {
       '<label style="cursor:pointer;font-size:12px">' +
       '<input type="checkbox" class="collect-plat-item" data-platform="'+plat+'" onchange="toggleCollectPlatform(this)"> ' +
       (plat==='xiaohongshu'?'📕 小红书':'🎵 抖音') + ' (' + list.length + '个账号)</label>' +
-      list.map(a => '<div style="margin-left:20px;font-size:11px;color:var(--text2)">' +
+      list.map(a => '<div style="margin-left:20px;font-size:11px;color:#8b8fa3">' +
         a.id+' ('+a.nickname+')</div>').join('') +
       '</div>'
     ).join('');
@@ -3907,7 +3907,7 @@ async function cmdCollectSelected() {
     if (data.status === 'already_running') {
       if (statusEl) statusEl.innerHTML = '⏳ 已有任务在运行，等待完成...';
     } else if (data.status !== 'started') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 启动失败: ' + (data.error||data.message) + '</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ 启动失败: ' + (data.error||data.message) + '</span>';
       return;
     }
     if (logEl) logEl.textContent += '🚀 采集任务已启动\n';
@@ -3928,14 +3928,14 @@ async function cmdCollectSelected() {
           await showCollectReport(ids, statusEl, logEl);
         } else {
           clearInterval(poll);
-          if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 采集异常</span>';
+          if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ 采集异常</span>';
           if (logEl) logEl.textContent += '❌ 状态: ' + ps.status + ' - ' + (ps.message||'') + '\n';
         }
       } catch(e) { /* silent */ }
     }, 5000);
 
   } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + e.message + '</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + e.message + '</span>';
   }
 }
 
@@ -3951,7 +3951,7 @@ async function cmdCollectAll() {
     if (data.status === 'already_running') {
       if (statusEl) statusEl.innerHTML = '⏳ 已有任务在运行，等待完成...';
     } else if (data.status !== 'started') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 启动失败: ' + (data.error||data.message) + '</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ 启动失败: ' + (data.error||data.message) + '</span>';
       return;
     }
     if (logEl) logEl.textContent += '🚀 批量采集已启动 (批次并行，最多3个浏览器)\n';
@@ -3971,14 +3971,14 @@ async function cmdCollectAll() {
           await showCollectReport(null, statusEl, logEl);
         } else {
           clearInterval(poll);
-          if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 采集异常</span>';
+          if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ 采集异常</span>';
           if (logEl) logEl.textContent += '❌ 状态: ' + ps.status + ' - ' + (ps.message||'') + '\n';
         }
       } catch(e) { /* silent */ }
     }, 5000);
 
   } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + e.message + '</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ ' + e.message + '</span>';
   }
 }
 
@@ -4033,9 +4033,9 @@ async function showCollectReport(filterIds, statusEl, logEl) {
     html += '<span style="color:#6366f1;font-weight:600">🕐 更新于: ' + ts + '</span>';
     html += '<span style="color:' + ageColor + ';font-size:10px">(' + relativeTime + ')</span>';
     html += '</div>';
-    html += '<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:6px">';
+    html += '<div style="border:1px solid #2a2d3e;border-radius:6px;overflow:hidden;margin-bottom:6px">';
     html += '<table style="width:100%;border-collapse:collapse;font-size:10px">';
-    html += '<thead><tr style="background:var(--bg3)">';
+    html += '<thead><tr style="background:#232740">';
     html += '<th style="padding:3px 6px;text-align:left">身份</th>';
     html += '<th style="padding:3px 6px;text-align:left">手机</th>';
     html += '<th style="padding:3px 6px;text-align:left">🎵 抖音昵称</th>';
@@ -4048,33 +4048,33 @@ async function showCollectReport(filterIds, statusEl, logEl) {
     display.forEach(r => {
       const dy = r.douyin;
       const xhs = r.xiaohongshu;
-      const dyName = (dy && dy.nickname && !dy.nickname.includes('登录后')) ? dy.nickname : '<span style="color:var(--text2);font-style:italic">(无数据)</span>';
+      const dyName = (dy && dy.nickname && !dy.nickname.includes('登录后')) ? dy.nickname : '<span style="color:#8b8fa3;font-style:italic">(无数据)</span>';
       const dyFans = (dy && dy.fans && !dy.nickname.includes('登录后')) ? dy.fans : '-';
-      const xhsName = (xhs && xhs.nickname && !xhs.nickname.includes('问点点') && !xhs.nickname.includes('推荐')) ? xhs.nickname : '<span style="color:var(--text2);font-style:italic">(无数据)</span>';
+      const xhsName = (xhs && xhs.nickname && !xhs.nickname.includes('问点点') && !xhs.nickname.includes('推荐')) ? xhs.nickname : '<span style="color:#8b8fa3;font-style:italic">(无数据)</span>';
       const xhsFans = (xhs && xhs.fans && !xhs.nickname.includes('问点点') && !xhs.nickname.includes('推荐')) ? xhs.fans : '-';
       const dyOk = dy && dy.nickname && !dy.nickname.includes('登录后');
       const xhsOk = xhs && xhs.nickname && !xhs.nickname.includes('问点点') && !xhs.nickname.includes('推荐');
       const statusIcon = dyOk || xhsOk ? '✅' : '❌';
-      html += '<tr style="border-top:1px solid var(--border)">';
+      html += '<tr style="border-top:1px solid #2a2d3e">';
       html += '<td style="padding:3px 6px;white-space:nowrap">' + (r.display_name||'?') + '</td>';
-      html += '<td style="padding:3px 6px;color:var(--text2);font-size:9px;white-space:nowrap">' + (r.phone||'-') + '</td>';
+      html += '<td style="padding:3px 6px;color:#8b8fa3;font-size:9px;white-space:nowrap">' + (r.phone||'-') + '</td>';
       html += '<td style="padding:3px 6px">' + dyName + '</td>';
-      html += '<td style="padding:3px 6px;text-align:right;color:var(--text2)">' + dyFans + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right;color:#8b8fa3">' + dyFans + '</td>';
       html += '<td style="padding:3px 6px">' + xhsName + '</td>';
-      html += '<td style="padding:3px 6px;text-align:right;color:var(--text2)">' + xhsFans + '</td>';
+      html += '<td style="padding:3px 6px;text-align:right;color:#8b8fa3">' + xhsFans + '</td>';
       html += '<td style="padding:3px 6px;text-align:center">' + statusIcon + '</td>';
       html += '</tr>';
     });
 
     html += '</tbody></table></div>';
     html += '<div style="display:flex;gap:12px;font-size:10px">';
-    html += '<span style="color:var(--green)">✅ 抖音: ' + dy_ok + '/' + (dy_ok+dy_fail) + '</span>';
+    html += '<span style="color:#22c55e">✅ 抖音: ' + dy_ok + '/' + (dy_ok+dy_fail) + '</span>';
     html += '<span style="color:#6366f1">📕 小红书: ' + xhs_ok + '/' + (xhs_ok+xhs_fail) + '</span>';
     html += '</div>';
     html += '</div>';
 
     if (logEl) logEl.innerHTML = html;
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 采集完成</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 采集完成</span>';
 
   } catch(e) {
     if (logEl) logEl.textContent += '❌ 读取结果失败: ' + e.message + '\n';
@@ -4152,16 +4152,16 @@ async function nurtureStart() {
           } else {
             clearInterval(nurturePollTimer);
             nurturePollTimer = null;
-            if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 养号完成</span>';
+            if (statusEl) statusEl.innerHTML = '<span style="color:#22c55e">✅ 养号完成</span>';
             if (logEl && ps.log) logEl.textContent = ps.log.slice(-5000);
           }
         } catch(e) { /* silent */ }
       }, 5000);
     } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(d.error||d.message)+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+(d.error||d.message)+'</span>';
     }
   } catch(e) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444">❌ '+e.message+'</span>';
   }
 }
 
@@ -4186,20 +4186,20 @@ async function refreshScheduleList() {
       const scheds = d.schedules || {};
       const entries = Object.entries(scheds);
       if (!entries.length) {
-        listEl.innerHTML = '<div style="color:var(--text2);padding:10px;text-align:center">暂无定时任务，在上方添加</div>';
+        listEl.innerHTML = '<div style="color:#8b8fa3;padding:10px;text-align:center">暂无定时任务，在上方添加</div>';
       } else {
         listEl.innerHTML = entries.map(([sid, s]) =>
-          '<div style="background:var(--bg3);border-radius:4px;padding:6px 8px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:3px">' +
-          '<div><strong>' + sid + '</strong> <span style="color:var(--text2)">' + (s.account||'') + ' → ' + (s.blueprint||'') + '</span></div>' +
+          '<div style="background:#232740;border-radius:4px;padding:6px 8px;border:1px solid #2a2d3e;display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:3px">' +
+          '<div><strong>' + sid + '</strong> <span style="color:#8b8fa3">' + (s.account||'') + ' → ' + (s.blueprint||'') + '</span></div>' +
           '<div style="display:flex;align-items:center;gap:6px">' +
           '<span style="color:#6366f1">' + (s.time||'') + '</span>' +
-          '<span style="color:var(--text2);font-size:10px">' + (s.days||'每天') + '</span>' +
+          '<span style="color:#8b8fa3;font-size:10px">' + (s.days||'每天') + '</span>' +
           '<span style="cursor:pointer" onclick="scheduleToggle(\''+sid+'\',' + (!s.enabled) + ')">' + (s.enabled ? '🟢' : '⚪') + '</span>' +
-          '<span style="cursor:pointer;color:var(--red);font-size:10px" onclick="scheduleDelete(\''+sid+'\')">✕</span>' +
+          '<span style="cursor:pointer;color:#ef4444;font-size:10px" onclick="scheduleDelete(\''+sid+'\')">✕</span>' +
           '</div></div>'
         ).join('');
       }
-    } catch(e) { if (listEl) listEl.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
+    } catch(e) { if (listEl) listEl.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
   }
   // 加载历史
   if (histEl) {
@@ -4208,19 +4208,19 @@ async function refreshScheduleList() {
       const d = await r.json();
       const hist = d.history || [];
       if (!hist.length) {
-        histEl.innerHTML = '<div style="color:var(--text2);padding:6px">暂无执行记录</div>';
+        histEl.innerHTML = '<div style="color:#8b8fa3;padding:6px">暂无执行记录</div>';
       } else {
         histEl.innerHTML = hist.map(e =>
-          '<div style="padding:3px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;font-size:10px">' +
+          '<div style="padding:3px 0;border-bottom:1px solid #1e2035;display:flex;justify-content:space-between;font-size:10px">' +
           '<span>' + (e.timestamp||'').slice(0,16) + ' ' + (e.schedule_id||'') + '</span>' +
           '<span>' + (e.error ? '❌ '+e.error.slice(0,20) : (e.status||'✅')) + ' ' + (e.success||0)+'/'+((e.success||0)+(e.failed||0)) + ' ' + (e.duration||0)+'s</span>' +
           '</div>'
         ).join('');
       }
-    } catch(e) { if (histEl) histEl.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
+    } catch(e) { if (histEl) histEl.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
   }
   // 调度器状态
-  if (statusEl) statusEl.innerHTML = '<span style="color:var(--text2)">需手动启动: mc schedule start</span>';
+  if (statusEl) statusEl.innerHTML = '<span style="color:#8b8fa3">需手动启动: mc schedule start</span>';
   // 加载 WorkBuddy 自动化任务
   const autoEl = document.getElementById('autoTasksSummary');
   if (autoEl) {
@@ -4230,12 +4230,12 @@ async function refreshScheduleList() {
       const machines = d.machines || {};
       const entries = Object.entries(machines);
       if (!entries.length) {
-        autoEl.innerHTML = '<div style="color:var(--text2);font-size:11px;padding:4px 0">暂无自动化任务</div>' +
-          '<div style="margin-top:8px;display:flex;gap:6px"><select id="autoNewTarget" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:11px">' +
+        autoEl.innerHTML = '<div style="color:#8b8fa3;font-size:11px;padding:4px 0">暂无自动化任务</div>' +
+          '<div style="margin-top:8px;display:flex;gap:6px"><select id="autoNewTarget" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 8px;border-radius:4px;font-size:11px">' +
           '<option value="">选目标机器</option>' +
           Object.keys(machines).map(m => '<option value="'+m+'">'+m+'</option>').join('') +
           '</select>' +
-          '<input id="autoNewPrompt" placeholder="输入提示词..." style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:11px">' +
+          '<input id="autoNewPrompt" placeholder="输入提示词..." style="flex:1;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 8px;border-radius:4px;font-size:11px">' +
           '<button onclick="createAutoTaskFromSchedule()" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">+ 创建任务</button></div>';
       } else {
         let html = entries.map(([machine, tasks]) => {
@@ -4245,31 +4245,31 @@ async function refreshScheduleList() {
             '<div style="font-weight:600;font-size:11px;color:#6366f1;margin-bottom:3px">💻 ' + machine + '</div>' +
             wbTasks.map(t => {
               const prompt = t.prompt || t.name || '';
-              return '<div style="padding:3px 6px;font-size:10px;background:var(--bg3);border-radius:4px;margin-bottom:3px;border:1px solid var(--border)">' +
+              return '<div style="padding:3px 6px;font-size:10px;background:#232740;border-radius:4px;margin-bottom:3px;border:1px solid #2a2d3e">' +
                 '<div style="display:flex;justify-content:space-between">' +
                 '<span style="color:' + (t.status === 'ACTIVE' ? '#22c55e' : '#8b8fa3') + '">' + (t.status === 'ACTIVE' ? '▶ 运行中' : '⏸ 暂停') + '</span>' +
-                '<span style="color:var(--text2)">' + (t.rrule || t.scheduleType || '即时') + '</span>' +
+                '<span style="color:#8b8fa3">' + (t.rrule || t.scheduleType || '即时') + '</span>' +
                 '</div>' +
-                '<div style="margin-top:2px;color:var(--text);word-break:break-all">' + (prompt.slice(0, 120) + (prompt.length > 120 ? '...' : '')) + '</div>' +
+                '<div style="margin-top:2px;color:#e1e4f0;word-break:break-all">' + (prompt.slice(0, 120) + (prompt.length > 120 ? '...' : '')) + '</div>' +
                 '</div>';
             }).join('') +
             '</div>';
         }).filter(Boolean).join('');
-        if (!html) html = '<div style="color:var(--text2);font-size:11px;padding:4px 0">无 WorkBuddy 任务</div>';
+        if (!html) html = '<div style="color:#8b8fa3;font-size:11px;padding:4px 0">无 WorkBuddy 任务</div>';
         // 新建任务表单
-        html += '<div style="margin-top:8px;padding:6px;background:var(--bg3);border-radius:4px">' +
+        html += '<div style="margin-top:8px;padding:6px;background:#1e2035;border-radius:4px">' +
           '<div style="font-size:11px;font-weight:600;margin-bottom:4px">✏️ 新建自动化任务</div>' +
           '<div style="display:flex;gap:6px">' +
-          '<select id="autoNewTarget" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:3px;font-size:10px;width:120px">' +
+          '<select id="autoNewTarget" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 8px;border-radius:3px;font-size:10px;width:120px">' +
           '<option value="">选目标</option>' +
           Object.keys(machines).map(m => '<option value="'+m+'">'+m+'</option>').join('') +
           '</select>' +
-          '<input id="autoNewPrompt" placeholder="输入提示词，描述要执行的任务..." style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:3px;font-size:10px">' +
+          '<input id="autoNewPrompt" placeholder="输入提示词，描述要执行的任务..." style="flex:1;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:4px 8px;border-radius:3px;font-size:10px">' +
           '<button onclick="createAutoTaskFromSchedule()" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:3px;cursor:pointer;font-size:10px">+ 创建</button>' +
           '</div></div>';
         autoEl.innerHTML = html;
       }
-    } catch(e) { autoEl.innerHTML = '<span style="color:var(--text2);font-size:11px">自动化任务API不可用</span>'; }
+    } catch(e) { autoEl.innerHTML = '<span style="color:#8b8fa3;font-size:11px">自动化任务API不可用</span>'; }
   }
 }
 
@@ -5770,7 +5770,7 @@ async function loadC2Machines() {
   const targetEl = document.getElementById('c2Target');
   const statusEl = document.getElementById('c2MachineStatus');
   if (!statusEl) return;
-  statusEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2)">加载中...</div>';
+  statusEl.innerHTML = '<div style="text-align:center;padding:20px;color:#8b8fa3">加载中...</div>';
   try {
     const r = await fetch('/api/c2/machines');
     const d = await r.json();
@@ -5784,19 +5784,19 @@ async function loadC2Machines() {
         const st = await sr.json();
         if (st.output) {
           const o = st.output;
-          html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between">' +
+          html += '<div style="padding:8px 0;border-bottom:1px solid #2a2d3e;font-size:12px;display:flex;justify-content:space-between">' +
             '<strong>'+m+'</strong>' +
             '<span>'+(o.guardd_running ? '✅ guardd运行' : '❌ guardd停')+' · 💾'+ (o.disk_avail_gb||'?')+'G' +' · 📱'+(o.matrix_accounts||'?')+'账号</span></div>';
         } else {
-          html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">'+m+' · '+ (st.status||'未知') +'</div>';
+          html += '<div style="padding:8px 0;border-bottom:1px solid #2a2d3e;font-size:12px">'+m+' · '+ (st.status||'未知') +'</div>';
         }
       } catch(e) {
-        html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--amber)">'+m+' · ⏳ 查询超时</div>';
+        html += '<div style="padding:8px 0;border-bottom:1px solid #2a2d3e;font-size:12px;color:#f59e0b">'+m+' · ⏳ 查询超时</div>';
       }
     }
-    statusEl.innerHTML = html || '<div style="text-align:center;padding:20px;color:var(--text2)">无机器数据</div>';
+    statusEl.innerHTML = html || '<div style="text-align:center;padding:20px;color:#8b8fa3">无机器数据</div>';
   } catch(e) {
-    statusEl.innerHTML = '<div style="padding:20px;color:var(--red)">'+e.message+'</div>';
+    statusEl.innerHTML = '<div style="padding:20px;color:#ef4444">'+e.message+'</div>';
   }
 }
 
@@ -5806,7 +5806,7 @@ async function sendC2Command() {
   const schedule = document.getElementById('c2Schedule')?.value;
   const resultEl = document.getElementById('c2Result');
   if (!resultEl) return;
-  if (!target || !type) { resultEl.innerHTML = '<div style="color:var(--red);font-size:13px;padding:8px">请选择目标和命令类型</div>'; return; }
+  if (!target || !type) { resultEl.innerHTML = '<div style="color:#ef4444;font-size:13px;padding:8px">请选择目标和命令类型</div>'; return; }
 
   const params = {};
   if (type === 'nurture_run') {
@@ -5814,18 +5814,18 @@ async function sendC2Command() {
     params.rounds = parseInt(document.getElementById('c2Rounds')?.value) || 10;
   }
 
-  resultEl.innerHTML = '<div style="text-align:center;padding:10px;color:var(--text2)">发送中...</div>';
+  resultEl.innerHTML = '<div style="text-align:center;padding:10px;color:#8b8fa3">发送中...</div>';
   try {
     const r = await fetch('/api/c2/send', {method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({target,type,params,schedule_at:schedule||null})});
     const res = await r.json();
     const ch = res._channel || 'git';
-    resultEl.innerHTML = '<div style="padding:8px;background:rgba(34,197,94,.1);border-radius:6px;font-size:13px;color:var(--green)">' +
+    resultEl.innerHTML = '<div style="padding:8px;background:rgba(34,197,94,.1);border-radius:6px;font-size:13px;color:#22c55e">' +
       (ch==='http'?'⚡':'📤')+' 命令已发送 通道:'+ch+' 状态:'+(res.status||'?')+'<br>'+
       (res.message||'')+(res.command_id?'<br>ID:'+res.command_id:'')+'</div>';
     loadC2History();
   } catch(e) {
-    resultEl.innerHTML = '<div style="color:var(--red);font-size:13px;padding:8px">'+e.message+'</div>';
+    resultEl.innerHTML = '<div style="color:#ef4444;font-size:13px;padding:8px">'+e.message+'</div>';
   }
 }
 
@@ -5836,7 +5836,7 @@ async function loadC2History() {
     const r = await fetch('/api/c2/commands');
     const d = await r.json();
     const cmds = d.recent || [];
-    if (!cmds.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">暂无执行历史</div>'; return; }
+    if (!cmds.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:#8b8fa3;font-size:13px">暂无执行历史</div>'; return; }
     el.innerHTML = '<table><thead><tr><th>类型</th><th>目标</th><th>状态</th><th>时间</th><th>结果</th></tr></thead><tbody>' +
       cmds.slice(0,20).map(c => {
         const st = c.status||'?';
@@ -5844,11 +5844,11 @@ async function loadC2History() {
         const out = c.output ? (c.output.accounts?c.output.accounts.join(','):Object.keys(c.output).slice(0,3).join('|')) : (c.error||'-');
         const ts = (c.completed_at||c.created_at||'').slice(0,19).replace('T',' ');
         return '<tr><td style="font-weight:600">'+c.type+'</td><td>'+(c.target_machine||'-')+'</td>' +
-          '<td><span style="color:'+cl+'">●</span> '+st+'</td><td style="font-size:11px;color:var(--text2)">'+ts+'</td>' +
-          '<td style="font-size:11px;color:var(--text2);max-width:150px;overflow:hidden;text-overflow:ellipsis">'+String(out).slice(0,40)+'</td></tr>';
+          '<td><span style="color:'+cl+'">●</span> '+st+'</td><td style="font-size:11px;color:#8b8fa3">'+ts+'</td>' +
+          '<td style="font-size:11px;color:#8b8fa3;max-width:150px;overflow:hidden;text-overflow:ellipsis">'+String(out).slice(0,40)+'</td></tr>';
       }).join('') + '</tbody></table>';
   } catch(e) {
-    el.innerHTML = '<div style="padding:20px;color:var(--red)">'+e.message+'</div>';
+    el.innerHTML = '<div style="padding:20px;color:#ef4444">'+e.message+'</div>';
   }
 }
 
@@ -5892,10 +5892,10 @@ async function kbLoadStats() {
     const colors = ['#6366f1','#22c55e','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#14b8a6','#f97316','#06b6d4','#84cc16','#a855f7'];
     for (const [key, info] of Object.entries(cats)) {
       total += info.count;
-      html += `<div style="background:var(--bg3);border-radius:8px;padding:8px;border:1px solid var(--border);text-align:center">
-        <div style="font-size:9px;color:var(--text2)">${info.label}</div>
+      html += `<div style="background:#232740;border-radius:8px;padding:8px;border:1px solid #2a2d3e;text-align:center">
+        <div style="font-size:9px;color:#8b8fa3">${info.label}</div>
         <div style="font-size:18px;font-weight:600;color:${colors[Object.keys(cats).indexOf(key)%colors.length]}">${info.count}</div>
-        <div style="font-size:9px;color:var(--text2)">${key}</div></div>`;
+        <div style="font-size:9px;color:#8b8fa3">${key}</div></div>`;
     }
     html += `<div style="background:#6366f1;border-radius:8px;padding:8px;text-align:center">
       <div style="font-size:9px;color:rgba(255,255,255,.7)">总计</div>
@@ -5903,13 +5903,13 @@ async function kbLoadStats() {
       <div style="font-size:9px;color:rgba(255,255,255,.5)">篇</div></div>`;
     el.innerHTML = html;
     kbLoadLogs();
-  } catch(e) { if (el) el.innerHTML = `<div style="color:var(--red)">${e.message}</div>`; }
+  } catch(e) { if (el) el.innerHTML = `<div style="color:#ef4444">${e.message}</div>`; }
 }
 
 function kbShowRefine() {
   document.getElementById('kbResultPanel').innerHTML =
     `<div style="font-weight:600;margin-bottom:8px">🧹 提纯收件箱</div>
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin-bottom:8px">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b8fa3;cursor:pointer;margin-bottom:8px">
       <input type="checkbox" id="kbRefineAuto" checked> 自动分类</label>
     <div style="display:flex;gap:8px">
       <button onclick="kbDoRefine()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">▶ 执行</button>
@@ -5917,7 +5917,7 @@ function kbShowRefine() {
 }
 function kbShowCollect() { /* same as before */ document.getElementById('kbResultPanel').innerHTML =
   `<div style="font-weight:600;margin-bottom:8px">📥 汇聚到收件箱</div>
-  <div style="margin-bottom:8px"><input id="kbCollectDirs" placeholder="20_methods,40_references" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:5px;font-size:12px"></div>
+  <div style="margin-bottom:8px"><input id="kbCollectDirs" placeholder="20_methods,40_references" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px 8px;border-radius:5px;font-size:12px"></div>
   <div style="display:flex;gap:8px">
     <button onclick="kbDoCollect()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">▶ 执行</button>
     <span id="kbCollectResult"></span></div>`;
@@ -5925,25 +5925,25 @@ function kbShowCollect() { /* same as before */ document.getElementById('kbResul
 function kbShowIngest() {
   document.getElementById('kbResultPanel').innerHTML =
     `<div style="font-weight:600;margin-bottom:8px">📝 导入知识</div>
-    <textarea id="kbIngestSource" rows="2" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px;resize:vertical" placeholder="URL 或文本"></textarea>
+    <textarea id="kbIngestSource" rows="2" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px;resize:vertical" placeholder="URL 或文本"></textarea>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0">
-      <select id="kbIngestCat" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px">
+      <select id="kbIngestCat" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px">
         ${['00_inbox','10_concepts','20_methods','30_facts','40_references','50_resources'].map(c => `<option value="${c}">${c}</option>`).join('')}
       </select>
-      <input id="kbIngestTags" placeholder="标签" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px"></div>
+      <input id="kbIngestTags" placeholder="标签" style="background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px"></div>
     <div style="display:flex;gap:8px"><button onclick="kbDoIngest()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">▶ 导入</button><span id="kbIngestResult"></span></div>`;
 }
 function kbShowSearch() {
   document.getElementById('kbResultPanel').innerHTML =
     `<div style="font-weight:600;margin-bottom:8px">🔍 搜索</div>
-    <input id="kbSearchQuery" placeholder="关键词..." style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px" onkeydown="if(event.key==='Enter')kbDoSearch()">
+    <input id="kbSearchQuery" placeholder="关键词..." style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px" onkeydown="if(event.key==='Enter')kbDoSearch()">
     <button onclick="kbDoSearch()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;margin-top:6px">搜索</button>
     <div id="kbSearchResult" style="margin-top:6px;max-height:250px;overflow-y:auto;font-size:12px"></div>`;
 }
 function kbShowBackup() {
   document.getElementById('kbResultPanel').innerHTML =
     `<div style="font-weight:600;margin-bottom:8px">💾 备份</div>
-    <input id="kbBackupLabel" value="manual_${Date.now()}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px">
+    <input id="kbBackupLabel" value="manual_${Date.now()}" style="width:100%;background:#232740;border:1px solid #2a2d3e;color:#e1e4f0;padding:6px;border-radius:5px;font-size:12px">
     <button onclick="kbDoBackup()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;margin-top:6px">▶ 开始备份</button>
     <span id="kbBackupResult" style="font-size:12px;margin-left:8px"></span>`;
 }
@@ -5955,9 +5955,9 @@ async function kbDoRefine() {
   try {
     const r = await fetch('/api/kb/refine', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auto_classify:auto||true})});
     const res = await r.json();
-    if (el) el.innerHTML = res.status==='ok' ? '<span style="color:var(--green)">✅</span>' : '<span style="color:var(--red)">❌ '+res.error+'</span>';
+    if (el) el.innerHTML = res.status==='ok' ? '<span style="color:#22c55e">✅</span>' : '<span style="color:#ef4444">❌ '+res.error+'</span>';
     kbLoadLogs();
-  } catch(e) { if (el) el.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
+  } catch(e) { if (el) el.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
 }
 async function kbDoCollect() {
   const dirs = document.getElementById('kbCollectDirs')?.value;
@@ -5986,11 +5986,11 @@ async function kbDoSearch() {
     const r = await fetch('/api/kb/search', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,limit:20})});
     const res = await r.json();
     if (!el) return;
-    if (!res.results||!res.results.length) { el.innerHTML = '<div style="color:var(--text2);padding:6px">无结果</div>'; return; }
-    el.innerHTML = '<div style="color:var(--text2);margin-bottom:4px;font-size:11px">'+res.total+' 个结果</div>' +
-      res.results.map(r2 => `<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:11px">
+    if (!res.results||!res.results.length) { el.innerHTML = '<div style="color:#8b8fa3;padding:6px">无结果</div>'; return; }
+    el.innerHTML = '<div style="color:#8b8fa3;margin-bottom:4px;font-size:11px">'+res.total+' 个结果</div>' +
+      res.results.map(r2 => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
         <span style="color:#6366f1">${r2.category}</span>/<strong>${r2.file.split('/').pop()}</strong>
-        <div style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${(r2.context||'').slice(0,80)}</div></div>`).join('');
+        <div style="color:#8b8fa3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${(r2.context||'').slice(0,80)}</div></div>`).join('');
   } catch(e) { if (el) el.innerHTML = '❌ '+e.message; }
 }
 async function kbDoBackup() {
@@ -6004,32 +6004,32 @@ async function kbDoBackup() {
 }
 async function kbGitSync() {
   const panel = document.getElementById('kbResultPanel');
-  panel.innerHTML = '<div style="color:var(--text2);font-size:12px">⏳ 同步中...</div>';
+  panel.innerHTML = '<div style="color:#8b8fa3;font-size:12px">⏳ 同步中...</div>';
   try {
     const r = await fetch('/api/kb/git-sync', {method:'POST',headers:{'Content-Type':'application/json'}});
     const res = await r.json();
-    panel.innerHTML = '<div style="font-weight:600;margin-bottom:6px;font-size:12px">🔄 完成</div><pre style="font-size:11px;color:var(--green);background:var(--bg3);padding:8px;border-radius:4px;overflow:auto">'+(res.outputs||['ok']).join('\\n').slice(0,500)+'</pre>';
+    panel.innerHTML = '<div style="font-weight:600;margin-bottom:6px;font-size:12px">🔄 完成</div><pre style="font-size:11px;color:#22c55e;background:#232740;padding:8px;border-radius:4px;overflow:auto">'+(res.outputs||['ok']).join('\\n').slice(0,500)+'</pre>';
     kbLoadLogs();
-  } catch(e) { panel.innerHTML = '<div style="color:var(--red);font-size:12px">'+e.message+'</div>'; }
+  } catch(e) { panel.innerHTML = '<div style="color:#ef4444;font-size:12px">'+e.message+'</div>'; }
 }
 async function kbLoadLogs() {
   const el = document.getElementById('kbLogs'); if (!el) return;
   try {
     const r = await fetch('/api/kb/logs?limit=10');
     const d = await r.json(); const logs = d.logs||[];
-    if (!logs.length) { el.innerHTML = '<div style="padding:10px;color:var(--text2);font-size:12px">暂无操作记录</div>'; return; }
+    if (!logs.length) { el.innerHTML = '<div style="padding:10px;color:#8b8fa3;font-size:12px">暂无操作记录</div>'; return; }
     const names = {refine:'提纯',collect_to_inbox:'汇聚',ingest:'入库',search:'搜索',backup:'备份',git_sync:'Git同步'};
     el.innerHTML = '<div style="font-size:12px;font-weight:600;margin-bottom:6px">📜 最近操作</div>' +
       logs.reverse().slice(0,10).map(l => {
         const ts = (l.timestamp||'').slice(11,19);
-        return `<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid var(--border);font-size:11px">
+        return `<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
           <span>${l.status==='ok'?'✅':'❌'}</span>
-          <span style="color:var(--text2);width:50px">${names[l.op]||l.op}</span>
-          <span style="color:var(--text2);font-size:10px">${ts}</span>
-          <span style="color:var(--text2);margin-left:auto;font-size:10px">${l.result?l.result.files||l.result.returncode||'' : l.status}</span>
+          <span style="color:#8b8fa3;width:50px">${names[l.op]||l.op}</span>
+          <span style="color:#8b8fa3;font-size:10px">${ts}</span>
+          <span style="color:#8b8fa3;margin-left:auto;font-size:10px">${l.result?l.result.files||l.result.returncode||'' : l.status}</span>
         </div>`;
       }).join('');
-  } catch(e) { if (el) el.innerHTML = '<div style="color:var(--red)">'+e.message+'</div>'; }
+  } catch(e) { if (el) el.innerHTML = '<div style="color:#ef4444">'+e.message+'</div>'; }
 }
 
 // ── Tab 2: Memory ──
@@ -6039,15 +6039,15 @@ async function memLoadStats() {
     const r = await fetch('/api/kb/memory/stats');
     const d = await r.json();
     el.innerHTML =
-      `<div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border)">
-        <div style="font-size:10px;color:var(--text2)">L1 关键词</div><div style="font-size:22px;font-weight:600;color:#8b5cf6">${d.l1_keywords}</div></div>
-      <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border)">
-        <div style="font-size:10px;color:var(--text2)">L2 事实</div><div style="font-size:22px;font-weight:600;color:var(--blue)">${d.l2_facts}</div></div>
-      <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border)">
-        <div style="font-size:10px;color:var(--text2)">L3 原文</div><div style="font-size:22px;font-weight:600;color:var(--green)">${d.l3_files}</div></div>
-      <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border)">
-        <div style="font-size:10px;color:var(--text2)">向量</div><div style="font-size:22px;font-weight:600;color:var(--amber)">${d.vector_count}</div></div>`;
-  } catch(e) { el.innerHTML = '<div style="color:var(--red)">'+e.message+'</div>'; }
+      `<div style="background:#232740;border-radius:8px;padding:10px;text-align:center;border:1px solid #2a2d3e">
+        <div style="font-size:10px;color:#8b8fa3">L1 关键词</div><div style="font-size:22px;font-weight:600;color:#8b5cf6">${d.l1_keywords}</div></div>
+      <div style="background:#232740;border-radius:8px;padding:10px;text-align:center;border:1px solid #2a2d3e">
+        <div style="font-size:10px;color:#8b8fa3">L2 事实</div><div style="font-size:22px;font-weight:600;color:#3b82f6">${d.l2_facts}</div></div>
+      <div style="background:#232740;border-radius:8px;padding:10px;text-align:center;border:1px solid #2a2d3e">
+        <div style="font-size:10px;color:#8b8fa3">L3 原文</div><div style="font-size:22px;font-weight:600;color:#22c55e">${d.l3_files}</div></div>
+      <div style="background:#232740;border-radius:8px;padding:10px;text-align:center;border:1px solid #2a2d3e">
+        <div style="font-size:10px;color:#8b8fa3">向量</div><div style="font-size:22px;font-weight:600;color:#f59e0b">${d.vector_count}</div></div>`;
+  } catch(e) { el.innerHTML = '<div style="color:#ef4444">'+e.message+'</div>'; }
 }
 async function memShowL1() {
   const el = document.getElementById('memDetailContent'); if (!el) return;
@@ -6055,9 +6055,9 @@ async function memShowL1() {
   try {
     const r = await fetch('/api/kb/memory/l1');
     const d = await r.json(); const kws = d.keywords||[];
-    if (!kws.length) { el.innerHTML = '<div style="color:var(--text2);font-size:12px">无关键词</div>'; return; }
-    el.innerHTML = '<table style="width:100%;font-size:11px;border-collapse:collapse"><tr style="background:var(--bg3)"><th style="padding:4px 8px;text-align:left">关键词</th><th style="padding:4px 8px;text-align:left">频次</th></tr>' +
-      kws.map(k => `<tr><td style="padding:4px 8px;border-bottom:1px solid var(--border)">${k.word||k}</td><td style="padding:4px 8px;border-bottom:1px solid var(--border)">${k.freq||'-'}</td></tr>`).join('') + '</table>';
+    if (!kws.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无关键词</div>'; return; }
+    el.innerHTML = '<table style="width:100%;font-size:11px;border-collapse:collapse"><tr style="background:#232740"><th style="padding:4px 8px;text-align:left">关键词</th><th style="padding:4px 8px;text-align:left">频次</th></tr>' +
+      kws.map(k => `<tr><td style="padding:4px 8px;border-bottom:1px solid #2a2d3e">${k.word||k}</td><td style="padding:4px 8px;border-bottom:1px solid #2a2d3e">${k.freq||'-'}</td></tr>`).join('') + '</table>';
   } catch(e) { el.innerHTML = '❌ '+e.message; }
 }
 async function memShowL2() {
@@ -6066,12 +6066,12 @@ async function memShowL2() {
   try {
     const r = await fetch('/api/kb/memory/l2?limit=50');
     const d = await r.json();
-    if (!d.facts||!d.facts.length) { el.innerHTML = '<div style="color:var(--text2);font-size:12px">无事实</div>'; return; }
-    el.innerHTML = '<div style="color:var(--text2);font-size:11px;margin-bottom:4px">共 '+d.total+' 条</div>' +
-      d.facts.map(f => `<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:11px">
+    if (!d.facts||!d.facts.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无事实</div>'; return; }
+    el.innerHTML = '<div style="color:#8b8fa3;font-size:11px;margin-bottom:4px">共 '+d.total+' 条</div>' +
+      d.facts.map(f => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
         <span style="color:#6366f1">#${f.rowid}</span>
-        <span style="color:var(--text2);margin-left:4px">${(f.content||'').slice(0,120)}</span>
-        ${f.category ? '<span style="color:var(--amber);margin-left:4px">['+f.category+']</span>' : ''}
+        <span style="color:#8b8fa3;margin-left:4px">${(f.content||'').slice(0,120)}</span>
+        ${f.category ? '<span style="color:#f59e0b;margin-left:4px">['+f.category+']</span>' : ''}
       </div>`).join('');
   } catch(e) { el.innerHTML = '❌ '+e.message; }
 }
@@ -6081,11 +6081,11 @@ async function memShowL3() {
   try {
     const r = await fetch('/api/kb/memory/l3');
     const d = await r.json(); const files = d.files||[];
-    if (!files.length) { el.innerHTML = '<div style="color:var(--text2);font-size:12px">无原文文件</div>'; return; }
-    el.innerHTML = files.map(f => `<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;cursor:pointer" onclick="memShowL3File('${f.name}')">
-      <span style="color:var(--green)">📄</span> <strong>${f.name}</strong>
-      <span style="color:var(--text2);margin-left:8px">${f.size_kb}KB</span>
-      <span style="color:var(--text2);font-size:10px">${(f.updated||'').slice(0,10)}</span>
+    if (!files.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无原文文件</div>'; return; }
+    el.innerHTML = files.map(f => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px;cursor:pointer" onclick="memShowL3File('${f.name}')">
+      <span style="color:#22c55e">📄</span> <strong>${f.name}</strong>
+      <span style="color:#8b8fa3;margin-left:8px">${f.size_kb}KB</span>
+      <span style="color:#8b8fa3;font-size:10px">${(f.updated||'').slice(0,10)}</span>
     </div>`).join('');
   } catch(e) { el.innerHTML = '❌ '+e.message; }
 }
@@ -6097,7 +6097,7 @@ async function memShowL3File(name) {
     const d = await r.json();
     if (d.status !== 'ok') { el.innerHTML = '❌ '+d.error; return; }
     el.innerHTML = '<div style="font-weight:600;font-size:12px;margin-bottom:6px">📄 '+d.name+'</div>' +
-      '<pre style="font-size:11px;color:var(--text);background:var(--bg3);padding:8px;border-radius:4px;overflow:auto;max-height:350px;white-space:pre-wrap">'+d.content.slice(0,2000)+'</pre>';
+      '<pre style="font-size:11px;color:#e1e4f0;background:#232740;padding:8px;border-radius:4px;overflow:auto;max-height:350px;white-space:pre-wrap">'+d.content.slice(0,2000)+'</pre>';
   } catch(e) { el.innerHTML = '❌ '+e.message; }
 }
 
@@ -6107,10 +6107,10 @@ async function sysLoadDocs() {
   try {
     const r = await fetch('/api/kb/system/docs');
     const d = await r.json(); const docs = d.docs||[];
-    if (!docs.length) { el.innerHTML = '<div style="color:var(--text2)">无文档</div>'; return; }
-    el.innerHTML = docs.map(doc => `<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;cursor:pointer" onclick="sysShowDoc('${doc.name}')">
+    if (!docs.length) { el.innerHTML = '<div style="color:#8b8fa3">无文档</div>'; return; }
+    el.innerHTML = docs.map(doc => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px;cursor:pointer" onclick="sysShowDoc('${doc.name}')">
       <span style="color:#6366f1">📄</span> <strong>${doc.title||doc.name}</strong>
-      <span style="color:var(--text2);margin-left:8px">${doc.size_kb}KB</span>
+      <span style="color:#8b8fa3;margin-left:8px">${doc.size_kb}KB</span>
     </div>`).join('');
   } catch(e) { el.innerHTML = '❌ '+e.message; }
 }
@@ -6130,11 +6130,11 @@ async function skillsLoad() {
   try {
     const r = await fetch('/api/kb/skills');
     const d = await r.json(); const skills = d.skills||[];
-    if (!skills.length) { el.innerHTML = '<div style="color:var(--text2);font-size:12px">无自定义技能</div>'; return; }
-    el.innerHTML = skills.map(s => `<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:11px">
+    if (!skills.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无自定义技能</div>'; return; }
+    el.innerHTML = skills.map(s => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
       <strong style="color:#6366f1">${s.name}</strong>
-      <div style="color:var(--text2);font-size:10px">${s.description||''}</div>
-      ${s.triggers&&s.triggers.length ? '<div style="color:var(--amber);font-size:10px">触发: '+s.triggers.slice(0,3).join(', ')+'</div>' : ''}
+      <div style="color:#8b8fa3;font-size:10px">${s.description||''}</div>
+      ${s.triggers&&s.triggers.length ? '<div style="color:#f59e0b;font-size:10px">触发: '+s.triggers.slice(0,3).join(', ')+'</div>' : ''}
     </div>`).join('');
   } catch(e) { el.innerHTML = '❌ '+e.message; }
 }
@@ -6143,11 +6143,11 @@ async function toolsLoad() {
   try {
     const r = await fetch('/api/kb/tools');
     const d = await r.json(); const tools = d.tools||[];
-    if (!tools.length) { el.innerHTML = '<div style="color:var(--text2);font-size:12px">无工具目录</div>'; return; }
-    el.innerHTML = tools.map(t => `<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:11px">
-      <strong style="color:var(--green)">${t.name}</strong>
-      <span style="color:var(--text2);margin-left:6px;font-size:10px">${t.items} 文件</span>
-      <div style="color:var(--text2);font-size:10px">${t.path}</div>
+    if (!tools.length) { el.innerHTML = '<div style="color:#8b8fa3;font-size:12px">无工具目录</div>'; return; }
+    el.innerHTML = tools.map(t => `<div style="padding:4px 0;border-bottom:1px solid #2a2d3e;font-size:11px">
+      <strong style="color:#22c55e">${t.name}</strong>
+      <span style="color:#8b8fa3;margin-left:6px;font-size:10px">${t.items} 文件</span>
+      <div style="color:#8b8fa3;font-size:10px">${t.path}</div>
     </div>`).join('');
   } catch(e) { el.innerHTML = '❌ '+e.message; }
 }
@@ -6169,36 +6169,36 @@ async function autoLoadTasks() {
       html += '<div style="margin-bottom:8px"><div style="font-weight:600;font-size:12px;color:'+(isLocal?'#6366f1':'#8b8fa3')+';margin-bottom:4px">'+(isLocal?'💻':'📡')+' '+machine+'</div>';
       tasks.forEach(t => {
         if (t.source_type === 'workbuddy') {
-          html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--bg3);border-radius:4px;margin-bottom:3px;font-size:11px">'+
-            '<span style="color:var(--green)">'+(t.status==='ACTIVE'?'▶':'⏸')+'</span>'+
+          html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:#232740;border-radius:4px;margin-bottom:3px;font-size:11px">'+
+            '<span style="color:#22c55e">'+(t.status==='ACTIVE'?'▶':'⏸')+'</span>'+
             '<span style="flex:1">'+(t.name||t.prompt||'').slice(0,30)+'</span>'+
-            '<span style="color:var(--text2);font-size:10px">'+(t.rrule||t.scheduleType||'')+'</span>'+
-            (isLocal ? '<span onclick="autoDeleteTask(\''+t.id+'\')" style="cursor:pointer;color:var(--red);font-size:12px">✕</span>' : '')+
+            '<span style="color:#8b8fa3;font-size:10px">'+(t.rrule||t.scheduleType||'')+'</span>'+
+            (isLocal ? '<span onclick="autoDeleteTask(\''+t.id+'\')" style="cursor:pointer;color:#ef4444;font-size:12px">✕</span>' : '')+
           '</div>';
         }
       });
-      if (!tasks.length) html += '<div style="color:var(--text2);font-size:11px;padding:4px 0">无任务</div>';
+      if (!tasks.length) html += '<div style="color:#8b8fa3;font-size:11px;padding:4px 0">无任务</div>';
       html += '</div>';
     }
-    if (!Object.keys(machines).length) html = '<div style="color:var(--text2);font-size:12px">暂无自动化任务</div>';
+    if (!Object.keys(machines).length) html = '<div style="color:#8b8fa3;font-size:12px">暂无自动化任务</div>';
     listEl.innerHTML = html;
     if (targetEl) {
       const all = ['chengzigedeAir','5kechengdeAir','7kecheng'].concat(Object.keys(machines));
       targetEl.innerHTML = '<option value="">选择目标...</option>'+all.filter((v,i,a)=>a.indexOf(v)===i).map(m=>'<option value="'+m+'">'+m+'</option>').join('');
     }
     if (historyEl) {
-      if (!history.length) { historyEl.innerHTML = '<div style="color:var(--text2);font-size:12px">暂无执行历史</div>'; return; }
+      if (!history.length) { historyEl.innerHTML = '<div style="color:#8b8fa3;font-size:12px">暂无执行历史</div>'; return; }
       historyEl.innerHTML = history.map(h => {
         const cl = h.status==='completed'?'#22c55e':(h.status==='failed'?'#ef4444':'#f59e0b');
-        return '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid var(--border);font-size:11px">'+
+        return '<div style="display:flex;gap:6px;padding:3px 0;border-bottom:1px solid #2a2d3e;font-size:11px">'+
           '<span style="color:'+cl+'">●</span>'+
           '<span style="width:60px">'+(h.type||'-')+'</span>'+
-          '<span style="color:var(--text2);width:80px">'+(h.target||'-')+'</span>'+
-          '<span style="color:var(--text2);font-size:10px">'+(h.time||'-')+'</span>'+
-          '<span style="color:var(--text2);font-size:10px;margin-left:auto">'+(h.output||'').slice(0,30)+'</span></div>';
+          '<span style="color:#8b8fa3;width:80px">'+(h.target||'-')+'</span>'+
+          '<span style="color:#8b8fa3;font-size:10px">'+(h.time||'-')+'</span>'+
+          '<span style="color:#8b8fa3;font-size:10px;margin-left:auto">'+(h.output||'').slice(0,30)+'</span></div>';
       }).join('');
     }
-  } catch(e) { if (listEl) listEl.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
+  } catch(e) { if (listEl) listEl.innerHTML = '<span style="color:#ef4444">'+e.message+'</span>'; }
 }
 async function autoCreateTask() {
   const target = document.getElementById('autoTarget')?.value;

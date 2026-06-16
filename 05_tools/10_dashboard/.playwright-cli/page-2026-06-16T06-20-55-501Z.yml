@@ -1,0 +1,88 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - heading "🖥 AgentOS v4" [level=1] [ref=e4] [cursor=pointer]:
+        - text: 🖥 AgentOS
+        - generic [ref=e5]: v4
+      - generic "折叠侧边栏" [ref=e6] [cursor=pointer]: ◀
+    - generic [ref=e8]:
+      - generic [ref=e9] [cursor=pointer]:
+        - text: 📊 概览状态
+        - generic [ref=e10]: ▶
+      - generic:
+        - generic [ref=e11] [cursor=pointer]: 联邦机器
+        - generic [ref=e12] [cursor=pointer]: 告警中心
+        - generic [ref=e13] [cursor=pointer]: 统计概览
+        - generic [ref=e14] [cursor=pointer]: 系统核心
+      - generic [ref=e15] [cursor=pointer]:
+        - text: 📡 内容采集
+        - generic [ref=e16]: ▶
+      - generic [ref=e17] [cursor=pointer]: 采集管理
+      - generic [ref=e18] [cursor=pointer]:
+        - text: 🎬 视频工厂
+        - generic [ref=e19]: ▶
+      - generic:
+        - generic [ref=e20] [cursor=pointer]: 角色管理
+        - generic [ref=e21] [cursor=pointer]: 角色生成
+        - generic [ref=e22] [cursor=pointer]: 原子能力
+        - generic [ref=e23] [cursor=pointer]: 工作流
+      - generic [ref=e24] [cursor=pointer]:
+        - text: 📡 矩阵系统
+        - generic [ref=e25]: ▶
+      - generic:
+        - generic [ref=e26] [cursor=pointer]: 身份与账号
+        - generic [ref=e27] [cursor=pointer]: 命令与任务
+        - generic [ref=e28] [cursor=pointer]: 蓝图编排
+        - generic [ref=e29] [cursor=pointer]: 原子操作
+        - generic [ref=e30] [cursor=pointer]: 录制管理
+        - generic [ref=e31] [cursor=pointer]: ⚙️ 矩阵设置
+      - generic [ref=e32] [cursor=pointer]:
+        - text: ⚙️ 智能系统设置
+        - generic [ref=e33]: ▶
+      - generic:
+        - generic [ref=e34] [cursor=pointer]: 知识库
+        - generic [ref=e35] [cursor=pointer]: 记忆库
+        - generic [ref=e36] [cursor=pointer]: 联邦系统说明
+        - generic [ref=e37] [cursor=pointer]: 技能与工具
+      - generic [ref=e38] [cursor=pointer]:
+        - text: ⏰ 自动化任务
+        - generic [ref=e39]: ▶
+      - generic [ref=e40] [cursor=pointer]: 任务管理
+      - generic [ref=e41] [cursor=pointer]:
+        - text: 📡 社交矩阵
+        - generic [ref=e42]: ▶
+      - generic:
+        - generic [ref=e43] [cursor=pointer]: 账号管理
+        - generic [ref=e44] [cursor=pointer]: 运维执行
+        - generic [ref=e45] [cursor=pointer]: 内容编排
+        - generic [ref=e46] [cursor=pointer]: 任务调度
+        - generic [ref=e47] [cursor=pointer]: 系统设置
+      - generic [ref=e48] [cursor=pointer]:
+        - text: 🖥️ 联邦管理
+        - generic [ref=e49]: ▶
+      - generic:
+        - generic [ref=e50] [cursor=pointer]: 集群概览
+        - generic [ref=e51] [cursor=pointer]: 机器状态
+      - generic [ref=e52] [cursor=pointer]:
+        - text: ⚙️ 系统设置
+        - generic [ref=e53]: ▶
+      - generic [ref=e54] [cursor=pointer]: 知识库
+    - generic [ref=e56]:
+      - generic "折叠全部" [ref=e57] [cursor=pointer]: 📂
+      - generic [ref=e58] [cursor=pointer]: 🔄 同步
+      - generic [ref=e59] [cursor=pointer]: ⟳ 刷新
+  - main [ref=e60]:
+    - generic [ref=e62]:
+      - combobox [ref=e63]:
+        - option "全部策略" [selected]
+        - option "口播"
+        - option "卡点"
+        - option "数字人"
+        - option "test"
+      - combobox [ref=e64]:
+        - option "全部状态" [selected]
+        - option "已完成"
+        - option "失败"
+        - option "运行中"
+      - textbox "搜索脚本名称..." [ref=e65]
+      - button "查询" [ref=e66] [cursor=pointer]
