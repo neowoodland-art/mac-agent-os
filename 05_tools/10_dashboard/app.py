@@ -558,10 +558,49 @@ def api_git_sync():
 
 
 @app.get("/matrix-mgmt")
-def matrix_mgmt_page():
-    """重定向到统一 Dashboard (matrix_mgmt.html 功能已合并)"""
-    from starlette.responses import RedirectResponse
-    return RedirectResponse(url="/", status_code=301)
+async def matrix_mgmt_page():
+    """返回 matrix_mgmt.html 内容（旧版独立管理页）"""
+    path = _static_dir / "matrix_mgmt.html"
+    if not path.exists():
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url="/")
+    from starlette.responses import HTMLResponse
+    return HTMLResponse(content=path.read_text(encoding="utf-8"), status_code=200)
+
+
+@app.get("/api/matrix/cross-machines")
+def api_matrix_cross_machines():
+    """跨机器矩阵总览 - 聚合各机器账号状态"""
+    import sys
+    from pathlib import Path
+    _mgr_path = Path(__file__).resolve().parent.parent / "07_matrix" / "scripts" / "matrix_mgmt.py"
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("matrix_mgmt", _mgr_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mgr = mod.MatrixManager()
+        accounts = mgr.list_accounts() or []
+    except Exception:
+        accounts = []
+    
+    # 按owner_machine分组
+    machines = {}
+    for a in accounts:
+        m = a.get("owner_machine", "未分配")
+        if m not in machines:
+            machines[m] = {"hostname": m, "accounts": [], "total": 0, "logged_in": 0, "enabled": 0}
+        machines[m]["total"] += 1
+        if a.get("_status") == "logged_in" or a.get("has_cookie"):
+            machines[m]["logged_in"] += 1
+        if a.get("enabled"):
+            machines[m]["enabled"] += 1
+    
+    return {
+        "total_machines": len(machines),
+        "total_accounts": len(accounts),
+        "machines": [{"hostname": k, "total": v["total"], "logged_in": v["logged_in"], "enabled": v["enabled"]} for k, v in machines.items()],
+    }
 
 
 @app.get("/api/health")

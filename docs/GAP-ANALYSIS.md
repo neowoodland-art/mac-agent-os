@@ -122,7 +122,38 @@
 
 ---
 
-## 九、优先级建议
+## 九、API 审计结果（实测 2026-06-16）
+
+| API 路径 | 状态 | 说明 |
+|:---------|:----:|:-----|
+| `/api/matrix/accounts` | ✅ 200 | 30 accounts |
+| `/api/matrix/identities` | ✅ 200 | 4 identities |
+| `/api/matrix/blueprints` | ✅ 200 | 14 blueprints |
+| `/api/matrix/collect-homepage/*` | ✅ 200 | 3 endpoints |
+| `/api/matrix/nurture/*` | ✅ 200 | preview/start/status |
+| `/api/matrix/recordings/*` | ✅ 200 | list/stats |
+| `/api/matrix/sms/*` | ✅ 200 | config/accounts/test |
+| `/api/matrix/schedules` | ✅ 200 | 在 sms_proxy_api.py |
+| `/api/matrix/proxies` | ✅ 200 | 在 sms_proxy_api.py |
+| `/api/matrix/task/run` | ✅ 200 | 支持 type=comment |
+| `/api/matrix/accounts/register` | ✅ 200 | 在 sms_proxy_api.py |
+| `/api/federation/accounts` | ✅ 200 | 67联邦账号 |
+| `/api/matrix/cross-machines` | ✅ 200 | **刚刚修复** |
+| `/matrix-mgmt` | ✅ 200 | **刚刚修复** (返回HTML) |
+| `/api/matrix/schedule/list` | ❌ 404 | 前端路径错误，应为 `/api/matrix/schedules` |
+| `/api/matrix/proxy/list` | ❌ 404 | 前端路径错误，应为 `/api/matrix/proxies` |
+| `/api/matrix/task/comment` | ❌ 404 | 前端路径错误，应用 `/api/matrix/task/run` (type=comment) |
+| `/api/matrix/corpus/batch-add` | ❌ 404 | 语料库批量添加API缺失 |
+| `/api/matrix/corpus/delete` | ❌ 404 | 语料库删除API缺失 |
+
+### 需前端修正的路径错配
+- `proxy/list` → `proxies` (sms_proxy_api.py)
+- `schedule/list` → `schedules` (sms_proxy_api.py)
+- `task/comment` → `task/run` with `type=comment` (sms_proxy_api.py)
+
+---
+
+## 十、优先级建议（修订版）
 
 ```
 P0（本周） ─── 矩阵养号核心功能完善
