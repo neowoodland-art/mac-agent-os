@@ -2971,107 +2971,47 @@ async function loadSmsAccounts() {
       personas = pd.personas || {};
     } catch(e) { /* ignore */ }
 
-    // 账号管理卡片（以手机号为单位，含身份信息+录制统计）
+    // 账号管理 — 表格视图（参照原始matrix_mgmt.html）
     if (overview) {
       const dot = (ok) => ok ? '✅' : '❌';
-      // 加载录制统计
-      let recStats = {};
-      try {
-        const rr = await fetch('/api/matrix/recordings/stats');
-        const rd = await rr.json();
-        recStats = rd.stats || {};
-      } catch(e) { /* ignore */ }
+      const machineLabel = (a) => a.owner_machine || (a.is_local ? '本机' : '远程');
+      const isRemote = (a) => !a.is_local && a.owner_machine;
+      const loginDisabled = (a) => a.busy || isRemote(a);
+      const loginTitle = (a) => a.busy ? '忙碌中' : (isRemote(a) ? '需在 '+machineLabel(a)+' 操作' : '登录');
+      const clearTitle = (a) => a.busy ? '忙碌中' : (isRemote(a) ? '需在 '+machineLabel(a)+' 操作' : '清除');
+      const delTitle = (a) => a.busy ? '忙碌中' : (isRemote(a) ? '需在 '+machineLabel(a)+' 操作' : '删除');
 
-      // 账号管理卡片 — 所有机器的账号（按机器+手机号分组）
-      const groups = {};
-      accounts.forEach(a => {
-        const machine = a.owner_machine || (a.is_local ? '本机' : '远程');
-        const phone = a.phone || '未设置手机号';
-        const groupKey = machine + '|' + phone;
-        if (!groups[groupKey]) {
-          groups[groupKey] = { machine, phone, accts: [], machineLabel: '' };
-        }
-        groups[groupKey].accts.push(a);
-      });
-      const personaData = personas || {};
-
-      overview.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:10px">'+
-        Object.values(groups).map(({machine, phone, accts}) => {
-          const sharedIdent = accts.find(a => (a.identity_dir||'').startsWith('phone_'))?.identity_dir
-            || accts.find(a => a.has_identity)?.id
-            || accts[0]?.id;
-          const pid = accts[0]?.id || '';
-          const pdata = personaData[pid] || {};
-          const interests = (pdata.interests||[]).slice(0,3).join('·');
-          const style = (pdata.comment_style||[]).slice(0,2).join('/');
-          // 该身份下录制次数
-          const acctIds = accts.map(a => a.id);
-          const recCount = acctIds.reduce((s, id) => s + (recStats[id] || 0), 0);
-
-          const fmtNum = (v) => { if (!v || v === '?' || v === '-') return '-'; const n=parseInt(v); if(isNaN(n)) return v; if(n>=10000) return (n/10000).toFixed(1)+'w'; if(n>=1000) return (n/1000).toFixed(1)+'k'; return n; };
-          const platRow = (a) => {
-            const icon = a.platform === 'xiaohongshu' ? '📕' : '🎵';
-            const platName = a.platform === 'xiaohongshu' ? '小红书' : '抖音';
-            // 指纹模拟信息
-            const fp = a.fingerprint || {};
-            const fpPlatform = fp.platform || '';
-            const fpScreen = fp.screen || '';
-            const fpGPU = fp.gpu || '';
-            const fpSummary = fpPlatform ? (fpPlatform + ' | ' + fpScreen + ' | ' + fpGPU) : '';
-            const machineLabel = a.owner_machine || (a.is_local ? '本机' : '远程');
-            const isRemote = !a.is_local && a.owner_machine;
-            const isBusy = a.busy;
-            // 忙碌显示
-            const busyIcon = isBusy ? '<span style="color:var(--amber);font-size:9px" title="忙碌中">⏳</span>' : '';
-            // 按钮状态
-            const loginDisabled = isBusy || isRemote;
-            const clearDisabled = isBusy || isRemote;
-            const deleteDisabled = isBusy || isRemote;
-            const loginBtnStyle = loginDisabled ? 'opacity:.3;cursor:not-allowed' : 'cursor:pointer';
-            const clearBtnStyle = clearDisabled ? 'opacity:.3;cursor:not-allowed' : 'cursor:pointer';
-            const delBtnStyle = deleteDisabled ? 'opacity:.3;cursor:not-allowed' : 'cursor:pointer';
-            const loginTitle = isBusy ? '账号忙碌中' : (isRemote ? '需在 '+machineLabel+' 操作' : '登录');
-            const clearTitle = isBusy ? '账号忙碌中' : (isRemote ? '需在 '+machineLabel+' 操作' : '清除登录');
-            const delTitle = isBusy ? '账号忙碌中' : (isRemote ? '需在 '+machineLabel+' 操作' : '删除');
-            return '<div style="display:flex;align-items:center;gap:3px;padding:3px 0;border-bottom:1px solid var(--border)">'+
-              '<span style="width:38px;font-size:10px">'+icon+' '+platName+'</span>'+
-              '<span style="width:18px;font-size:10px">'+dot(a.has_cookie)+'</span>'+
-              '<span style="width:18px;font-size:10px">'+dot(a.has_profile)+'</span>'+
-              '<span style="width:18px;font-size:10px">'+dot(a.has_registry)+'</span>'+
-              '<span style="width:28px;font-size:9px;color:var(--text2);text-align:center">'+(recStats[a.id]||0)+'次'+busyIcon+'</span>'+
-              '<span style="flex:1;font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis" title="'+machineLabel+'">'+a.nickname+'</span>'+
-              '<span style="width:36px;font-size:9px;color:var(--text2);text-align:center" title="粉丝">📊'+fmtNum(a.fans)+'</span>'+
-              '<span style="width:60px;font-size:9px;color:var(--primary);text-align:center;overflow:hidden" title="'+machineLabel+'">'+machineLabel.slice(0,8)+'</span>'+
-              '<span style="width:20px;font-size:9px;color:var(--text2);text-align:center;overflow:hidden">'+fpPlatform.slice(0,6)+'</span>'+
-              '<button onclick="'+(loginDisabled?'':"accountLogin('"+a.id+"')")+'" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 4px;border-radius:3px;font-size:9px;'+loginBtnStyle+'" title="'+loginTitle+'">🔑</button>'+
-              '<button onclick="'+(clearDisabled?'':"clearCookies('"+a.id+"','"+a.platform+"')")+'" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:2px 4px;border-radius:3px;font-size:9px;'+clearBtnStyle+'" title="'+clearTitle+'">🚫</button>'+
-              '<button onclick="'+(deleteDisabled?'':"deleteAccount('"+a.id+"')")+'" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:2px 4px;border-radius:3px;font-size:9px;'+delBtnStyle+'" title="'+delTitle+'">🗑</button>'+
-            '</div>';
-          };
-
-          return '<div style="background:var(--bg3);border-radius:8px;padding:10px;border:1px solid var(--border)">'+
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
-              '<div><span style="font-weight:700;font-size:14px">📱 '+phone+'</span>'+
-              '<span style="font-size:9px;color:var(--text2);margin-left:6px">🆔 '+sharedIdent+'</span>'+
-              '<span style="font-size:9px;color:var(--primary);margin-left:6px">🖥️ '+machine+'</span></div>'+
-              '<span style="font-size:9px;color:var(--text2)">🍪 '+(accts.reduce((s,a)=>s+(a.has_cookie?1:0),0))+'已登录 | 📦 '+recCount+'次录制</span>'+
-            '</div>'+
-            (interests ? '<div style="font-size:10px;color:var(--text2);margin-bottom:4px">🎯 '+interests+(style?' | 💬 '+style:'')+'</div>' : '')+
-            '<div style="display:grid;grid-template-columns:38px 18px 18px 18px 28px 1fr 36px 60px 22px 22px;gap:2px;font-size:9px;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border);margin-bottom:2px">'+
-              '<span>平台</span><span>登录</span><span>昵称</span><span>同步</span><span>录制</span><span>名称</span><span>粉丝</span><span>指纹</span><span></span><span></span>'+
-            '</div>'+
-            accts.map(platRow).join('')+
-            '<div style="margin-top:6px;display:flex;gap:4px">'+
-              '<button onclick="loadSmsAccounts()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新展示</button>'+
-              (machine==='本机'||machine===window.location.hostname
-                ? '<button onclick="loginAllPlatforms(\''+phone+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 全部登录</button>'+
-                  '<button onclick="collectAllPlatforms(\''+phone+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">👤 全部采集</button>'+
-                  '<button onclick="deleteIdentityByPhone(\''+phone+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除整个身份</button>'
-                : '<span style="font-size:10px;color:var(--text2);padding:3px 0">📡 操作需在 '+machine+' 上执行</span>'
-              )+
-            '</div>'+
-          '</div>';
-        }).join('')+'</div>';
+      overview.innerHTML = '<table style="width:100%;font-size:12px"><thead><tr>'+
+        '<th>ID</th><th>平台</th><th>手机</th><th>机器</th><th>登录</th><th>昵称</th>'+
+        '<th>身份</th><th>操作</th></tr></thead><tbody>'+
+        accounts.map(function(a) {
+          var ml = machineLabel(a);
+          var rem = isRemote(a);
+          var busy = a.busy;
+          var icon = a.platform === 'xiaohongshu' ? '📕' : '🎵';
+          var platName = a.platform === 'xiaohongshu' ? '小红书' : '抖音';
+          var ld = loginDisabled(a);
+          var lt = loginTitle(a);
+          var ct = clearTitle(a);
+          var dt = delTitle(a);
+          var lop = ld ? '' : "accountLogin('"+a.id+"')";
+          var cop = ld ? '' : "clearCookies('"+a.id+"','"+a.platform+"')";
+          var dop = ld ? '' : "deleteAccount('"+a.id+"')";
+          var los = ld ? 'opacity:.3;cursor:not-allowed' : 'cursor:pointer';
+          return '<tr>'+
+            '<td style="padding:4px 6px;font-size:11px">'+a.id+'</td>'+
+            '<td style="padding:4px 6px">'+icon+' '+platName+'</td>'+
+            '<td style="padding:4px 6px;font-size:11px;color:var(--text2)">'+(a.phone||'')+'</td>'+
+            '<td style="padding:4px 6px;font-size:11px;color:var(--primary)">'+ml+'</td>'+
+            '<td style="padding:4px 6px;text-align:center">'+dot(a.has_cookie)+'</td>'+
+            '<td style="padding:4px 6px;font-size:11px">'+a.nickname+'</td>'+
+            '<td style="padding:4px 6px;font-size:10px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis">'+(a.identity_dir||'')+'</td>'+
+            '<td style="padding:4px 6px;white-space:nowrap">'+
+              '<button onclick="'+lop+'" style="background:transparent;border:none;font-size:11px;'+los+'" title="'+lt+'">🔑</button>'+
+              '<button onclick="'+cop+'" style="background:transparent;border:none;font-size:11px;'+los+'" title="'+ct+'">🚫</button>'+
+              '<button onclick="'+dop+'" style="background:transparent;border:none;font-size:11px;'+los+'" title="'+dt+'">🗑</button>'+
+            '</td></tr>';
+        }).join('')+'</tbody></table>';
     }
   } catch(e) {
     if (overview) overview.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';

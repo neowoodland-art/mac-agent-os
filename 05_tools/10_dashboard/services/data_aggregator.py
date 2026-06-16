@@ -76,31 +76,48 @@ def aggregate_accounts():
     machines = _get_machines()
     all_accounts = []
     
-    # 先加本机数据
+    # 先加本机数据（只取本机账号）
     try:
         import urllib.request, json as _json
         local_resp = urllib.request.urlopen("http://localhost:9988/api/matrix/accounts", timeout=5)
         local_data = _json.loads(local_resp.read())
         if isinstance(local_data, list):
             for acct in local_data:
+                if acct.get("owner_machine", "") != HOSTNAME:
+                    continue
                 acct["_source_machine"] = HOSTNAME
                 acct["is_local"] = True
                 all_accounts.append(acct)
     except Exception:
         pass
     
+    # 去重集合: (machine, account_id)
+    seen = set()
+    
     for m in machines:
         data = fetch_machine_data(m, "/api/matrix/accounts")
         if isinstance(data, list):
             for acct in data:
+                # 只取该机器自己的账号（去重）
+                if acct.get("owner_machine", "") != m["name"]:
+                    continue
+                key = m["name"] + "|" + acct.get("id", "")
+                if key in seen:
+                    continue
+                seen.add(key)
                 acct["_source_machine"] = m["name"]
-                # 非本机账号标记 is_local = False
                 acct["is_local"] = False
                 all_accounts.append(acct)
         elif isinstance(data, dict) and "error" not in data:
             accts = data.get("data", data.get("accounts", []))
             if isinstance(accts, list):
                 for acct in accts:
+                    if acct.get("owner_machine", "") != m["name"]:
+                        continue
+                    key = m["name"] + "|" + acct.get("id", "")
+                    if key in seen:
+                        continue
+                    seen.add(key)
                     acct["_source_machine"] = m["name"]
                     acct["is_local"] = False
                     all_accounts.append(acct)
