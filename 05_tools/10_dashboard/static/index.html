@@ -2937,6 +2937,8 @@ async function loadSmsAccounts() {
           likes: a.likes || '?',
           identity_dir: a.identity_dir || '',
           fingerprint: a.fingerprint || {},
+          busy: a.busy || false,
+          busy_since: a.busy_since || '',
         }));
         fedOk = true;
       }
@@ -3017,19 +3019,33 @@ async function loadSmsAccounts() {
             const fpGPU = fp.gpu || '';
             const fpSummary = fpPlatform ? (fpPlatform + ' | ' + fpScreen + ' | ' + fpGPU) : '';
             const machineLabel = a.owner_machine || (a.is_local ? '本机' : '远程');
+            const isRemote = !a.is_local && a.owner_machine;
+            const isBusy = a.busy;
+            // 忙碌显示
+            const busyIcon = isBusy ? '<span style="color:var(--amber);font-size:9px" title="忙碌中">⏳</span>' : '';
+            // 按钮状态
+            const loginDisabled = isBusy || isRemote;
+            const clearDisabled = isBusy || isRemote;
+            const deleteDisabled = isBusy || isRemote;
+            const loginBtnStyle = loginDisabled ? 'opacity:.3;cursor:not-allowed' : 'cursor:pointer';
+            const clearBtnStyle = clearDisabled ? 'opacity:.3;cursor:not-allowed' : 'cursor:pointer';
+            const delBtnStyle = deleteDisabled ? 'opacity:.3;cursor:not-allowed' : 'cursor:pointer';
+            const loginTitle = isBusy ? '账号忙碌中' : (isRemote ? '需在 '+machineLabel+' 操作' : '登录');
+            const clearTitle = isBusy ? '账号忙碌中' : (isRemote ? '需在 '+machineLabel+' 操作' : '清除登录');
+            const delTitle = isBusy ? '账号忙碌中' : (isRemote ? '需在 '+machineLabel+' 操作' : '删除');
             return '<div style="display:flex;align-items:center;gap:3px;padding:3px 0;border-bottom:1px solid var(--border)">'+
               '<span style="width:38px;font-size:10px">'+icon+' '+platName+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_cookie)+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_profile)+'</span>'+
               '<span style="width:18px;font-size:10px">'+dot(a.has_registry)+'</span>'+
-              '<span style="width:28px;font-size:9px;color:var(--text2);text-align:center">'+(recStats[a.id]||0)+'次</span>'+
+              '<span style="width:28px;font-size:9px;color:var(--text2);text-align:center">'+(recStats[a.id]||0)+'次'+busyIcon+'</span>'+
               '<span style="flex:1;font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis" title="'+machineLabel+'">'+a.nickname+'</span>'+
               '<span style="width:36px;font-size:9px;color:var(--text2);text-align:center" title="粉丝">📊'+fmtNum(a.fans)+'</span>'+
               '<span style="width:60px;font-size:9px;color:var(--primary);text-align:center;overflow:hidden" title="'+machineLabel+'">'+machineLabel.slice(0,8)+'</span>'+
-              '<span style="width:20px;font-size:9px;color:var(--text2);text-align:center;overflow:hidden" title="指纹模拟: '+fpSummary+'">'+fpPlatform.slice(0,6)+'</span>'+
-              '<button onclick="accountLogin(\''+a.id+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="登录">🔑</button>'+
-              '<button onclick="clearCookies(\''+a.id+'\',\''+a.platform+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="清除登录">🚫</button>'+
-              '<button onclick="deleteAccount(\''+a.id+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:2px 4px;border-radius:3px;cursor:pointer;font-size:9px" title="删除">🗑</button>'+
+              '<span style="width:20px;font-size:9px;color:var(--text2);text-align:center;overflow:hidden">'+fpPlatform.slice(0,6)+'</span>'+
+              '<button onclick="'+(loginDisabled?'':"accountLogin('"+a.id+"')")+'" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 4px;border-radius:3px;font-size:9px;'+loginBtnStyle+'" title="'+loginTitle+'">🔑</button>'+
+              '<button onclick="'+(clearDisabled?'':"clearCookies('"+a.id+"','"+a.platform+"')")+'" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:2px 4px;border-radius:3px;font-size:9px;'+clearBtnStyle+'" title="'+clearTitle+'">🚫</button>'+
+              '<button onclick="'+(deleteDisabled?'':"deleteAccount('"+a.id+"')")+'" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:2px 4px;border-radius:3px;font-size:9px;'+delBtnStyle+'" title="'+delTitle+'">🗑</button>'+
             '</div>';
           };
 
@@ -3047,9 +3063,12 @@ async function loadSmsAccounts() {
             accts.map(platRow).join('')+
             '<div style="margin-top:6px;display:flex;gap:4px">'+
               '<button onclick="loadSmsAccounts()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新展示</button>'+
-              '<button onclick="loginAllPlatforms(\''+phone+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 全部登录</button>'+
-              '<button onclick="collectAllPlatforms(\''+phone+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">👤 全部采集</button>'+
-              '<button onclick="deleteIdentityByPhone(\''+phone+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除整个身份</button>'+
+              (machine==='本机'||machine===window.location.hostname
+                ? '<button onclick="loginAllPlatforms(\''+phone+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 全部登录</button>'+
+                  '<button onclick="collectAllPlatforms(\''+phone+'\')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">👤 全部采集</button>'+
+                  '<button onclick="deleteIdentityByPhone(\''+phone+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除整个身份</button>'
+                : '<span style="font-size:10px;color:var(--text2);padding:3px 0">📡 操作需在 '+machine+' 上执行</span>'
+              )+
             '</div>'+
           '</div>';
         }).join('')+'</div>';

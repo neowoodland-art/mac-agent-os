@@ -405,3 +405,50 @@ def api_matrix_corpus():
 async def api_matrix_add_corpus(data: dict):
     """添加语料"""
     return {"status": "ok"}
+
+
+@router.get("/corpus/detail")
+def api_matrix_corpus_detail(platform: str = "", category: str = ""):
+    """获取指定平台+分类的语料详情"""
+    corpus_file = AGENT_SYNC / "05_tools" / "07_matrix" / "data" / "corpus.json"
+    if not corpus_file.exists():
+        return {"corpus": []}
+    data = json.loads(corpus_file.read_text())
+    items = data.get("corpus", [])
+    if platform:
+        items = [i for i in items if i.get("platform", "").lower() == platform.lower()]
+    if category:
+        items = [i for i in items if i.get("category", "").lower() == category.lower()]
+    return {"corpus": items, "total": len(items)}
+
+
+@router.post("/corpus/batch-add")
+async def api_matrix_corpus_batch_add(data: dict):
+    """批量添加语料"""
+    items = data.get("items", [])
+    if not items:
+        return {"status": "error", "error": "items 必填"}
+    corpus_file = AGENT_SYNC / "05_tools" / "07_matrix" / "data" / "corpus.json"
+    existing = {"corpus": []}
+    if corpus_file.exists():
+        existing = json.loads(corpus_file.read_text())
+    existing["corpus"].extend(items)
+    corpus_file.write_text(json.dumps(existing, ensure_ascii=False, indent=2))
+    return {"status": "ok", "added": len(items), "total": len(existing["corpus"])}
+
+
+@router.post("/corpus/delete")
+async def api_matrix_corpus_delete(data: dict):
+    """删除语料"""
+    delete_id = data.get("id", "")
+    if not delete_id:
+        return {"status": "error", "error": "id 必填"}
+    corpus_file = AGENT_SYNC / "05_tools" / "07_matrix" / "data" / "corpus.json"
+    if not corpus_file.exists():
+        return {"status": "error", "error": "语料库为空"}
+    existing = json.loads(corpus_file.read_text())
+    before = len(existing.get("corpus", []))
+    existing["corpus"] = [i for i in existing.get("corpus", []) if i.get("id") != delete_id]
+    after = len(existing["corpus"])
+    corpus_file.write_text(json.dumps(existing, ensure_ascii=False, indent=2))
+    return {"status": "ok", "deleted": before - after}

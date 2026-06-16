@@ -309,7 +309,8 @@ def _account_status(a: dict) -> dict:
                     break
         except: pass
     return {"has_identity": has_identity, "has_cookie": has_cookie,
-            "has_profile": has_profile, "has_registry": has_registry}
+            "has_profile": has_profile, "has_registry": has_registry,
+            "busy": False, "busy_since": ""}
 
 
 @router.get("/sms/accounts")
@@ -387,6 +388,10 @@ def api_sms_accounts():
                     fingerprint = cfg.get("fingerprint_summary", {}) or {}
                 except: pass
 
+            # 检查账号忙碌状态
+            busy = st.get("busy", False)
+            busy_since = st.get("busy_since", "")
+            
             result.append({
                 "id": aid, "phone": phone,
                 "nickname": nick, "platform": a.get("platform", ""),
@@ -402,6 +407,8 @@ def api_sms_accounts():
                 "likes": hp_plat.get("likes") or p.get("likes", "?"),
                 "identity_dir": a.get("identity_dir", ""),
                 "fingerprint": fingerprint,
+                "busy": busy,
+                "busy_since": busy_since,
             })
         return {"accounts": result}
     except Exception as e:
