@@ -1061,7 +1061,7 @@ function switchView(view) {
   if (view === 'capabilities') loadCapabilities();
   if (view === 'workflow') loadWorkflow();
   if (view === 'machines') loadMachines();
-  if (view === 'matrix-sms-proxy') loadMatrixAccounts();
+  if (view === 'matrix-sms-proxy') loadSmsProxy();
   if (view === 'matrix-nurture') loadMatrixNurture();
   if (view === 'matrix-collect') loadMatrixCollect();
   if (view === 'matrix-publish') loadMatrixPublish();
@@ -1873,7 +1873,7 @@ async function loadMatrixAccounts() {
     } catch(e) { /* ignore */ }
     const r = await fetch('/api/matrix/accounts');
     const d = await r.json();
-    _accountsData = d.accounts || [];
+    _accountsData = Array.isArray(d) ? d : (d.accounts || []);
     if (!_accountsData.length) { el.innerHTML = machinesInfo+'<div class="error">暂无账号</div>'; return; }
     el.innerHTML = machinesInfo;
     renderAccountsTable();
