@@ -120,8 +120,8 @@ def exec_collect(machine: str, phone: str = "") -> dict:
 
 
 def exec_login(machine: str, account_id: str) -> dict:
-    """在远程机器登录账号（交互式浏览器，立即返回）"""
-    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m mc account login {account_id}"
+    """在远程机器智能登录（全自动，立即返回）"""
+    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m mc smart-login {account_id}"
     return exec_remote(machine, cmd, timeout=120, fire_and_forget=True)
 
 

@@ -526,14 +526,15 @@ async def api_account_register(request: Request):
 
 @router.post("/accounts/{account_id}/login")
 def api_account_login(account_id: str):
-    """重新打开浏览器登录"""
+    """智能登录: 前置检测 + 自动平台路由 + 全自动登录"""
     agent_python = str(HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
     import subprocess
     try:
+        # 使用 smart-login: 自动检测平台 + 前置检测 + 全自动
         p = subprocess.Popen(
-            [agent_python, "-m", "mc", "account", "login", account_id],
+            [agent_python, "-m", "mc", "smart-login", account_id],
             cwd=str(SCRIPTS_DIR), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return {"status": "ok", "pid": p.pid, "message": f"浏览器已打开，请登录 {account_id}"}
+        return {"status": "ok", "pid": p.pid, "message": f"智能登录已启动: {account_id}"}
     except Exception as e:
         return {"status": "error", "error": str(e)}
 

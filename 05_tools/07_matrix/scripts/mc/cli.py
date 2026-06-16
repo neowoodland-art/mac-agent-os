@@ -695,6 +695,103 @@ def cmd_login(args):
     subprocess.Popen(cmd, cwd=str(SCRIPTS_DIR))
 
 
+# ═══════════════════════════════════════════════════════════════
+# 智能登录路由
+# ═══════════════════════════════════════════════════════════════
+
+def cmd_smart_login(args):
+    """mc smart-login — 智能全自动登录（自动匹配平台 + 前置检测）"""
+    account_id = args.account_id
+    phone = args.phone
+    timeout = args.timeout
+    skip_check = args.skip_check
+    
+    # ── 前置检测: 从账号信息获取 platform 和 phone ──
+    platform = "douyin"  # 默认
+    try:
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        for a in mgr.list_accounts():
+            if a["id"] == account_id:
+                p = a.get("platform", "")
+                if p in ("douyin", "xiaohongshu"):
+                    platform = p
+                if not phone:
+                    phone = a.get("phone", "")
+                break
+    except Exception:
+        pass
+    
+    print(f"{'='*55}")
+    print(f" 🔐 智能登录: {account_id}")
+    print(f"    平台: {platform}")
+    print(f"    手机: {phone or '从配置读取'}")
+    print(f"{'='*55}")
+    
+    # ── 前置检测: 检查是否已登录（非强制登录时）──
+    if not skip_check:
+        try:
+            # 检查本地 cookie 状态
+            from pathlib import Path
+            home = Path.home()
+            identities_root = home / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "identities"
+            
+            # 查找该账号的 identity_dir
+            acct_identity = account_id
+            try:
+                for a in mgr.list_accounts():
+                    if a["id"] == account_id:
+                        acct_identity = (a.get("identity_dir") or a.get("identity_hint") or account_id).replace("identities/", "")
+                        break
+            except Exception:
+                pass
+            
+            identity_path = identities_root / acct_identity / "user_data"
+            cookie_file = identity_path / "cookies.sqlite"
+            
+            if cookie_file.exists():
+                import sqlite3
+                try:
+                    conn = sqlite3.connect(str(cookie_file), timeout=3)
+                    cur = conn.execute(
+                        "SELECT count(*) FROM moz_cookies WHERE name LIKE '%session%'"
+                    )
+                    session_count = cur.fetchone()[0]
+                    conn.close()
+                    
+                    if session_count > 0:
+                        print(f"\n  ✅ 已检测到登录态 (session cookie x{session_count})")
+                        print(f"     如需重新登录请使用 --skip-check 参数")
+                        return
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    
+    # ── 按平台路由到对应登录脚本 ──
+    if platform == "xiaohongshu":
+        login_script = SCRIPTS_DIR / "matrix_modules" / "account" / "xiaohongshu_login.py"
+    else:
+        login_script = SCRIPTS_DIR / "matrix_modules" / "account" / "douyin_login.py"
+    
+    if not login_script.exists():
+        print(f"❌ 登录脚本不存在: {login_script}")
+        return
+    
+    cmd = [sys.executable, str(login_script), account_id]
+    if phone:
+        cmd += ["--phone", phone]
+    cmd += ["--timeout", str(timeout)]
+    
+    print(f"\n🚀 执行 {login_script.name}...")
+    print(f"   {' '.join(cmd)}")
+    print()
+    
+    # 同步运行（登录脚本会保持浏览器打开）
+    import subprocess
+    subprocess.run(cmd, cwd=str(SCRIPTS_DIR))
+
+
 # ════════════════════════════════════════════════════════════
 # 平台插件命令路由
 # ════════════════════════════════════════════════════════════
@@ -1203,6 +1300,16 @@ def build_parser(subparsers=None, plugin_name="mc"):
     p_login.add_argument("--account", default="", help="按账号ID登录")
     p_login.add_argument("--platform", default="auto", choices=["auto", "douyin", "xiaohongshu"], help="平台")
     p_login.set_defaults(func=cmd_login)
+
+    # ── smart-login — 智能登录（自动检测平台+状态+全自动）──
+    p_smart = sub.add_parser("smart-login", help="智能登录: 自动检测平台+状态+全自动")
+    p_smart.add_argument("account_id", help="账号 ID (如 douyin_01 / xhs_01)")
+    p_smart.add_argument("--phone", "-p", default="", help="手机号（选填）")
+    p_smart.add_argument("--timeout", "-t", type=int, default=30,
+                         help="浏览器超时自动关闭分钟数（默认 30）")
+    p_smart.add_argument("--skip-check", action="store_true",
+                         help="跳过登录态前置检测（强制重新登录）")
+    p_smart.set_defaults(func=cmd_smart_login)
 
     # ── remote — 远程多机命令 ──
     p_remote = sub.add_parser("remote", help="远程多机管理 (通过 Tailscale/SSH/HTTP)")

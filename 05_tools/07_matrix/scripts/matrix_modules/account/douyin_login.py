@@ -26,6 +26,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from cdp_connector import CDPConnector
+from browser_utils import GracefulBrowser
 from matrix_modules.account.sms_login import sms_login, has_login_panel
 from matrix_modules.account.sms import ApiSMSHandler
 
@@ -46,7 +47,7 @@ def write_op_log(account_id: str, platform: str, status: str, detail: str = ""):
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-async def douyin_login(account_id: str, phone: str = ""):
+async def douyin_login(account_id: str, phone: str = "", timeout_minutes: int = 30):
     # ── 自动更新 SMS API 配置 ──
     if phone:
         sms_yaml_path = SCRIPTS_DIR / "config" / "sms.yaml"
@@ -68,7 +69,14 @@ async def douyin_login(account_id: str, phone: str = ""):
     log(f"📁 身份目录: {identity_dir}")
 
     log("🚀 启动浏览器...")
-    conn = CDPConnector(identity_dir=identity_dir, headless=False, window=(702, 783), window_position=(0, 0))
+    conn = CDPConnector(identity_dir=identity_dir, headless=False,
+                        window=(702, 783), window_position=(0, 0))
+    
+    # 用 GracefulBrowser 包装（优雅退出 + 前置检查）
+    gb = GracefulBrowser(conn, account_id=account_id,
+                         timeout_minutes=timeout_minutes)
+    await gb.setup(check_running=True)
+    
     try:
         await conn.connect()
     except Exception as e:
@@ -135,18 +143,25 @@ async def douyin_login(account_id: str, phone: str = ""):
         log("❌ 登录失败")
         write_op_log(account_id, "douyin", "failed", "登录流程未完成")
 
-    log("\n✅ 浏览器保持打开，检查确认后按 Ctrl+C 关闭")
-    while True:
+    log("\n💡 浏览器保持打开，超时自动关闭")
+    gb.start_auto_shutdown_timer()
+    
+    # 等待直到超时自动关闭或被信号中断
+    while not gb._shutdown_flag:
         await asyncio.sleep(10)
+
+    return logged_in
 
 
 def main():
     parser = argparse.ArgumentParser(description="抖音账号登录接入")
     parser.add_argument("account_id", help="账号 ID（如 douyin_137）")
     parser.add_argument("--phone", "-p", default="", help="手机号（选填，默认从 accounts.yaml 读取）")
+    parser.add_argument("--timeout", "-t", type=int, default=30,
+                        help="超时自动关闭分钟数（默认 30）")
     args = parser.parse_args()
     print(f"\n{'='*55}\n 📱 抖音登录接入: {args.account_id}\n{'='*55}\n")
-    asyncio.run(douyin_login(args.account_id, args.phone))
+    asyncio.run(douyin_login(args.account_id, args.phone, args.timeout))
 
 if __name__ == "__main__":
     main()
