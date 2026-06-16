@@ -2971,7 +2971,7 @@ async function loadSmsAccounts() {
       personas = pd.personas || {};
     } catch(e) { /* ignore */ }
 
-    // 账号管理 — 表格视图（参照原始matrix_mgmt.html）
+    // 账号管理 — 身份卡片（手机号分组）+ 账号列表（表格）
     if (overview) {
       const dot = (ok) => ok ? '✅' : '❌';
       const machineLabel = (a) => a.owner_machine || (a.is_local ? '本机' : '远程');
@@ -2980,38 +2980,112 @@ async function loadSmsAccounts() {
       const loginTitle = (a) => a.busy ? '忙碌中' : (isRemote(a) ? '需在 '+machineLabel(a)+' 操作' : '登录');
       const clearTitle = (a) => a.busy ? '忙碌中' : (isRemote(a) ? '需在 '+machineLabel(a)+' 操作' : '清除');
       const delTitle = (a) => a.busy ? '忙碌中' : (isRemote(a) ? '需在 '+machineLabel(a)+' 操作' : '删除');
+      const btnStyle = (a, disabled) => disabled ? 'opacity:.3;cursor:not-allowed' : 'cursor:pointer';
+      
+      // 加载录制统计
+      let recStats = {};
+      try { 
+        const rr = await fetch('/api/matrix/recordings/stats');
+        const rd = await rr.json();
+        recStats = rd.stats || {};
+      } catch(e) {}
 
-      overview.innerHTML = '<table style="width:100%;font-size:12px"><thead><tr>'+
-        '<th>ID</th><th>平台</th><th>手机</th><th>机器</th><th>登录</th><th>昵称</th>'+
-        '<th>身份</th><th>操作</th></tr></thead><tbody>'+
+      // ═══ 上部: 身份卡片（按手机号分组）═══
+      const groups = {};
+      accounts.forEach(a => {
+        const m = machineLabel(a);
+        const p = a.phone || '未设置手机号';
+        const key = m + '|' + p;
+        if (!groups[key]) groups[key] = { machine: m, phone: p, accts: [] };
+        groups[key].accts.push(a);
+      });
+      
+      var cardsHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px;margin-bottom:16px">'+
+        Object.values(groups).map(function(g) {
+          var accts = g.accts;
+          var sharedIdent = accts.find(function(a){return (a.identity_dir||'').startsWith('phone_');})?.identity_dir
+            || accts.find(function(a){return a.has_identity;})?.id || accts[0]?.id;
+          var recCount = accts.reduce(function(s,a){return s+(recStats[a.id]||0);},0);
+          var cooked = accts.reduce(function(s,a){return s+(a.has_cookie?1:0);},0);
+          var fmtNum = function(v) { if(!v||v==='?'||v==='-')return'-';var n=parseInt(v);if(isNaN(n))return v;if(n>=10000)return(n/10000).toFixed(1)+'w';if(n>=1000)return(n/1000).toFixed(1)+'k';return n; };
+          var statusBadge = function(a) { return a.has_cookie ? '<span style="color:var(--green)">✅</span>' : '<span style="color:var(--text2)">❌</span>'; };
+          
+          return '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px;border:1px solid var(--border);box-shadow:var(--shadow)">'+
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px">'+
+              '<div><strong>📱 '+g.phone+'</strong> <span style="font-size:10px;color:var(--text2);margin-left:4px">🆔 '+(sharedIdent||'')+'</span></div>'+
+              '<span style="font-size:10px;color:var(--text2)">🍪 '+cooked+'/'+accts.length+'已登录 | 📦 '+recCount+'次录制</span>'+
+            '</div>'+
+            '<div style="font-size:10px;color:var(--primary);margin-bottom:6px">🖥️ '+g.machine+'</div>'+
+            '<table style="width:100%;font-size:11px">'+
+              '<thead><tr style="color:var(--text2);font-size:10px">'+
+                '<th style="text-align:left;padding:2px 4px;font-weight:500">平台</th>'+
+                '<th style="text-align:left;padding:2px 4px;font-weight:500">账号</th>'+
+                '<th style="text-align:left;padding:2px 4px;font-weight:500">状态</th>'+
+                '<th style="text-align:left;padding:2px 4px;font-weight:500">粉丝</th>'+
+                '<th style="padding:2px 4px;font-weight:500">操作</th></tr></thead><tbody>'+
+            accts.map(function(a) {
+              var icon = a.platform==='xiaohongshu'?'📕':'🎵';
+              var platName = a.platform==='xiaohongshu'?'小红书':'抖音';
+              var ld = loginDisabled(a);
+              var lop = ld?'':"accountLogin('"+a.id+"')";
+              var cop = ld?'':"clearCookies('"+a.id+"','"+a.platform+"')";
+              var dop = ld?'':"deleteAccount('"+a.id+"')";
+              return '<tr>'+
+                '<td style="padding:2px 4px">'+icon+' '+platName+'</td>'+
+                '<td style="padding:2px 4px;color:var(--text)">'+a.nickname+'</td>'+
+                '<td style="padding:2px 4px">'+statusBadge(a)+'</td>'+
+                '<td style="padding:2px 4px;color:var(--text2)">'+fmtNum(a.fans)+'</td>'+
+                '<td style="padding:2px 4px;white-space:nowrap">'+
+                  '<button onclick="'+lop+'" style="background:transparent;border:none;font-size:11px;'+btnStyle(a,ld)+'" title="'+loginTitle(a)+'">🔑</button>'+
+                  '<button onclick="'+cop+'" style="background:transparent;border:none;font-size:11px;'+btnStyle(a,ld)+'" title="'+clearTitle(a)+'">🚫</button>'+
+                  '<button onclick="'+dop+'" style="background:transparent;border:none;font-size:11px;'+btnStyle(a,ld)+'" title="'+delTitle(a)+'">🗑</button>'+
+                '</td></tr>';
+            }).join('')+'</tbody></table>'+
+            '<div style="margin-top:6px;display:flex;gap:4px;font-size:10px">'+
+              '<button onclick="loadSmsAccounts()" style="background:var(--bg3);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)">🔄 刷新</button>'+
+              (g.machine==='本机'||g.machine===window.location.hostname
+                ? '<button onclick="loginAllPlatforms(\''+g.phone+'\')" style="background:var(--bg3);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)">🔄 全部登录</button>'+
+                  '<button onclick="collectAllPlatforms(\''+g.phone+'\')" style="background:var(--bg3);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)">👤 全部采集</button>'+
+                  '<button onclick="deleteIdentityByPhone(\''+g.phone+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除身份</button>'
+                : '<span style="color:var(--text2);padding:3px 0">📡 操作需在 '+g.machine+' 上执行</span>'
+              )+
+            '</div></div>';
+        }).join('')+'</div>';
+
+      // ═══ 下部: 账号列表（表格 - 所有账号平铺）═══
+      var tableHtml = '<div style="background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);padding:10px;box-shadow:var(--shadow)">'+
+        '<div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 全部账号列表</div>'+
+        '<table style="width:100%;font-size:12px"><thead><tr>'+
+          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">账号</th>'+
+          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">平台</th>'+
+          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">手机</th>'+
+          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">机器</th>'+
+          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">状态</th>'+
+          '<th style="text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">昵称</th>'+
+          '<th style="padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">操作</th></tr></thead><tbody>'+
         accounts.map(function(a) {
           var ml = machineLabel(a);
-          var rem = isRemote(a);
-          var busy = a.busy;
-          var icon = a.platform === 'xiaohongshu' ? '📕' : '🎵';
-          var platName = a.platform === 'xiaohongshu' ? '小红书' : '抖音';
+          var icon = a.platform==='xiaohongshu'?'📕':'🎵';
+          var platName = a.platform==='xiaohongshu'?'小红书':'抖音';
           var ld = loginDisabled(a);
-          var lt = loginTitle(a);
-          var ct = clearTitle(a);
-          var dt = delTitle(a);
-          var lop = ld ? '' : "accountLogin('"+a.id+"')";
-          var cop = ld ? '' : "clearCookies('"+a.id+"','"+a.platform+"')";
-          var dop = ld ? '' : "deleteAccount('"+a.id+"')";
-          var los = ld ? 'opacity:.3;cursor:not-allowed' : 'cursor:pointer';
+          var lop = ld?'':"accountLogin('"+a.id+"')";
+          var cop = ld?'':"clearCookies('"+a.id+"','"+a.platform+"')";
+          var dop = ld?'':"deleteAccount('"+a.id+"')";
           return '<tr>'+
-            '<td style="padding:4px 6px;font-size:11px">'+a.id+'</td>'+
-            '<td style="padding:4px 6px">'+icon+' '+platName+'</td>'+
-            '<td style="padding:4px 6px;font-size:11px;color:var(--text2)">'+(a.phone||'')+'</td>'+
-            '<td style="padding:4px 6px;font-size:11px;color:var(--primary)">'+ml+'</td>'+
-            '<td style="padding:4px 6px;text-align:center">'+dot(a.has_cookie)+'</td>'+
-            '<td style="padding:4px 6px;font-size:11px">'+a.nickname+'</td>'+
-            '<td style="padding:4px 6px;font-size:10px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis">'+(a.identity_dir||'')+'</td>'+
-            '<td style="padding:4px 6px;white-space:nowrap">'+
-              '<button onclick="'+lop+'" style="background:transparent;border:none;font-size:11px;'+los+'" title="'+lt+'">🔑</button>'+
-              '<button onclick="'+cop+'" style="background:transparent;border:none;font-size:11px;'+los+'" title="'+ct+'">🚫</button>'+
-              '<button onclick="'+dop+'" style="background:transparent;border:none;font-size:11px;'+los+'" title="'+dt+'">🗑</button>'+
+            '<td style="padding:3px 6px;font-size:11px">'+a.id+'</td>'+
+            '<td style="padding:3px 6px;font-size:11px">'+icon+' '+platName+'</td>'+
+            '<td style="padding:3px 6px;font-size:10px;color:var(--text2)">'+(a.phone||'')+'</td>'+
+            '<td style="padding:3px 6px;font-size:10px;color:var(--primary)">'+ml+'</td>'+
+            '<td style="padding:3px 6px;text-align:center;font-size:11px">'+(a.has_cookie?'✅':'❌')+'</td>'+
+            '<td style="padding:3px 6px;font-size:11px">'+a.nickname+'</td>'+
+            '<td style="padding:3px 6px;white-space:nowrap;font-size:11px">'+
+              '<button onclick="'+lop+'" style="background:transparent;border:none;cursor:pointer;'+btnStyle(a,ld)+'" title="'+loginTitle(a)+'">🔑</button>'+
+              '<button onclick="'+cop+'" style="background:transparent;border:none;cursor:pointer;'+btnStyle(a,ld)+'" title="'+clearTitle(a)+'">🚫</button>'+
+              '<button onclick="'+dop+'" style="background:transparent;border:none;cursor:pointer;'+btnStyle(a,ld)+'" title="'+delTitle(a)+'">🗑</button>'+
             '</td></tr>';
-        }).join('')+'</tbody></table>';
+        }).join('')+'</tbody></table></div>';
+
+      overview.innerHTML = cardsHtml + tableHtml;
     }
   } catch(e) {
     if (overview) overview.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
