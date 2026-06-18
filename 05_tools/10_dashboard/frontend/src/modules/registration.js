@@ -508,6 +508,9 @@ async function loadMatrixBlueprints() {
     bpUpdatePlatform();
   } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
 }
+// 导出供其他模块调用
+window.loadMatrixBlueprints = loadMatrixBlueprints;
+
 
 // Blueprint editor helper functions
 window.bpToggleList = function() {

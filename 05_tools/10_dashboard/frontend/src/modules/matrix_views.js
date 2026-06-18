@@ -54,11 +54,6 @@ setInterval(() => { if (currentView === 'summary') loadSummary(); }, 30000);
 
 // ── Navigation ──
 function switchView(view) {
-  // ── DEBUG ──
-  var _svDbg = document.getElementById('debug_banner');
-  if (!_svDbg) { _svDbg = document.createElement('div'); _svDbg.id = 'debug_banner'; document.body.appendChild(_svDbg); }
-  _svDbg.innerHTML = 'switchView("' + view + '") fired at ' + new Date().toLocaleTimeString();
-  // ── END DEBUG ──
   // Plugin views → inline rendering
   if (view === 'plugin-matrix') { view = 'matrix-summary'; }
   currentView = view;
@@ -150,35 +145,35 @@ function switchView(view) {
   }
 
   // 加载数据（try-catch 包裹跨模块函数，未暴露时不会中断后续代码）
-  try { if (view === 'productions') loadProductions(); } catch(e) {}
-  try { if (view === 'assets') loadAssets(); } catch(e) {}
-  try { if (view === 'costs') loadCosts(); } catch(e) {}
-  try { if (view === 'capabilities') loadCapabilities(); } catch(e) {}
-  try { if (view === 'workflow') loadWorkflow(); } catch(e) {}
-  try { if (view === 'machines') loadMachines(); } catch(e) {}
-  try { if (view === 'matrix-sms-proxy') loadSmsProxy(); } catch(e) {}
-  try { if (view === 'matrix-nurture') loadMatrixNurture(); } catch(e) {}
-  try { if (view === 'matrix-collect') loadMatrixCollect(); } catch(e) {}
-  try { if (view === 'matrix-publish') loadMatrixPublish(); } catch(e) {}
-  try { if (view === 'matrix-blueprints') loadMatrixBlueprints(); } catch(e) {}
-  try { if (view === 'matrix-comment') loadMatrixComment(); } catch(e) {}
-  try { if (view === 'matrix-schedule') loadMatrixSchedule(); } catch(e) {}
-  try { if (view === 'matrix-corpus') loadCorpus(); } catch(e) {}
-  try { if (view === 'ave-render') loadAveRender(); } catch(e) {}
-  try { if (view === 'ave-script') loadAveScript(); } catch(e) {}
-  try { if (view === 'ave-materials') loadAveMaterials(); } catch(e) {}
-  try { if (view === 'ave-templates') loadAveTemplates(); } catch(e) {}
-  try { if (view === 'crawl-tasks') loadCrawlTasks(); } catch(e) {}
-  try { if (view === 'crawl-sources') loadCrawlSources(); } catch(e) {}
-  try { if (view === 'crawl-history') loadCrawlHistory(); } catch(e) {}
-  try { if (view === 'fleet-sync') loadFleetSync(); } catch(e) {}
-  try { if (view === 'fleet-exec') loadFleetExec(); } catch(e) {}
-  try { if (view === 'matrix-like') loadMatrixLike(); } catch(e) {}
-  try { if (view === 'matrix-login') loadMatrixLogin(); } catch(e) {}
-  try { if (view === 'ops-command') loadOpsCommand(); } catch(e) {}
-  try { if (view === 'serve-mcp') loadServeMCP(); } catch(e) {}
-  try { if (view === 'serve-dashboard') loadServeDashboard(); } catch(e) {}
-  try { if (view === 'serve-schedule') loadServeSchedule(); } catch(e) {}
+  try { if (view === 'productions') window.loadProductions(); } catch(e) {}
+  try { if (view === 'assets') window.loadAssets(); } catch(e) {}
+  try { if (view === 'costs') window.loadCosts(); } catch(e) {}
+  try { if (view === 'capabilities') window.loadCapabilities(); } catch(e) {}
+  try { if (view === 'workflow') window.loadWorkflow(); } catch(e) {}
+  try { if (view === 'machines') window.loadMachines(); } catch(e) {}
+  try { if (view === 'matrix-sms-proxy') window.loadSmsProxy(); } catch(e) {}
+  try { if (view === 'matrix-nurture') window.loadMatrixNurture(); } catch(e) {}
+  try { if (view === 'matrix-collect') window.loadMatrixCollect(); } catch(e) {}
+  try { if (view === 'matrix-publish') window.loadMatrixPublish(); } catch(e) {}
+  try { if (view === 'matrix-blueprints') window.loadMatrixBlueprints(); } catch(e) {}
+  try { if (view === 'matrix-comment') window.loadMatrixComment(); } catch(e) {}
+  try { if (view === 'matrix-schedule') window.loadMatrixSchedule(); } catch(e) {}
+  try { if (view === 'matrix-corpus') window.loadCorpus(); } catch(e) {}
+  try { if (view === 'ave-render') window.loadAveRender(); } catch(e) {}
+  try { if (view === 'ave-script') window.loadAveScript(); } catch(e) {}
+  try { if (view === 'ave-materials') window.loadAveMaterials(); } catch(e) {}
+  try { if (view === 'ave-templates') window.loadAveTemplates(); } catch(e) {}
+  try { if (view === 'crawl-tasks') window.loadCrawlTasks(); } catch(e) {}
+  try { if (view === 'crawl-sources') window.loadCrawlSources(); } catch(e) {}
+  try { if (view === 'crawl-history') window.loadCrawlHistory(); } catch(e) {}
+  try { if (view === 'fleet-sync') window.loadFleetSync(); } catch(e) {}
+  try { if (view === 'fleet-exec') window.loadFleetExec(); } catch(e) {}
+  try { if (view === 'matrix-like') window.loadMatrixLike(); } catch(e) {}
+  try { if (view === 'matrix-login') window.loadMatrixLogin(); } catch(e) {}
+  try { if (view === 'ops-command') window.loadOpsCommand(); } catch(e) {}
+  try { if (view === 'serve-mcp') window.loadServeMCP(); } catch(e) {}
+  try { if (view === 'serve-dashboard') window.loadServeDashboard(); } catch(e) {}
+  try { if (view === 'serve-schedule') window.loadServeSchedule(); } catch(e) {}
 
   // ── 对账检查 ──
   if (view === 'fleet-reconcile') {
@@ -196,30 +191,12 @@ window.switchView = switchView;
 window.closeDetail = closeDetail;
 window.showDetail = showDetail;
 window.loadProductions = loadProductions;
+window.loadAssets = loadAssets;
+window.loadCosts = loadCosts;
+window.loadMachines = loadMachines;
 window.loadFleetReconcileView = loadFleetReconcileView;
 
 // 调试标记
-window.__patchDebug = 'running';
-var _dbg = document.createElement('div');
-_dbg.id = 'patch_debug';
-_dbg.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:red;color:#fff;padding:2px 10px;font-size:11px;text-align:center';
-_dbg.textContent = 'PATCH: ' + new Date().toISOString();
-document.body.appendChild(_dbg);
-
-// 绑定 nav 点击（绕开 onclick 字符串——可能被浏览器/框架过滤）
-document.addEventListener('click', function(e) {
-  var target = e.target.closest('[data-view]');
-  if (target) {
-    var viewName = target.dataset.view;
-    _dbg.textContent = 'CLICK DETECTED: ' + viewName;
-    if (typeof window.switchView === 'function') {
-      window.switchView(viewName);
-    } else {
-      _dbg.textContent = 'ERROR: window.switchView is ' + typeof window.switchView;
-    }
-  }
-}, true);
-
 // 自动刷新
 setInterval(function() {
   try { if (typeof window.loadStats === 'function') window.loadStats(); } catch(e) {}

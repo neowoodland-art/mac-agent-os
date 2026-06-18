@@ -224,9 +224,21 @@ async function opsBatchExec() {
 
 // 视频工厂系列 — Shell（无API）
 async function loadAveRender()   { _renderShell('view-ave-render', '🎬 渲染任务', '无API', 'AVE 渲染任务的 API 尚未暴露。需要完成 agentos ave CLI 封装后对接。'); }
+// 导出供其他模块调用
+window.loadAveRender = loadAveRender;
+
 async function loadAveScript()   { _renderShell('view-ave-script', '📝 脚本生成', '无API', '脚本生成模块的 API 尚未暴露。需要完成 agentos ave CLI 封装后对接。'); }
+// 导出供其他模块调用
+window.loadAveScript = loadAveScript;
+
 async function loadAveMaterials(){ _renderShell('view-ave-materials', '📦 素材库', '无API', '素材管理模块的 API 尚未暴露。当前素材通过 SQLite 管理，需封装为 Dashboard API。'); }
+// 导出供其他模块调用
+window.loadAveMaterials = loadAveMaterials;
+
 async function loadAveTemplates(){ _renderShell('view-ave-templates', '📋 模板', '无API', '模板管理模块的 API 尚未暴露。需要完成 agentos ave CLI 封装后对接。'); }
+// 导出供其他模块调用
+window.loadAveTemplates = loadAveTemplates;
+
 
 // 内容采集系列 — 采集任务（有 plugin-collector → 集成）
 async function loadCrawlTasks() {
@@ -260,8 +272,17 @@ async function loadCrawlTasks() {
       </div></div>`;
   }
 }
+// 导出供其他模块调用
+window.loadCrawlTasks = loadCrawlTasks;
+
 async function loadCrawlSources(){ _renderShell('view-crawl-sources', '📡 源管理', '无CLI', '采集源管理需要 agentos crawl CLI 封装后实现。'); }
+// 导出供其他模块调用
+window.loadCrawlSources = loadCrawlSources;
+
 async function loadCrawlHistory(){ _renderShell('view-crawl-history', '📜 采集历史', '无API', '采集历史的统一展示 API 尚未完成。'); }
+// 导出供其他模块调用
+window.loadCrawlHistory = loadCrawlHistory;
+
 
 // 联邦系列 — 一键同步（有CLI）
 async function loadFleetSync() {
@@ -276,6 +297,9 @@ async function loadFleetSync() {
       <div id="fleetSyncLog" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:400px;overflow:auto"></div>
     </div>`;
 }
+// 导出供其他模块调用
+window.loadFleetSync = loadFleetSync;
+
 window.doFleetSync = async function() {
   const el = document.getElementById('fleetSyncLog');
   el.textContent = '⏳ 执行中...\n';
@@ -299,6 +323,9 @@ async function loadFleetReconcile() {
       <div id="fleetReconcileLog" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:400px;overflow:auto"></div>
     </div>`;
 }
+// 导出供其他模块调用
+window.loadFleetReconcile = loadFleetReconcile;
+
 window.doFleetReconcile = async function() {
   const el = document.getElementById('fleetReconcileLog');
   el.textContent = '⏳ 执行中...\n';
@@ -327,6 +354,9 @@ async function loadFleetExec() {
       <div id="fleetExecLog" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:400px;overflow:auto"></div>
     </div>`;
 }
+// 导出供其他模块调用
+window.loadFleetExec = loadFleetExec;
+
 window.doFleetExec = async function() {
   const machine = document.getElementById('fleetExecMachine')?.value;
   const cmd = document.getElementById('fleetExecCmd')?.value;
@@ -342,8 +372,17 @@ window.doFleetExec = async function() {
 
 // 服务系列 — Shell（无功能）
 async function loadServeMCP()      { _renderShell('view-serve-mcp', '🔌 MCP状态', '无功能', 'MCP 状态监控尚未实现。这是显示当前 MCP Server 连接状态和运行指标的页面。'); }
+// 导出供其他模块调用
+window.loadServeMCP = loadServeMCP;
+
 async function loadServeDashboard(){ _renderShell('view-serve-dashboard', '📊 Dashboard日志', '无功能', 'Dashboard 日志聚合页面尚未实现。将汇总各模块的运行日志。'); }
+// 导出供其他模块调用
+window.loadServeDashboard = loadServeDashboard;
+
 async function loadServeSchedule() { _renderShell('view-serve-schedule', '⏰ 全局定时任务', '无功能', '全局调度器管理页面尚未实现。将在 agentos serve schedule CLI 封装完成后对接。'); }
+// 导出供其他模块调用
+window.loadServeSchedule = loadServeSchedule;
+
 
 // ── SMS & Proxy ──
 async function loadSmsProxy() {
@@ -352,6 +391,9 @@ async function loadSmsProxy() {
   loadPhonePresets();
   loadSmsAccounts();
 }
+// 导出供其他模块调用
+window.loadSmsProxy = loadSmsProxy;
+
 
 async function loadSmsAccounts() {
   const sel = document.getElementById('smsAccountSelect');

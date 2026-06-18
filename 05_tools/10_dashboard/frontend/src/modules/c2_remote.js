@@ -51,6 +51,9 @@ async function loadWorkflow() {
   </div>`;
   await wfInit();
 }
+// 导出供其他模块调用
+window.loadWorkflow = loadWorkflow;
+
 
 async function wfInit() {
   // 一次性加载所有节点定义和模板，避免 N+1 查询
@@ -1135,6 +1138,9 @@ async function loadCapabilities() {
     el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
   }
 }
+// 导出供其他模块调用
+window.loadCapabilities = loadCapabilities;
+
 
 function switchCapGroup(idx) {
   currentCapGroup = idx;

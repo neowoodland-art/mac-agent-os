@@ -210,6 +210,9 @@ async function loadMatrixNurture() {
   _renderAccountSelector('nurtureAcctList', {_data: data, height: '350px'});
   document.getElementById('nurtureSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
 }
+// 导出供其他模块调用
+window.loadMatrixNurture = loadMatrixNurture;
+
 
 // 矩阵系列 — 信息采集（按机器分组 + 账号选择）
 // 矩阵系列 — 登录与信息采集（合并）
@@ -243,6 +246,9 @@ async function loadMatrixCollect() {
     if (sd.running) document.getElementById('collectStatus').innerHTML = '<span style="color:var(--green)">🟢 采集中</span>';
   } catch(e) {}
 }
+// 导出供其他模块调用
+window.loadMatrixCollect = loadMatrixCollect;
+
 
 // 采集：登录选中账号
 window.collectLogin = async function() {
@@ -394,6 +400,9 @@ async function loadMatrixPublish() {
   _renderShell('view-matrix-publish', '📤 内容发布', '无CLI',
     '发布模块的 CLI 封装尚未完成。现有的 publish_video.py 在 agent-os/agent-sync/05_tools/07_matrix/scripts/ 目录下。需要 agentos matrix publish CLI 封装。');
 }
+// 导出供其他模块调用
+window.loadMatrixPublish = loadMatrixPublish;
+
 
 // 矩阵系列 — 定向评论（共享选择器）
 async function loadMatrixComment() {
@@ -433,6 +442,9 @@ async function loadMatrixComment() {
   const data = await _loadAccounts();
   _renderAccountSelector('commentAccountList', {_data: data, height: '300px', checkAll: false, hideFilter: true});
 }
+// 导出供其他模块调用
+window.loadMatrixComment = loadMatrixComment;
+
 window.runComment = async function() {
   const selected = _getSelectedAccounts();
   const urlsText = document.getElementById('commentUrls')?.value;
@@ -492,6 +504,9 @@ async function loadMatrixSchedule() {
     document.getElementById('schedPanel').innerHTML = '<div style="padding:20px"><h2 style="font-size:18px;margin-bottom:12px">⏰ 定时任务</h2><div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)"><div class="error">❌ '+e.message+'</div><p style="font-size:12px;color:var(--text2);margin-top:8px">完整调度管理在「矩阵 → 命令与任务」页面</p></div></div>';
   }
 }
+// 导出供其他模块调用
+window.loadMatrixSchedule = loadMatrixSchedule;
+
 
 // 矩阵系列 — 收藏点赞（共享选择器）
 async function loadMatrixLike() {
@@ -513,6 +528,9 @@ async function loadMatrixLike() {
   const data = await _loadAccounts();
   _renderAccountSelector('likeAccountList', {_data: data, height: '300px', checkAll: false, hideFilter: true});
 }
+// 导出供其他模块调用
+window.loadMatrixLike = loadMatrixLike;
+
 
 window.runLike = async function() {
   const selected = _getSelectedAccounts();
@@ -551,6 +569,9 @@ async function loadMatrixLogin() {
       </div>
     </div>`;
 }
+// 导出供其他模块调用
+window.loadMatrixLogin = loadMatrixLogin;
+
 
 // 联邦指挥台（共享选择器 + 操作类型选择）
 async function loadOpsCommand() {
@@ -594,6 +615,9 @@ async function loadOpsCommand() {
   document.getElementById('opsSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
   loadOpsHistory();
 }
+// 导出供其他模块调用
+window.loadOpsCommand = loadOpsCommand;
+
 
 async function loadOpsHistory() {
   try {
