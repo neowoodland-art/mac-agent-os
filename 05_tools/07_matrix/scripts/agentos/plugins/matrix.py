@@ -68,6 +68,8 @@ class MatrixPlugin(AgentOSPlugin):
         elif cmd == 'corpus':   return self.cmd_corpus_list(rest)
         elif cmd == 'status':   return self.cmd_status_all(rest)
         elif cmd == 'collect':  return self.cmd_collect(rest)
+        elif cmd in ('login', 'smart-login'): return self.cmd_login(rest)
+        elif cmd == 'logout':   return self.cmd_logout(rest)
         else:
             return self._execute_with_guards(cmd)
     # ═══════════════════════════════════════════════
@@ -247,6 +249,43 @@ class MatrixPlugin(AgentOSPlugin):
                                 stdout=f, stderr=subprocess.STDOUT)
         print(f"   PID {p.pid}")
         print(f"   日志: {log_file}")
+        return 0
+
+    # ═══════════════════════════════════════════════
+    # login/logout — 带警告的 mc 委托
+    # ═══════════════════════════════════════════════
+
+    def cmd_login(self, rest):
+        """agentos matrix login <account_id> [--phone X] — 委托 mc 执行"""
+        account_id = rest[0] if rest else ''
+        if not account_id:
+            print("❌ 请指定账号ID: agentos matrix login <account_id>")
+            return 1
+
+        print(f"\n⚠️  即将启动浏览器登录: {account_id}")
+        print(f"   此操作会打开真实浏览器窗口，约 30-60 秒")
+        confirm = input("   确认执行? (y/N): ").strip().lower()
+        if confirm != 'y':
+            print("   已取消")
+            return 0
+
+        # 走 mc 委托（带完整执行保护）
+        return self._delegate_to_mc('smart-login', needs_browser=True)
+
+    def cmd_logout(self, rest):
+        """agentos matrix logout <account_id> — 原生实现"""
+        account_id = rest[0] if rest else ''
+        if not account_id:
+            print("❌ 请指定账号ID: agentos matrix logout <account_id>")
+            return 1
+        print(f"🔓 清除 {account_id} 的登录状态...")
+        try:
+            from matrix_mgmt import MatrixManager
+            result = MatrixManager().unbind_account(account_id)
+            msg = result.get('message', '操作完成')
+            print(f"   ✅ {msg}" if result.get("ok") else f"   ⚠️ {msg}")
+        except Exception as e:
+            print(f"   ❌ 失败: {e}")
         return 0
 
     # ═══════════════════════════════════════════════
