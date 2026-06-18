@@ -80,6 +80,7 @@ class MatrixPlugin(AgentOSPlugin):
         elif cmd in ('login', 'smart-login'): return self.cmd_login(rest)
         elif cmd == 'logout':   return self.cmd_logout(rest)
         elif cmd == 'publish':  return self.cmd_publish(rest)
+        elif cmd == 'schedule': return self.cmd_schedule(rest)
         else:
             return self._execute_with_guards(cmd)
     # ═══════════════════════════════════════════════
@@ -324,6 +325,100 @@ class MatrixPlugin(AgentOSPlugin):
         result = subprocess.run(cmd, cwd=str(SCRIPTS_DIR),
             env={**os.environ, 'PYTHONPATH': str(SCRIPTS_DIR)})
         return result.returncode
+
+    # ═══════════════════════════════════════════════
+    # schedule — 原生实现
+    # ═══════════════════════════════════════════════
+
+    def cmd_schedule(self, rest):
+        """agentos matrix schedule list|add|remove|history|start|stop [args...]
+        
+        用法:
+          agentos matrix schedule list                 — 列出定时任务
+          agentos matrix schedule add <id> --account X --blueprint Y --time HH:MM
+          agentos matrix schedule remove <id>           — 删除任务
+          agentos matrix schedule history [id]          — 查看执行历史
+          agentos matrix schedule start                 — 启动调度器
+          agentos matrix schedule stop                  — 停止调度器
+        """
+        action = rest[0] if rest else 'list'
+
+        # 引入 mc.scheduler 的函数
+        try:
+            from mc.scheduler import (cmd_schedule_list, cmd_schedule_add,
+                cmd_schedule_remove, cmd_schedule_history)
+        except ImportError as e:
+            print(f"❌ 加载调度器失败: {e}")
+            return 1
+
+        if action == 'list':
+            cmd_schedule_list()
+            return 0
+
+        elif action == 'add':
+            if len(rest) < 2:
+                print("❌ 参数不足\n   用法: agentos matrix schedule add <id> --account X --blueprint Y --time HH:MM")
+                return 1
+            sid = rest[1]
+            # 解析额外参数
+            account = blueprint = time_val = ''
+            rounds = 3
+            days = '1,2,3,4,5,6,7'
+            extra_args = ''
+            i = 2
+            while i < len(rest):
+                if rest[i] == '--account' and i+1 < len(rest): account = rest[i+1]; i += 2
+                elif rest[i] == '--blueprint' and i+1 < len(rest): blueprint = rest[i+1]; i += 2
+                elif rest[i] == '--time' and i+1 < len(rest): time_val = rest[i+1]; i += 2
+                elif rest[i] == '--rounds' and i+1 < len(rest):
+                    try: rounds = int(rest[i+1])
+                    except: pass
+                    i += 2
+                elif rest[i] == '--days' and i+1 < len(rest): days = rest[i+1]; i += 2
+                else: extra_args += f' {rest[i]}'; i += 1
+            if not account or not blueprint or not time_val:
+                print("❌ 缺少必要参数: --account --blueprint --time")
+                print("   用法: agentos matrix schedule add <id> --account X --blueprint Y --time HH:MM")
+                return 1
+            # 创建 FakeArgs 以兼容 mc.scheduler 的接口
+            class FakeArgs:
+                id = sid; account = account; blueprint = blueprint
+                time = time_val; rounds = rounds; days = days
+                args = extra_args.strip()
+            cmd_schedule_add(FakeArgs())
+            return 0
+
+        elif action == 'remove':
+            sid = rest[1] if len(rest) > 1 else ''
+            if not sid:
+                print("❌ 请指定任务ID\n   用法: agentos matrix schedule remove <id>")
+                return 1
+            cmd_schedule_remove(sid)
+            return 0
+
+        elif action == 'history':
+            sid = rest[1] if len(rest) > 1 else ''
+            cmd_schedule_history(sid)
+            return 0
+
+        elif action == 'start':
+            print("🚀 启动调度器...")
+            import subprocess
+            subprocess.Popen([sys.executable, '-m', 'mc', 'schedule', 'start'],
+                cwd=str(SCRIPTS_DIR),
+                env={**os.environ, 'PYTHONPATH': str(SCRIPTS_DIR)})
+            return 0
+
+        elif action == 'stop':
+            print("⏹ 停止调度器...")
+            import subprocess
+            subprocess.run(["pkill", "-f", "mc schedule start"], capture_output=True, timeout=5)
+            return 0
+
+        else:
+            print(f"❌ 未知操作: {action}")
+            print("   可用操作: list / add / remove / history / start / stop")
+            return 1
 
     # ═══════════════════════════════════════════════
     # 执行保护（前置检查 + 并发控制 + 优雅退出）

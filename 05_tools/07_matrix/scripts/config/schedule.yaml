@@ -1,0 +1,18 @@
+# Matrix 定时任务配置
+# time 格式: HH:MM（每天固定时间）
+# days 格式: 1,2,3,4,5,6,7（1=周一..7=周日，默认每天）
+schedules:
+  douyin_daily_morning:
+    enabled: false
+    account: douyin_test
+    blueprint: douyin_daily
+    rounds: 3
+    time: "09:00"
+    days: "1,2,3,4,5,6,7"
+  xhs_daily_noon:
+    enabled: false
+    account: xhs_01
+    blueprint: xhs_daily
+    rounds: 2
+    time: "12:30"
+    days: "1,2,3,4,5,6,7"
