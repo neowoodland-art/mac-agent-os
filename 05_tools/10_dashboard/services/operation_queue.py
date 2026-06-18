@@ -1,6 +1,10 @@
 """
 操作队列模块 — 管理操作生命周期 (状态机)
 
+⚠️ 已废弃 — 请使用 services/command_bus.py 替代。
+   本文件的文件持久化方案（JSON on disk）与新 command_bus 的内存方案共存。
+   新代码使用 command_bus，旧文件保留不删。
+   
 每个操作经过:
   pending → checking → preparing → running → completed → cleaning → done
                                    ↘ failed → cleaning → error

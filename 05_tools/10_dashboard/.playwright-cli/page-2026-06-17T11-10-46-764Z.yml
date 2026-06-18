@@ -1,0 +1,73 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - heading "🖥 AgentOS v4" [level=1] [ref=e4] [cursor=pointer]:
+        - text: 🖥 AgentOS
+        - generic [ref=e5]: v4
+      - generic "折叠侧边栏" [ref=e6] [cursor=pointer]: ◀
+    - generic [ref=e8]:
+      - generic [ref=e9] [cursor=pointer]:
+        - text: 📱 矩阵
+        - generic [ref=e10]: ▶
+      - generic:
+        - generic [ref=e11] [cursor=pointer]: 🪪 账号管理
+        - generic [ref=e12] [cursor=pointer]: 🏃 养号执行
+        - generic [ref=e13] [cursor=pointer]: 📡 信息采集
+        - generic [ref=e14] [cursor=pointer]: 📤 内容发布
+        - generic [ref=e15] [cursor=pointer]: 💬 定向评论
+        - generic [ref=e16] [cursor=pointer]: ❤️ 收藏点赞
+        - generic [ref=e17] [cursor=pointer]: 📋 蓝图管理
+        - generic [ref=e18] [cursor=pointer]: 🔑 登录管理
+        - generic [ref=e19] [cursor=pointer]: ⏱ 定时任务
+        - generic [ref=e20] [cursor=pointer]: 📚 语料库
+        - generic [ref=e21] [cursor=pointer]: 🖥️ 联邦指挥台
+      - generic [ref=e22] [cursor=pointer]:
+        - text: 🎬 视频工厂
+        - generic [ref=e23]: ▶
+      - generic:
+        - generic [ref=e24] [cursor=pointer]: 渲染任务
+        - generic [ref=e25] [cursor=pointer]: 脚本生成
+        - generic [ref=e26] [cursor=pointer]: 素材库
+        - generic [ref=e27] [cursor=pointer]: 模板
+      - generic [ref=e28] [cursor=pointer]:
+        - text: 📡 内容采集
+        - generic [ref=e29]: ▶
+      - generic:
+        - generic [ref=e30] [cursor=pointer]: 采集任务
+        - generic [ref=e31] [cursor=pointer]: 源管理
+        - generic [ref=e32] [cursor=pointer]: 采集历史
+      - generic [ref=e33] [cursor=pointer]:
+        - text: 🖥️ 联邦
+        - generic [ref=e34]: ▶
+      - generic:
+        - generic [ref=e35] [cursor=pointer]: 机器状态
+        - generic [ref=e36] [cursor=pointer]: 一键同步
+        - generic [ref=e37] [cursor=pointer]: 对账检查
+        - generic [ref=e38] [cursor=pointer]: 远程Shell
+      - generic [ref=e39] [cursor=pointer]:
+        - text: ⚙️ 服务
+        - generic [ref=e40]: ▶
+      - generic:
+        - generic [ref=e41] [cursor=pointer]: MCP状态
+        - generic [ref=e42] [cursor=pointer]: Dashboard日志
+        - generic [ref=e43] [cursor=pointer]: 全局定时任务
+    - generic [ref=e45]:
+      - generic "折叠全部" [ref=e46] [cursor=pointer]: 📂
+      - generic [ref=e47] [cursor=pointer]: 🔄 同步
+      - generic [ref=e48] [cursor=pointer]: ⟳ 刷新
+  - main [ref=e49]:
+    - generic [ref=e51]: ⏳ 加载机器状态...
+    - generic [ref=e53]:
+      - combobox [ref=e54]:
+        - option "全部策略" [selected]
+        - option "口播"
+        - option "卡点"
+        - option "数字人"
+        - option "test"
+      - combobox [ref=e55]:
+        - option "全部状态" [selected]
+        - option "已完成"
+        - option "失败"
+        - option "运行中"
+      - textbox "搜索脚本名称..." [ref=e56]
+      - button "查询" [ref=e57] [cursor=pointer]

@@ -1,6 +1,10 @@
 """
 远程执行引擎
 
+⚠️ 已废弃 — 请使用 services/command_bus.py 替代。
+   本文件保留以供 app.py/routes 引用过渡使用，新代码禁止导入。
+   command_bus.py 的 MachineSession._send_remote() 已实现相同功能。
+
 通过 SSH 在远程机器执行命令，返回执行结果。
 机器信息从 ORACLE.yaml 读取。
 """
@@ -105,7 +109,7 @@ def exec_nurture(machine: str, accounts: list, blueprints: list, rounds: int = 3
     """在远程机器启动养号"""
     accts = ",".join(accounts)
     bps = ",".join(blueprints)
-    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && python3 -m mc run --accounts={accts} --blueprints={bps} --rounds={rounds} --mix --interval=45-90"
+    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m mc run --accounts={accts} --blueprints={bps} --rounds={rounds} --mix --interval=45-90"
     return exec_remote(machine, cmd, timeout=30)
 
 

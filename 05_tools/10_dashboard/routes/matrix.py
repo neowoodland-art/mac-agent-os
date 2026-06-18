@@ -15,7 +15,15 @@ logger = logging.getLogger("dashboard")
 FILE_DIR = Path(__file__).resolve().parent.parent
 AGENT_SYNC = Path(os.environ.get("AGENT_SYNC", str(Path.home() / "workbuddy-agent-os" / "agent-sync")))
 AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(Path.home() / "workbuddy-agent-os" / "agent-local")))
-HOSTNAME = os.uname().nodename
+
+def _resolve_hostname() -> str:
+    """优先从 cached_hostname 读取，兜底 os.uname"""
+    cached = AGENT_LOCAL / "identity" / "cached_hostname"
+    if cached.exists():
+        return cached.read_text().strip()
+    return os.uname().nodename
+
+HOSTNAME = _resolve_hostname()
 
 router = APIRouter(prefix="/api/matrix", tags=["matrix"])
 
@@ -69,11 +77,89 @@ def api_matrix_homepage_history():
 
 
 @router.post("/collect-homepage")
-def api_matrix_start_collect():
-    """启动全部主页信息采集"""
+def api_matrix_start_collect(data: dict = {}):
+    """
+    启动主页信息采集（支持按账号ID列表采集）
+
+    请求体:
+      account_ids: [str]  — 要采集的账号ID列表（可选，不传则采全部）
+      account_id: str     — 单账号（兼容旧调用）
+    """
+    account_ids = data.get("account_ids", [])
+    account_id = data.get("account_id", "")
+    if account_id and account_id not in account_ids:
+        account_ids = [account_id]
+
     script = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
     if not script.exists():
         return {"error": f"采集脚本不存在: {script}"}
+
+    results = []
+
+    if account_ids:
+        from services.remote_exec import exec_remote
+        from services.browser_orchestrator import SLOTS, LAUNCH_STAGGER
+        import time
+
+        mgr = _get_matrix_mgr()
+        all_accts = mgr.list_accounts()
+        acct_map = {a["id"]: a for a in all_accts}
+
+        # 按机器分组，每台机器错峰启动
+        machine_groups = {}
+        for aid in account_ids:
+            acct = acct_map.get(aid)
+            if not acct:
+                results.append({"target": aid, "error": "账号不存在"})
+                continue
+            machine = acct.get("owner_machine", HOSTNAME)
+            if machine not in machine_groups:
+                machine_groups[machine] = []
+            machine_groups[machine].append((aid, acct))
+
+        for machine, accts in machine_groups.items():
+            is_local = (machine == HOSTNAME)
+            slot_idx = 0
+            for aid, acct in accts:
+                slot = SLOTS[slot_idx % len(SLOTS)]
+                slot_idx += 1
+                stagger = (slot_idx - 1) * LAUNCH_STAGGER
+
+                if stagger > 0:
+                    logger.info(f"⏳ 采集错峰等待 {stagger}s → {aid}")
+                    time.sleep(stagger)
+
+                if is_local:
+                    p = subprocess.Popen(
+                        [sys.executable, str(script), "--account", aid],
+                        cwd=str(script.parent)
+                    )
+                    results.append({
+                        "target": aid, "status": "started", "pid": p.pid,
+                        "machine": machine, "slot": slot["id"],
+                        "position": slot["position"],
+                    })
+                else:
+                    py = "$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+                    remote_cmd = f"cd {script.parent} && {py} {script.name} --account {aid}"
+                    r = exec_remote(machine, remote_cmd, timeout=15, fire_and_forget=True)
+                    results.append({
+                        "target": aid, "status": "dispatched",
+                        "machine": machine, "remote_result": r.get("status"),
+                    })
+            else:
+                # 远程执行
+                py = "$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+                remote_cmd = f"cd {script.parent} && {py} {script.name} --account {aid}"
+                r = exec_remote(machine, remote_cmd, timeout=15, fire_and_forget=True)
+                results.append({
+                    "target": aid, "status": "dispatched",
+                    "machine": machine, "remote_result": r.get("status"),
+                })
+
+        return {"status": "ok", "results": results}
+
+    # 向后兼容：不传 account_ids 时采全部
     progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
     progress_path.parent.mkdir(parents=True, exist_ok=True)
     p = subprocess.Popen([sys.executable, str(script)], cwd=str(script.parent))
@@ -136,20 +222,187 @@ def api_matrix_nurture_preview(mins: int = 10, concur: int = 3, stagger: int = 1
 
 
 @router.post("/nurture/start")
-def api_matrix_nurture_start():
-    """启动全部养号（旧版，保留兼容）"""
+def api_matrix_nurture_start(data: dict = {}):
+    """
+    启动账号养号（预检 + 槽位分配 + 错峰启动）
+
+    请求体:
+      accounts: [str]    — 账号ID列表（必填）
+      blueprint: str     — 蓝图名（可选）
+      rounds: int        — 轮数（默认 10）
+      machine: str       — 目标机器（可选）
+      dry_run: bool      — 仅返回执行计划
+    """
     try:
+        accounts = data.get("accounts", [])
+        if not accounts:
+            return {"status": "error", "message": "accounts 必填"}
+
+        custom_blueprint = data.get("blueprint", "")
+        rounds = data.get("rounds", 10)
+        force_machine = data.get("machine", "")
+        dry_run = data.get("dry_run", False)
+
         mgr = _get_matrix_mgr()
-        identities = mgr.get_identities()
-        return {"status": "started", "identities": len(identities)}
+        all_accts = mgr.list_accounts()
+        acct_map = {a["id"]: a for a in all_accts}
+
+        PLATFORM_MAP = {"douyin": "douyin_daily", "xiaohongshu": "xhs_daily"}
+
+        plan = []
+        for aid in accounts:
+            acct = acct_map.get(aid)
+            if not acct:
+                plan.append({"account": aid, "error": "账号不存在", "ok": False})
+                continue
+            platform = acct.get("platform", "")
+            owner = acct.get("owner_machine", HOSTNAME)
+            target_machine = force_machine or owner
+            bp = custom_blueprint or PLATFORM_MAP.get(platform, "douyin_daily")
+            plan.append({
+                "account": aid, "platform": platform, "blueprint": bp,
+                "machine": target_machine, "is_local": (target_machine == HOSTNAME),
+                "rounds": rounds, "owner": owner, "ok": True,
+            })
+
+        if dry_run:
+            return {"status": "plan", "plan": plan}
+
+        # 执行 — 按机器分组，每台机器手动分配槽位+错峰
+        from services.browser_orchestrator import SLOTS, LAUNCH_STAGGER, verify_started
+        from services.remote_exec import exec_remote
+
+        results = []
+
+        # 按机器分组
+        machine_groups = {}
+        for item in plan:
+            if not item["ok"]:
+                results.append(item)
+                continue
+            m = item["machine"]
+            if m not in machine_groups:
+                machine_groups[m] = []
+            machine_groups[m].append(item)
+
+        for machine, items in machine_groups.items():
+            is_local = (machine == HOSTNAME)
+            slot_idx = 0
+            for item in items:
+                slot = SLOTS[slot_idx % len(SLOTS)]
+                slot_idx += 1
+                stagger = (slot_idx - 1) * LAUNCH_STAGGER
+
+                run_id = f"nurture_{int(time.time())}_{item['account']}"
+                wrapper = str(AGENT_SYNC / "05_tools" / "10_dashboard" / "services" / "nurture_runner.sh")
+                pos_x, pos_y = slot["position"]
+                wrapper_cmd = f"bash {wrapper} {item['account']} {item['blueprint']} {item['rounds']} {run_id} {slot['id']} {pos_x} {pos_y}"
+
+                if stagger > 0:
+                    logger.info(f"⏳ 养号错峰等待 {stagger}s → {item['account']} (槽位{slot['id']})")
+                    time.sleep(stagger)
+
+                if is_local:
+                    p = subprocess.Popen(
+                        ["bash", wrapper, item["account"], item["blueprint"],
+                         str(item["rounds"]), run_id, str(slot["id"]), str(pos_x), str(pos_y)],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
+                    time.sleep(3)
+                    verified = verify_started(HOSTNAME, item["account"], timeout=10)
+                    results.append({
+                        "account": item["account"], "status": "started" if verified["running"] else "verify_failed",
+                        "run_id": run_id, "pid": p.pid, "verified_pid": verified["pid"],
+                        "slot": slot["id"], "position": f"{pos_x},{pos_y}",
+                    })
+                else:
+                    r = exec_remote(machine, wrapper_cmd, timeout=15, fire_and_forget=True)
+                    time.sleep(5)
+                    verified = verify_started(machine, item["account"], timeout=10)
+                    results.append({
+                        "account": item["account"], "status": "started" if verified["running"] else "dispatch_only",
+                        "run_id": run_id, "slot": slot["id"], "position": f"{pos_x},{pos_y}",
+                        "dispatched": r.get("status"), "verified": verified["running"],
+                    })
+
+        return {"status": "started", "plan": plan, "results": results}
+
     except Exception as e:
+        logger.exception("nurture/start 执行异常")
         raise HTTPException(500, detail=str(e))
 
 
 @router.get("/nurture/status")
 def api_matrix_nurture_status():
-    """获取养号状态"""
-    return {"status": "idle"}
+    """返回当前运行状态（含浏览器检测）"""
+    try:
+        from services.browser_orchestrator import check_running_browsers, get_machine_status
+        local_browsers = check_running_browsers()
+        ORACLE_PATH = AGENT_SYNC / "ORACLE.yaml"
+        remote_machines = []
+        if ORACLE_PATH.exists():
+            import yaml
+            oracle = yaml.safe_load(ORACLE_PATH.read_text())
+            for name in oracle.get("machines", {}):
+                if name != HOSTNAME:
+                    try:
+                        remote_machines.append(get_machine_status(name))
+                    except:
+                        remote_machines.append({"machine": name, "error": "不可达"})
+        return {
+            "status": "running" if local_browsers else "idle",
+            "running_count": len(local_browsers),
+            "local_browsers": local_browsers,
+            "remote_machines": remote_machines,
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@router.get("/nurture/results")
+def api_matrix_nurture_results(limit: int = 20):
+    """返回最近养号执行结果"""
+    try:
+        results_dir = AGENT_LOCAL / "runtime" / "nurture" / "results"
+        all_results = []
+        if results_dir.exists():
+            for f in sorted(results_dir.glob("nurture_*.json"), reverse=True)[:limit]:
+                try:
+                    data = json.loads(f.read_text())
+                    all_results.append(data)
+                except:
+                    pass
+        return {"results": all_results, "total": len(all_results)}
+    except Exception as e:
+        return {"results": [], "error": str(e)}
+
+
+@router.get("/nurture/log/{run_id}")
+def api_matrix_nurture_log(run_id: str):
+    """返回指定 run_id 的详细日志"""
+    try:
+        log_path = AGENT_LOCAL / "runtime" / "nurture" / "logs" / f"{run_id}.log"
+        if not log_path.exists():
+            return {"error": f"日志不存在: {run_id}", "log": ""}
+        content = log_path.read_text(encoding="utf-8", errors="replace")
+        return {"run_id": run_id, "log": content[-5000:]}
+    except Exception as e:
+        return {"error": str(e), "log": ""}
+
+
+@router.post("/nurture/cleanup")
+def api_matrix_nurture_cleanup(data: dict = {}):
+    """清理残留浏览器进程"""
+    machine = data.get("machine", HOSTNAME)
+    from services.browser_orchestrator import cleanup_stale
+    return cleanup_stale(machine)
+
+
+@router.get("/machine/{machine_name}/status")
+def api_machine_status(machine_name: str):
+    """获取一台机器的实时状态"""
+    from services.browser_orchestrator import get_machine_status
+    return get_machine_status(machine_name)
 
 
 @router.get("/accounts/{account_id}")

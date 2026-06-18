@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+⚠️ 已废弃 — 请使用 Dashboard 采集 API 替代。
+   本文件保留以供 douyin_login.py 引用，新代码禁止导入。
+
 profile_scraper.py — 账号主页资料自动采集引擎 v1.0
 
 功能:

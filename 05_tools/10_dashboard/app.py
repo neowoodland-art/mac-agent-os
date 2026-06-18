@@ -32,7 +32,9 @@ from datetime import datetime, timezone
 logger = logging.getLogger("dashboard")
 
 # ── 联邦身份 ───────────────────────────────────────────────
-HOSTNAME = os.uname().nodename
+_AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(Path.home() / "workbuddy-agent-os" / "agent-local")))
+_HOSTNAME_CACHED = _AGENT_LOCAL / "identity" / "cached_hostname"
+HOSTNAME = _HOSTNAME_CACHED.read_text().strip() if _HOSTNAME_CACHED.exists() else os.uname().nodename
 
 # ── 添加 AVE scripts 目录到 sys.path ──────────────────────
 _AVE_SCRIPTS = Path(__file__).resolve().parent.parent / "09_ave" / "scripts"
@@ -1015,6 +1017,9 @@ def _get_matrix_mgr():
 # ── 注册模块化路由 ────────────────────────────────────────
 from routes.matrix import router as matrix_router
 app.include_router(matrix_router)
+
+from routes.ops import router as ops_router
+app.include_router(ops_router)
 
 @app.get("/api/workflow/nodes")
 def api_workflow_nodes():

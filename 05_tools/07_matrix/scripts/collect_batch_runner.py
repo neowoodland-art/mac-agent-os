@@ -24,16 +24,26 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix"
-CONFIG_FILE = AGENT_LOCAL / "config" / "accounts.yaml"
-IDENTITIES_ROOT = AGENT_LOCAL / "identities"
-PROGRESS_FILE = AGENT_LOCAL / "data" / "collect_progress.json"
-OUTPUT_FILE = AGENT_LOCAL / "data" / "homepage_info.json"
-SCREENSHOTS_DIR = AGENT_LOCAL / "screenshots" / "homepage"
-HISTORY_DIR = AGENT_LOCAL / "data" / "homepage" / "history"
-TIMELINE_FILE = HISTORY_DIR / "timeline.json"
-SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
-HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+AGENT_LOCAL = None  # will be set by init_paths()
+
+def init_paths():
+    global AGENT_LOCAL, CONFIG_FILE, IDENTITIES_ROOT, PROGRESS_FILE, OUTPUT_FILE, SCREENSHOTS_DIR, HISTORY_DIR, TIMELINE_FILE
+    try:
+        from matrix_mgmt import AGENT_LOCAL as _AL, MATRIX_LOCAL
+        AGENT_LOCAL = _AL / "tools" / "matrix"
+    except ImportError:
+        AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix"
+    CONFIG_FILE = AGENT_LOCAL / "config" / "accounts.yaml"
+    IDENTITIES_ROOT = AGENT_LOCAL / "identities"
+    PROGRESS_FILE = AGENT_LOCAL / "data" / "collect_progress.json"
+    OUTPUT_FILE = AGENT_LOCAL / "data" / "homepage_info.json"
+    SCREENSHOTS_DIR = AGENT_LOCAL / "screenshots" / "homepage"
+    HISTORY_DIR = AGENT_LOCAL / "data" / "homepage" / "history"
+    TIMELINE_FILE = HISTORY_DIR / "timeline.json"
+    SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+    HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+
+init_paths()
 
 from cdp_connector import CDPConnector
 

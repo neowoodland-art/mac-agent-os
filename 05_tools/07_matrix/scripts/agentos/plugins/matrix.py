@@ -1,8 +1,14 @@
 """
 agentos matrix — 社交矩阵（抖音/小红书运营）
 
-继承自 mc 所有功能，作为 agentos 的一个插件。
-mc 命令保留为 agentos matrix 的快捷方式。
+通过 mc CLI 的 build_parser 委托方式，继承全部 mc 命令。
+mc 的账号/养号/采集/登录/评论/点赞/蓝图/语料库/发布等全部命令通过此插件暴露。
+
+用法:
+  agentos matrix run --accounts A,B --blueprints X --rounds 10
+  agentos matrix collect --all
+  agentos matrix account list
+  agentos matrix publish douyin --account x --file video.mp4
 """
 
 import sys
@@ -10,9 +16,9 @@ from pathlib import Path
 
 from agentos.base import AgentOSPlugin
 
-# mc 模块路径（复用现有代码）
-MC_DIR = Path(__file__).resolve().parent.parent.parent / "mc"
-sys.path.insert(0, str(MC_DIR.parent))
+# 添加 scripts 目录到路径（复用现有代码）
+SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(SCRIPTS_DIR))
 
 
 class MatrixPlugin(AgentOSPlugin):
@@ -32,46 +38,13 @@ class MatrixPlugin(AgentOSPlugin):
     }
 
     def register(self, subparsers):
-        """委托给 mc 的 build_parser()，再加 publish 子命令"""
-        import subprocess
-        from mc.cli import build_parser
-        parser = build_parser(subparsers, plugin_name="matrix")
-
-        # 在 matrix 下添加 publish 子命令
-        if parser and hasattr(parser, 'add_subparsers'):
-            pub_parsers = parser.add_subparsers(dest="matrix_publish_action")
-            p_pub = pub_parsers.add_parser("publish", help="视频/图文发布")
-            p_pub.add_argument("platform", choices=["douyin", "xiaohongshu"], help="平台")
-            p_pub.add_argument("--account", required=True, help="账号ID")
-            p_pub.add_argument("--file", required=True, help="文件路径")
-            p_pub.add_argument("--title", help="标题")
-            p_pub.add_argument("--desc", help="描述")
-            p_pub.set_defaults(matrix_publish_func=self.cmd_publish)
-
-        return parser
+        """委托给 mc 的 build_parser()，挂载全部子命令"""
+        from mc.cli import build_parser as mc_build_parser
+        return mc_build_parser(subparsers, plugin_name="matrix")
 
     def dispatch(self, args):
-        """委托给 mc 的命令分发 + publish 命令"""
-        if hasattr(args, 'matrix_publish_func'):
-            return args.matrix_publish_func(args)
+        """委托给 mc 的命令分发"""
         if hasattr(args, 'func'):
             return args.func(args)
-        print("未知命令，请使用 --help 查看帮助")
+        print(f"未知 matrix 命令，请使用: agentos matrix --help")
         return 1
-
-    def cmd_publish(self, args):
-        """调用 publish_video.py 发布内容"""
-        import subprocess, sys
-        publish_script = MC_DIR.parent / "publish_video.py"
-        if not publish_script.exists():
-            print(f"发布脚本不存在: {publish_script}")
-            return 1
-        cmd = [sys.executable, str(publish_script), args.platform,
-               "--account", args.account, "--file", args.file]
-        if args.title:
-            cmd += ["--title", args.title]
-        if args.desc:
-            cmd += ["--desc", args.desc]
-        print(f"📤 发布到 {args.platform}: {args.file}")
-        result = subprocess.run(cmd)
-        return result.returncode

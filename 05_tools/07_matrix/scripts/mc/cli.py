@@ -1114,6 +1114,30 @@ def cmd_remote(args):
 
 
 # ════════════════════════════════════════════════════════════
+# publish — 发布内容
+# ════════════════════════════════════════════════════════════
+
+def cmd_publish(args):
+    """mc publish — 发布视频/图文到平台"""
+    import subprocess
+    publish_script = SCRIPTS_DIR / "publish_video.py"
+    if not publish_script.exists():
+        print(f"❌ 发布脚本不存在: {publish_script}")
+        return 1
+    
+    cmd = [sys.executable, str(publish_script), args.platform,
+           "--account", args.account, "--file", args.file]
+    if args.title:
+        cmd += ["--title", args.title]
+    if args.desc:
+        cmd += ["--desc", args.desc]
+    
+    print(f"📤 发布到 {args.platform}: {args.file}")
+    result = subprocess.run(cmd, cwd=str(SCRIPTS_DIR))
+    return result.returncode
+
+
+# ════════════════════════════════════════════════════════════
 # 主解析器
 # ════════════════════════════════════════════════════════════
 
@@ -1356,12 +1380,30 @@ def build_parser(subparsers=None, plugin_name="mc"):
     except Exception as e:
         pass  # 插件加载失败不影响其他命令
 
+    # ── publish — 发布内容到平台 ──
+    p_publish = sub.add_parser("publish", help="发布视频/图文到平台")
+    p_publish.add_argument("platform", choices=["douyin", "xiaohongshu"], help="目标平台")
+    p_publish.add_argument("--account", required=True, help="账号ID")
+    p_publish.add_argument("--file", required=True, help="文件路径")
+    p_publish.add_argument("--title", default="", help="标题")
+    p_publish.add_argument("--desc", default="", help="描述")
+    p_publish.set_defaults(func=cmd_publish)
+
     return parser
 
 
 def main():
     parser = build_parser()
     args = parser.parse_args()
+
+    # ── 检测是否可以通过 agentos 执行 ──
+    # agentos 是最终目标 CLI，mc 是过渡桥接
+    # 当 agentos 可用时，转发命令到 agentos，mc 只做壳
+    if hasattr(args, 'subcommand') or hasattr(args, 'func'):
+        try:
+            _try_forward_to_agentos(args)
+        except Exception:
+            pass  # 转发失败，回退到 mc 执行
 
     # ── 关闭 FastAPI logger 的噪音 ──
     logging.getLogger().setLevel(logging.INFO if args.verbose else logging.WARNING)
@@ -1372,6 +1414,57 @@ def main():
         args.func(args)
     else:
         parser.print_help()
+
+
+# ════════════════════════════════════════════════════════════
+# agentos 转发
+# ════════════════════════════════════════════════════════════
+
+# mc 子命令 → agentos domain 映射表
+_AGENTOS_DOMAIN_MAP = {
+    'run': 'matrix', 'collect': 'matrix', 'account': 'matrix',
+    'blueprint': 'matrix', 'corpus': 'matrix',
+    'login': 'matrix', 'smart-login': 'matrix',
+    'publish': 'matrix', 'task': 'matrix', 'op': 'matrix', 'record': 'matrix',
+    'status': 'fleet', 'remote': 'fleet',
+    'schedule': 'serve', 'proxy': 'serve', 'sms': 'serve',
+}
+
+
+def _try_forward_to_agentos(args):
+    """尝试将 mc 命令转发到 agentos"""
+    import subprocess, sys
+    from pathlib import Path
+    
+    # 确定 mc 的子命令（从 args 或 func 名）
+    mc_cmd = None
+    if hasattr(args, 'subcommand') and args.subcommand:
+        mc_cmd = args.subcommand
+    elif hasattr(args, 'remote_action') and args.remote_action:
+        mc_cmd = 'remote'
+    elif hasattr(args, 'func'):
+        fn = args.func.__name__
+        if fn.startswith('cmd_'):
+            mc_cmd = fn[4:]
+    
+    if not mc_cmd or mc_cmd not in _AGENTOS_DOMAIN_MAP:
+        return  # 无法映射到 agentos 领域
+    
+    domain = _AGENTOS_DOMAIN_MAP[mc_cmd]
+    
+    # 构建 python -m agentos 命令
+    # sys.argv = ['mc', '<subcommand>', '<args>...']
+    # → ['python', '-m', 'agentos', '<domain>', '<subcommand>', '<args>...']
+    python = sys.executable
+    agentos_args = [python, '-m', 'agentos', domain] + sys.argv[1:]
+    
+    try:
+        result = subprocess.run(agentos_args, capture_output=False)
+        if result.returncode == 0:
+            sys.exit(0)
+        # agentos 执行失败，回退到 mc
+    except Exception:
+        pass  # 走 mc 原始逻辑
 
 
 if __name__ == "__main__":

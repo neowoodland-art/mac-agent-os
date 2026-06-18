@@ -157,6 +157,8 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 .machine-status-card.busy .machine-status { color: var(--amber); }
 .machine-status-card.offline .machine-status { color: var(--text2); opacity: .5; }
 </style>
+  <script type="module" crossorigin src="/static/assets/index-DzS_m_f5.js"></script>
+  <link rel="stylesheet" crossorigin href="/static/assets/index-DrEIyFIL.css">
 </head>
 <body>
 <nav class="sidebar" id="sidebar">
@@ -333,21 +335,9 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
   </div>
   <div id="cmd-corpus-content" style="display:none"><div id="corpusContent3"></div></div>
   <div id="cmd-nurture-content" style="display:none">
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">🌱 全部养号 <span style="font-size:10px;color:var(--text2);font-weight:400">日常养号调度器 v1.0</span></div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-        <select id="nurturePhone" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
-          <option value="">所有身份</option>
-        </select>
-        <label style="font-size:11px;color:var(--text2)">每身份分钟: <input id="nurtureMins" type="number" value="10" min="5" max="30" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px;width:50px"></label>
-        <label style="font-size:11px;color:var(--text2)">并发: <input id="nurtureConcur" type="number" value="3" min="1" max="5" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px;width:40px"></label>
-        <label style="font-size:11px;color:var(--text2)">间隔: <input id="nurtureStagger" type="number" value="15" min="5" max="60" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px;width:45px">秒</label>
-        <button onclick="nurturePreview()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📅 预览排期</button>
-        <button onclick="nurtureStart()" style="background:#22c55e;color:#000;border:none;padding:6px 20px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🚀 开始养号</button>
-      </div>
-      <div id="nurturePreview" style="font-size:11px;color:var(--text2);margin-bottom:4px;font-family:monospace;white-space:pre-wrap"></div>
-      <div id="nurtureStatus" style="font-size:12px;color:var(--text2);margin-bottom:4px"></div>
-      <div id="nurtureLog" style="font-size:11px;background:var(--bg2);border-radius:6px;padding:8px;margin-top:4px;max-height:400px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
+    <div style="padding:40px;text-align:center">
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px">🌱 养号执行已移至独立页面，功能更完善</p>
+      <button onclick="switchView('matrix-nurture')" style="background:var(--primary);color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:13px">→ 前往养号执行</button>
     </div>
   </div>
   <div id="cmd-comment-content" style="display:none">
@@ -888,6 +878,15 @@ tr:hover td { background: var(--bg3); cursor: pointer; }
 <!-- 视频工厂系列：模板 -->
 <div id="view-ave-templates" class="hidden"><div class="loading">⏳ 加载模板...</div></div>
 
+<!-- 矩阵系列：收藏点赞（新建） -->
+<div id="view-matrix-like" class="hidden"><div class="loading">⏳ 加载收藏点赞...</div></div>
+
+<!-- 矩阵系列：登录管理（新建） -->
+<div id="view-matrix-login" class="hidden"><div class="loading">⏳ 加载登录管理...</div></div>
+
+<!-- 联邦指挥台（新建） -->
+<div id="view-ops-command" class="hidden"><div class="loading">⏳ 加载联邦指挥台...</div></div>
+
 <!-- 内容采集系列：采集任务（重定向到 plugin-collector） -->
 <div id="view-crawl-tasks" class="hidden"><div class="loading">⏳ 加载采集任务...</div></div>
 
@@ -998,7 +997,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy'];
+  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','ops-command'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -1096,6 +1095,9 @@ function switchView(view) {
   if (view === 'fleet-sync') loadFleetSync();
   if (view === 'fleet-reconcile') loadFleetReconcile();
   if (view === 'fleet-exec') loadFleetExec();
+  if (view === 'matrix-like') loadMatrixLike();
+  if (view === 'matrix-login') loadMatrixLogin();
+  if (view === 'ops-command') loadOpsCommand();
   if (view === 'serve-mcp') loadServeMCP();
   if (view === 'serve-dashboard') loadServeDashboard();
   if (view === 'serve-schedule') loadServeSchedule();
@@ -1411,14 +1413,17 @@ async function loadPlugins() {
     const S = (label, status) => `<span style="font-size:9px;margin-left:4px;padding:1px 5px;border-radius:3px;background:rgba(217,119,6,.12);color:#d97706;font-weight:500">${status}</span>`;
     const groups = {
       '矩阵': { icon: '📱', items: [
-        {view:'matrix-sms-proxy', label:'账号管理'},
-        {view:'matrix-nurture', label:'养号执行'},
-        {view:'matrix-collect', label:'信息采集'},
-        {view:'matrix-publish', label:'内容发布'},
-        {view:'matrix-blueprints', label:'蓝图管理'},
-        {view:'matrix-comment', label:'定向评论'},
-        {view:'matrix-schedule', label:'定时任务'},
-        {view:'matrix-corpus', label:'语料库'},
+        {view:'matrix-sms-proxy', label:'🪪 账号管理'},
+        {view:'matrix-nurture', label:'🏃 养号执行'},
+        {view:'matrix-collect', label:'📡 信息采集'},
+        {view:'matrix-publish', label:'📤 内容发布'},
+        {view:'matrix-comment', label:'💬 定向评论'},
+        {view:'matrix-like', label:'❤️ 收藏点赞'},
+        {view:'matrix-blueprints', label:'📋 蓝图管理'},
+        {view:'matrix-login', label:'🔑 登录管理'},
+        {view:'matrix-schedule', label:'⏱ 定时任务'},
+        {view:'matrix-corpus', label:'📚 语料库'},
+        {view:'ops-command', label:'🖥️ 联邦指挥台'},
       ]},
       '视频工厂': { icon: '🎬', items: [
         {view:'ave-render', label:'渲染任务'},
@@ -2003,7 +2008,7 @@ async function loadMatrixBlueprints() {
     ]);
     const bd = await br.json();
     const od = await or.json();
-    const bps = bd.blueprints || [];
+    const bps = Array.isArray(bd) ? bd : (bd.blueprints || []);
     const allOps = od.ops || [];
     window._matrixOps = {};
     allOps.forEach(o => { window._matrixOps[o.name] = o; });
@@ -2574,76 +2579,184 @@ function _renderShell(containerId, title, status, note) {
     </div>`;
 }
 
-// 矩阵系列 — 养号执行（重定向到命令与任务的养号tab）
+// 矩阵系列 — 养号执行（直接内联执行面板）
 async function loadMatrixNurture() {
   const el = document.getElementById('view-matrix-nurture');
-  el.innerHTML = `<div style="padding:20px">
-    <p style="font-size:13px;color:var(--text2);margin-bottom:12px">🔄 正在跳转到命令与任务 → 养号执行...</p>
-    <div id="nurtureInline" style="margin-top:8px"></div>
-  </div>`;
-  // 内联加载全部养号面板
-  try {
-    const r = await fetch('/api/matrix/identities');
-    const d = await r.json();
-    const identities = d.identities || [];
-    const sel = document.createElement('select');
-    sel.id = 'nurturePhoneInline';
-    sel.innerHTML = '<option value="">所有身份</option>' + identities.map(i => `<option value="${i.phone||i.dir}">${i.display||i.dir}</option>`).join('');
-    el.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:12px;padding:12px">
-        <h2 style="font-size:18px">🌱 养号执行</h2>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          身份: ${sel.outerHTML}
-          <label style="font-size:11px;color:var(--text2)">轮次: <input id="nurtureRoundsInline" type="number" value="10" style="width:50px;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px"></label>
-          <button onclick="runNurtureInline()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🚀 开始养号</button>
+  el.innerHTML = `
+    <div style="padding:16px">
+      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px">🌱 养号执行 <span style="font-size:10px;color:var(--text2);font-weight:400">预检 → 窗口定位 → 执行 → 验证</span></div>
+        <div id="nurtureAcctList" style="margin-bottom:6px">
+          <div class="loading" style="padding:8px;font-size:12px">⏳ 加载账号列表...</div>
         </div>
-        <div id="nurtureInlineLog" style="font-size:11px;color:var(--text2);font-family:monospace;white-space:pre-wrap;max-height:300px;overflow:auto"></div>
-      </div>`;
-  } catch(e) {
-    el.innerHTML = `<div class="error" style="padding:40px">❌ 无法加载身份列表: ${e.message}</div>`;
-  }
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <label style="font-size:11px;color:var(--text2)">轮数:
+            <select id="ndRounds" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:11px">
+              <option value="1">1 测试</option><option value="5">5</option>
+              <option value="10" selected>10 默认</option>
+              <option value="20">20</option><option value="30">30</option>
+            </select>
+          </label>
+          <label style="font-size:11px;color:var(--text2)">蓝图:
+            <select id="ndBlueprint" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:11px">
+              <option value="">自动匹配</option>
+              <option value="douyin_daily">🎵 douyin_daily</option>
+              <option value="xhs_daily">📕 xhs_daily</option>
+              <option value="douyin_active_v1">🎵 douyin_active_v1</option>
+              <option value="xhs_active_v1">📕 xhs_active_v1</option>
+            </select>
+          </label>
+          <button onclick="nurturePreflight()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔍 预检</button>
+          <button onclick="nurtureExec()" style="background:#22c55e;color:#000;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">🚀 执行选中</button>
+          <button onclick="nurtureExecAll()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 全部启用</button>
+          <span id="nurtureSelCount" style="font-size:10px;color:var(--text2)">已选 0 个</span>
+        </div>
+        <div id="nurtureStatus" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
+        <div id="nurturePreflightInfo" style="font-size:10px;color:var(--text2);margin-top:2px;font-family:monospace;white-space:pre-wrap"></div>
+        <div id="nurtureLog" style="font-size:10px;background:var(--bg2);border-radius:6px;padding:6px;margin-top:4px;max-height:300px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
+      </div>
+    </div>`;
+  // 用共享选择器加载账号列表
+  const data = await _loadAccounts();
+  _renderAccountSelector('nurtureAcctList', {_data: data, height: '350px'});
+  document.getElementById('nurtureSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
 }
 
-// 矩阵系列 — 信息采集（Shell）
-// 矩阵系列 — 信息采集（有完整 API → 集成）
+// 矩阵系列 — 信息采集（按机器分组 + 账号选择）
+// 矩阵系列 — 登录与信息采集（合并）
 async function loadMatrixCollect() {
   const el = document.getElementById('view-matrix-collect');
-  el.innerHTML = '<div id="collectPanel" style="padding:20px"><div class="loading">⏳ 加载信息采集...</div></div>';
+  el.innerHTML = `
+    <div style="padding:16px">
+      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px">📡 登录与信息采集 <span style="font-size:10px;color:var(--text2);font-weight:400">登录+采集一体化，选择账号后可仅登录或登录后采集</span></div>
+        <div id="collectAccountList" style="margin-bottom:6px">
+          <div class="loading" style="padding:8px;font-size:12px">⏳ 加载账号列表...</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span id="collectStatus" style="font-size:10px;color:var(--text2)">⏸️ 空闲</span>
+          <button onclick="collectLogin()" style="background:#6366f1;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600">🔑 登录选中</button>
+          <button onclick="collectExec()" style="background:var(--primary);color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600">📥 采集选中</button>
+          <button onclick="collectAll()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 采集全部</button>
+          <button onclick="cancelCollect()" style="background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.3);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">⏹ 停止</button>
+          <span id="collectSelCount" style="font-size:10px;color:var(--text2)">已选 0 个</span>
+        </div>
+        <div id="collectLog" style="font-size:10px;background:var(--bg2);border-radius:6px;padding:6px;margin-top:4px;max-height:250px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
+      </div>
+    </div>`;
+  const data = await _loadAccounts();
+  _renderAccountSelector('collectAccountList', {_data: data, height: '300px', checkAll: false});
+  document.getElementById('collectSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
+  // 加载采集状态
   try {
-    const ri = await fetch('/api/matrix/identities');
-    const di = await ri.json();
-    const identities = di.identities || [];
-    const rs = await fetch('/api/matrix/collect-homepage/status');
-    const ds = await rs.json();
-    const isRunning = ds.running || false;
-    const statusText = isRunning ? '<span style="color:var(--green)">🟢 采集中</span>' : '<span style="color:var(--text2)">⏸️ 空闲</span>';
-    document.getElementById('collectPanel').innerHTML = `
-      <h2 style="font-size:18px;margin-bottom:12px">📱 信息采集</h2>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-        <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border);flex:1;min-width:280px">
-          <div style="font-size:12px;font-weight:600;margin-bottom:8px">👤 按身份采集</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap">
-            ${identities.map(i => '<span onclick="collectByIdentity(\''+(i.dir||i.id||'')+'\')" style="cursor:pointer;padding:4px 8px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);font-size:11px;display:inline-block;margin:2px">'+(i.display||i.dir||i.id)+'</span>').join('')}
-          </div>
-        </div>
-        <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border);flex:1;min-width:280px">
-          <div style="font-size:12px;font-weight:600;margin-bottom:8px">📱 按手机号采集</div>
-          <div style="display:flex;gap:6px">
-            <input id="collectPhoneInput" placeholder="输入手机号" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
-            <button onclick="collectByPhone()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">👤 采集</button>
-          </div>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;font-size:12px">
-        <span>状态: ${statusText}</span>
-        <button onclick="cancelCollect()" style="background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.3);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">⏹ 停止</button>
-        <button onclick="loadCollectHistory()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📜 历史</button>
-      </div>
-      <div id="collectLog" style="background:var(--bg2);border-radius:var(--radius);padding:10px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:300px;overflow:auto"></div>`;
-  } catch(e) {
-    document.getElementById('collectPanel').innerHTML = '<div class="error">❌ '+e.message+'</div>';
-  }
+    const sr = await fetch('/api/matrix/collect-homepage/status');
+    const sd = await sr.json();
+    if (sd.running) document.getElementById('collectStatus').innerHTML = '<span style="color:var(--green)">🟢 采集中</span>';
+  } catch(e) {}
 }
+
+// 采集：登录选中账号
+window.collectLogin = async function() {
+  const selected = _getSelectedAccounts();
+  if (!selected.length) { alert('请先选择要登录的账号'); return; }
+  const logEl = document.getElementById('collectLog');
+  if (logEl) logEl.textContent = '🔑 登录 ' + selected.length + ' 个账号...\n';
+  for (const s of selected) {
+    try {
+      const r = await fetch('/api/ops/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'login',accounts:[s.id]})});
+      const d = await r.json();
+      if (logEl) logEl.textContent += s.id + ': ' + (d.status || 'OK') + '\n';
+    } catch(e) { if (logEl) logEl.textContent += s.id + ': ❌ ' + e.message + '\n'; }
+  }
+};
+
+// 采集：采集选中账号
+window.collectExec = async function() {
+  const selected = _getSelectedAccounts();
+  if (!selected.length) { alert('请先选择要采集的账号'); return; }
+  const logEl = document.getElementById('collectLog');
+  if (logEl) logEl.textContent = '📥 采集 ' + selected.length + ' 个账号...\n';
+  for (const s of selected) {
+    try {
+      const r = await fetch('/api/matrix/collect-homepage', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:s.id})});
+      const d = await r.json();
+      document.getElementById('collectStatus').innerHTML = '<span style="color:var(--green)">🟢 采集中</span>';
+      if (logEl) logEl.textContent += s.id + ': ' + (d.status || 'OK') + ' 机器:' + (d.machine||s.machine) + '\n';
+    } catch(e) { if (logEl) logEl.textContent += s.id + ': ❌ ' + e.message + '\n'; }
+  }
+};
+
+// 采集全部
+window.collectAll = async function() {
+  const selected = _getSelectedAccounts();
+  if (!selected.length) { alert('没有可采集的账号'); return; }
+  if (!confirm('采集全部 ' + selected.length + ' 个账号？')) return;
+  await collectExec();
+};
+
+// 采集折叠组
+function toggleCollectGroup(id) {
+  const el = document.getElementById(id);
+  const arrow = document.getElementById(id + '_arrow');
+  if (!el) return;
+  const hidden = el.style.display === 'none';
+  el.style.display = hidden ? '' : 'none';
+  if (arrow) arrow.textContent = hidden ? '▼' : '▶';
+}
+
+function toggleCollectMachine(master, machine) {
+  document.querySelectorAll('.collect-cb[data-machine="' + machine + '"]').forEach(cb => cb.checked = master.checked);
+}
+
+// 采集选中账号（批量提交，后端路由到各机器）
+async function collectSelected() {
+  const cbs = document.querySelectorAll('.collect-cb:checked');
+  const ids = Array.from(cbs).map(cb => cb.value);
+  const log = document.getElementById('collectLog');
+  if (!ids.length) { if (log) log.textContent = '请先选择要采集的账号'; return; }
+  if (log) log.textContent = '⏳ 提交 ' + ids.length + ' 个采集任务（自动路由到各机器）...\n';
+  try {
+    const r = await fetch('/api/matrix/collect-homepage', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_ids:ids})});
+    const d = await r.json();
+    const results = d.results || [];
+    if (log) {
+      let txt = '📋 采集分发结果:\n';
+      results.forEach(r2 => {
+        const icon = r2.status === 'started' ? '✅' : r2.status === 'dispatched' ? '📡' : '❌';
+        const machine = r2.machine === 'chengzigedeAir' ? '🖥️' : '☁️' + r2.machine;
+        txt += '  ' + icon + ' ' + machine + ' ' + (r2.target || '') + ': ' + r2.status;
+        if (r2.pid) txt += ' (PID:' + r2.pid + ')';
+        txt += '\n';
+      });
+      log.textContent = txt;
+    }
+  } catch(e) { if (log) log.textContent += '❌ ' + e.message + '\n'; }
+}
+
+// 采集全部
+async function collectAll() {
+  const cbs = document.querySelectorAll('.collect-cb');
+  const ids = Array.from(cbs).map(cb => cb.value);
+  if (!ids.length) { 
+    const log = document.getElementById('collectLog');
+    if (log) log.textContent = '没有可采集的账号';
+    return;
+  }
+  if (!confirm('采集全部 ' + ids.length + ' 个账号（自动路由到各机器）？')) return;
+  await collectSelected();
+}
+
+// 保留旧函数兼容
+window.collectByIdentity = async function(dir) {
+  const log = document.getElementById('collectLog');
+  if (!log) return;
+  log.textContent = '⏳ 开始采集身份: ' + dir + '\n';
+  try {
+    const r = await fetch('/api/matrix/collect-homepage', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity_dir:dir})});
+    const d = await r.json();
+    log.textContent += JSON.stringify(d, null, 2);
+  } catch(e) { log.textContent += '❌ ' + e.message; }
+};
 window.collectByIdentity = async function(dir) {
   const log = document.getElementById('collectLog');
   if (!log) return;
@@ -2693,54 +2806,68 @@ async function loadMatrixPublish() {
     '发布模块的 CLI 封装尚未完成。现有的 publish_video.py 在 agent-os/agent-sync/05_tools/07_matrix/scripts/ 目录下。需要 agentos matrix publish CLI 封装。');
 }
 
-// 矩阵系列 — 定向评论（内联加载命令与任务面板）
+// 矩阵系列 — 定向评论（共享选择器）
 async function loadMatrixComment() {
   const el = document.getElementById('view-matrix-comment');
-  el.innerHTML = `<div style="padding:20px">
-    <h2 style="font-size:18px;margin-bottom:12px">💬 定向评论</h2>
-    <div id="commentPanel"></div>
-  </div>`;
-  // 复用命令与任务中的定向评论面板内容（取API数据）
-  try {
-    const r = await fetch('/api/matrix/identities');
-    const d = await r.json();
-    const accounts = d.identities||d.accounts||[];
-    document.getElementById('commentPanel').innerHTML = `
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input id="commentUrl" placeholder="视频链接" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:280px">
-          <select id="commentDirection" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
-            <option value="">自动选方向</option>
-            <option value="称赞">👍 称赞</option>
-            <option value="提问">🤔 提问</option>
-            <option value="共鸣">💗 共鸣</option>
-            <option value="感慨">😌 感慨</option>
-            <option value="客观">📊 客观</option>
-          </select>
-          <select id="commentAccount" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
-            <option value="">自动选账号</option>
-            ${accounts.map(a => `<option value="${a.id||a.dir}">${a.display||a.dir}</option>`).join('')}
-          </select>
-          <button onclick="runComment()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🚀 执行评论</button>
+  el.innerHTML = `
+    <div style="padding:16px">
+      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px">💬 定向评论 <span style="font-size:10px;color:var(--text2);font-weight:400">选择账号 → 填入视频链接 → 方向/语料 → 执行</span></div>
+        <div id="commentAccountList" style="margin-bottom:6px">
+          <div class="loading" style="padding:8px;font-size:12px">⏳ 加载账号列表...</div>
         </div>
-        <div id="commentResult" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
-      </div>`;
-  } catch(e) {
-    document.getElementById('commentPanel').innerHTML = `<div class="error">❌ ${e.message}</div>`;
-  }
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
+          <textarea id="commentUrls" placeholder="视频链接（每行一个，支持多个）" rows="3" style="flex:2;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;resize:vertical"></textarea>
+          <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px">
+            <select id="commentDirection" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+              <option value="">自动选方向</option>
+              <option value="称赞">👍 称赞</option>
+              <option value="提问">🤔 提问</option>
+              <option value="共鸣">💗 共鸣</option>
+              <option value="感慨">😌 感慨</option>
+              <option value="客观">📊 客观</option>
+            </select>
+            <select id="commentCorpus" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+              <option value="">默认语料</option>
+              <option value="通用">📚 通用</option>
+              <option value="科技">💻 科技</option>
+              <option value="生活">🏠 生活</option>
+              <option value="美食">🍔 美食</option>
+              <option value="娱乐">🎮 娱乐</option>
+            </select>
+            <button onclick="runComment()" style="background:var(--primary);color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px">🚀 执行评论</button>
+          </div>
+        </div>
+        <div id="commentResult" style="font-size:10px;color:var(--text2);margin-top:4px;font-family:monospace;white-space:pre-wrap"></div>
+      </div>
+    </div>`;
+  const data = await _loadAccounts();
+  _renderAccountSelector('commentAccountList', {_data: data, height: '300px', checkAll: false, hideFilter: true});
 }
 window.runComment = async function() {
-  const url = document.getElementById('commentUrl')?.value;
+  const selected = _getSelectedAccounts();
+  const urlsText = document.getElementById('commentUrls')?.value;
   const dir = document.getElementById('commentDirection')?.value;
-  const acct = document.getElementById('commentAccount')?.value;
+  const corpus = document.getElementById('commentCorpus')?.value;
   const el = document.getElementById('commentResult');
-  if (!url) { el.textContent = '请填写视频链接'; return; }
-  el.textContent = '⏳ 提交中...';
-  try {
-    const r = await fetch('/api/matrix/task/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'comment',url,direction:dir||null,account:acct||null})});
-    const d = await r.json();
-    el.innerHTML = d.error ? `<span style="color:var(--red)">❌ ${d.error}</span>` : `<span style="color:var(--green)">✅ 评论任务已提交: ${d.task_id||'OK'}</span>`;
-  } catch(e) { el.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`; }
+  if (!urlsText || !urlsText.trim()) { el.textContent = '请填写至少一个视频链接'; return; }
+  const urls = urlsText.split('\n').map(u => u.trim()).filter(u => u);
+  if (!urls.length) { el.textContent = '请填写有效的视频链接'; return; }
+  if (!selected.length) { el.textContent = '请先选择要执行的账号'; return; }
+  el.textContent = '⏳ 使用 ' + selected.length + ' 个账号评论 ' + urls.length + ' 个视频...\n';
+  let results = [];
+  for (const url of urls) {
+    for (const s of selected) {
+      try {
+        const r = await fetch('/api/matrix/task/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'comment',url,direction:dir||null,account:s.id,corpus:corpus||null})});
+        const d = await r.json();
+        results.push({url, account:s.id, status: d.error ? '❌' : '✅', msg: d.error || (d.task_id || 'OK')});
+      } catch(e) { results.push({url, account:s.id, status: '❌', msg: e.message}); }
+    }
+  }
+  const totalOk = results.filter(r => r.status === '✅').length;
+  el.textContent = '✅ ' + totalOk + '/' + results.length + ' 完成\n' +
+    results.slice(0,30).map(r => r.status + ' ' + (r.account||'') + ' ' + (r.url||'').slice(0,35) + ' ' + (r.msg||'')).join('\n');
 };
 
 // 矩阵系列 — 定时任务（Shell — 待集成）
@@ -2774,6 +2901,353 @@ async function loadMatrixSchedule() {
       <div style="font-size:10px;color:var(--text2)">完整调度管理在「矩阵 → 命令与任务」页面</div>`;
   } catch(e) {
     document.getElementById('schedPanel').innerHTML = '<div style="padding:20px"><h2 style="font-size:18px;margin-bottom:12px">⏰ 定时任务</h2><div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)"><div class="error">❌ '+e.message+'</div><p style="font-size:12px;color:var(--text2);margin-top:8px">完整调度管理在「矩阵 → 命令与任务」页面</p></div></div>';
+  }
+}
+
+// 矩阵系列 — 收藏点赞（共享选择器）
+async function loadMatrixLike() {
+  const el = document.getElementById('view-matrix-like');
+  el.innerHTML = `
+    <div style="padding:16px">
+      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px">❤️ 收藏点赞 <span style="font-size:10px;color:var(--text2);font-weight:400">选择账号 → 填入视频链接 → 执行点赞</span></div>
+        <div id="likeAccountList" style="margin-bottom:6px">
+          <div class="loading" style="padding:8px;font-size:12px">⏳ 加载账号列表...</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
+          <textarea id="likeUrls" placeholder="视频链接（每行一个，支持多个）" rows="3" style="flex:2;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;resize:vertical"></textarea>
+          <button onclick="runLike()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px;align-self:flex-start">❤️ 执行点赞</button>
+        </div>
+        <div id="likeResult" style="font-size:10px;color:var(--text2);margin-top:4px;font-family:monospace;white-space:pre-wrap"></div>
+      </div>
+    </div>`;
+  const data = await _loadAccounts();
+  _renderAccountSelector('likeAccountList', {_data: data, height: '300px', checkAll: false, hideFilter: true});
+}
+
+window.runLike = async function() {
+  const selected = _getSelectedAccounts();
+  const urlsText = document.getElementById('likeUrls')?.value;
+  const el = document.getElementById('likeResult');
+  if (!urlsText || !urlsText.trim()) { el.textContent = '请填写视频链接'; return; }
+  const urls = urlsText.split('\n').map(u => u.trim()).filter(u => u);
+  if (!urls.length) { el.textContent = '请填写有效的视频链接'; return; }
+  if (!selected.length) { el.textContent = '请先选择要执行的账号'; return; }
+  el.textContent = '⏳ 执行 ' + urls.length + ' 个点赞...\n';
+  let results = [];
+  for (const url of urls) {
+    for (const s of selected) {
+      try {
+        const r = await fetch('/api/matrix/task/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'like',url,account:s.id})});
+        const d = await r.json();
+        results.push({url, account:s.id, status: d.error ? '❌' : '✅', msg: d.error || (d.task_id || 'OK')});
+      } catch(e) { results.push({url, account:s.id, status: '❌', msg: e.message}); }
+    }
+  }
+  const ok = results.filter(r => r.status === '✅').length;
+  el.textContent = '✅ ' + ok + '/' + results.length + '\n' +
+    results.slice(0,30).map(r => r.status + ' ' + (r.account||'') + ' ' + (r.url||'').slice(0,35)).join('\n');
+};
+
+// 矩阵系列 — 登录管理 → 已合并到信息采集
+async function loadMatrixLogin() {
+  const el = document.getElementById('view-matrix-login');
+  el.innerHTML = `
+    <div style="padding:16px">
+      <div style="background:var(--bg2);border-radius:10px;padding:16px;border:1px solid var(--border);text-align:center">
+        <div style="font-size:24px;margin-bottom:8px">🔑</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px">登录管理已合并到信息采集</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">登录 → 采集是同一流程，请前往「信息采集」页面操作</div>
+        <button onclick="switchView('matrix-collect')" style="background:var(--primary);color:#fff;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px">→ 前往信息采集</button>
+      </div>
+    </div>`;
+}
+
+// 联邦指挥台（共享选择器 + 操作类型选择）
+async function loadOpsCommand() {
+  const el = document.getElementById('view-ops-command');
+  el.innerHTML = `
+    <div style="padding:16px">
+      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:8px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px">🖥️ 联邦指挥台 <span style="font-size:10px;color:var(--text2);font-weight:400">选机器 → 选操作 → 选账号 → 批量执行</span></div>
+        <div id="opsAccountList" style="margin-bottom:6px">
+          <div class="loading" style="padding:8px;font-size:12px">⏳ 加载账号列表...</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <label style="font-size:11px;color:var(--text2)">操作:
+            <select id="opsType" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+              <option value="nurture">🏃 养号</option>
+              <option value="collect">📡 采集</option>
+              <option value="login">🔑 登录</option>
+              <option value="logout">🔒 登出</option>
+            </select>
+          </label>
+          <label style="font-size:11px;color:var(--text2)" id="opsRoundsLabel">轮数:
+            <select id="opsRounds" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+              <option value="1">1</option><option value="5">5</option>
+              <option value="10" selected>10</option><option value="20">20</option>
+            </select>
+          </label>
+          <button onclick="opsBatchExec()" style="background:#22c55e;color:#000;border:none;padding:5px 16px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">🚀 批量执行</button>
+          <span id="opsSelCount" style="font-size:10px;color:var(--text2)">已选 0 个</span>
+        </div>
+        <div id="opsResult" style="font-size:10px;color:var(--text2);margin-top:4px;font-family:monospace;white-space:pre-wrap"></div>
+      </div>
+      <div id="opsHistoryBox" style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:4px">📋 执行历史</div>
+        <div id="opsHistoryList" style="font-size:10px;max-height:180px;overflow-y:auto">
+          <div class="loading">⏳ 加载执行历史...</div>
+        </div>
+      </div>
+    </div>`;
+  const data = await _loadAccounts();
+  _renderAccountSelector('opsAccountList', {_data: data, height: '280px', checkAll: false});
+  document.getElementById('opsSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
+  loadOpsHistory();
+}
+
+async function loadOpsHistory() {
+  try {
+    const r = await fetch('/api/matrix/nurture/results');
+    const d = await r.json();
+    const items = d.results || [];
+    const el = document.getElementById('opsHistoryList');
+    if (!items.length) { el.innerHTML = '<div style="color:var(--text2)">暂无执行记录</div>'; return; }
+    let html = '<table style="width:100%"><tr><th>时间</th><th>账号</th><th>状态</th><th>步骤</th><th>耗时</th></tr>';
+    items.slice(0, 20).forEach(r => {
+      const st = r.status === 'completed' ? '✅' : r.status === 'running' ? '⏳' : '❌';
+      const ts = r.completed_at || r.started_at || '';
+      const time = ts ? new Date(ts).toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '-';
+      const steps = r.steps ? (r.steps.success||0)+'/'+(r.steps.total||0) : '-';
+      const dur = r.duration_secs ? Math.round(r.duration_secs/60)+'min' : '-';
+      html += `<tr><td>${time}</td><td>${r.account}</td><td>${st}</td><td>${steps}</td><td>${dur}</td></tr>`;
+    });
+    html += '</table>';
+    el.innerHTML = html;
+  } catch(e) {}
+}
+
+// ════════════════════════════════════════════════════════
+// 共享账号选择器（所有操作视图共用）
+// ════════════════════════════════════════════════════════
+
+let _allAccounts = [];
+
+async function _loadAccounts() {
+  if (_allAccounts.length) return _allAccounts;
+  const [r1, r2] = await Promise.all([
+    fetch('/api/matrix/accounts'),
+    fetch('/api/matrix/homepage-info').catch(() => ({json: () => ({})}))
+  ]);
+  const accts = await r1.json();
+  const hpData = r2.json ? await r2.json() : {results:[]};
+  _allAccounts = Array.isArray(accts) ? accts.filter(a => a.enabled !== false) : [];
+
+  const hpIndex = {};
+  (hpData.results || []).forEach(r => {
+    if (r.identity_dir) hpIndex[r.identity_dir] = r;
+    if (r.phone) hpIndex[r.phone] = r;
+  });
+
+  return {accounts: _allAccounts, hpIndex, collectedAt: hpData.collected_at || ''};
+}
+
+function _renderAccountSelector(containerId, options = {}) {
+  /* options:
+    onSelect: 账号选择变更回调 (selectedIds, selectedTree)
+    filterMachine: 只显示某台机器
+    filterPlatform: 只显示某平台
+    checkAll: 默认全选
+    hideFilter: 隐藏搜索框
+    height: 最大高度
+  */
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const data = options._data || {};
+  const allAccts = data.accounts || _allAccounts;
+  const hpIndex = data.hpIndex || {};
+  const collectedAt = data.collectedAt || '';
+
+  // 按机器→身份分组
+  const tree = {};
+  allAccts.forEach(a => {
+    if (options.filterMachine && a.owner_machine !== options.filterMachine) return;
+    if (options.filterPlatform && a.platform !== options.filterPlatform) return;
+    const machine = a.owner_machine || '未分配';
+    const ident = a.identity_dir || a.id;
+    if (!tree[machine]) tree[machine] = {};
+    if (!tree[machine][ident]) tree[machine][ident] = {phone: a.phone || '', accounts: []};
+    tree[machine][ident].accounts.push(a);
+  });
+
+  const machineOrder = Object.keys(tree).sort((a,b) => {
+    if (a === 'chengzigedeAir') return -1;
+    if (b === 'chengzigedeAir') return 1;
+    return a.localeCompare(b);
+  });
+
+  const checkAll = options.checkAll !== false;
+
+  // 统计计数器
+  let totalAccts = 0, totalIdent = 0;
+
+  let html = '';
+  if (!options.hideFilter) {
+    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px">';
+    html += '<input class="as-filter" placeholder="🔍 搜索账号ID/手机号/昵称..." oninput="_filterAccountSelector()"';
+    html += ' style="flex:1;min-width:100px;padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">';
+    html += '</div>';
+  }
+
+  html += '<div class="as-body" style="max-height:' + (options.height || '400px') + ';overflow-y:auto">';
+
+  machineOrder.forEach(machine => {
+    const idents = tree[machine];
+    const isLocal = machine === 'chengzigedeAir';
+    const machineLabel = isLocal ? '🖥️ ' + machine : '☁️ ' + machine;
+    const grpId = 'as_m_' + machine.replace(/[^a-zA-Z0-9]/g, '_');
+    const acctCount = Object.values(idents).reduce((s, i) => s + i.accounts.length, 0);
+    const identCount = Object.keys(idents).length;
+    const loggedIn = Object.values(idents).reduce((s, i) => s + i.accounts.filter(a => a._status === 'logged_in').length, 0);
+    totalAccts += acctCount;
+    totalIdent += identCount;
+
+    html += '<div style="border:1px solid var(--border);border-radius:5px;margin-bottom:3px;overflow:hidden">';
+    // 机器标题
+    html += '<div onclick="toggleCollectGroup(\'' + grpId + '\')" style="display:flex;align-items:center;gap:5px;padding:4px 8px;background:var(--bg3);cursor:pointer;font-size:11px;user-select:none">';
+    html += '<span id="' + grpId + '_arrow" style="font-size:9px;opacity:.6">▼</span>';
+    html += '<input type="checkbox" onclick="event.stopPropagation();_asToggleMachine(this)" data-machine="' + machine + '" ' + (checkAll ? 'checked' : '') + '>';
+    html += '<strong>' + machineLabel + '</strong>';
+    html += '<span style="font-size:9px;color:var(--text2)">' + identCount + ' 身份 ' + acctCount + ' 账号 | ' + loggedIn + ' 已登录</span>';
+    html += '</div>';
+    // 账号列表
+    html += '<div id="' + grpId + '" style="overflow-x:auto">';
+    html += '<table style="width:100%;font-size:10px;border-collapse:collapse"><tbody>';
+    Object.keys(idents).sort().forEach(ident => {
+      const identity = idents[ident];
+      const hp = hpIndex[ident] || hpIndex[identity.phone];
+      const phoneDisplay = identity.phone ? identity.phone.slice(0,11) : ident.replace('phone_','');
+      const nickDisplay = hp?.display_name ? hp.display_name.slice(0,10) : '';
+      const rowspan = identity.accounts.length;
+
+      identity.accounts.forEach((a, idx) => {
+        const plat = a.platform === 'douyin' ? '🎵' : '📕';
+        const defBP = a.platform === 'xiaohongshu' ? 'xhs_daily' : 'douyin_daily';
+        const hpAcc = hp ? (a.platform === 'douyin' ? hp.douyin : hp.xiaohongshu) : null;
+        const nickname = hpAcc?.nickname ? hpAcc.nickname.slice(0,12) : '';
+        const hpTime = hpAcc?.collected_at || '';
+        const hpTimeDisplay = hpTime ? new Date(hpTime).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+
+        let statusIcon, cookieIcon;
+        if (a._status === 'logged_in') {
+          statusIcon = '<span class="badge badge-green" style="font-size:9px">已登录</span>';
+          cookieIcon = '<span style="color:var(--green);font-size:9px">🍪有效</span>';
+        } else {
+          statusIcon = '<span class="badge badge-amber" style="font-size:9px">'+(a._status||'未知')+'</span>';
+          cookieIcon = '<span style="color:var(--red);font-size:9px">🍪'+(a._status||'')+'</span>';
+        }
+
+        html += '<tr class="as-row" data-account="'+a.id+'" data-machine="'+machine+'" data-platform="'+a.platform+'" data-bp="'+defBP+'">';
+        if (idx === 0) {
+          html += '<td rowspan="'+rowspan+'" style="padding:2px 4px;font-size:9px;color:var(--text2);vertical-align:middle;border-right:1px solid var(--border);white-space:nowrap">📱'+phoneDisplay+(nickDisplay?' '+nickDisplay:'')+'</td>';
+        }
+        html += '<td style="padding:2px 3px;width:20px"><input type="checkbox" class="as-cb" value="'+a.id+'" data-plat="'+a.platform+'" data-bp="'+defBP+'" data-machine="'+machine+'" ' + (checkAll ? 'checked' : '') + '></td>';
+        html += '<td style="padding:2px 4px;white-space:nowrap"><strong>'+a.id+'</strong></td>';
+        html += '<td style="padding:2px 4px">'+plat+'</td>';
+        html += '<td style="padding:2px 4px;font-size:9px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(nickname||'<span class="text-muted">-</span>')+'</td>';
+        html += '<td style="padding:2px 4px;white-space:nowrap">'+statusIcon+'</td>';
+        html += '<td style="padding:2px 4px;font-size:9px;white-space:nowrap">'+cookieIcon+'</td>';
+        html += '<td style="padding:2px 4px;font-size:9px;color:var(--text2);white-space:nowrap">采集:'+hpTimeDisplay+'</td>';
+        html += '<td style="padding:2px 4px;font-size:9px;color:var(--text2);white-space:nowrap">📋'+defBP+'</td>';
+        html += '</tr>';
+      });
+    });
+    html += '</tbody></table></div></div>';
+  });
+  html += '</div>';
+
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;font-size:10px;color:var(--text2)">';
+  html += '<span>共 ' + allAccts.length + ' 个账号</span>';
+  html += '<span id="' + containerId + '_count">已选 ' + (checkAll ? allAccts.length : 0) + ' 个</span>';
+  html += '</div>';
+
+  container.innerHTML = html;
+  _asRefreshCount(containerId);
+}
+
+function _asToggleMachine(master) {
+  const machine = master.dataset.machine;
+  document.querySelectorAll('.as-cb[data-machine="' + machine + '"]').forEach(cb => cb.checked = master.checked);
+  _asRefreshCount(null);
+}
+
+function _asRefreshCount(containerId) {
+  const checked = document.querySelectorAll('.as-cb:checked').length;
+  if (containerId) {
+    const el = document.getElementById(containerId + '_count');
+    if (el) el.textContent = '已选 ' + checked + ' 个';
+  }
+}
+
+function _getSelectedAccounts() {
+  return Array.from(document.querySelectorAll('.as-cb:checked')).map(cb => ({
+    id: cb.value,
+    platform: cb.dataset.plat,
+    blueprint: cb.dataset.bp,
+    machine: cb.dataset.machine,
+  }));
+}
+
+function _filterAccountSelector() {
+  const q = (document.querySelector('.as-filter')?.value || '').toLowerCase();
+  document.querySelectorAll('.as-row').forEach(row => {
+    const acct = row.dataset.account || '';
+    const phone = row.querySelector('td:first-child')?.textContent?.replace('📱','') || '';
+    const nick = row.querySelectorAll('td')[4]?.textContent || '';
+    const match = !q || acct.includes(q) || phone.includes(q) || nick.includes(q);
+    row.style.display = match ? '' : 'none';
+  });
+  _asRefreshCount(null);
+}
+
+
+// 统一操作执行函数（供各视图调用）
+async function opsRun(type, accounts, extraParams) {
+  const body = {type, accounts};
+  if (extraParams) body.params = extraParams;
+  try {
+    const r = await fetch('/api/ops/run', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    return d;
+  } catch(e) {
+    return {status:'error', message: e.message};
+  }
+}
+
+async function opsBatchExec() {
+  const type = document.getElementById('opsType')?.value || 'nurture';
+  const rounds = parseInt(document.getElementById('opsRounds')?.value) || 10;
+  const resultEl = document.getElementById('opsResult');
+  const selected = _getSelectedAccounts();
+
+  if (!selected.length) { resultEl.textContent = '请先选择要执行的账号'; return; }
+
+  resultEl.textContent = '⏳ 执行 ' + type + ' 于 ' + selected.length + ' 个账号...';
+
+  const result = await opsRun(type, selected.map(s => s.id), {rounds});
+
+  if (result.status === 'started') {
+    let txt = '✅ 已启动:\n';
+    (result.ops || []).forEach(o => {
+      txt += '  ' + o.account + ': ' + (o.status || 'OK') + '\n';
+    });
+    resultEl.textContent = txt;
+    setTimeout(loadOpsHistory, 5000);
+  } else {
+    resultsEl.innerHTML = '<div style="color:var(--red)">❌ '+(result.message||JSON.stringify(result))+'</div>';
   }
 }
 
@@ -4681,87 +5155,346 @@ async function showCollectReport(filterIds, statusEl, logEl) {
 
 let nurturePollTimer = null;
 
-function loadNurturePhones() {
-  const sel = document.getElementById('nurturePhone');
-  if (!sel) return;
-  const phones = new Set();
-  (window._lastSmsAccounts || []).forEach(a => {
-    if (a.phone) phones.add(a.phone);
-  });
-  sel.innerHTML = '<option value="">所有身份</option>' +
-    Array.from(phones).sort().map(p => '<option value="'+p+'">'+p+'</option>').join('');
+// ── 养号执行（新版：账号选择 + 自动蓝图 + 机器路由）──
+
+// 全局存账号列表
+let _nurtureAccounts = [];
+
+async function loadCmdNurture() {
+  // 已迁至独立页面 view-matrix-nurture，此 tab 仅保留入口
 }
 
-async function nurturePreview() {
-  const el = document.getElementById('nurturePreview');
-  const phone = document.getElementById('nurturePhone')?.value || '';
-  const mins = document.getElementById('nurtureMins')?.value || 10;
-  const concur = document.getElementById('nurtureConcur')?.value || 3;
-  const stagger = document.getElementById('nurtureStagger')?.value || 15;
+async function loadNurtureAccounts() {
+  const el = document.getElementById('nurtureAcctList');
   if (!el) return;
-
-  el.textContent = '⏳ 计算排期...';
   try {
-    const r = await fetch('/api/matrix/nurture/preview?' +
-      'phone='+encodeURIComponent(phone)+
-      '&mins='+mins+'&concur='+concur+'&stagger='+stagger);
-    const d = await r.json();
-    if (d.error) { el.textContent = '❌ '+d.error; return; }
-    let txt = d.schedule || '';
-    txt += '\n---\n' + '📊 预估总耗时: ~' + d.total_min + ' 分钟 (' + (d.total_min/60).toFixed(1) + ' 小时)';
-    txt += '\n身份数: ' + d.identities + ' | 批次: ' + d.batches;
-    el.textContent = txt;
+    const [r1, r2] = await Promise.all([
+      fetch('/api/matrix/accounts'),
+      fetch('/api/matrix/homepage-info').catch(() => ({json: () => ({})}))
+    ]);
+    const accts = await r1.json();
+    const hpData = r2.json ? await r2.json() : {results:[]};
+    const allAccts = Array.isArray(accts) ? accts.filter(a => a.enabled !== false) : [];
+    _nurtureAccounts = allAccts;
+    const collectedAt = hpData.collected_at || '';
+    
+    const hpIndex = {};
+    (hpData.results || []).forEach(r => {
+      const key = r.identity_dir || r.phone;
+      if (key) hpIndex[key] = r;
+      if (r.phone) hpIndex[r.phone] = r;
+    });
+    
+    // 三级分组: 机器 → 身份(identity_dir) → 账号
+    const tree = {};
+    allAccts.forEach(a => {
+      const machine = a.owner_machine || '未分配';
+      const ident = a.identity_dir || a.id;
+      if (!tree[machine]) tree[machine] = {};
+      if (!tree[machine][ident]) tree[machine][ident] = {phone: a.phone || '', accounts: []};
+      tree[machine][ident].accounts.push(a);
+    });
+    
+    // 机器排序：本机优先
+    const machineOrder = Object.keys(tree).sort((a,b) => {
+      if (a === 'chengzigedeAir') return -1;
+      if (b === 'chengzigedeAir') return 1;
+      return a.localeCompare(b);
+    });
+    
+    // 搜索框 + 统计
+    let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">';
+    html += '<input id="nurtureFilter" placeholder="🔍 搜索账号ID/手机号/昵称..." style="flex:1;min-width:120px;padding:4px 8px;font-size:12px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px" oninput="filterNurtureList()">';
+    html += '<span style="font-size:11px;color:var(--text2)">' + allAccts.length + ' 个启用</span>';
+    html += '<span style="font-size:11px;color:var(--green)">🎵 ' + allAccts.filter(a=>a.platform==='douyin').length + '</span>';
+    html += '<span style="font-size:11px;color:#6366f1">📕 ' + allAccts.filter(a=>a.platform==='xiaohongshu').length + '</span>';
+    if (collectedAt) html += '<span style="font-size:10px;color:var(--text2)">采集: ' + new Date(collectedAt).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) + '</span>';
+    html += '</div>';
+    
+    // 三级渲染: 机器 → 身份(手机号) → 账号
+    machineOrder.forEach(machine => {
+      const idents = tree[machine];
+      const isLocal = machine === 'chengzigedeAir';
+      const machineLabel = isLocal ? '🖥️ ' + machine : '☁️ ' + machine;
+      const grpId = 'nt_m_' + machine.replace(/[^a-zA-Z0-9]/g, '_');
+      const totalAccts = Object.values(idents).reduce((s, i) => s + i.accounts.length, 0);
+      const identCount = Object.keys(idents).length;
+      const loggedIn = Object.values(idents).reduce((s, i) => s + i.accounts.filter(a => a._status === 'logged_in').length, 0);
+      
+      html += '<div style="border:1px solid var(--border);border-radius:6px;margin-bottom:4px;overflow:hidden">';
+      html += '<div onclick="toggleNurtureGroup(\'' + grpId + '\')" style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg3);cursor:pointer;font-size:12px;user-select:none">';
+      html += '<span id="' + grpId + '_arrow" style="font-size:10px;opacity:.6">▼</span>';
+      html += '<input type="checkbox" onclick="event.stopPropagation();ntToggleMachine(this,\'' + machine + '\')" checked>';
+      html += '<strong>' + machineLabel + '</strong>';
+      html += '<span style="font-size:10px;color:var(--text2)">' + identCount + ' 身份 ' + totalAccts + ' 账号 | ' + loggedIn + ' 账号已登录</span>';
+      html += '</div>';
+      
+      html += '<div id="' + grpId + '" style="overflow-x:auto">';
+      // 一台机器一张表，手机号用 rowspan 合并
+      html += '<table style="width:100%;font-size:11px;border-collapse:collapse"><tbody>';
+      Object.keys(idents).sort().forEach(ident => {
+        const identity = idents[ident];
+        const hp = hpIndex[ident] || hpIndex[identity.phone];
+        const phoneDisplay = identity.phone ? identity.phone.slice(0,11) : ident.replace('phone_','');
+        const nickDisplay = hp?.display_name ? hp.display_name.slice(0,10) : '';
+        const rowspan = identity.accounts.length;
+        
+        identity.accounts.forEach((a, idx) => {
+          const plat = a.platform === 'douyin' ? '🎵' : '📕';
+          const defBP = a.platform === 'xiaohongshu' ? 'xhs_daily' : 'douyin_daily';
+          const phone = a.phone || identity.phone || '-';
+          const hpAcc = hp ? (a.platform === 'douyin' ? hp.douyin : hp.xiaohongshu) : null;
+          const nickname = hpAcc?.nickname ? hpAcc.nickname.slice(0,12) : '';
+          const hpTime = hpAcc?.collected_at || '';
+          const hpTimeDisplay = hpTime ? new Date(hpTime).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+          
+          let statusIcon, cookieIcon;
+          if (a._status === 'logged_in') {
+            statusIcon = '<span class="badge badge-green" style="font-size:10px">已登录</span>';
+            cookieIcon = '<span style="color:var(--green);font-size:10px">🍪有效</span>';
+          } else if (a._status === 'no_cookie' || a._status === 'no_session' || a._status === 'empty_cookie') {
+            statusIcon = '<span class="badge badge-amber" style="font-size:10px">未登录</span>';
+            cookieIcon = '<span style="color:var(--red);font-size:10px">🍪'+(a._status||'')+'</span>';
+          } else {
+            statusIcon = '<span class="badge badge-red" style="font-size:10px">'+(a._status||'')+'</span>';
+            cookieIcon = '';
+          }
+          
+          html += '<tr class="nurture-row" data-account="'+a.id+'" data-phone="'+phone+'" data-nick="'+nickname+'" data-machine="'+machine+'">';
+          // 手机号列: 同身份第一个显示(rowspan合并)，后续隐藏
+          if (idx === 0) {
+            html += '<td rowspan="'+rowspan+'" style="padding:3px 6px;font-size:10px;color:var(--text2);vertical-align:middle;border-right:1px solid var(--border);white-space:nowrap">📱'+phoneDisplay+(nickDisplay?' '+nickDisplay:'')+'</td>';
+          }
+          html += '<td style="padding:3px 4px;width:24px"><input type="checkbox" class="nurture-cb" value="'+a.id+'" data-plat="'+a.platform+'" data-bp="'+defBP+'" data-machine="'+machine+'" checked></td>';
+          html += '<td style="padding:3px 4px;white-space:nowrap"><strong>'+a.id+'</strong></td>';
+          html += '<td style="padding:3px 4px">'+plat+'</td>';
+          html += '<td style="padding:3px 4px;font-size:10px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(nickname||'<span class="text-muted">-</span>')+'</td>';
+          html += '<td style="padding:3px 4px;white-space:nowrap">'+statusIcon+'</td>';
+          html += '<td style="padding:3px 4px;font-size:10px;white-space:nowrap">'+cookieIcon+'</td>';
+          html += '<td style="padding:3px 4px;font-size:10px;color:var(--text2);white-space:nowrap">采集:'+hpTimeDisplay+'</td>';
+          html += '<td style="padding:3px 4px;font-size:10px;color:var(--text2);white-space:nowrap">📋'+defBP+'</td>';
+          html += '</tr>';
+        });
+      });
+      html += '</tbody></table></div></div>';
+    });
+    
+    el.innerHTML = html;
+    updateNurtureCount();
   } catch(e) {
-    el.textContent = '❌ '+e.message;
+    const el2 = document.getElementById('nurtureAcctList');
+    if (el2) el2.innerHTML = '<div class="error">❌ '+e.message+'</div>';
   }
 }
 
-async function nurtureStart() {
-  const phone = document.getElementById('nurturePhone')?.value || '';
-  const mins = document.getElementById('nurtureMins')?.value || 10;
-  const concur = document.getElementById('nurtureConcur')?.value || 3;
-  const stagger = document.getElementById('nurtureStagger')?.value || 15;
+// 折叠/展开机器组
+function toggleNurtureGroup(grpId) {
+  const el = document.getElementById(grpId);
+  const arrow = document.getElementById(grpId + '_arrow');
+  if (!el) return;
+  const hidden = el.style.display === 'none';
+  el.style.display = hidden ? '' : 'none';
+  if (arrow) arrow.textContent = hidden ? '▼' : '▶';
+}
+
+function ntToggleMachine(master, machine) {
+  document.querySelectorAll('.nurture-cb[data-machine="'+machine+'"]').forEach(cb => cb.checked = master.checked);
+  updateNurtureCount();
+}
+
+function ntToggleIdentity(master) {
+  const table = master.closest('div').nextElementSibling?.querySelector('table');
+  if (table) table.querySelectorAll('.nurture-cb').forEach(cb => cb.checked = master.checked);
+  updateNurtureCount();
+}
+
+// 搜索过滤
+function filterNurtureList() {
+  const q = (document.getElementById('nurtureFilter')?.value || '').toLowerCase();
+  document.querySelectorAll('.nurture-row').forEach(row => {
+    const acct = row.dataset.account || '';
+    const phone = row.dataset.phone || '';
+    const nick = row.dataset.nick || '';
+    const match = !q || acct.includes(q) || phone.includes(q) || nick.includes(q);
+    row.style.display = match ? '' : 'none';
+  });
+  updateNurtureCount();
+}
+
+function nurtureToggleAll(master) {
+  document.querySelectorAll('.nurture-cb').forEach(cb => cb.checked = master.checked);
+  updateNurtureCount();
+}
+
+function updateNurtureCount() {
+  const checked = document.querySelectorAll('.nurture-cb:checked').length;
+  const el = document.getElementById('nurtureSelCount');
+  if (el) el.textContent = '已选 ' + checked + ' 个';
+}
+
+function getSelectedAccounts() {
+  const cbs = document.querySelectorAll('.nurture-cb:checked');
+  return Array.from(cbs).map(cb => ({
+    id: cb.value,
+    platform: cb.dataset.plat,
+    blueprint: cb.dataset.bp,
+    machine: cb.dataset.machine
+  }));
+}
+
+// ── 预检 ──
+async function nurturePreflight() {
   const statusEl = document.getElementById('nurtureStatus');
   const logEl = document.getElementById('nurtureLog');
+  const preflightEl = document.getElementById('nurturePreflightInfo');
+  if (statusEl) statusEl.innerHTML = '🔍 正在预检各机器状态...';
   if (logEl) logEl.textContent = '';
-  if (statusEl) statusEl.innerHTML = '⏳ 启动养号...';
 
   try {
-    const r = await fetch('/api/matrix/nurture/start', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({phone: phone, mins: parseInt(mins), concur: parseInt(concur), stagger: parseInt(stagger)})
-    });
+    const r = await fetch('/api/matrix/nurture/status');
     const d = await r.json();
-    if (d.status === 'started') {
-      if (statusEl) statusEl.innerHTML = '⏳ 养号进行中... (轮询进度)';
-      if (logEl) logEl.textContent = '🚀 养号已启动\n';
-      nurturePollTimer = setInterval(async () => {
+
+    let html = '🖥️ 本机: ' + (d.local_browsers?.length || 0) + ' 浏览器运行中\n';
+    (d.local_browsers || []).forEach(b => {
+      html += '  PID=' + b.pid + ' ' + b.cmd.slice(0, 60) + '\n';
+    });
+
+    (d.remote_machines || []).forEach(m => {
+      html += '☁️ ' + m.machine + ': ' + (m.browsers_running || 0) + ' 浏览器 | 可用槽位: ' + (m.slots_available || '?') + '\n';
+      if (m.error) html += '  ❌ ' + m.error + '\n';
+    });
+
+    if (preflightEl) preflightEl.textContent = html;
+    if (statusEl) statusEl.innerHTML = '✅ 预检完成';
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '❌ 预检失败: ' + e.message;
+  }
+}
+
+// ── 执行选中 ──
+async function nurtureExec() {
+  const selected = _getSelectedAccounts();
+  if (!selected.length) { alert('请先选择要执行的账号'); return; }
+  await doNurtureExec(selected.map(s => s.id));
+}
+
+// ── 执行全部启用 ──
+async function nurtureExecAll() {
+  const selected = _getSelectedAccounts();
+  // 如果选中计数和总计数不一致，说明用户手动反选了某些
+  const total = document.querySelectorAll('.as-cb').length;
+  const checked = selected.length;
+  if (checked < total) {
+    if (!confirm('当前仅 ' + checked + '/' + total + ' 个账号被选中。确认执行这 ' + checked + ' 个？')) return;
+  } else {
+    if (!confirm('执行全部 ' + checked + ' 个账号（每台机器各自运行）？')) return;
+  }
+  await doNurtureExec(selected.map(s => s.id));
+}
+
+async function doNurtureExec(accountIds) {
+  const statusEl = document.getElementById('nurtureStatus');
+  const logEl = document.getElementById('nurtureLog');
+  const preflightEl = document.getElementById('nurturePreflightInfo');
+  const rounds = parseInt(document.getElementById('ndRounds').value) || 10;
+  const bpOverride = document.getElementById('ndBlueprint').value;
+
+  if (logEl) logEl.textContent = '';
+  if (preflightEl) preflightEl.textContent = '';
+  if (statusEl) statusEl.innerHTML = '⏳ 启动中 (' + accountIds.length + ' 个账号)...';
+
+  try {
+    const body = {accounts: accountIds, rounds, dry_run: true};
+    if (bpOverride) body.blueprint = bpOverride;
+
+    // 先 dry_run 预览执行计划
+    const r1 = await fetch('/api/matrix/nurture/start', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const plan = await r1.json();
+
+    if (plan.status !== 'plan') {
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(plan.message||JSON.stringify(plan))+'</span>';
+      return;
+    }
+
+    let planText = '📋 执行计划:\n';
+    plan.plan.forEach(p => {
+      const loc = p.is_local ? '🖥️' : '☁️';
+      planText += loc + ' ' + p.account + ' → ' + p.machine + ' [' + p.blueprint + '] ' + p.rounds + '轮\n';
+    });
+    if (logEl) logEl.textContent = planText;
+    if (statusEl) statusEl.innerHTML = '📋 计划确认中...';
+
+    if (!confirm(planText + '\n确认执行？')) {
+      if (statusEl) statusEl.innerHTML = '⏸ 已取消';
+      return;
+    }
+
+    // ── 真正执行 ──
+    if (statusEl) statusEl.innerHTML = '⏳ 执行中（预检 → 分配窗口 → 启动 → 验证）...';
+    delete body.dry_run;
+
+    const r2 = await fetch('/api/matrix/nurture/start', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const result = await r2.json();
+
+    if (result.status === 'started') {
+      // 显示预检结果
+      if (preflightEl && result.preflight) {
+        let pfText = '🔍 预检结果:\n';
+        Object.entries(result.preflight).forEach(([machine, info]) => {
+          pfText += '  ' + machine + ': ' + info.message + '\n';
+          if (info.slot) pfText += '    槽位 ' + info.slot.id + ' 位置 (' + info.slot.position + ')\n';
+        });
+        preflightEl.textContent = pfText;
+      }
+
+      // 显示执行结果
+      let out = '🚀 执行结果:\n';
+      (result.results || []).forEach(r => {
+        const icon = r.status === 'started' ? '✅' : r.status === 'verify_failed' ? '⚠️' : '❌';
+        const verified = r.verified_pid ? ' PID=' + r.verified_pid : '';
+        out += '  ' + icon + ' ' + r.account + ': ' + r.status + ' 槽位' + (r.slot||'?') + verified + '\n';
+      });
+      if (logEl) logEl.textContent = out;
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 已启动，正在轮询...</span>';
+
+      // 轮询结果
+      const pollInterval = setInterval(async () => {
         try {
-          const pr = await fetch('/api/matrix/nurture/status');
-          const ps = await pr.json();
-          if (ps.status === 'running') {
-            if (statusEl) statusEl.innerHTML = '⏳ 养号中... ' + (ps.completed||0) + '/' + (ps.total||'?');
-            if (logEl && ps.log) logEl.textContent = ps.log.slice(-5000);
+          const pr = await fetch('/api/matrix/nurture/results?limit=10');
+          const pd = await pr.json();
+          const items = pd.results || [];
+          if (!items.length) return;
+
+          let html = '<div style="font-size:10px"><table style="width:100%"><tr><th>账号</th><th>状态</th><th>步骤</th><th>耗时</th><th>槽位</th></tr>';
+          let allDone = true;
+          items.slice(0, 8).forEach(r => {
+            const st = r.status === 'completed' ? '✅' : r.status === 'running' ? '⏳' : '❌';
+            if (r.status === 'running') allDone = false;
+            const steps = r.steps ? (r.steps.success||0) + '/' + (r.steps.total||0) : '-';
+            const dur = r.duration_secs ? Math.round(r.duration_secs/60) + 'min' : '-';
+            html += `<tr><td>${r.account}</td><td>${st} ${r.status}</td><td>${steps}</td><td>${dur}</td><td>槽${r.slot||'-'}</td></tr>`;
+          });
+          html += '</table></div>';
+          if (logEl) logEl.innerHTML = html;
+
+          if (allDone) {
+            clearInterval(pollInterval);
+            if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 全部执行完成</span>';
           } else {
-            clearInterval(nurturePollTimer);
-            nurturePollTimer = null;
-            if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 养号完成</span>';
-            if (logEl && ps.log) logEl.textContent = ps.log.slice(-5000);
+            if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">⏳ 执行中...</span>';
           }
-        } catch(e) { /* silent */ }
-      }, 5000);
+        } catch(e) {}
+      }, 10000);
     } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(d.error||d.message)+'</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(result.message||JSON.stringify(result))+'</span>';
     }
   } catch(e) {
     if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
   }
-}
-
-// ── 养号 API 端点 ──
-async function loadCmdNurture() {
-  loadNurturePhones();
 }
 
 // ════════════════════════════════════════════════════════
@@ -6962,5 +7695,7 @@ function filterAcctTable() {
   });
 }
 </script>
+
+<!-- Vite 入口：patch switchView 支持已迁移视图 -->
 </body>
 </html>

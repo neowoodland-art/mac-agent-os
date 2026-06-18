@@ -1,0 +1,27 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - heading "🖥 AgentOS v4" [level=1] [ref=e4] [cursor=pointer]:
+        - text: 🖥 AgentOS
+        - generic [ref=e5]: v4
+      - generic "折叠侧边栏" [ref=e6] [cursor=pointer]: ◀
+    - generic [ref=e9]:
+      - generic "折叠全部" [ref=e10] [cursor=pointer]: 📂
+      - generic [ref=e11] [cursor=pointer]: 🔄 同步
+      - generic [ref=e12] [cursor=pointer]: ⟳ 刷新
+  - main [ref=e13]:
+    - generic [ref=e15]: ⏳ 加载机器状态...
+    - generic [ref=e17]:
+      - combobox [ref=e18]:
+        - option "全部策略" [selected]
+        - option "口播"
+        - option "卡点"
+        - option "数字人"
+        - option "test"
+      - combobox [ref=e19]:
+        - option "全部状态" [selected]
+        - option "已完成"
+        - option "失败"
+        - option "运行中"
+      - textbox "搜索脚本名称..." [ref=e20]
+      - button "查询" [ref=e21] [cursor=pointer]

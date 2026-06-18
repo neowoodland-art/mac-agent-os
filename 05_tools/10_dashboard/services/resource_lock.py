@@ -1,4 +1,7 @@
 """
+⚠️ 已废弃 — 请使用 services/browser_orchestrator.py 替代。
+   本文件保留供 app.py 过渡使用，新代码禁止导入。
+
 资源锁模块 — 浏览器/账号/身份互斥
 
 管理三把锁:

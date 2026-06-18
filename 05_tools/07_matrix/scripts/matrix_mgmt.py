@@ -16,8 +16,10 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 HOME = Path.home()
-AGENT_SYNC = HOME / "workbuddy-agent-os" / "agent-sync"
-AGENT_LOCAL = HOME / "workbuddy-agent-os" / "agent-local"
+_AGENT_SYNC_ENV = os.environ.get("AGENT_SYNC", "")
+_AGENT_LOCAL_ENV = os.environ.get("AGENT_LOCAL", "")
+AGENT_SYNC = Path(_AGENT_SYNC_ENV) if _AGENT_SYNC_ENV else HOME / "workbuddy-agent-os" / "agent-sync"
+AGENT_LOCAL = Path(_AGENT_LOCAL_ENV) if _AGENT_LOCAL_ENV else HOME / "workbuddy-agent-os" / "agent-local"
 
 MATRIX_CODE = AGENT_SYNC / "05_tools" / "07_matrix"
 MATRIX_SCRIPTS = MATRIX_CODE / "scripts"

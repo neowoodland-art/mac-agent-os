@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+⚠️ 已废弃 — 请使用 cdp_connector.py 替代。
+   本文件保留以供 orchestrator.py 引用，新代码禁止导入。
+
 BrowserManager — 浏览器生命周期管理 (v1.0.0)
 
 功能:

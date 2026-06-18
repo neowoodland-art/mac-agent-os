@@ -20,12 +20,22 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix"
-CONFIG_FILE = AGENT_LOCAL / "config" / "accounts.yaml"
-IDENTITIES_ROOT = AGENT_LOCAL / "identities"
-OUTPUT_FILE = AGENT_LOCAL / "data" / "homepage_info.json"
-SCREENSHOTS_DIR = AGENT_LOCAL / "screenshots" / "homepage"
-SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+AGENT_LOCAL = None  # will be set by init_paths()
+
+def init_paths():
+    global AGENT_LOCAL, CONFIG_FILE, IDENTITIES_ROOT, OUTPUT_FILE, SCREENSHOTS_DIR
+    try:
+        from matrix_mgmt import AGENT_LOCAL as _AL, MATRIX_LOCAL
+        AGENT_LOCAL = _AL / "tools" / "matrix"
+    except ImportError:
+        AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix"
+    CONFIG_FILE = AGENT_LOCAL / "config" / "accounts.yaml"
+    IDENTITIES_ROOT = AGENT_LOCAL / "identities"
+    OUTPUT_FILE = AGENT_LOCAL / "data" / "homepage_info.json"
+    SCREENSHOTS_DIR = AGENT_LOCAL / "screenshots" / "homepage"
+    SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+
+init_paths()
 from cdp_connector import CDPConnector
 
 DOUYIN_URL = "https://www.douyin.com/"
@@ -70,6 +80,32 @@ async def take_screenshot(page, prefix, identity_name):
 
 # ── 抖音：双段导航（先首页确认，再个人页提取） ──
 
+async def _check_dy_logged_in(page) -> bool:
+    """检测抖音是否已登录（通过 DOM 和 Cookie 双维度）"""
+    try:
+        # DOM 检测：查看是否有用户头像/已登录状态元素
+        dom_ok = await page.evaluate(
+            '() => !!document.querySelector("[data-e2e=\'user-avatar\']") || '
+            '!!document.querySelector("[class*=avatar]") || '
+            '!!document.querySelector("[class*=user-info]")'
+        )
+        if dom_ok:
+            return True
+    except Exception:
+        pass
+    
+    # Cookie 检测（备用）
+    try:
+        cookies = await page.context.cookies()
+        for c in cookies:
+            if "douyin" in c.get("domain", "") and c.get("name") in ("sessionid", "sid_guard"):
+                return True
+    except Exception:
+        pass
+    
+    return False
+
+
 async def extract_douyin(page, identity_name, phone):
     info = {"platform":"douyin","phone":phone,"status":"pending","url":"",
             "nickname":"","fans":"","following":"","likes":"","posts":"","bio":""}
@@ -84,6 +120,24 @@ async def extract_douyin(page, identity_name, phone):
         else:
             print(f"   ⚠️ 首页加载异常，等3秒后仍尝试个人页...")
             await asyncio.sleep(3)  # 失败也等3秒，让用户看到问题
+
+        # ── 登录状态检测 & 自动登录（抖音 SMS 登录）──
+        print(f"   🔍 检测抖音登录状态...")
+        dy_logged_in = await _check_dy_logged_in(page)
+        if not dy_logged_in:
+            print(f"   ⚠️ 未登录，触发 SMS 验证码登录...")
+            from matrix_modules.account.sms_login import sms_login
+            login_ok = await sms_login(page, account_name=identity_name or phone)
+            if login_ok:
+                print(f"   ✅ 抖音登录成功，继续采集")
+                # 登录后重新加载页面
+                await safe_goto(page, DOUYIN_URL, timeout=60000)
+                await asyncio.sleep(3)
+                await take_screenshot(page, "dy_loggedin", identity_name)
+            else:
+                print(f"   ⚠️ 抖音自动登录未完成，尝试继续采集（可能无数据）")
+        else:
+            print(f"   ✅ 抖音已登录")
 
         # ── 第2段：导航到个人中心页提取数据 ──
         print(f"   📍 抖音个人中心...")
@@ -194,6 +248,18 @@ async def extract_douyin(page, identity_name, phone):
 
 # ── 小红书：双段导航（先首页确认，再个人页提取） ──
 
+async def _check_xhs_logged_in(page) -> bool:
+    """检测小红书是否已登录（同 xhs_login.is_logged_in 逻辑）"""
+    try:
+        return await page.evaluate(
+            '() => !!document.querySelector(".user-avatar") || '
+            '!!document.querySelector(".reds-count") || '
+            '!!document.querySelector("[class*=avatar]")'
+        )
+    except Exception:
+        return False
+
+
 async def extract_xiaohongshu(page, identity_name, phone):
     info = {"platform":"xiaohongshu","phone":phone,"status":"pending","url":"",
             "nickname":"","fans":"","following":"","notes":"","bio":""}
@@ -237,6 +303,24 @@ async def extract_xiaohongshu(page, identity_name, phone):
         if not xhs_loaded:
             info["status"]="nav_error"
             return info
+
+        # ── 登录状态检测 & 自动登录 ──
+        print(f"   🔍 检测小红书登录状态...")
+        xhs_logged_in = await _check_xhs_logged_in(page)
+        if not xhs_logged_in:
+            print(f"   ⚠️ 未登录，触发 SMS 验证码登录...")
+            from matrix_modules.account.xhs_login import xhs_login
+            login_ok = await xhs_login(page, phone=phone, account_name=identity_name or phone)
+            if login_ok:
+                print(f"   ✅ 小红书登录成功，继续采集")
+                # 登录后重新加载页面
+                await safe_goto(page, XHS_URL, timeout=60000)
+                await asyncio.sleep(5)
+                await take_screenshot(page, "xhs_loggedin", identity_name)
+            else:
+                print(f"   ⚠️ 小红书自动登录未完成，尝试继续采集（可能无数据）")
+        else:
+            print(f"   ✅ 小红书已登录")
 
         # ── 第2段：尝试进入个人主页─
         info["url"] = page.url
