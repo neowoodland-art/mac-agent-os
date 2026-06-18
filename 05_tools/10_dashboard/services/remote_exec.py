@@ -18,6 +18,9 @@ _THIS_DIR = Path(__file__).resolve().parent.parent
 if str(_THIS_DIR) not in sys.path:
     sys.path.insert(0, str(_THIS_DIR))
 
+_HOSTNAME_FILE = Path.home() / "workbuddy-agent-os" / "agent-local" / "identity" / "cached_hostname"
+_LOCAL_HOSTNAME = _HOSTNAME_FILE.read_text().strip() if _HOSTNAME_FILE.exists() else subprocess.run(["hostname"], capture_output=True, text=True).stdout.strip()
+
 ORACLE_PATH = _THIS_DIR.parent.parent / "ORACLE.yaml"
 _MACHINE_CACHE = None
 
@@ -61,8 +64,29 @@ def exec_remote(machine: str, command: str, timeout: int = 60, fire_and_forget: 
     if not info or not info.get("ip"):
         return {"status": "error", "message": f"未知机器: {machine}"}
     
+    hostname = info.get("hostname", "")
     user = info.get("user", "")
     ip = info["ip"]
+    
+    # ── 本机：直接 subprocess ──
+    is_local = (machine == _LOCAL_HOSTNAME or hostname == _LOCAL_HOSTNAME)
+    if is_local:
+        try:
+            r = subprocess.run(
+                command, shell=True, capture_output=True, text=True, timeout=timeout
+            )
+            return {
+                "status": "ok",
+                "returncode": r.returncode,
+                "output": r.stdout[:5000],
+                "stderr": r.stderr[:500],
+            }
+        except subprocess.TimeoutExpired:
+            return {"status": "error", "message": f"命令超时({timeout}s)"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    
+    # ── 远程：SSH ──
     ssh_target = f"{user}@{ip}" if user else ip
     
     # 自动设置环境变量 + PYTHON 路径发现

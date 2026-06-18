@@ -1,4 +1,4 @@
-import{t as e}from"./index-B-ODlb3w.js";import{t}from"./account-selector-DBZWFo9Z.js";var n=null,r=null;async function i(e){let t=e.id||`nurture`;e.innerHTML=`
+import{t as e}from"./index-BVG99h1c.js";import{t}from"./account-selector-DBZWFo9Z.js";var n=null,r=null;async function i(e){let t=e.id||`nurture`;e.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:8px">

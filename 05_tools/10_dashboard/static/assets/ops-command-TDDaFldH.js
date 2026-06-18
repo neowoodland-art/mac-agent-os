@@ -1,4 +1,4 @@
-import{t as e}from"./index-B-ODlb3w.js";import{t}from"./account-selector-DBZWFo9Z.js";var n=null;async function r(r){let a=r.id||`ops`;r.innerHTML=`
+import{t as e}from"./index-BVG99h1c.js";import{t}from"./account-selector-DBZWFo9Z.js";var n=null;async function r(r){let a=r.id||`ops`;r.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:8px">
         <div style="font-weight:600;font-size:13px;margin-bottom:6px">🖥️ 联邦指挥台 <span style="font-size:10px;color:var(--text2);font-weight:400">选机器 → 选操作 → 选账号 → 批量执行</span></div>
