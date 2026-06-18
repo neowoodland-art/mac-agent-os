@@ -54,6 +54,11 @@ setInterval(() => { if (currentView === 'summary') loadSummary(); }, 30000);
 
 // ── Navigation ──
 function switchView(view) {
+  // ── DEBUG ──
+  var _svDbg = document.getElementById('debug_banner');
+  if (!_svDbg) { _svDbg = document.createElement('div'); _svDbg.id = 'debug_banner'; document.body.appendChild(_svDbg); }
+  _svDbg.innerHTML = 'switchView("' + view + '") fired at ' + new Date().toLocaleTimeString();
+  // ── END DEBUG ──
   // Plugin views → inline rendering
   if (view === 'plugin-matrix') { view = 'matrix-summary'; }
   currentView = view;
@@ -144,46 +149,84 @@ function switchView(view) {
     if (pv) pv.classList.remove('hidden');
   }
 
-  // 加载数据
-  if (view === 'productions') loadProductions();
-  if (view === 'assets') loadAssets();
-  if (view === 'costs') loadCosts();
-  if (view === 'capabilities') loadCapabilities();
-  if (view === 'workflow') loadWorkflow();
-  if (view === 'machines') loadMachines();
-  if (view === 'matrix-sms-proxy') loadSmsProxy();
-  if (view === 'matrix-nurture') loadMatrixNurture();
-  if (view === 'matrix-collect') loadMatrixCollect();
-  if (view === 'matrix-publish') loadMatrixPublish();
-  if (view === 'matrix-blueprints') loadMatrixBlueprints();
-  if (view === 'matrix-comment') loadMatrixComment();
-  if (view === 'matrix-schedule') loadMatrixSchedule();
-  if (view === 'matrix-corpus') loadCorpus();
-  if (view === 'ave-render') loadAveRender();
-  if (view === 'ave-script') loadAveScript();
-  if (view === 'ave-materials') loadAveMaterials();
-  if (view === 'ave-templates') loadAveTemplates();
-  if (view === 'crawl-tasks') loadCrawlTasks();
-  if (view === 'crawl-sources') loadCrawlSources();
-  if (view === 'crawl-history') loadCrawlHistory();
-  if (view === 'fleet-sync') loadFleetSync();
-  if (view === 'fleet-reconcile') loadFleetReconcile();
-  if (view === 'fleet-exec') loadFleetExec();
-  if (view === 'matrix-like') loadMatrixLike();
-  if (view === 'matrix-login') loadMatrixLogin();
-  if (view === 'ops-command') loadOpsCommand();
-  if (view === 'serve-mcp') loadServeMCP();
-  if (view === 'serve-dashboard') loadServeDashboard();
-  if (view === 'serve-schedule') loadServeSchedule();
+  // 加载数据（try-catch 包裹跨模块函数，未暴露时不会中断后续代码）
+  try { if (view === 'productions') loadProductions(); } catch(e) {}
+  try { if (view === 'assets') loadAssets(); } catch(e) {}
+  try { if (view === 'costs') loadCosts(); } catch(e) {}
+  try { if (view === 'capabilities') loadCapabilities(); } catch(e) {}
+  try { if (view === 'workflow') loadWorkflow(); } catch(e) {}
+  try { if (view === 'machines') loadMachines(); } catch(e) {}
+  try { if (view === 'matrix-sms-proxy') loadSmsProxy(); } catch(e) {}
+  try { if (view === 'matrix-nurture') loadMatrixNurture(); } catch(e) {}
+  try { if (view === 'matrix-collect') loadMatrixCollect(); } catch(e) {}
+  try { if (view === 'matrix-publish') loadMatrixPublish(); } catch(e) {}
+  try { if (view === 'matrix-blueprints') loadMatrixBlueprints(); } catch(e) {}
+  try { if (view === 'matrix-comment') loadMatrixComment(); } catch(e) {}
+  try { if (view === 'matrix-schedule') loadMatrixSchedule(); } catch(e) {}
+  try { if (view === 'matrix-corpus') loadCorpus(); } catch(e) {}
+  try { if (view === 'ave-render') loadAveRender(); } catch(e) {}
+  try { if (view === 'ave-script') loadAveScript(); } catch(e) {}
+  try { if (view === 'ave-materials') loadAveMaterials(); } catch(e) {}
+  try { if (view === 'ave-templates') loadAveTemplates(); } catch(e) {}
+  try { if (view === 'crawl-tasks') loadCrawlTasks(); } catch(e) {}
+  try { if (view === 'crawl-sources') loadCrawlSources(); } catch(e) {}
+  try { if (view === 'crawl-history') loadCrawlHistory(); } catch(e) {}
+  try { if (view === 'fleet-sync') loadFleetSync(); } catch(e) {}
+  try { if (view === 'fleet-exec') loadFleetExec(); } catch(e) {}
+  try { if (view === 'matrix-like') loadMatrixLike(); } catch(e) {}
+  try { if (view === 'matrix-login') loadMatrixLogin(); } catch(e) {}
+  try { if (view === 'ops-command') loadOpsCommand(); } catch(e) {}
+  try { if (view === 'serve-mcp') loadServeMCP(); } catch(e) {}
+  try { if (view === 'serve-dashboard') loadServeDashboard(); } catch(e) {}
+  try { if (view === 'serve-schedule') loadServeSchedule(); } catch(e) {}
+
+  // ── 对账检查 ──
+  if (view === 'fleet-reconcile') {
+    var _fre = document.getElementById('view-fleet-reconcile');
+    if (_fre) { try { loadFleetReconcileView(_fre); } catch(e) { _fre.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; } }
+  }
 }
 
 // ── 暴露全局（供 onclick 使用，Vite 模块化后不再自动暴露）──
 window.toggleGroup = toggleGroup;
 window.collapseAllGroups = collapseAllGroups;
 window.switchView = switchView;
+
+// ── Patch switchView ──
 window.closeDetail = closeDetail;
 window.showDetail = showDetail;
 window.loadProductions = loadProductions;
+window.loadFleetReconcileView = loadFleetReconcileView;
+
+// 调试标记
+window.__patchDebug = 'running';
+var _dbg = document.createElement('div');
+_dbg.id = 'patch_debug';
+_dbg.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:red;color:#fff;padding:2px 10px;font-size:11px;text-align:center';
+_dbg.textContent = 'PATCH: ' + new Date().toISOString();
+document.body.appendChild(_dbg);
+
+// 绑定 nav 点击（绕开 onclick 字符串——可能被浏览器/框架过滤）
+document.addEventListener('click', function(e) {
+  var target = e.target.closest('[data-view]');
+  if (target) {
+    var viewName = target.dataset.view;
+    _dbg.textContent = 'CLICK DETECTED: ' + viewName;
+    if (typeof window.switchView === 'function') {
+      window.switchView(viewName);
+    } else {
+      _dbg.textContent = 'ERROR: window.switchView is ' + typeof window.switchView;
+    }
+  }
+}, true);
+
+// 自动刷新
+setInterval(function() {
+  try { if (typeof window.loadStats === 'function') window.loadStats(); } catch(e) {}
+  try { if (typeof window.loadMachineBar === 'function') window.loadMachineBar(); } catch(e) {}
+}, 30000);
+
+console.log('✅ Dashboard boot complete');
 
 // ── Stats ──
 async function loadStats() {
@@ -663,3 +706,151 @@ async function loadMatrixSummary() {
     el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 对账检查视图（内联 — 防 tree-shake）
+// ═══════════════════════════════════════════════════════════════
+
+async function loadFleetReconcileView(container) {
+  const uid = 'fr_' + Math.random().toString(36).slice(2, 6);
+  let _rawData = null;
+
+  container.innerHTML = `
+    <div style="padding:20px">
+      <h2 style="font-size:18px;margin-bottom:12px">🔍 对账检查</h2>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">检查本机是否符合 ORACLE.yaml 宪法定义</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button onclick="window._doFleetReconcile('${uid}')" style="background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">🔍 执行对账</button>
+        <button id="exportBtn_${uid}" onclick="window._exportReconcile('${uid}')" style="display:none;background:var(--bg2);color:var(--text);border:1px solid var(--border);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px">📋 导出报告</button>
+      </div>
+      <div id="stats_${uid}" style="display:none;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px">
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 14px;text-align:center">
+            <div style="font-size:11px;color:var(--text2)">总项</div>
+            <div id="statTotal_${uid}" style="font-size:22px;font-weight:500;margin-top:4px">0</div>
+          </div>
+          <div id="statPassCard_${uid}" style="background:#EAF3DE;border-radius:8px;padding:10px 14px;text-align:center">
+            <div style="font-size:11px;color:#27500A">通过</div>
+            <div id="statPass_${uid}" style="font-size:22px;font-weight:500;color:#3B6D11;margin-top:4px">0</div>
+          </div>
+          <div id="statWarnCard_${uid}" style="background:#FAEEDA;border-radius:8px;padding:10px 14px;text-align:center">
+            <div style="font-size:11px;color:#633806">警告</div>
+            <div id="statWarn_${uid}" style="font-size:22px;font-weight:500;color:#854F0B;margin-top:4px">0</div>
+          </div>
+          <div id="statFailCard_${uid}" style="background:#FCEBEB;border-radius:8px;padding:10px 14px;text-align:center">
+            <div style="font-size:11px;color:#791F1F">失败</div>
+            <div id="statFail_${uid}" style="font-size:22px;font-weight:500;color:#A32D2D;margin-top:4px">0</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 14px;text-align:center">
+            <div style="font-size:11px;color:var(--text2)">通过率</div>
+            <div id="statRate_${uid}" style="font-size:22px;font-weight:500;margin-top:4px">0%</div>
+          </div>
+        </div>
+      </div>
+      <div id="filter_${uid}" style="display:none;margin-bottom:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px">
+          ${['全部','环境','目录','文件','Git','服务','任务'].map((label, i) =>
+            '<div id="filterTab_'+uid+'_'+i+'" class="reconcile-filter-tab" style="height:28px;padding:0 14px;border-radius:6px;display:inline-flex;align-items:center;cursor:pointer;background:'+(i===0?'var(--primary)':'var(--bg3)')+';color:'+(i===0?'#fff':'var(--text)')+'" onclick="window._filterReconcile(\''+uid+'\','+i+')">'+label+'</div>'
+          ).join('')}
+        </div>
+      </div>
+      <div id="detail_${uid}" style="display:none">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px">明细</div>
+        <div id="detailList_${uid}" style="display:flex;flex-direction:column;gap:4px"></div>
+      </div>
+      <div id="log_${uid}" style="margin-top:12px;background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:300px;overflow:auto;display:none"></div>
+    </div>`;
+
+  window._doFleetReconcile = window._doFleetReconcile || (async function(uid) {
+    const logEl = document.getElementById('log_' + uid);
+    if (!logEl) return;
+    logEl.style.display = '';
+    logEl.textContent = '⏳ 执行对账...\n';
+    try {
+      const r = await fetch('/api/fleet/reconcile', { method: 'POST' });
+      const d = await r.json();
+      const output = d.output || JSON.stringify(d, null, 2);
+      logEl.textContent = output;
+      _rawData = parseReconcileOutput(output);
+      renderReconcileStats(uid, _rawData);
+    } catch(e) { logEl.textContent = '❌ ' + e.message; }
+  });
+
+  function parseReconcileOutput(text) {
+    const items = []; let currentSection = '';
+    for (const line of text.split('\n')) {
+      const t = line.replace(/\\u001b\\[[\\d;]+m/g, '').trim();
+      if (!t) continue;
+      if (/^[═━]{3,}\\s*\\d+\\.\\s/.test(t)) { currentSection = t.replace(/[═━\\s]+/g, ' ').trim(); continue; }
+      let status = null, content = t;
+      if (/^✅/.test(t)) { status = 'pass'; content = t.replace(/^✅\\s*/, ''); }
+      else if (/^⚠️/.test(t)) { status = 'warn'; content = t.replace(/^⚠️\\s*/, ''); }
+      else if (/^❌/.test(t)) { status = 'fail'; content = t.replace(/^❌\\s*/, ''); }
+      if (status && content) {
+        const ci = content.indexOf(':'); const label = ci>0?content.slice(0,ci).trim():content; const detail = ci>0?content.slice(ci+1).trim():'';
+        items.push({status,label,detail,section:currentSection});
+      }
+    }
+    return items;
+  }
+
+  function renderReconcileStats(uid, items) {
+    const total = items.length; const pass = items.filter(i=>i.status==='pass').length;
+    const warn = items.filter(i=>i.status==='warn').length; const fail = items.filter(i=>i.status==='fail').length;
+    const rate = total>0?Math.round(pass/total*100):0;
+    document.getElementById('statTotal_'+uid).textContent = total;
+    document.getElementById('statPass_'+uid).textContent = pass;
+    document.getElementById('statWarn_'+uid).textContent = warn;
+    document.getElementById('statFail_'+uid).textContent = fail;
+    document.getElementById('statRate_'+uid).textContent = rate+'%';
+    document.getElementById('stats_'+uid).style.display = '';
+    document.getElementById('filter_'+uid).style.display = '';
+    document.getElementById('detail_'+uid).style.display = '';
+    const eb = document.getElementById('exportBtn_'+uid); if (eb) eb.style.display = '';
+    _rawData = items; window._filterReconcile(uid, 0);
+  }
+
+  window._filterReconcile = window._filterReconcile || function(uid, tabIdx) {
+    const tabs = document.querySelectorAll('#filter_'+uid+' [id^="filterTab_"]');
+    tabs.forEach((t,i)=>{ t.style.background=i===tabIdx?'var(--primary)':'var(--bg3)'; t.style.color=i===tabIdx?'#fff':'var(--text)'; });
+    const filter = ['全部','环境','目录','文件','Git','服务','任务'][tabIdx];
+    let filtered = _rawData||[];
+    if (filter!=='全部') filtered = filtered.filter(i=>i.section.includes(filter));
+    renderDetailList(uid, filtered);
+  };
+
+  function renderDetailList(uid, items) {
+    const list = document.getElementById('detailList_'+uid); if (!list) return;
+    if (!items.length) { list.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:8px">无匹配项</div>'; return; }
+    let html = '';
+    for (const item of items) {
+      const icon = item.status==='pass'?'✅':item.status==='warn'?'⚠️':'❌';
+      const color = item.status==='pass'?'var(--green)':item.status==='warn'?'var(--amber)':'var(--red)';
+      html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 8px;background:var(--bg3);border-radius:6px;font-size:12px;line-height:1.5">';
+      html += '<span style="color:'+color+';flex-shrink:0">'+icon+'</span>';
+      html += '<span style="color:var(--text2);flex-shrink:0;min-width:80px">'+escapeHtml2(item.label)+'</span>';
+      if (item.detail) html += '<span>'+escapeHtml2(item.detail)+'</span>';
+      html += '</div>';
+    }
+    list.innerHTML = html;
+  }
+
+  window._exportReconcile = window._exportReconcile || function(uid) {
+    if (!_rawData||!_rawData.length) return;
+    const pass = _rawData.filter(i=>i.status==='pass').length, warn = _rawData.filter(i=>i.status==='warn').length, fail = _rawData.filter(i=>i.status==='fail').length;
+    const total = _rawData.length, rate = total>0?Math.round(pass/total*100):0, now = new Date().toLocaleString();
+    let md = '# AgentOS 联邦对账报告\\n\\n**生成时间**: '+now+'\\n\\n';
+    md += '| 指标 | 数值 |\\n|:-----|:-----|\\n| 总项 | '+total+' |\\n| 通过 | '+pass+' |\\n| 警告 | '+warn+' |\\n| 失败 | '+fail+' |\\n| 通过率 | '+rate+'% |\\n\\n';
+    md += '| 状态 | 检查项 | 详情 |\\n|:-----|:-------|:------|\\n';
+    for (const item of _rawData) md += '| '+(item.status==='pass'?'✅':item.status==='warn'?'⚠️':'❌')+' | '+item.label+' | '+item.detail+' |\\n';
+    navigator.clipboard.writeText(md).then(function(){
+      var b = document.getElementById('exportBtn_'+uid); if(b){ var o=b.textContent; b.textContent='✅ 已复制'; setTimeout(function(){b.textContent=o;},2000); }
+    }).catch(function(){
+      var ta = document.createElement('textarea'); ta.value=md; ta.style.cssText='position:fixed;left:-9999px';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    });
+  };
+
+  function escapeHtml2(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+}
+window.loadFleetReconcileView = loadFleetReconcileView;

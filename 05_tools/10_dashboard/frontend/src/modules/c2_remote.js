@@ -560,23 +560,8 @@ async function loadSummary() {
 }
 
 // ── View switcher ──
-const origSwitch = switchView;
-switchView = function(v) {
-  // 隐藏所有固定视图
-  document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
-  // 隐藏所有插件视图
-  document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.style.display = 'none');
-  
-  origSwitch(v);
-  if (v === 'timeline') loadTimeline();
-  if (v === 'alerts') loadAlerts();
-  if (v === 'summary') loadSummary();
-  // 插件视图
-  if (v.startsWith('plugin-')) {
-    const name = v.replace('plugin-', '');
-    loadPluginView(name);
-  }
-};
+// 已移至 matrix_views.js 统一管理
+// (Rollup 模块合并后，模块级别 override 会干扰原版 switchView)
 
 // ══ 模块化角色生成流 ══
 
