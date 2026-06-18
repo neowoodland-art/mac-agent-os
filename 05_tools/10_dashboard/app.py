@@ -1482,9 +1482,10 @@ def api_log_stats(days: int = 7):
 @app.post("/api/fleet/sync")
 def api_fleet_sync():
     """一键同步所有机器"""
+    import subprocess
     try:
         r = subprocess.run(
-            ["bash", str(_static_dir.parent.parent / "00_bootstrap" / "fleet_sync.sh")],
+            ["bash", str(_static_dir.parent.parent.parent / "00_bootstrap" / "fleet_sync.sh")],
             capture_output=True, text=True, timeout=120
         )
         return {"success": r.returncode == 0, "output": r.stdout[-3000:]}
@@ -1497,10 +1498,11 @@ def api_fleet_sync():
 @app.post("/api/fleet/reconcile")
 def api_fleet_reconcile():
     """对账检查"""
+    import subprocess
     try:
         r = subprocess.run(
-            ["bash", str(_static_dir.parent.parent / "00_bootstrap" / "fleet_reconcile.sh")],
-            capture_output=True, text=True, timeout=60
+            ["bash", str(_static_dir.parent.parent.parent / "00_bootstrap" / "fleet_reconcile.sh")],
+            capture_output=True, text=True, timeout=120
         )
         return {"success": r.returncode == 0, "output": r.stdout[-3000:]}
     except subprocess.TimeoutExpired:
