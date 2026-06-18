@@ -54,7 +54,16 @@ class MatrixPlugin(AgentOSPlugin):
         return parser
 
     def dispatch(self, args):
-        raw = getattr(args, 'args', [])
+        # 不从 args.args 读取，直接从 sys.argv 获取原始参数
+        # sys.argv = ['agentos', 'matrix', 'publish', 'douyin', '--account', 'x', ...]
+        raw = sys.argv[:]
+        # 找到 'matrix' 之后的所有参数
+        try:
+            idx = raw.index('matrix')
+            raw = raw[idx + 1:]
+        except ValueError:
+            raw = getattr(args, 'args', [])
+
         if not raw:
             print("请指定子命令: account / blueprint / corpus / status\n"
                   "或 mc 命令: run / collect / login / publish ...")
@@ -70,6 +79,7 @@ class MatrixPlugin(AgentOSPlugin):
         elif cmd == 'collect':  return self.cmd_collect(rest)
         elif cmd in ('login', 'smart-login'): return self.cmd_login(rest)
         elif cmd == 'logout':   return self.cmd_logout(rest)
+        elif cmd == 'publish':  return self.cmd_publish(rest)
         else:
             return self._execute_with_guards(cmd)
     # ═══════════════════════════════════════════════
@@ -287,6 +297,33 @@ class MatrixPlugin(AgentOSPlugin):
         except Exception as e:
             print(f"   ❌ 失败: {e}")
         return 0
+
+    # ═══════════════════════════════════════════════
+    # publish — 原生实现
+    # ═══════════════════════════════════════════════
+
+    def cmd_publish(self, rest):
+        """agentos matrix publish <platform> --account X --file Y [--title T] [--desc D]"""
+        platform = rest[0] if rest and not rest[0].startswith('--') else ''
+        account = file_path = title = desc = ''
+        i = 1 if platform else 0
+        while i < len(rest):
+            if rest[i] == '--account' and i + 1 < len(rest): account = rest[i+1]; i += 2
+            elif rest[i] == '--file' and i + 1 < len(rest): file_path = rest[i+1]; i += 2
+            elif rest[i] == '--title' and i + 1 < len(rest): title = rest[i+1]; i += 2
+            elif rest[i] == '--desc' and i + 1 < len(rest): desc = rest[i+1]; i += 2
+            else: i += 1
+        if not platform or not account or not file_path:
+            print("❌ 参数不足\n   用法: agentos matrix publish <douyin|xiaohongshu> --account X --file Y [--title T]")
+            return 1
+        print(f"📤 发布到 {platform}: {file_path}")
+        cmd = [sys.executable, str(SCRIPTS_DIR / "publish_video.py"), platform,
+               "--account", account, "--file", file_path]
+        if title: cmd += ["--title", title]
+        if desc:  cmd += ["--desc", desc]
+        result = subprocess.run(cmd, cwd=str(SCRIPTS_DIR),
+            env={**os.environ, 'PYTHONPATH': str(SCRIPTS_DIR)})
+        return result.returncode
 
     # ═══════════════════════════════════════════════
     # 执行保护（前置检查 + 并发控制 + 优雅退出）

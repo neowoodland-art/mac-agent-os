@@ -57,7 +57,8 @@ def build_parser():
 
 def main():
     parser, plugins = build_parser()
-    args = parser.parse_args()
+    # 用 parse_known_args 允许未知参数（如 --account --file）透传到子命令
+    args, _unknown = parser.parse_known_args()
 
     if args.version:
         print(f"AgentOS v{__version__}")
