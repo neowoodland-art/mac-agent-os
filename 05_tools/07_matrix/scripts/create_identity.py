@@ -40,7 +40,8 @@ except ImportError:
 SCRIPTS_DIR = Path(__file__).parent
 TOOL_DIR = SCRIPTS_DIR.parent
 # identities 目录放在 agent-local/tools/matrix/identities/
-IDENTITIES_ROOT = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "identities"
+from matrix_mgmt import AGENT_LOCAL
+IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"
 
 
 def create_identity(name: str, platform: str = "douyin", proxy: str = None):

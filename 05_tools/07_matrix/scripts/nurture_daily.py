@@ -22,7 +22,8 @@ from pathlib import Path
 TOOL_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = TOOL_DIR / "scripts"
 BP_DIR = TOOL_DIR / "blueprints"
-LOCAL_ROOT = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix"
+from matrix_mgmt import AGENT_LOCAL
+LOCAL_ROOT = AGENT_LOCAL / "tools" / "matrix"
 CONFIG_DIR = LOCAL_ROOT / "config"
 sys.path.insert(0, str(SCRIPTS_DIR))
 

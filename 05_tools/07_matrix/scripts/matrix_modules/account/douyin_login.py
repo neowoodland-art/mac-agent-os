@@ -31,7 +31,7 @@ from matrix_modules.account.sms_login import sms_login, has_login_panel
 from matrix_modules.account.sms import ApiSMSHandler
 
 HOME = Path.home()
-AGENT_LOCAL = HOME / "workbuddy-agent-os" / "agent-local"
+
 IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"
 LOG_FILE = AGENT_LOCAL / "runtime" / "login_log.jsonl"
 

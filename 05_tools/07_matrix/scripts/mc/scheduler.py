@@ -33,8 +33,8 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 HOME = Path.home()
-AGENT_SYNC = HOME / "workbuddy-agent-os" / "agent-sync"
-AGENT_LOCAL = HOME / "workbuddy-agent-os" / "agent-local"
+from matrix_mgmt import AGENT_SYNC, AGENT_LOCAL
+
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = SCRIPTS_DIR / "config"
 SCHEDULE_YAML = CONFIG_DIR / "schedule.yaml"

@@ -31,7 +31,7 @@ from cdp_connector import CDPConnector
 from browser_utils import GracefulBrowser
 
 HOME = Path.home()
-AGENT_LOCAL = HOME / "workbuddy-agent-os" / "agent-local"
+
 IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"
 LOG_FILE = AGENT_LOCAL / "runtime" / "login_log.jsonl"
 

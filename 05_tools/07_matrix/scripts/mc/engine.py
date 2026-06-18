@@ -22,8 +22,8 @@ log = logging.getLogger(__name__)
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 TOOL_DIR = SCRIPTS_DIR.parent
-AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
-AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
+from matrix_mgmt import AGENT_SYNC, AGENT_LOCAL
+
 IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"
 sys.path.insert(0, str(SCRIPTS_DIR))
 

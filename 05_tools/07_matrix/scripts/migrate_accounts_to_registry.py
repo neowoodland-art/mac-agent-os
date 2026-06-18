@@ -14,8 +14,8 @@ from pathlib import Path
 from datetime import datetime
 
 HOME = Path.home()
-AGENT_SYNC = HOME / "workbuddy-agent-os" / "agent-sync"
-AGENT_LOCAL = HOME / "workbuddy-agent-os" / "agent-local"
+from matrix_mgmt import AGENT_SYNC, AGENT_LOCAL
+
 HOSTNAME_FILE = AGENT_LOCAL / "identity" / "cached_hostname"
 HOSTNAME = HOSTNAME_FILE.read_text().strip() if HOSTNAME_FILE.exists() else os.uname().nodename
 

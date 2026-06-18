@@ -23,7 +23,8 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 
 from matrix_modules.nurture.behavior import BehaviorConfig
 
-LOCAL_ROOT = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix"
+from matrix_mgmt import AGENT_LOCAL
+LOCAL_ROOT = AGENT_LOCAL / "tools" / "matrix"
 SCRIPTS = SCRIPTS_DIR
 BP_DIR = SCRIPTS_DIR.parent / "blueprints"
 CHROME_BIN = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"

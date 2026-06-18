@@ -21,7 +21,8 @@ import asyncio, os, signal, time, json
 from pathlib import Path
 
 # PID 文件存储目录
-PID_DIR = Path.home() / "workbuddy-agent-os" / "agent-local" / "runtime" / "browser_pids"
+from matrix_mgmt import AGENT_LOCAL
+PID_DIR = AGENT_LOCAL / "runtime" / "browser_pids"
 PID_DIR.mkdir(parents=True, exist_ok=True)
 
 

@@ -19,7 +19,8 @@ import asyncio
 import sys
 from pathlib import Path
 
-IDENTITIES_ROOT = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "identities"
+from matrix_mgmt import AGENT_LOCAL
+IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"
 
 # ── 平台 URL 映射 ──
 PLATFORM_URLS = {

@@ -11,7 +11,8 @@ from datetime import datetime
 from pathlib import Path
 
 HOME = Path.home()
-LOG_DIR = HOME / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "logs"
+from matrix_mgmt import AGENT_LOCAL
+LOG_DIR = AGENT_LOCAL / "tools" / "matrix" / "logs"
 
 
 def write_run_log(account_id: str, report: dict):

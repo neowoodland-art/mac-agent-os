@@ -25,7 +25,8 @@ from typing import Optional
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-LOCAL_ROOT = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix"
+from matrix_mgmt import AGENT_LOCAL
+LOCAL_ROOT = AGENT_LOCAL / "tools" / "matrix"
 RECORDINGS_DIR = LOCAL_ROOT / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 

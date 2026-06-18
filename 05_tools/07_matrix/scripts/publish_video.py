@@ -14,8 +14,8 @@ import sys, os, json, asyncio, argparse, logging, subprocess
 from pathlib import Path
 
 # 路径
-AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
-AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
+from matrix_mgmt import AGENT_SYNC, AGENT_LOCAL
+
 SCRIPTS_DIR = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
 IDENTITIES_ROOT = AGENT_LOCAL / "identities"
 

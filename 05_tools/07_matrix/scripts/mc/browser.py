@@ -31,7 +31,8 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-LOCAL_ROOT = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix"
+from matrix_mgmt import AGENT_LOCAL
+LOCAL_ROOT = AGENT_LOCAL / "tools" / "matrix"
 PID_DIR = Path("/tmp") / "mc_pids"
 
 

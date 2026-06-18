@@ -30,7 +30,8 @@ from pathlib import Path
 from typing import Optional, List
 import glob
 
-LOCAL_ROOT = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix"
+from matrix_mgmt import AGENT_LOCAL
+LOCAL_ROOT = AGENT_LOCAL / "tools" / "matrix"
 IDENTITIES_DIR = LOCAL_ROOT / "identities"
 BACKUP_DIR = LOCAL_ROOT / "backups" / "cookies"
 

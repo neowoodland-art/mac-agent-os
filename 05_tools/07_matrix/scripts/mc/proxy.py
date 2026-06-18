@@ -25,7 +25,7 @@ class ProxyCLI:
             return [{"error": str(e)}]
 
         from pathlib import Path
-        IDENTITIES_ROOT = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "identities"
+        IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"
 
         results = []
         for a in accounts:
@@ -81,7 +81,7 @@ class ProxyCLI:
     def set_proxy(account_id: str, proxy_str: str) -> dict:
         """设置账号代理"""
         from pathlib import Path
-        IDENTITIES_ROOT = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "identities"
+        IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"
 
         config_path = IDENTITIES_ROOT / account_id / "config.yaml"
         if not config_path.exists():
