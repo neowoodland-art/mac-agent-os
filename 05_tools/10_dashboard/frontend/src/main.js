@@ -3,12 +3,14 @@
  * 
  * 职责：
  * - 样式热更新（CSS HMR）
+ * - 加载全部内联 JS 逻辑（从 inline.js 导入）
  * - 暴露可复用组件到全局
- * - Patch switchView 支持已迁移视图（抑制内联加载器，走动态 import）
+ * - Patch switchView 支持已迁移视图（抑制内联加载器，走 dynamic import）
  * - 自动刷新状态栏
  */
 
 import './style.css';
+import './inline.js';
 import { registerMigrated, loadMigratedView } from './router.js';
 
 // ── 内联加载器 → 视图名称 映射（用于抑制内联代码的双重调用）──
