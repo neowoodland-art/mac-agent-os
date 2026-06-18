@@ -639,3 +639,17 @@ async function loadOpsHistory() {
     el.innerHTML = html;
   } catch(e) {}
 }
+// ── 导出（防 Rollup tree-shake）──
+window.collectAll = collectAll;
+window.collectSelected = collectSelected;
+window.createBackup = createBackup;
+window.doExport = doExport;
+window.doImport = doImport;
+window.loadMatrixAtomOps = loadMatrixAtomOps;
+window.loadMatrixBackup = loadMatrixBackup;
+window.loadMatrixExport = loadMatrixExport;
+window.loadOpsHistory = loadOpsHistory;
+window.restoreBackup = restoreBackup;
+window.toggleCollectGroup = toggleCollectGroup;
+window.toggleCollectMachine = toggleCollectMachine;
+window._renderShell = _renderShell;

@@ -137,3 +137,8 @@ async function scheduleDelete(sid) {
     refreshScheduleList();
   } catch(e) { alert('❌ '+e.message); }
 }
+// ── 导出（防 Rollup tree-shake）──
+window.refreshScheduleList = refreshScheduleList;
+window.scheduleAdd = scheduleAdd;
+window.scheduleDelete = scheduleDelete;
+window.scheduleToggle = scheduleToggle;

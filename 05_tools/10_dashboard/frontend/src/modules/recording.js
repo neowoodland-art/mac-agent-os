@@ -213,3 +213,13 @@ async function collectProfile(accountId) {
 }
 
 // 定向评论任务已合并到 cmdRunCommentTask（命令与任务页面）
+// ── 导出（防 Rollup tree-shake）──
+window.accountLogin = accountLogin;
+window.clearCookies = clearCookies;
+window.collectAllPlatforms = collectAllPlatforms;
+window.collectProfile = collectProfile;
+window.deleteAccount = deleteAccount;
+window.deleteIdentityByPhone = deleteIdentityByPhone;
+window.loginAllPlatforms = loginAllPlatforms;
+window._getAccountById = _getAccountById;
+window._routeOperation = _routeOperation;

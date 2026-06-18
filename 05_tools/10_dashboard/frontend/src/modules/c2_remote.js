@@ -1299,3 +1299,42 @@ async function loadPluginView(name) {
     el.innerHTML = '<div class="error">加载失败: ' + e.message + '</div>';
   }
 }
+// ── 导出（防 Rollup tree-shake）──
+window.buildFullDescription = buildFullDescription;
+window.buildLayerDesc = buildLayerDesc;
+window.charGenAutoFill = charGenAutoFill;
+window.charGenAutoFillFromDescription = charGenAutoFillFromDescription;
+window.charGenFieldChange = charGenFieldChange;
+window.charGenRun = charGenRun;
+window.charGenSwitchTab = charGenSwitchTab;
+window.charGenUpdatePreview = charGenUpdatePreview;
+window.loadCharGen = loadCharGen;
+window.loadCharacters = loadCharacters;
+window.loadPluginView = loadPluginView;
+window.loadSummary = loadSummary;
+window.renderCapGroup = renderCapGroup;
+window.renderCharGenTabs = renderCharGenTabs;
+window.renderCharPortraitGallery = renderCharPortraitGallery;
+window.switchCapGroup = switchCapGroup;
+window.wfAddNode = wfAddNode;
+window.wfClear = wfClear;
+window.wfConnEnd = wfConnEnd;
+window.wfConnStart = wfConnStart;
+window.wfDeleteNode = wfDeleteNode;
+window.wfDragStart = wfDragStart;
+window.wfGeneratePortrait = wfGeneratePortrait;
+window.wfInit = wfInit;
+window.wfInitCanvas = wfInitCanvas;
+window.wfLoadCharacters = wfLoadCharacters;
+window.wfLoadTemplate = wfLoadTemplate;
+window.wfNodeColor = wfNodeColor;
+window.wfNodeMouseDown = wfNodeMouseDown;
+window.wfNodeMouseMove = wfNodeMouseMove;
+window.wfNodeMouseUp = wfNodeMouseUp;
+window.wfRender = wfRender;
+window.wfRenderConfig = wfRenderConfig;
+window.wfRenderPalette = wfRenderPalette;
+window.wfRenderTemplateSelect = wfRenderTemplateSelect;
+window.wfRun = wfRun;
+window.wfSelectNode = wfSelectNode;
+window.wfUpdateConfig = wfUpdateConfig;

@@ -820,3 +820,23 @@ function closeBpModal() {
   const modal = document.getElementById('bpExecModal');
   if (modal) modal.style.display = 'none';
 }
+// ── 导出（防 Rollup tree-shake）──
+window.acctSwitchTab = acctSwitchTab;
+window.batchExecute = batchExecute;
+window.batchPreview = batchPreview;
+window.bpCanFollow = bpCanFollow;
+window.bpDoExec = bpDoExec;
+window.bpExecute = bpExecute;
+window.bpGetPlatform = bpGetPlatform;
+window.bpRenderOps = bpRenderOps;
+window.bpRenderSteps = bpRenderSteps;
+window.bpUpdatePlatform = bpUpdatePlatform;
+window.closeBpModal = closeBpModal;
+window.corpusToggleRandom = corpusToggleRandom;
+window.deleteIdentity = deleteIdentity;
+window.loadIdentities = loadIdentities;
+window.loadMatrixAccounts = loadMatrixAccounts;
+window.loadMatrixRun = loadMatrixRun;
+window.renderAccountsTable = renderAccountsTable;
+window.sortAccounts = sortAccounts;
+window.unbindAccount = unbindAccount;

@@ -335,3 +335,16 @@ async function doNurtureExec(accountIds) {
     if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
   }
 }
+// ── 导出（防 Rollup tree-shake）──
+window.doNurtureExec = doNurtureExec;
+window.filterNurtureList = filterNurtureList;
+window.loadCmdNurture = loadCmdNurture;
+window.loadNurtureAccounts = loadNurtureAccounts;
+window.ntToggleIdentity = ntToggleIdentity;
+window.ntToggleMachine = ntToggleMachine;
+window.nurtureExec = nurtureExec;
+window.nurtureExecAll = nurtureExecAll;
+window.nurturePreflight = nurturePreflight;
+window.nurtureToggleAll = nurtureToggleAll;
+window.toggleNurtureGroup = toggleNurtureGroup;
+window.updateNurtureCount = updateNurtureCount;

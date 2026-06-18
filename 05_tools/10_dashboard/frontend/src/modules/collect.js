@@ -130,3 +130,8 @@ async function createAutoTaskFromSchedule() {
     }
   } catch(e) { alert('❌ ' + e.message); }
 }
+// ── 导出（防 Rollup tree-shake）──
+window.cmdRunCommentTask = cmdRunCommentTask;
+window.createAutoTaskFromSchedule = createAutoTaskFromSchedule;
+window.loadMatrixCommands = loadMatrixCommands;
+window.switchCmdTab = switchCmdTab;

@@ -150,3 +150,11 @@ async function recordingDelete(name) {
     refreshRecordingList();
   } catch(e) { alert('❌ '+e.message); }
 }
+// ── 导出（防 Rollup tree-shake）──
+window.loadMatrixRecord = loadMatrixRecord;
+window.recordingAnalyze = recordingAnalyze;
+window.recordingDelete = recordingDelete;
+window.recordingExport = recordingExport;
+window.recordingStart = recordingStart;
+window.recordingStop = recordingStop;
+window.refreshRecordingList = refreshRecordingList;

@@ -284,3 +284,12 @@ async function showCollectReport(filterIds, statusEl, logEl) {
     if (logEl) logEl.textContent += '❌ 读取结果失败: ' + e.message + '\n';
   }
 }
+// ── 导出（防 Rollup tree-shake）──
+window.cmdCollectAll = cmdCollectAll;
+window.cmdCollectSelected = cmdCollectSelected;
+window.getSelectedAccounts = getSelectedAccounts;
+window.renderCollectList = renderCollectList;
+window.showCollectReport = showCollectReport;
+window.switchCollectMode = switchCollectMode;
+window.toggleCollectIdentity = toggleCollectIdentity;
+window.toggleCollectPlatform = toggleCollectPlatform;

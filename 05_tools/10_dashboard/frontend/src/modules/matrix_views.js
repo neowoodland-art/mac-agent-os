@@ -831,3 +831,8 @@ async function loadFleetReconcileView(container) {
   function escapeHtml2(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 }
 window.loadFleetReconcileView = loadFleetReconcileView;
+// ── 导出（防 Rollup tree-shake）──
+window.loadIdentity = loadIdentity;
+window.loadMatrixSummary = loadMatrixSummary;
+window.loadPlugins = loadPlugins;
+window.loadStats = loadStats;

@@ -132,3 +132,10 @@ async function upgradeMachine(hostname) {
   await fetch(`/api/upgrade/${hostname}`, {method:'POST'});
   alert(`已发送升级命令到 ${hostname}`);
 }
+// ── 导出（防 Rollup tree-shake）──
+window.loadAlerts = loadAlerts;
+window.loadMatrixSettings = loadMatrixSettings;
+window.loadTimeline = loadTimeline;
+window.switchSetTab = switchSetTab;
+window.upgradeMachine = upgradeMachine;
+window.wakeupMachine = wakeupMachine;

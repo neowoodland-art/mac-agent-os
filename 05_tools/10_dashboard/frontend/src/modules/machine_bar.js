@@ -41,3 +41,6 @@ async function loadC2Machines() {
     statusEl.innerHTML = '<div style="padding:20px;color:var(--red)">'+e.message+'</div>';
   }
 }
+// ── 导出（防 Rollup tree-shake）──
+window.loadC2Machines = loadC2Machines;
+window.toggleC2Params = toggleC2Params;

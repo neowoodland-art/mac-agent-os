@@ -128,3 +128,9 @@ function c2Nurture(accountId) {
   document.getElementById('c2NurtureParams').style.display = 'block';
   switchView('matrix-c2');
 }
+// ── 导出（防 Rollup tree-shake）──
+window.c2Nurture = c2Nurture;
+window.initMachineBar = initMachineBar;
+window.loadC2History = loadC2History;
+window.loadMachineBar = loadMachineBar;
+window.sendC2Command = sendC2Command;

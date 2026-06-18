@@ -323,3 +323,13 @@ async function accountRegister() {
     if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
   }
 }
+// ── 导出（防 Rollup tree-shake）──
+window.accountRegister = accountRegister;
+window.copyTemplate = copyTemplate;
+window.corpusAdd = corpusAdd;
+window.corpusBatchImport = corpusBatchImport;
+window.corpusDetailAdd = corpusDetailAdd;
+window.corpusDetailDelete = corpusDetailDelete;
+window.corpusShowDetail = corpusShowDetail;
+window.gitSync = gitSync;
+window.loadCorpus = loadCorpus;

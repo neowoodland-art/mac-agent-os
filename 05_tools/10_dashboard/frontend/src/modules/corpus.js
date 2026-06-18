@@ -1046,3 +1046,33 @@ async function saveNote(id) {
 function editDialog(id) {
   alert('完整编辑功能请在独立管理页操作: /matrix-mgmt');
 }
+// ── 导出（防 Rollup tree-shake）──
+window.editDialog = editDialog;
+window.editNote = editNote;
+window.fmtSmsTime = fmtSmsTime;
+window.loadCollectHistory = loadCollectHistory;
+window.loadHomepageInfoSms = loadHomepageInfoSms;
+window.loadPhonePresets = loadPhonePresets;
+window.loadProxyList = loadProxyList;
+window.loadSmsAccounts = loadSmsAccounts;
+window.loadSmsConfig = loadSmsConfig;
+window.opsBatchExec = opsBatchExec;
+window.opsRun = opsRun;
+window.proxyTest = proxyTest;
+window.saveNote = saveNote;
+window.setProxy = setProxy;
+window.smsCheckSelected = smsCheckSelected;
+window.smsFilterAccounts = smsFilterAccounts;
+window.smsQuery = smsQuery;
+window.smsSelectAccount = smsSelectAccount;
+window.smsUpdateAndTest = smsUpdateAndTest;
+window.testAccountProxy = testAccountProxy;
+window.toggleCollectHistory = toggleCollectHistory;
+window.toggleHomepageInfo = toggleHomepageInfo;
+window.toggleProxyPanel = toggleProxyPanel;
+window._loadAccounts = _loadAccounts;
+window._renderAccountSelector = _renderAccountSelector;
+window._asToggleMachine = _asToggleMachine;
+window._asRefreshCount = _asRefreshCount;
+window._getSelectedAccounts = _getSelectedAccounts;
+window._filterAccountSelector = _filterAccountSelector;
