@@ -81,6 +81,7 @@ class MatrixPlugin(AgentOSPlugin):
         elif cmd == 'logout':   return self.cmd_logout(rest)
         elif cmd == 'publish':  return self.cmd_publish(rest)
         elif cmd == 'schedule': return self.cmd_schedule(rest)
+        elif cmd == 'run':      return self.cmd_run(rest)
         else:
             return self._execute_with_guards(cmd)
     # ═══════════════════════════════════════════════
@@ -331,16 +332,7 @@ class MatrixPlugin(AgentOSPlugin):
     # ═══════════════════════════════════════════════
 
     def cmd_schedule(self, rest):
-        """agentos matrix schedule list|add|remove|history|start|stop [args...]
-        
-        用法:
-          agentos matrix schedule list                 — 列出定时任务
-          agentos matrix schedule add <id> --account X --blueprint Y --time HH:MM
-          agentos matrix schedule remove <id>           — 删除任务
-          agentos matrix schedule history [id]          — 查看执行历史
-          agentos matrix schedule start                 — 启动调度器
-          agentos matrix schedule stop                  — 停止调度器
-        """
+        """agentos matrix schedule list|add|remove|history|start|stop [args...]"""
         action = rest[0] if rest else 'list'
 
         # 引入 mc.scheduler 的函数
@@ -419,6 +411,78 @@ class MatrixPlugin(AgentOSPlugin):
             print(f"❌ 未知操作: {action}")
             print("   可用操作: list / add / remove / history / start / stop")
             return 1
+
+    # ═══════════════════════════════════════════════
+    # run — 原生实现（养号执行，调用 nurture_runner.sh）
+    # ═══════════════════════════════════════════════
+
+    def cmd_run(self, rest):
+        """agentos matrix run --accounts A,B --blueprints X,Y [--rounds N] [--mix]
+        
+        注意：此操作会启动浏览器，约 10-30 分钟。
+        """
+        # 解析参数
+        accounts = ''
+        blueprints = ''
+        rounds = 10
+        interval = ''
+        corpus = ''
+        engine = 'camoufox'
+        mix_flag = ''
+        daemon = False
+        keep = False
+
+        i = 0
+        while i < len(rest):
+            if rest[i] == '--accounts' and i+1 < len(rest): accounts = rest[i+1]; i += 2
+            elif rest[i] == '--blueprints' and i+1 < len(rest): blueprints = rest[i+1]; i += 2
+            elif rest[i] == '--rounds' and i+1 < len(rest): rounds = rest[i+1]; i += 2
+            elif rest[i] == '--interval' and i+1 < len(rest): interval = rest[i+1]; i += 2
+            elif rest[i] == '--corpus' and i+1 < len(rest): corpus = rest[i+1]; i += 2
+            elif rest[i] == '--engine' and i+1 < len(rest): engine = rest[i+1]; i += 2
+            elif rest[i] == '--mix': mix_flag = '--mix'; i += 1
+            elif rest[i] == '--daemon': daemon = True; i += 1
+            elif rest[i] == '--keep': keep = True; i += 1
+            else: i += 1
+
+        if not accounts or not blueprints:
+            print("❌ 参数不足: --accounts A,B --blueprints X,Y")
+            return 1
+
+        print(f"\n🌱 养号执行: {accounts}")
+        print(f"   蓝图: {blueprints}  × {rounds} 轮")
+        print(f"   引擎: {engine}{' 混合模式' if mix_flag else ''}")
+
+        # 执行保护
+        self._cleanup_stale()
+        self._check_disk()
+        if not self._check_concurrent():
+            return 1
+
+        # 构建 mc run 命令
+        cmd = [sys.executable, '-m', 'mc', 'run',
+               '--accounts', accounts,
+               '--blueprints', blueprints,
+               '--rounds', str(rounds)]
+        if interval: cmd += ['--interval', interval]
+        if corpus: cmd += ['--corpus', corpus]
+        if mix_flag: cmd += [mix_flag]
+        if daemon: cmd += ['--daemon']
+        if keep: cmd += ['--keep']
+
+        # 后台运行
+        log_dir = Path.home() / "workbuddy-agent-os" / "agent-local" / "runtime" / "commands"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / f"nurture_{accounts.replace(',','_')}_{int(time.time())}.log"
+
+        print(f"   🚀 启动养号进程...")
+        with open(log_file, 'w') as f:
+            p = subprocess.Popen(cmd, env={**os.environ, 'PYTHONPATH': str(SCRIPTS_DIR)},
+                               cwd=str(SCRIPTS_DIR), stdout=f, stderr=subprocess.STDOUT)
+        print(f"   PID: {p.pid}")
+        print(f"   日志: {log_file}")
+        print(f"   ℹ️  浏览器自动运行中，请勿关闭此终端")
+        return 0
 
     # ═══════════════════════════════════════════════
     # 执行保护（前置检查 + 并发控制 + 优雅退出）
