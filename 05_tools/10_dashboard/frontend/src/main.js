@@ -10,7 +10,25 @@
  */
 
 import './style.css';
-import './inline.js';
+
+// ── 功能模块（按功能拆分的 inline 代码）──
+import './modules/matrix_views.js';
+import './modules/batch_exec.js';
+import './modules/registration.js';
+import './modules/account_selector.js';
+import './modules/corpus.js';
+import './modules/ops_router.js';
+import './modules/recording.js';
+import './modules/cmd_tasks.js';
+import './modules/collect.js';
+import './modules/nurture.js';
+import './modules/schedule.js';
+import './modules/settings.js';
+import './modules/workflow.js';
+import './modules/c2_remote.js';
+import './modules/machine_bar.js';
+import './modules/kb_management.js';
+
 import { registerMigrated, loadMigratedView } from './router.js';
 
 // ── 内联加载器 → 视图名称 映射（用于抑制内联代码的双重调用）──
