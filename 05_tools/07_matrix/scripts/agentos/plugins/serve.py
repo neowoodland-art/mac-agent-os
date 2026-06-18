@@ -52,6 +52,14 @@ class ServePlugin(AgentOSPlugin):
                         help="操作")
         psc.set_defaults(serve_func=self.cmd_schedule)
 
+        # guardd
+        pg = p_sub.add_parser("guardd", help="系统自愈守护进程")
+        pg.add_argument("action", nargs="?", default="start",
+                       choices=["start", "stop", "status"],
+                       help="操作")
+        pg.add_argument("--daemon", action="store_true", help="后台运行")
+        pg.set_defaults(serve_func=self.cmd_guardd)
+
         return p
 
     def dispatch(self, args):
@@ -104,4 +112,51 @@ class ServePlugin(AgentOSPlugin):
     def cmd_schedule(self, args):
         print(f"定时任务 {args.action}")
         print("(功能开发中，敬请期待)")
+        return 0
+
+    def cmd_guardd(self, args):
+        """系统自愈守护进程"""
+        import subprocess, os
+        from pathlib import Path
+
+        SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
+        guardd_script = str(SCRIPTS_DIR / "guardd.py")
+
+        if args.action == "start":
+            if args.daemon:
+                log_file = os.path.expanduser(
+                    "~/workbuddy-agent-os/agent-local/runtime/guardd/daemon.log")
+                os.makedirs(os.path.dirname(log_file), exist_ok=True)
+                pid = subprocess.Popen(
+                    [sys.executable, guardd_script],
+                    stdout=open(log_file, 'w'), stderr=subprocess.STDOUT,
+                ).pid
+                print(f"🛡️  guardd 已后台启动 (PID: {pid})")
+                print(f"   日志: {log_file}")
+            else:
+                os.execvp(sys.executable, [sys.executable, guardd_script])
+        elif args.action == "stop":
+            try:
+                subprocess.run(["pkill", "-f", "guardd.py"], capture_output=True, timeout=5)
+                print("⏹  guardd 已停止")
+            except Exception as e:
+                print(f"❌ 停止失败: {e}")
+        elif args.action == "status":
+            sf = os.path.expanduser(
+                "~/workbuddy-agent-os/agent-local/runtime/guardd/status.json")
+            if os.path.exists(sf):
+                import json
+                try:
+                    d = json.loads(open(sf).read())
+                    print(f"🛡️  guardd 状态")
+                    print(f"   最后检查: {d.get('last_check','?')}")
+                    print(f"   孤儿进程: {d.get('orphans',0)}")
+                    print(f"   磁盘: {d.get('disk_gb','?')}GB")
+                    print(f"   浏览器: {d.get('browsers',0)}")
+                    if d.get('events'):
+                        print(f"   事件: {'; '.join(d['events'])}")
+                except:
+                    print("🛡️  guardd 状态文件损坏")
+            else:
+                print("🛡️  guardd 未运行")
         return 0
