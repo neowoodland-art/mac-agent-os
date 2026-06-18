@@ -1,4 +1,4 @@
-import{t as e}from"./index-DcP1UEin.js";import{t}from"./account-selector-DBZWFo9Z.js";var n=null;async function r(r){let a=r.id||`like`;r.innerHTML=`
+import{t as e}from"./index-ruflvycv.js";import{t}from"./account-selector-DBZWFo9Z.js";var n=null;async function r(r){let a=r.id||`like`;r.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:6px">❤️ 收藏点赞 <span style="font-size:10px;color:var(--text2);font-weight:400">选择账号 → 填入视频链接 → 执行点赞</span></div>

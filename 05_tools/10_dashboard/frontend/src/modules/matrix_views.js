@@ -177,6 +177,14 @@ function switchView(view) {
   if (view === 'serve-schedule') loadServeSchedule();
 }
 
+// ── 暴露全局（供 onclick 使用，Vite 模块化后不再自动暴露）──
+window.toggleGroup = toggleGroup;
+window.collapseAllGroups = collapseAllGroups;
+window.switchView = switchView;
+window.closeDetail = closeDetail;
+window.showDetail = showDetail;
+window.loadProductions = loadProductions;
+
 // ── Stats ──
 async function loadStats() {
   try {
