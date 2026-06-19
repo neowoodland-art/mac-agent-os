@@ -730,4 +730,4 @@ def api_matrix_account_login(account_id: str):
         )
     t = threading.Thread(target=_run, daemon=True)
     t.start()
-    return {"status": "started", "account": account_id, "message": f"浏览器已为 {account_id} 打开，请手动登录"}
+    return {"status": "ok", "account": account_id, "message": f"浏览器已为 {account_id} 打开，请手动登录"}

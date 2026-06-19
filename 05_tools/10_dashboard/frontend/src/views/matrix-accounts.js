@@ -62,7 +62,7 @@ function renderTable(container) {
       <td style="padding:4px;border-bottom:1px solid var(--border);color:${statusColor}">${status}</td>
       <td style="padding:4px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text2)">${a.identity_dir || '-'}</td>
       <td style="padding:4px;border-bottom:1px solid var(--border);white-space:nowrap">
-        <button onclick="window._acctLogin('${a.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 6px" title="登录 ${a.id}">🔑</button>
+        <button onclick="window.accountLogin('${a.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 6px" title="登录 ${a.id}">🔑</button>
       </td>
     </tr>`;
   });

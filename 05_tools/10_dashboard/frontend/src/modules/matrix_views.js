@@ -207,22 +207,6 @@ window.loadCosts = loadCosts;
 window.loadMachines = loadMachines;
 window.loadFleetReconcileView = loadFleetReconcileView;
 
-// ── 账号管理登录按钮（在 matrix_views 定义确保不被 tree-shake）──
-window._acctLogin = async function(accountId) {
-  if (!confirm(`确认打开浏览器登录 ${accountId}？`)) return;
-  try {
-    const r = await fetch(`/api/matrix/accounts/${accountId}/login`, { method: 'POST' });
-    const d = await r.json();
-    if (d.status === 'started') {
-      alert(`✅ 浏览器已为 ${accountId} 打开\n请手动完成登录\n登录完成后别关浏览器，保持窗口打开`);
-    } else {
-      alert(`❌ ${d.message || '未知错误'}`);
-    }
-  } catch(e) {
-    alert(`❌ 请求失败: ${e.message}`);
-  }
-};
-
 // ── 执行历史 ──
 async function loadExecutionHistory() {
   try {
