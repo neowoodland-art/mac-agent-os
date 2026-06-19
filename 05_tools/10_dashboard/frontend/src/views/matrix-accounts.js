@@ -47,7 +47,7 @@ function renderTable(container) {
       <th onclick="window._acctSort(3)" style="cursor:pointer;padding:6px 4px;border-bottom:2px solid var(--border);white-space:nowrap;text-align:left">手机号 <span id="as3"></span></th>
       <th onclick="window._acctSort(4)" style="cursor:pointer;padding:6px 4px;border-bottom:2px solid var(--border);white-space:nowrap;text-align:left">状态 <span id="as4"></span></th>
       <th onclick="window._acctSort(5)" style="cursor:pointer;padding:6px 4px;border-bottom:2px solid var(--border);white-space:nowrap;text-align:left">身份目录 <span id="as5"></span></th>
-    </tr></thead>
+      <th style="padding:6px 4px;border-bottom:2px solid var(--border);white-space:nowrap;text-align:left">操作</th>
     <tbody id="acctTbody">`;
 
   _acctsData.forEach(a => {
@@ -61,6 +61,9 @@ function renderTable(container) {
       <td style="padding:4px;border-bottom:1px solid var(--border)">${a.phone || '-'}</td>
       <td style="padding:4px;border-bottom:1px solid var(--border);color:${statusColor}">${status}</td>
       <td style="padding:4px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text2)">${a.identity_dir || '-'}</td>
+      <td style="padding:4px;border-bottom:1px solid var(--border);white-space:nowrap">
+        <button onclick="window._acctLogin('${a.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 6px" title="登录 ${a.id}">🔑</button>
+      </td>
     </tr>`;
   });
 
@@ -89,5 +92,21 @@ function renderTable(container) {
     });
     if (!_sortAsc) rows.reverse();
     rows.forEach(r => tbody.appendChild(r));
+  };
+
+  // ── 登录按钮 ──
+  window._acctLogin = async function(accountId) {
+    if (!confirm(`确认打开浏览器登录 ${accountId}？`)) return;
+    try {
+      const r = await fetch(`/api/matrix/accounts/${accountId}/login`, { method: 'POST' });
+      const d = await r.json();
+      if (d.status === 'started') {
+        alert(`✅ 浏览器已为 ${accountId} 打开\n请手动完成登录\n登录完成后别关浏览器，保持窗口打开`);
+      } else {
+        alert(`❌ ${d.message || '未知错误'}`);
+      }
+    } catch(e) {
+      alert(`❌ 请求失败: ${e.message}`);
+    }
   };
 }

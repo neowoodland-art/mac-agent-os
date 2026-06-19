@@ -712,3 +712,22 @@ async def api_matrix_corpus_delete(data: dict):
     after = len(existing["corpus"])
     corpus_file.write_text(json.dumps(existing, ensure_ascii=False, indent=2))
     return {"status": "ok", "deleted": before - after}
+
+
+@router.post("/accounts/{account_id}/login")
+def api_matrix_account_login(account_id: str):
+    """打开浏览器登录指定账号（后台启动 login_identity.py）"""
+    import subprocess, threading
+    scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
+    login_script = scripts_dir / "login_identity.py"
+    if not login_script.exists():
+        return {"status": "error", "message": f"登录脚本不存在: {login_script}"}
+
+    def _run():
+        subprocess.run(
+            [sys.executable, str(login_script), account_id],
+            cwd=str(scripts_dir), timeout=300
+        )
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return {"status": "started", "account": account_id, "message": f"浏览器已为 {account_id} 打开，请手动登录"}
