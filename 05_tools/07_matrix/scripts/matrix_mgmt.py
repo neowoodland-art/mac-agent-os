@@ -604,12 +604,20 @@ class MatrixManager:
 
     def list_atomic_ops(self) -> list[dict]:
         """列出所有可用原子操作（含依赖约束）"""
-        # 先尝试从 douyin_ops.py 提取异步函数
+        # 从 douyin_ops.py 和 ops/xhs_ops.py 提取异步函数
         parsed_ops = []
-        try:
-            import ast
-            ops_file = MATRIX_SCRIPTS / "douyin_ops.py"
-            if ops_file.exists():
+        import ast
+
+        scan_configs = [
+            ("douyin_ops.py", "douyin"),
+            ("ops/xhs_ops.py", "xiaohongshu"),
+        ]
+
+        for rel_path, platform in scan_configs:
+            try:
+                ops_file = MATRIX_SCRIPTS / rel_path
+                if not ops_file.exists():
+                    continue
                 tree = ast.parse(ops_file.read_text())
                 for node in ast.walk(tree):
                     if isinstance(node, ast.AsyncFunctionDef) and not node.name.startswith("_"):
@@ -618,19 +626,19 @@ class MatrixManager:
                         if name not in self.OP_GRAPH:
                             parsed_ops.append({
                                 "name": name,
-                                "type": "douyin",
+                                "type": platform,
                                 "doc": doc.split("\n")[0] if doc else "",
-                                "source": "douyin_ops.py",
+                                "source": ops_file.name,
                                 "category": "auto",
-                                "platform": "douyin",  # douyin_ops.py 都是抖音操作
+                                "platform": platform,
                                 "requires": [],
                                 "allows": ["*"],
                                 "can_be_first": True,
                                 "label": name,
                                 "desc": doc.split("\n")[0] if doc else "",
                             })
-        except:
-            pass
+            except:
+                pass
 
         # 合并手动定义的标准操作
         result = {op["name"]: op for op in parsed_ops}
