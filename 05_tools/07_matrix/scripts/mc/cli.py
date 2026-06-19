@@ -631,38 +631,31 @@ def _cmd_op_list(args):
 # ════════════════════════════════════════════════════════════
 
 def cmd_collect(args):
-    """mc collect — 主页信息采集"""
-    import subprocess
-    runner = SCRIPTS_DIR / "collect_batch_runner.py"
-    if not runner.exists():
-        runner = SCRIPTS_DIR / "collect_homepage_info.py"
-    
-    cmd = [sys.executable, str(runner)]
+    """mc collect — 主页信息采集（通过 mc run + 蓝图）"""
+    accounts = []
     if args.phone:
-        cmd += ["--single", args.phone]
+        accounts = [args.phone]
     elif args.account:
-        cmd += ["--single", args.account]
-    # --all: 不加参数, 默认全部
+        accounts = [args.account]
     
-    if not args.status:
-        print(f"🚀 启动采集: {' '.join(cmd)}")
-        p = subprocess.Popen(cmd, cwd=str(SCRIPTS_DIR))
-        if args.json:
-            print(json.dumps({"status": "started", "pid": p.pid}))
+    if not accounts:
+        print("⚠️ mc collect 已迁移为 mc run --blueprints=douyin_read_profile")
+        print("   请使用: mc run --accounts=A,B --blueprints=douyin_read_profile --rounds=1")
+        return
+    
+    from mc.run import BatchRunner
+    import asyncio
+    runner = BatchRunner(
+        accounts=accounts,
+        blueprints=["douyin_read_profile"],
+        rounds=1,
+        interval_range=(5, 10),
+    )
+    report = asyncio.run(runner.run())
+    if args.json:
+        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
     else:
-        # 查进度
-        progress_file = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
-        if progress_file.exists():
-            data = json.loads(progress_file.read_text())
-            if args.json:
-                print(json.dumps(data, ensure_ascii=False))
-            else:
-                s = data.get("status", "unknown")
-                done = data.get("completed", 0)
-                total = data.get("total_identities", 0)
-                print(f"状态: {s} | {done}/{total} 完成")
-        else:
-            print("暂无采集进度")
+        print(f"✅ 采集完成: 成功{report.success} 失败{report.failed} 耗时{report.duration:.0f}s")
 
 
 # ════════════════════════════════════════════════════════════

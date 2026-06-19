@@ -415,7 +415,7 @@ class MachineSession:
             patterns = [cmd.run_id]
             # 再按进程名查（实际进程可能不包含 run_id）
             type_patterns = {
-                "collect": ["collect_batch_runner", "mc collect"],
+                "collect": ["mc run.*douyin_read_profile", "mc run.*xiaohongshu_read_profile"],
                 "nurture": ["mc run", "camoufox.*-no-remote"],
                 "login": ["smart-login", "mc smart-login"],
                 "comment": ["task comment", "mc task"],
@@ -534,13 +534,15 @@ class CommandBus:
             else:
                 # 其他操作: 一条命令搞定全部账号
                 templates = {
-                    "collect": f"mc collect {'--phone=' + phones[0] if phones else '--all'}",
+                    "collect": "mc run --accounts={ids_str} --blueprints=douyin_read_profile --rounds=1",
                     "login": f"mc smart-login {all_ids}",
                     "logout": f"mc account logout {all_ids}",
                     "comment": f"mc task comment --account={all_ids} --url={params.get('url','')}" + (f" --direction={params.get('direction','')}" if params.get('direction') else ""),
                     "like": f"mc task like --account={all_ids} --url={params.get('url','')}",
                 }
                 cmd_line = templates.get(cmd_type, "")
+                if cmd_type == "collect":
+                    cmd_line = cmd_line.replace("{ids_str}", all_ids)
                 if cmd_line:
                     result = cls._execute_one(cmd_type, all_ids, machine, is_local, cmd_line, params, now_ts, results, errors, dry_run)
                 else:
