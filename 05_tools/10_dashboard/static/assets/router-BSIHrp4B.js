@@ -1,0 +1,10 @@
+function e(e,t=`⏳ 加载中...`){e&&(e.innerHTML=`<div class="loading">${t}</div>`)}function t(e,t){e&&(e.innerHTML=`<div class="error">❌ ${t}</div>`)}var n=`/api`;async function r(e,t={}){let r=`${n}${e}`,i={headers:{"Content-Type":`application/json`,...t.headers},...t};(!i.method||i.method===`GET`||i.method===`HEAD`)&&delete i.headers[`Content-Type`];let a=await fetch(r,i);if(!a.ok){let e=await a.text().catch(()=>``);throw Error(`HTTP ${a.status}: ${e.slice(0,200)}`)}return a.json()}async function i(e,t=``){return new Promise(n=>{let r=document.createElement(`div`);r.style.cssText=`position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center`,r.innerHTML=`
+      <div style="background:var(--bg2);border-radius:12px;padding:20px;max-width:420px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,0.2)">
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px">⚠️ 确认执行</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">${e}</div>
+        ${t?`<div style="font-size:11px;color:var(--text2);margin-bottom:12px;background:var(--bg3);padding:8px;border-radius:6px;font-family:monospace">${t}</div>`:`<div style="margin-bottom:12px"></div>`}
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button id="confirmCancel" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 16px;font-size:12px;cursor:pointer">取消</button>
+          <button id="confirmOk" style="background:#22c55e;color:#000;border:none;border-radius:6px;padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer">✅ 确认执行</button>
+        </div>
+      </div>`,document.body.appendChild(r),document.getElementById(`confirmOk`).onclick=()=>{r.remove(),n(!0)},document.getElementById(`confirmCancel`).onclick=()=>{r.remove(),n(!1)},r.onclick=e=>{e.target===r&&(r.remove(),n(!1))}})}export{e as i,i as n,t as r,r as t};

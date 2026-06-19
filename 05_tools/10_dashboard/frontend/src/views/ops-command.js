@@ -1,8 +1,5 @@
-/**
- * 联邦指挥台（v2 — 完整命令中心）
- * 选机器 → 选账号 → 选蓝图 → 填参数 → 执行 → 看结果
- * 包含：蓝图选择器、参数配置、语料库、机器状态、执行历史
- */
+import { apiRequest, confirmExecute } from '../router.js';
+
 export async function loadView(container) {
   const uid = 'cmd_' + Math.random().toString(36).slice(2, 6);
   const PS = ['douyin_daily','douyin_comment','douyin_search','douyin_collect','douyin_read_profile',
@@ -122,6 +119,11 @@ export async function loadView(container) {
     const rounds = parseInt(document.getElementById(`rounds_${uid}`)?.value || '5');
     const machine = document.getElementById(`tgtMachine_${uid}`)?.value || '';
 
+    // 执行前确认弹窗
+    const detail = `操作: ${type}\n蓝图: ${bp}\n账号: ${accts.join(', ')}\n轮数: ${rounds}\n机器: ${machine || '自动分配'}`;
+    const confirmed = await confirmExecute(`即将在 ${accts.length} 个账号上执行 ${type} 操作`, detail);
+    if (!confirmed) { logEl.innerHTML = '<span style="color:var(--text2)">已取消</span>'; return; }
+
     const params = { blueprint: bp, rounds };
     if (type === 'comment') {
       const url = document.getElementById(`url_${uid}`)?.value;
@@ -215,9 +217,11 @@ async function loadBlueprints(uid) {
     const bps = Array.isArray(d) ? d : (d.blueprints || []);
     const sel = document.getElementById(`bpSelect_${uid}`);
     if (sel) {
-      sel.innerHTML = bps.map(bp =>
-        `<option value="${bp.file ? bp.file.replace('.json','') : bp.name}">${bp.name} (${(bp.steps||[]).length}步)</option>`
-      ).join('');
+      sel.innerHTML = bps.map(bp => {
+        const val = bp.file ? bp.file.replace('.json','') : bp.name;
+        const label = `${bp.name} — ${(bp.description || '').slice(0,36)}`;
+        return `<option value="${val}">${label}</option>`;
+      }).join('');
     }
   } catch(e) {
     const sel = document.getElementById(`bpSelect_${uid}`);

@@ -38,7 +38,7 @@ STATUS_FILE = LOG_DIR / "status.json"
 
 # ── 配置 ──────────────────────────────────────────────
 INTERVAL = 60            # 检测间隔(秒)
-DASHBOARD_URL = "http://localhost:9988"
+DASHBOARD_URL = os.environ.get("GUARDD_DASHBOARD_URL", "http://localhost:9988")
 MAX_BROWSERS = 3         # 最大浏览器数
 MIN_DISK_GB = 5          # 最小磁盘空间
 CMD_TIMEOUT = 1800       # 命令超时(秒) = 30min

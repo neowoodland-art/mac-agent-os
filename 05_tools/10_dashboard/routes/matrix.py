@@ -79,10 +79,10 @@ def api_matrix_homepage_history():
 @router.post("/collect-homepage")
 def api_matrix_start_collect(data: dict = {}):
     """
-    启动主页信息采集（支持按账号ID列表采集）
+    启动主页信息采集 — 改为通过 CommandBus 走 mc run 蓝图
 
     请求体:
-      account_ids: [str]  — 要采集的账号ID列表（可选，不传则采全部）
+      account_ids: [str]  — 要采集的账号ID列表
       account_id: str     — 单账号（兼容旧调用）
     """
     account_ids = data.get("account_ids", [])
@@ -90,82 +90,42 @@ def api_matrix_start_collect(data: dict = {}):
     if account_id and account_id not in account_ids:
         account_ids = [account_id]
 
-    script = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
-    if not script.exists():
-        return {"error": f"采集脚本不存在: {script}"}
+    if not account_ids:
+        return {"status": "error", "message": "请指定账号"}
 
+    # 通过 CommandBus 分发 mc run 采集蓝图
+    mgr = _get_matrix_mgr()
+    all_accts = mgr.list_accounts()
+    acct_map = {a["id"]: a for a in all_accts}
+
+    # 按平台选蓝图: douyin → douyin_read_profile, xiaohongshu → xiaohongshu_read_profile
+    platform_bp = {"douyin": "douyin_read_profile", "xiaohongshu": "xiaohongshu_read_profile"}
     results = []
 
-    if account_ids:
-        from services.remote_exec import exec_remote
-        from services.browser_orchestrator import SLOTS, LAUNCH_STAGGER
-        import time
+    for aid in account_ids:
+        acct = acct_map.get(aid)
+        if not acct:
+            results.append({"target": aid, "status": "error", "message": "账号不存在"})
+            continue
+        platform = acct.get("platform", "douyin")
+        bp = platform_bp.get(platform, "douyin_read_profile")
 
-        mgr = _get_matrix_mgr()
-        all_accts = mgr.list_accounts()
-        acct_map = {a["id"]: a for a in all_accts}
+        # 使用 CommandBus 下发 — 走 mc run，自动过 guardd/资源检查/身份分组
+        from services.command_bus import CommandBus
+        cmd_result = CommandBus.dispatch("collect", [aid], {
+            "blueprint": bp,
+            "rounds": 1,
+            "dry_run": False,
+        })
+        results.append({
+            "target": aid,
+            "platform": platform,
+            "blueprint": bp,
+            "status": cmd_result.get("status", "dispatched"),
+            "commands": cmd_result.get("commands", []),
+        })
 
-        # 按机器分组，每台机器错峰启动
-        machine_groups = {}
-        for aid in account_ids:
-            acct = acct_map.get(aid)
-            if not acct:
-                results.append({"target": aid, "error": "账号不存在"})
-                continue
-            machine = acct.get("owner_machine", HOSTNAME)
-            if machine not in machine_groups:
-                machine_groups[machine] = []
-            machine_groups[machine].append((aid, acct))
-
-        for machine, accts in machine_groups.items():
-            is_local = (machine == HOSTNAME)
-            slot_idx = 0
-            for aid, acct in accts:
-                slot = SLOTS[slot_idx % len(SLOTS)]
-                slot_idx += 1
-                stagger = (slot_idx - 1) * LAUNCH_STAGGER
-
-                if stagger > 0:
-                    logger.info(f"⏳ 采集错峰等待 {stagger}s → {aid}")
-                    time.sleep(stagger)
-
-                if is_local:
-                    p = subprocess.Popen(
-                        [sys.executable, str(script), "--account", aid],
-                        cwd=str(script.parent)
-                    )
-                    results.append({
-                        "target": aid, "status": "started", "pid": p.pid,
-                        "machine": machine, "slot": slot["id"],
-                        "position": slot["position"],
-                    })
-                else:
-                    py = "$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3"
-                    remote_cmd = f"cd {script.parent} && {py} {script.name} --account {aid}"
-                    r = exec_remote(machine, remote_cmd, timeout=15, fire_and_forget=True)
-                    results.append({
-                        "target": aid, "status": "dispatched",
-                        "machine": machine, "remote_result": r.get("status"),
-                    })
-            else:
-                # 远程执行
-                py = "$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3"
-                remote_cmd = f"cd {script.parent} && {py} {script.name} --account {aid}"
-                r = exec_remote(machine, remote_cmd, timeout=15, fire_and_forget=True)
-                results.append({
-                    "target": aid, "status": "dispatched",
-                    "machine": machine, "remote_result": r.get("status"),
-                })
-
-        return {"status": "ok", "results": results}
-
-    # 向后兼容：不传 account_ids 时采全部
-    progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
-    progress_path.parent.mkdir(parents=True, exist_ok=True)
-    p = subprocess.Popen([sys.executable, str(script)], cwd=str(script.parent))
-    with open(progress_path, "w") as f:
-        json.dump({"status": "running", "pid": p.pid, "started_at": datetime.now().isoformat()}, f)
-    return {"status": "started", "pid": p.pid}
+    return {"status": "ok", "results": results}
 
 
 @router.post("/collect-homepage/phone")

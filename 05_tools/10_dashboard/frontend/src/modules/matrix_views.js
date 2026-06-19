@@ -132,7 +132,8 @@ function switchView(view) {
                    'crawl-tasks','crawl-sources','crawl-history',
                    'machines','fleet-sync','fleet-reconcile','fleet-exec',
                    'serve-mcp','serve-dashboard','serve-schedule',
-                   'productions','assets','costs','capabilities','workflow','kb'];
+                   'productions','assets','costs','capabilities','workflow','kb',
+                   'ops-command'];
   viewIds.forEach(v => {
     document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
   });
