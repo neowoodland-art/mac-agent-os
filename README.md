@@ -68,34 +68,67 @@ AgentOS 是一个**本机运行的多智能体协同系统**。多台电脑通�
 
 ---
 
-## 三、目录结构速览
+## 三、矩阵养号系统
+
+AgentOS 集成了**多平台社交账号自动化管理**（养号/评论/采集/发布），当前通过 `mc` CLI 作为统一入口。
+
+### 命令入口
+
+```bash
+# 查看帮助
+mc --help
+
+# 账号管理
+mc account list                    # 列出所有账号
+mc account create <name>           # 创建新身份
+mc account login <name>            # 登录
+mc account status [name]           # 登录状态
+mc account export / import         # 导入导出
+
+# 批量执行（核心）
+mc run --accounts=A,B --blueprints=X,Y --rounds=10
+
+# 其他操作
+mc blueprint list                  # 蓝图(操作序列)管理
+mc task comment --url=...          # 定向评论
+mc task search --keyword=...       # 搜索浏览
+mc corpus list                     # 语料库
+mc publish --platform=douyin ...   # 视频发布
+mc status all                      # 全局状态
+mc config show                     # 系统配置一览
+```
+
+### 执行架构
 
 ```
-~/workbuddy-agent-os/agent-sync/
-├── README.md, CHANGELOG.md, requirements.txt   ← 系统入口
-├── 00_bootstrap/     ← 初始化脚本（init.sh + apply-config.sh）
-├── 01_core/          ← 核心配置 + 系统操作手册
-├── 02_skills/        ← 技能（每个技能一个目录）
-├── 03_knowledge/     ← Obsidian 知识库
-│   ├── 00_inbox/     ← 待提纯收件箱
-│   ├── 01_submissions/ ← 多机提交箱
-│   ├── 10_concepts/  ← 概念知识
-│   ├── 20_methods/   ← 方法论
-│   ├── 90_archive/   ← 归档
-│   └── 99_system/    ← 系统文档
-├── 04_memory/        ← 记忆系统（L1-L3）
-├── 05_tools/         ← 工具脚本（agentos CLI + 系统工具）
-├── 06_runtime/       ← 运行时（缓存等）
-├── 07_migration/     ← 迁移打包
-
-~/workbuddy-agent-os/agent-local/   ← 本机专属（不同步）
-├── identity/secrets/   ← 私钥 · API Key（永不共享）
-├── materials/          ← 素材库
-├── memory/             ← 本地记忆
-├── submissions/        ← 提交箱（记忆提炼/新知识）
-├── tools/              ← 本地工具数据（AVE/Matrix）
-└── runtime/guardd/     ← 守护进程日志
+mc run → BatchEngine → CDPConnector → Camoufox(Firefox) → DouyinOps/XhsOps → 蓝图各步
+                               ↑
+                     LoginStateMachine (3钩子)
+                     1. 执行前检测登录
+                     2. 每步后检查验证弹窗
+                     3. 操作间隔冷却
 ```
+
+### 蓝图（14个操作模板）
+
+| 蓝图 | 说明 | 步骤 |
+|:-----|:------|:-----|
+| `douyin_daily` / `xhs_daily` | 日常养号 | 17-23步 |
+| `douyin_comment` | 定向评论 | 5步 |
+| `douyin_collect` | 主页信息采集 | 5步 |
+| `douyin_read_profile` | 读主页数据 | 9步 |
+| `douyin_search` / `douyin_search_browse` | 搜索+浏览 | 7-14步 |
+| ... | 全部14个 | JSON定义 |
+
+### 三台机器
+
+| 机器 | IP | 角色 | Dashboard |
+|:-----|:---|:-----|:----------|
+| chengzigedeAir | 100.111.43.6 | master | localhost:9988 |
+| 5kechengdeAir | 100.72.182.121 | worker | 不跑Web |
+| 7kecheng | 100.65.35.28 | worker | 不跑Web |
+
+> 详细文档: `05_tools/07_matrix/docs/MANUAL.md` / `05_tools/07_matrix/docs/MC_COMMAND_REFERENCE.md`
 
 ---
 

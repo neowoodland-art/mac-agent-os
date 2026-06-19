@@ -152,18 +152,16 @@ launchctl list com.agentos.socks5-forwarder
 cd ~/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts
 python3 -m mc --help
 
-# 子命令
-python3 -m mc run           # 运行任务（按蓝图）
-python3 -m mc browser       # 浏览器管理
-python3 -m mc proxy         # 代理管理
-python3 -m mc scheduler     # 任务调度
-python3 -m mc runlog        # 运行日志
-python3 -m mc recorder      # 录制操作
-python3 -m mc corpus        # 语料库管理
-python3 -m mc exporter      # 导出
-python3 -m mc task          # 任务管理
-python3 -m mc analyzer      # 分析器
-python3 -m mc engine        # 引擎管理
+# 核心子命令
+python3 -m mc run --accounts=A --blueprints=B --rounds=N   # ✅ 批量执行
+python3 -m mc account list|create|login|status              # ✅ 账号管理
+python3 -m mc task comment --url=...                        # ✅ 定向评论
+python3 -m mc corpus list|add                               # ✅ 语料库
+python3 -m mc config show                                   # ✅ 系统配置
+python3 -m mc status all                                    # ✅ 全局状态
+python3 -m mc publish --platform=douyin ...                 # ✅ 视频发布
+python3 -m mc remote exec <host> <cmd>                      # ✅ 远程执行
+python3 -m mc blueprint list|show                           # ✅ 蓝图管理
 ```
 
 ### 4.2 `agentos` CLI — 系统管理
@@ -188,6 +186,27 @@ python3 matrix_mgmt.py --help
 python3 matrix_mgmt.py accounts list           # 列出账号
 python3 matrix_mgmt.py accounts sync           # 同步账号
 python3 matrix_mgmt.py backup                  # 备份
+
+### 4.4 登录状态机（2026-06-19 新增）
+
+**代码位置**: `scripts/matrix_modules/account/login_state_machine.py`
+
+每次 `mc run` 执行蓝图时，引擎自动插入三个安全钩子，不需要手动操作：
+
+```
+钩子1: 执行前 → ensure_login(账号, 平台)
+   → DOM检测已登录? 是→继续
+   → Cookie恢复(刷新页面)? 是→继续
+   → SMS重登(填手机→等验证码→点同意)? 是→继续
+   → 截图→视觉分析→上报→跳过本轮
+
+钩子2: 每步后 → check_verify_dialog(页面)
+   → 检测到短信验证弹窗? → 自动sms_login恢复 → 跳过当前操作
+   → 检测到滑块验证? → 记录日志但不断
+
+钩子3: 每步后 → 操作冷却
+   → 评论后30-45s / 点赞后2-4s / 关注后10-20s / 搜索后3-6s
+```
 python3 matrix_mgmt.py restore                 # 恢复
 ```
 
