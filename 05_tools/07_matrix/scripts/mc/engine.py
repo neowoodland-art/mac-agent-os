@@ -236,6 +236,15 @@ class BatchEngine:
             await conn.page.goto(home_url, timeout=60000, wait_until="load")
             await asyncio.sleep(5)
 
+        # ── 钩子1: 登录状态检测（执行前确保登录）──
+        from matrix_modules.account.login_state_machine import LoginStateMachine
+        lsm = LoginStateMachine()
+        login_ok = await lsm.ensure_login(conn.page, account_id, platform)
+        if not login_ok:
+            log.warning(f"  ❌ [{account_id}] 登录检测不通过，跳过本轮")
+            report.skipped = True
+            return report
+
         # 创建 platform ops
         if platform == "xiaohongshu":
             from ops.xhs_ops import XhsOps
@@ -259,9 +268,39 @@ class BatchEngine:
                                        "" if result.success else result.error))
             icon = "✅" if result.success else "❌"
             log.info(f"    {icon} [{sn:2d}] {op_name:18s} → {result.detail[:25]} ({result.elapsed:.1f}s)")
-            await asyncio.sleep(1.5)
+
+            # ── 钩子2: 操作后检查验证弹窗 ──
+            verify_type = await lsm.check_verify_dialog(conn.page)
+            if verify_type == "sms":
+                log.warning(f"    📱 [{account_id}] 触发短信验证，自动恢复...")
+                await lsm._recover_sms(conn.page, account_id)
+                # 跳过当前步
+                log.info(f"    ⏭️ 跳过当前操作 [{sn}]")
+            elif verify_type == "captcha":
+                log.warning(f"    🔐 [{account_id}] 滑块验证，需手动处理")
+                # 上报但不中断（留给你手动处理）
+
+            # ── 钩子3: 冷却管理 ──
+            cooldown = self._get_cooldown(op_name)
+            await asyncio.sleep(cooldown)
 
         return report
+
+    def _get_cooldown(self, op_name: str) -> float:
+        """操作完成后冷却时间"""
+        import random
+        COOLDOWNS = {
+            "like":       (2, 4),
+            "collect":    (3, 6),
+            "comment":    (30, 45),
+            "post_comment": (30, 45),
+            "follow":     (10, 20),
+            "search":     (3, 6),
+            "scroll_feed": (2, 3),
+            "wait_watch":  (0, 0),   # wait_watch 自带等待
+        }
+        base = COOLDOWNS.get(op_name, (2, 5))
+        return random.uniform(*base)
 
     async def _run_identity_group(self, group_accts: List[dict]) -> List[AccountRunReport]:
         """运行同一身份下的所有账号（共用一个浏览器）"""
