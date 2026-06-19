@@ -111,7 +111,7 @@ class DouyinOps(PlatformOps):
                 "next_video", "prev_video", "search", "wait_watch",
                 "scroll_feed", "open_video", "wait", "go_back",
                 "goto_profile", "read_profile_field", "read_my_comments",
-                "reply_comment", "search_browse"]
+                "reply_comment", "search_browse", "sms_login"]
 
     async def _do_execute(self, op: str, args: dict, step_id: int) -> Optional[OpResult]:
         """实现 PlatformOps._do_execute — 操作分发"""
@@ -821,6 +821,234 @@ class DouyinOps(PlatformOps):
         dur = int((time.time() - t0) * 1000)
         await self._log_op(step_id, "AO_REPLY", "reply", reply_btn, dur)
         return reply_btn
+
+    async def sms_login(self, phone: str = "", step_id: int = 0) -> bool:
+        """抖音 SMS 验证码登录（处理 passport iframe 登录页）
+        
+        Args:
+            phone: 手机号，为空则从账号配置读取
+        Returns:
+            True=登录成功
+        """
+        page = self.page
+        log = lambda msg: None  # 静默日志，出错时打印
+
+        # 1. 检查是否已在登录页，不在则导航过去
+        if "passport" not in page.url.lower() and "login" not in page.url.lower():
+            log("导航到抖音登录页...")
+            await page.goto("https://www.douyin.com/passport/sso/login/", 
+                          wait_until="domcontentloaded", timeout=30000)
+            await asyncio.sleep(4)
+
+        # 2. 查找登录 iframe（抖音护照登录页在 iframe 内）
+        login_frame = None
+        for attempt in range(5):
+            frames = page.frames
+            for f in frames:
+                url = f.url.lower()
+                if "passport" in url or "login" in url or "sso" in url:
+                    login_frame = f
+                    break
+            if login_frame:
+                break
+            await asyncio.sleep(2)
+
+        if not login_frame:
+            print("❌ 未找到登录 iframe，尝试直接页面操作...")
+            login_frame = page  # fallback
+
+        # 3. 等待登录页面完全渲染
+        await asyncio.sleep(3)
+
+        # 4. 检测当前登录模式（二维码 vs 手机号）
+        qr_visible = False
+        try:
+            qr = await login_frame.query_selector("div[class*=qrcode], img[class*=qrcode], canvas[class*=qrcode]")
+            if qr:
+                qr_visible = True
+                print("⚠️ 检测到二维码登录，尝试切换到手机号登录")
+        except:
+            pass
+
+        # 5. 如果有二维码，找"手机号登录"标签并点击
+        if qr_visible:
+            for text in ["手机号登录", "手机登录", "短信登录", "验证码登录"]:
+                try:
+                    tab = await login_frame.query_selector(f"div:has-text('{text}'), span:has-text('{text}'), label:has-text('{text}')")
+                    if tab and await tab.is_visible():
+                        await tab.click()
+                        await asyncio.sleep(2)
+                        print(f"  ✅ 切换到 {text}")
+                        break
+                except:
+                    continue
+
+        # 6. 找手机号输入框并填入
+        phone_filled = False
+        phone_value = phone
+        if not phone_value:
+            # 从账号配置查
+            try:
+                from matrix_mgmt import MatrixManager
+                mgr = MatrixManager()
+                for a in mgr.list_accounts():
+                    if a["id"] == self._account_id:
+                        phone_value = a.get("phone", "")
+                        break
+            except:
+                pass
+
+        if not phone_value:
+            from matrix_modules.account.sms import ApiSMSHandler
+            handler = ApiSMSHandler()
+            phone_value = handler.get_phone()
+            if phone_value:
+                phone_value = str(phone_value)
+
+        print(f"  手机号: {phone_value or '默认'}")
+
+        # 尝试在 iframe 里找手机号输入框
+        phone_sel = "input[placeholder*='手机'], input[type='tel'], input[name='mobile'], input[id*='phone'], input[id*='mobile']"
+        for sel in [phone_sel, "input:first-of-type"]:
+            try:
+                inp = await login_frame.query_selector(sel)
+                if inp:
+                    await inp.click()
+                    await asyncio.sleep(0.5)
+                    await inp.fill(phone_value or "18912345678")
+                    await asyncio.sleep(1)
+                    phone_filled = True
+                    print(f"  ✅ 已填手机号: {phone_value or '默认'}")
+                    break
+            except:
+                continue
+
+        if not phone_filled:
+            # fallback: 填第一个可见 input
+            try:
+                inputs = await login_frame.query_selector_all("input:visible")
+                if inputs and len(inputs) > 0:
+                    await inputs[0].click()
+                    await inputs[0].fill(phone_value or "18912345678")
+                    await asyncio.sleep(1)
+                    phone_filled = True
+            except:
+                pass
+
+        if not phone_filled:
+            print("❌ 未找到手机号输入框")
+            return False
+
+        # 7. 点"获取验证码"按钮
+        code_sent = False
+        for text in ["获取验证码", "发送验证码", "获取"]:
+            try:
+                btn = await login_frame.query_selector(f"button:has-text('{text}'), span:has-text('{text}'), div:has-text('{text}')")
+                if btn and await btn.is_visible():
+                    await btn.click()
+                    await asyncio.sleep(2)
+                    code_sent = True
+                    print(f"  ✅ 点击 '{text}'")
+                    break
+            except:
+                continue
+
+        if not code_sent:
+            # fallback: 点最后一个 button
+            try:
+                btns = await login_frame.query_selector_all("button")
+                if btns and len(btns) > 0:
+                    await btns[-1].click()
+                    await asyncio.sleep(2)
+                    code_sent = True
+            except:
+                pass
+
+        # 8. 轮询 SMS 验证码
+        from matrix_modules.account.sms import ApiSMSHandler
+        handler = ApiSMSHandler(phone=phone_value) if phone_value else ApiSMSHandler()
+        code = ""
+        for retry in range(6):  # 最多等 60s
+            await asyncio.sleep(10)
+            try:
+                code = await handler.wait("抖音登录", timeout=5)
+                if code and len(code) in (4, 5, 6):
+                    print(f"  ✅ 获取到验证码: {code}")
+                    break
+            except:
+                continue
+            if retry == 3:
+                print("  ⏳ 重发验证码...")
+                # 尝试重新发送
+                for text in ["重新发送", "获取验证码", "重发"]:
+                    try:
+                        btn = await login_frame.query_selector(f"button:has-text('{text}')")
+                        if btn and await btn.is_visible():
+                            await btn.click()
+                            break
+                    except:
+                        continue
+
+        if not code or len(code) not in (4, 5, 6):
+            print("❌ 获取验证码失败")
+            return False
+
+        # 9. 填入验证码
+        code_filled = False
+        code_sel = "input[placeholder*='验证码'], input[maxlength='6'], input[maxlength='4'], input[autocomplete='one-time-code']"
+        for sel in [code_sel, "input:nth-of-type(2)", "input:last-of-type"]:
+            try:
+                inp = await login_frame.query_selector(sel)
+                if inp:
+                    await inp.click()
+                    await inp.fill(code)
+                    await asyncio.sleep(1)
+                    code_filled = True
+                    print(f"  ✅ 已填验证码")
+                    break
+            except:
+                continue
+
+        if not code_filled:
+            # fallback: 用 JS 填
+            try:
+                await login_frame.evaluate(f'''
+                    () => {{
+                        const inputs = document.querySelectorAll("input");
+                        for (const i of inputs) {{
+                            if (!i.value && i.offsetParent !== null) {{
+                                i.value = "{code}";
+                                i.dispatchEvent(new Event("input", {{bubbles: true}}));
+                                break;
+                            }}
+                        }}
+                    }}
+                ''')
+                await asyncio.sleep(1)
+            except:
+                pass
+
+        # 10. 点登录确认
+        for text in ["登录", "确认", "同意并登录", "下一步"]:
+            try:
+                btn = await login_frame.query_selector(f"button:has-text('{text}')")
+                if btn and await btn.is_visible():
+                    await btn.click()
+                    await asyncio.sleep(3)
+                    print(f"  ✅ 点击 '{text}'")
+                    break
+            except:
+                continue
+
+        # 11. 等待登录结果（URL 变化 = 登录成功）
+        await asyncio.sleep(5)
+        current_url = page.url
+        if "passport" not in current_url.lower() and "login" not in current_url.lower():
+            print(f"  ✅ 登录成功! URL: {current_url[:60]}")
+            return True
+        else:
+            print(f"  ⚠️ 登录后仍在登录页，可能需要手动处理")
+            return False
 
     def get_action_summary(self) -> dict:
         """获取本次会话的操作统计"""
