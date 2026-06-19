@@ -98,7 +98,7 @@
 |:-----|:------|:---------|
 | `collect_homepage_info.py` | 采集用户主页信息（昵称/粉丝/关注） | **走蓝图** (现有 `douyin_read_profile` + `xiaohongshu_read_profile`) |
 | `collect_batch_runner.py` | 批量采集多个账号 | **走蓝图** + `mc run` 批量执行 |
-| `publish_video.py` | 视频发布 | **走蓝图**（新建 `douyin_publish`） |
+| `publish_video.py` | 视频发布（Camoufox浏览器上传，可选调外部sau CLI） | **Camoufox模式→走蓝图**（加4个发布操作到Ops）；sau模式保持独立工具 |
 | `login_identity.py` | 身份登录 | **走 mc account login** |
 | `create_identity.py` | 创建新身份 | **走 mc account create** |
 | `guardd.py` | 系统守护进程 | **不是蓝图**，保持独立 |
