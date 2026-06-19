@@ -138,12 +138,16 @@
 | 1 | `ops/douyin/` 目录归档 | browse.py + interact.py 功能完全被 douyin_ops.py 覆盖 |
 | 2 | 确认 engine.py 只引用 douyin_ops.py | 当前已经是这样，不改 |
 
-### Phase 3: 工具→蓝图迁移（1小时）
+### Phase 3: 工具→蓝图迁移（辅助标注）
 
-| # | 任务 | 说明 |
-|:-:|:-----|:------|
-| 1 | `collect_homepage_info.py` 迁移为通过 `mc run` 调用读主页蓝图 | 直接使用现成的 `douyin_read_profile` 和 `xiaohongshu_read_profile` |
-| 2 | `collect_batch_runner.py` 迁移为 `mc run --accounts=A,B --blueprints=douyin_read_profile` | |
+| # | 任务 | 说明 | 操作 |
+|:-:|:-----|:------|:-----|
+| 1 | `collect_homepage_info.py` 迁移 | 提取函数(extract_douyin/extract_xiaohongshu)被collect_batch_runner复用 | 保留不动，新增 blueprints 内数据输出能力后自然废弃 |
+| 2 | `collect_batch_runner.py` 迁移 | 有独特的分批管理/输出格式逻辑，暂不能直接取代 | 保留，待BlueprintEngine支持结构化输出后再迁移 |
+| 3 | **LoginStateMachine** | ✅ 这才是真正要写的核心模块 | 立即开始写 |
+
+> **实际优先级调整**：工具→蓝图迁移是清理任务，可延后。
+> 当下最有价值的是写 `login_state_machine.py`，嵌入到现有的 BatchEngine 执行流中。
 
 ### Phase 4: 废弃代码归档
 
