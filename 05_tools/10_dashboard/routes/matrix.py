@@ -525,7 +525,7 @@ def api_matrix_atom_ops():
     """获取原子操作列表"""
     try:
         mgr = _get_matrix_mgr()
-        return {"ops": mgr.list_ops()}
+        return {"ops": mgr.list_atomic_ops()}
     except Exception as e:
         raise HTTPException(500, detail=str(e))
 
