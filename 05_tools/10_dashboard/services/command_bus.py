@@ -536,9 +536,9 @@ class CommandBus:
                 templates = {
                     "collect": "mc run --accounts={ids_str} --blueprints=douyin_read_profile --rounds=1",
                     "login": f"mc smart-login {all_ids}",
-                    "logout": f"mc account logout {all_ids}",
-                    "comment": f"mc task comment --account={all_ids} --url={params.get('url','')}" + (f" --direction={params.get('direction','')}" if params.get('direction') else ""),
-                    "like": f"mc task like --account={all_ids} --url={params.get('url','')}",
+                    "logout": f"mc run --accounts={all_ids} --blueprints=douyin_daily --rounds=1 --engine=auto",
+                    "comment": f"mc task comment --account={all_ids} --url={params.get('url','')} -y" + (f" --direction={params.get('direction','')}" if params.get('direction') else ""),
+                    "like": f"mc run --accounts={all_ids} --blueprints=douyin_daily --rounds=1",
                 }
                 cmd_line = templates.get(cmd_type, "")
                 if cmd_type == "collect":

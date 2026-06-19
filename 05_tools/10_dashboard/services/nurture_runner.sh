@@ -11,7 +11,7 @@
 #
 # 结果写入: $AGENT_LOCAL/runtime/nurture/results/<run_id>.json
 
-set -e
+set -o pipefail
 
 ACCOUNT=$1
 BLUEPRINT=$2
@@ -50,7 +50,6 @@ PYTHONPATH="$SCRIPTS_DIR" $MC_PYTHON -m mc run \
   --accounts="$ACCOUNT" \
   --blueprints="$BLUEPRINT" \
   --rounds="$ROUNDS" \
-
   --mix --interval=45-90 > "$LOG_FILE" 2>&1
 EXIT_CODE=$?
 END_TS=$(date +%s)
