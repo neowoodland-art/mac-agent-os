@@ -8,8 +8,8 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/7kecheng/.workbuddy/binaries/python/envs/agent-os/bin/python</string>
-        <string>/Users/7kecheng/workbuddy-agent-os/agent-sync/05_tools/00_setup/guardd/guardd.py</string>
+        <string>__HOME__/workbuddy-agent-os/agent-sync/05_tools/00_setup/guardd/launch.sh</string>
+        <string>05_tools/00_setup/guardd/guardd.py</string>
     </array>
 
     <key>StartInterval</key>
@@ -19,15 +19,15 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/Users/7kecheng/workbuddy-agent-os/agent-local/runtime/guardd/stdout.log</string>
+    <string>__HOME__/workbuddy-agent-os/agent-local/runtime/guardd/stdout.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/7kecheng/workbuddy-agent-os/agent-local/runtime/guardd/stderr.log</string>
+    <string>__HOME__/workbuddy-agent-os/agent-local/runtime/guardd/stderr.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/Users/7kecheng/.workbuddy/binaries/python/versions/3.13.12/bin</string>
+        <string>/usr/local/bin:/usr/bin:/bin:__HOME__/.workbuddy/binaries/python/versions/3.13.12/bin</string>
         <key>GUARDD_DASHBOARD_URL</key>
         <string>http://localhost:9988</string>
     </dict>
