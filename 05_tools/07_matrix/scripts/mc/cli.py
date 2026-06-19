@@ -94,6 +94,11 @@ def cmd_account(args):
         asyncio.run(login_identity(args.name))
         log(f"✅ {args.name} 登录完成")
 
+    elif args.action == "create":
+        from create_identity import create_identity
+        create_identity(name=args.name, platform=args.platform)
+        log(f"✅ 身份已创建: {args.name}")
+
     elif args.action == "status":
         if args.name:
             log(f"检查 {args.name} 登录状态...")
@@ -1137,6 +1142,40 @@ def cmd_publish(args):
     return result.returncode
 
 
+def cmd_config(args):
+    """mc config — 查看系统配置"""
+    import yaml
+    print(f"\n{'='*55}")
+    print(" 📋 系统配置")
+    print(f"{'='*55}")
+    
+    # 蓝图
+    bp_dir = TOOL_DIR / "blueprints"
+    bps = sorted(bp_dir.glob("*.json"))
+    print(f"\n   蓝图 ({len(bps)} 个):")
+    for bp in bps:
+        import json
+        try:
+            d = json.loads(bp.read_text())
+            steps = len(d.get("steps", []))
+            plat = d.get("platform", "?")
+            print(f"     • {bp.stem:25s} ({plat:12s} {steps}步)")
+        except:
+            print(f"     • {bp.stem} (读取失败)")
+    
+    # 身份
+    from matrix_mgmt import AGENT_LOCAL
+    identities_root = AGENT_LOCAL / "tools" / "matrix" / "identities"
+    idents = sorted([d.name for d in identities_root.iterdir() if d.is_dir()]) if identities_root.exists() else []
+    print(f"\n   本地身份 ({len(idents)} 个):")
+    for name in idents:
+        ud = identities_root / name / "user_data"
+        has_cookie = len(list(ud.glob("*.sqlite"))) > 0 if ud.exists() else False
+        print(f"     {'✅' if has_cookie else '⬜'} {name}")
+    
+    print()
+
+
 # ════════════════════════════════════════════════════════════
 # 主解析器
 # ════════════════════════════════════════════════════════════
@@ -1202,8 +1241,9 @@ def build_parser(subparsers=None, plugin_name="mc"):
 
     # ── account ──
     p_acct = sub.add_parser("account", help="账号管理")
-    p_acct.add_argument("action", choices=["list", "login", "status", "export", "import"])
+    p_acct.add_argument("action", choices=["list", "login", "status", "export", "import", "create"])
     p_acct.add_argument("name", nargs="?", default="", help="账号ID")
+    p_acct.add_argument("--platform", default="douyin", choices=["douyin", "xiaohongshu"], help="平台")
     p_acct.add_argument("--path", default="", help="导入ZIP路径 (import)")
     p_acct.set_defaults(func=cmd_account)
 
@@ -1388,6 +1428,11 @@ def build_parser(subparsers=None, plugin_name="mc"):
     p_publish.add_argument("--title", default="", help="标题")
     p_publish.add_argument("--desc", default="", help="描述")
     p_publish.set_defaults(func=cmd_publish)
+
+    # ── config — 配置展示 ──
+    p_config = sub.add_parser("config", help="查看系统配置")
+    p_config.add_argument("action", choices=["show"])
+    p_config.set_defaults(func=cmd_config)
 
     return parser
 
