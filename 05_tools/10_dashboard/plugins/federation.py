@@ -21,11 +21,14 @@ class FederationDashboardPlugin(DashboardPlugin):
     def summary(self, machines: list[str]) -> dict:
         """返回联邦集群概览"""
         machine_list = get_machine_list()
+        all_data = get_plugin_data("guardd")  # list of all machines' data
         online = 0
         for m in machine_list:
-            hb = get_plugin_data("guardd", m)
-            if hb and hb.get("status") == "online":
-                online += 1
+            for d in all_data:
+                if d.get("hostname") == m or d.get("machine_name") == m:
+                    if d.get("status") == "online":
+                        online += 1
+                    break
         return {
             "总机器": len(machine_list),
             "在线": online,
@@ -34,7 +37,12 @@ class FederationDashboardPlugin(DashboardPlugin):
 
     def detail(self, machine: str) -> dict:
         """返回指定机器的联邦详情"""
-        data = get_plugin_data("guardd", machine) or {}
+        all_data = get_plugin_data("guardd") or []
+        data = {}
+        for d in all_data:
+            if d.get("hostname") == machine or d.get("machine_name") == machine:
+                data = d
+                break
         return {
             "hostname": data.get("hostname", machine),
             "status": data.get("status", "unknown"),
