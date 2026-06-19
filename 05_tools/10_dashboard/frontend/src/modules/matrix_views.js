@@ -170,7 +170,17 @@ function switchView(view) {
   try { if (view === 'fleet-exec') window.loadFleetExec(); } catch(e) {}
   try { if (view === 'matrix-like') window.loadMatrixLike(); } catch(e) {}
   try { if (view === 'matrix-login') window.loadMatrixLogin(); } catch(e) {}
-  try { if (view === 'ops-command') window.loadOpsCommand(); } catch(e) {}
+  try { if (view === 'ops-command') {
+    var _opsEl = document.getElementById('view-ops-command');
+    if (_opsEl) {
+      _opsEl.innerHTML = '<div class="loading">⌛ Loading...</div>';
+      import(`../views/ops-command.js`).then(function(m) {
+        if (m && typeof m.loadView === 'function') m.loadView(_opsEl);
+      }).catch(function(e) {
+        _opsEl.innerHTML = '<div class="error">❌ ' + e.message + '</div>';
+      });
+    }
+  } } catch(e) {}
   try { if (view === 'serve-mcp') window.loadServeMCP(); } catch(e) {}
   try { if (view === 'serve-dashboard') window.loadServeDashboard(); } catch(e) {}
   try { if (view === 'serve-schedule') window.loadServeSchedule(); } catch(e) {}
