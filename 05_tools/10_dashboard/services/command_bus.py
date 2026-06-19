@@ -485,6 +485,14 @@ class CommandBus:
         dry_run = params.get("dry_run", False)
         now_ts = int(time.time())
 
+        # ── 前置校验 ──
+        if not cmd_type:
+            return {"status": "error", "message": "type 必填 (login/logout/nurture/comment/like/collect)", "errors": [{"message": "type 必填"}]}
+        if not accounts:
+            return {"status": "error", "message": "accounts 必填 (至少一个账号ID)", "errors": [{"message": "accounts 为空"}]}
+        if not isinstance(accounts, list):
+            accounts = [accounts]
+
         # 获取所有账号信息
         try:
             scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
@@ -493,18 +501,19 @@ class CommandBus:
             mgr = MatrixManager()
             all_accts = {a["id"]: a for a in mgr.list_accounts()}
         except Exception as e:
-            return {"status": "error", "message": f"加载账号失败: {e}"}
+            return {"status": "error", "message": f"加载账号失败: {e}", "errors": [{"message": str(e)}]}
 
-        # 第一步：按机器分组
-        machine_groups = {}
+        # ── 逐个账号校验 ──
         errors = []
-        for aid in (accounts if isinstance(accounts, list) else [accounts]):
+        for aid in accounts:
             acct = all_accts.get(aid) if isinstance(aid, str) else aid
             if not acct:
                 errors.append({"account": str(aid), "message": "账号不存在"})
                 continue
-            aid_str = acct["id"] if isinstance(acct, dict) else str(acct)
-            machine = force_machine or acct.get("owner_machine", HOSTNAME)
+            machine = force_machine or acct.get("owner_machine", "")
+            if not machine:
+                errors.append({"account": aid, "message": f"账号 {aid} 未分配机器 (owner_machine 为空)"})
+                continue
             if machine not in machine_groups:
                 machine_groups[machine] = []
             machine_groups[machine].append(acct)
