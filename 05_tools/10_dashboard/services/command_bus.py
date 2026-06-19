@@ -170,6 +170,7 @@ class MachineSession:
 
     def preflight(self) -> dict:
         with self._lock:
+            active = [c for c in self.commands if c.status.is_active]
             # L3 不限制命令数（一个命令可能涉及多个身份→多个浏览器）
             # 浏览器数限制由 L2 (mc/engine.py) 在开 Camoufox 前检查
             if not self.is_local and self.ssh_target:
@@ -519,6 +520,7 @@ class CommandBus:
         # ── 逐个账号校验 ──
         errors = []
         warnings = []
+        machine_groups = {}
         for aid in accounts:
             acct = all_accts.get(aid) if isinstance(aid, str) else aid
             if not acct:
@@ -564,7 +566,7 @@ class CommandBus:
                 # 其他操作: 一条命令搞定全部账号
                 templates = {
                     "collect": "mc run --accounts={ids_str} --blueprints=douyin_read_profile --rounds=1",
-                    "login": f"mc smart-login {all_ids}",
+                    "login": f"mc smart-login {all_ids} --skip-check",
                     "logout": f"mc run --accounts={all_ids} --blueprints=douyin_daily --rounds=1 --engine=auto",
                     "comment": f"mc task comment --account={all_ids} --url={params.get('url','')} -y" + (f" --direction={params.get('direction','')}" if params.get('direction') else ""),
                     "like": f"mc run --accounts={all_ids} --blueprints=douyin_daily --rounds=1",

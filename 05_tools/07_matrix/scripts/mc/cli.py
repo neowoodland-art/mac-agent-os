@@ -766,28 +766,15 @@ def cmd_smart_login(args):
         except Exception:
             pass
     
-    # ── 按平台路由到对应登录脚本 ──
-    if platform == "xiaohongshu":
-        login_script = SCRIPTS_DIR / "matrix_modules" / "account" / "xiaohongshu_login.py"
-    else:
-        login_script = SCRIPTS_DIR / "matrix_modules" / "account" / "douyin_login.py"
-    
+    # ── 都用 login_identity.py 开浏览器手动登录 ──
+    login_script = SCRIPTS_DIR / "login_identity.py"
     if not login_script.exists():
         print(f"❌ 登录脚本不存在: {login_script}")
         return
     
-    cmd = [sys.executable, str(login_script), account_id]
-    if phone:
-        cmd += ["--phone", phone]
-    cmd += ["--timeout", str(timeout)]
-    
-    print(f"\n🚀 执行 {login_script.name}...")
-    print(f"   {' '.join(cmd)}")
-    print()
-    
-    # 同步运行（登录脚本会保持浏览器打开）
+    print(f"\n🚀 打开浏览器: {account_id}")
     import subprocess
-    subprocess.run(cmd, cwd=str(SCRIPTS_DIR))
+    subprocess.run([sys.executable, str(login_script), account_id], cwd=str(SCRIPTS_DIR))
 
 
 # ════════════════════════════════════════════════════════════
