@@ -307,6 +307,20 @@ class BatchEngine:
         reports = []
         identity_dir = group_accts[0].get("identity_dir", group_accts[0]["id"]).replace("identities/", "")
 
+        # ── 浏览器数限制检查（L2 层，谁开浏览器谁检查）──
+        import subprocess as _sp
+        MAX_BROWSERS = 3
+        while True:
+            try:
+                out = _sp.run("pgrep -f camoufox | wc -l", shell=True, capture_output=True, text=True, timeout=5)
+                count = int(out.stdout.strip() or 0)
+            except:
+                count = 0
+            if count < MAX_BROWSERS:
+                break
+            log.warning(f"  ⏳ 已达最大浏览器数({MAX_BROWSERS})，等待其他任务释放...")
+            await asyncio.sleep(15)
+
         if check_cookie(identity_dir) != "ok":
             log.warning(f"  ⏭️ 身份 {identity_dir}: cookie 无效，全部跳过")
             for acct in group_accts:

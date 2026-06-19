@@ -170,9 +170,8 @@ class MachineSession:
 
     def preflight(self) -> dict:
         with self._lock:
-            active = [c for c in self.commands if c.status.is_active]
-            if len(active) >= 3:
-                return {"ok": False, "message": f"机器 {self.machine} 已有 {len(active)} 个活跃命令", "running": len(active)}
+            # L3 不限制命令数（一个命令可能涉及多个身份→多个浏览器）
+            # 浏览器数限制由 L2 (mc/engine.py) 在开 Camoufox 前检查
             if not self.is_local and self.ssh_target:
                 try:
                     r = subprocess.run(
