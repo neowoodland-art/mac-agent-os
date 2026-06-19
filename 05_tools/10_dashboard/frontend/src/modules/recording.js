@@ -3,7 +3,14 @@
 // ════════════════════════════════════════════════════════
 
 function _getAccountById(accountId) {
-  return (window._lastSmsAccounts || []).find(function(a){return a.id===accountId;});
+  // 优先从 _lastSmsAccounts 找（SMS代理视图加载后的缓存）
+  var fromCache = (window._lastSmsAccounts || []).find(function(a){return a.id===accountId;});
+  if (fromCache) return fromCache;
+  // 兜底: 从 accounts API 查（Vite视图打开时 _lastSmsAccounts 可能为空）
+  if (window._allAccounts) {
+    return window._allAccounts.find(function(a){return a.id===accountId;});
+  }
+  return null;
 }
 
 async function _getMachineStatus(machineName) {
@@ -59,29 +66,29 @@ async function _routeOperation(accountId, opType, params) {
 // ── 账号登录（带操作路由）──
 async function accountLogin(accountId) {
   if (!accountId) return;
-  // 不用 _getAccountById（依赖 _lastSmsAccounts），直接调 API
-  if (!confirm('打开浏览器登录 '+accountId+' ？')) return;
-  try {
-    var r = await fetch('/api/matrix/accounts/'+accountId+'/login', {method:'POST'});
-    var result = await r.json();
-  } catch(e) {
-    var statusEl = document.getElementById('collectProfileStatus');
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 请求失败: '+e.message+'</span>';
-    return;
-  }
+  var account = _getAccountById(accountId);
+  if (!account) return;
+  var machine = account.owner_machine || (account.is_local ? '本机' : '远程');
+  if (!confirm('打开浏览器登录 '+accountId+' ？('+machine+')')) return;
+  var result = await _routeOperation(accountId, 'login', {});
   var statusEl = document.getElementById('collectProfileStatus');
   if (statusEl) {
     if (result.status === 'ok') {
-      statusEl.innerHTML = '<span style="color:var(--green)">✅ 浏览器已为 '+accountId+' 打开，请手动登录</span>';
+      statusEl.innerHTML = '<span style="color:var(--green)">✅ 登录命令已发送到 '+machine+'</span>';
     } else {
-      statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(result.message||'失败')+'</span>';
+      statusEl.innerHTML = '<span style="color:var(--red)">❌ '+(result.message||result.error||'失败')+'</span>';
     }
   }
-  // 没有 statusEl 也弹 alert 确认
-  if (!statusEl && result.status === 'ok') {
-    alert('✅ 浏览器已为 '+accountId+' 打开，请手动登录');
-  }
 }
+
+// ── 加载 accounts API 缓存（供 _getAccountById 兜底）──
+(async function() {
+  try {
+    var r = await fetch('/api/matrix/accounts');
+    var d = await r.json();
+    window._allAccounts = Array.isArray(d) ? d : (d.accounts || []);
+  } catch(e) { /* 静默 */ }
+})();
 
 // ── 清除登录状态（带操作路由）──
 async function clearCookies(accountId, platform) {

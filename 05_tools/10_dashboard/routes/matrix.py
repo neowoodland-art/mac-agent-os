@@ -716,18 +716,9 @@ async def api_matrix_corpus_delete(data: dict):
 
 @router.post("/accounts/{account_id}/login")
 def api_matrix_account_login(account_id: str):
-    """打开浏览器登录指定账号（后台启动 login_identity.py）"""
-    import subprocess, threading
-    scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
-    login_script = scripts_dir / "login_identity.py"
-    if not login_script.exists():
-        return {"status": "error", "message": f"登录脚本不存在: {login_script}"}
-
-    def _run():
-        subprocess.run(
-            [sys.executable, str(login_script), account_id],
-            cwd=str(scripts_dir), timeout=300
-        )
-    t = threading.Thread(target=_run, daemon=True)
-    t.start()
-    return {"status": "ok", "account": account_id, "message": f"浏览器已为 {account_id} 打开，请手动登录"}
+    """打开浏览器登录指定账号 — 走 CommandBus 五层分发"""
+    from services.command_bus import CommandBus
+    result = CommandBus.dispatch("login", [account_id], {})
+    if result.get("status") == "accepted":
+        return {"status": "ok", "account": account_id, "message": f"登录命令已发送"}
+    return {"status": "error", "message": result.get("message", "调度失败")}

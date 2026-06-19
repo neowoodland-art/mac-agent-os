@@ -207,26 +207,6 @@ window.loadCosts = loadCosts;
 window.loadMachines = loadMachines;
 window.loadFleetReconcileView = loadFleetReconcileView;
 
-// ── 登录按钮事件代理（matrix-accounts.js动态加载, 用事件代理最可靠）──
-document.addEventListener('click', async function(e) {
-  const btn = e.target.closest('[data-login-account]');
-  if (!btn) return;
-  const accountId = btn.getAttribute('data-login-account');
-  if (!accountId) return;
-  if (!confirm(`确认打开浏览器登录 ${accountId}？`)) return;
-  try {
-    const r = await fetch(`/api/matrix/accounts/${accountId}/login`, { method: 'POST' });
-    const d = await r.json();
-    if (d.status === 'ok') {
-      alert(`✅ 浏览器已为 ${accountId} 打开\n请手动完成登录\n登录完成后别关浏览器`);
-    } else {
-      alert(`❌ ${d.message || '未知错误'}`);
-    }
-  } catch(e) {
-    alert(`❌ 请求失败: ${e.message}`);
-  }
-});
-
 // ── 执行历史 ──
 async function loadExecutionHistory() {
   try {
