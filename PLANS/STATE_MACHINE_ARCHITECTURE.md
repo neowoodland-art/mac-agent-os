@@ -1,594 +1,266 @@
-# AgentOS 联邦系统 — 状态机架构方案 v2.0
+# AgentOS 联邦系统 — 状态机架构方案 v3.0
 
 > 目标：让账号在指定动作中随意切换，不受意外打扰，遇到问题自动回到正轨
+> 基于现有 `CommandBus` / `ORACLE.yaml` / `guardd` 框架，不重复造轮子
 
 ---
 
-## 一、总体架构
+## 一、现有系统总览（读代码后的正确理解）
 
-### 1.1 五层模型（含命令分发总线）
-
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│  Layer 5: 联邦指挥台 (Dashboard UI)                                      │
-│  你选账号/选蓝图/填参数/点执行 → 查看实时日志 / 执行历史 / 状态监控       │
-│  三台机器任意一台打开 localhost:9988 都可以操作                           │
-├──────────────────────────────────────────────────────────────────────────┤
-│  Layer 4: Ops 命令分发总线 (Command Bus) — 联邦系统的纽带                │
-│                                                                          │
-│  任何看板发起的执行指令，都经过此总线：                                   │
-│  Dashboard → OpsCommandBus → 解析目标机器 → 本地/远程执行 → 状态回传    │
-│                                                                          │
-│  不管是 chengzigedeAir 还是 5kechengdeAir 还是 7kecheng:                 │
-│  → 看板发命令 → 总线分发 → 目标机执行 → 结果上报                         │
-│  → 本地执行和远程执行流程一致，对看板透明                                  │
-│                                                                          │
-│  核心接口: API /api/ops/run, /api/ops/status, /api/federation/exec       │
-├──────────────────────────────────────────────────────────────────────────┤
-│  Layer 3: 蓝图交互层 (Blueprint Interaction)                             │
-│  蓝图 = 你和我互动的命名模板(带参数), 如 登录/日活/评论/点赞/关注        │
-│  你发指令"执行 daily, xhs_01, 10分钟", 蓝图引擎按框架执行                │
-│  执行中按状态自动组合需要的原子操作                                      │
-├──────────────────────────────────────────────────────────────────────────┤
-│  Layer 2: 原子操作层 (Atomic Operations)                                 │
-│  每个原子操作自带状态检测: 执行前检测登录, 执行中检测验证弹窗            │
-│  登录状态机 / SMS验证 / 冷却管理 / 异常处理                              │
-│  原子操作自行判断当前状态并动态调用其他原子操作                           │
-├──────────────────────────────────────────────────────────────────────────┤
-│  Layer 1: 浏览器管理层 (Browser Runtime)                                  │
-│  Camoufox 反检测引擎 / 身份隔离(一个手机号=一个身份) / 窗口资源池         │
-│  同身份跨平台 = 同一个浏览器改URL即可                                   │
-└──────────────────────────────────────────────────────────────────────────┘
-```
-
-### 1.2 三台机器 = 统一联邦系统
-
-**三台机器（chengzigedeAir / 5kechengdeAir / 7kecheng）是完全一致的运行环境：**
-
-| 项目 | 三台一致 ✅ | 差异 ❌ |
-|:-----|:-----------|:--------|
-| Python 环境 | agent-os venv, Python 3.13.12 | 无 |
-| 代码版本 | git 同步，相同 commit | 无 |
-| Camoufox | 相同版本 0.4.11 | 无 |
-| Playwright | 相同版本 1.58.0 | 无 |
-| 蓝图定义 | 14个 JSON 文件完全一致 | 无 |
-| 原子操作 | 所有 .py 文件一致 | 无 |
-| 执行引擎 | runner.py / nurture_blueprint.py 一致 | 无 |
-| Dashboard | localhost:9988 运行中 | 无 |
-| Launchd 服务 | guardd / socks5 / dashboard 全部一致 | 无 |
-| **浏览器缓存/Cookie** | ❌ **各机独有** | 身份目录下的 user_data 太大，不可同步 |
-
-**核心原则：** 除了浏览器缓存（身份的登录态），其他**全部一致**。任何机器的缓存搬到另一台，可以直接无缝运行——因为环境完全一样。
-
-### 1.3 命令分发流程
+### 1.1 三台机器的真实角色
 
 ```
-你在 chengzigedeAir 打开 Dashboard:
-  选账号=douyin_test(这台机器的身份)
-  选蓝图=daily
-  点 [执行]
-      ↓
-Ops 命令总线收到指令:
-  ① 解析目标机器 → douyin_test 的身份在本机 → 本地执行
-  ② 启动蓝图引擎 → login_status_machine → daily blueprint → ...
-  ③ 状态实时回传 → 看板显示日志
-  ④ 执行结束 → 看板显示 "完成, 操作12次, 验证0次"
+┌─ Dashboard Web 服务 ────────────────────┐
+│  chengzigedeAir (master) :9988           │  ← 唯一运行 Dashboard 的机器
+│  5kechengdeAir (worker)  ❌ 不跑 Web     │
+│  7kecheng (worker)       ❌ 不跑 Web     │
+└─────────────────────────────────────────┘
 
-你在 chengzigedeAir 打开 Dashboard:
-  选账号=douyin_137(7kecheng 的身份)
-  选蓝图=daily
-  点 [执行]
-      ↓
-Ops 命令总线收到指令:
-  ① 解析目标机器 → douyin_137 的身份在 7kecheng → 远程执行
-  ② SSH → 7kecheng 执行命令 → 启动蓝图引擎
-  ③ 状态实时回传 → 看板显示日志
-  ④ 执行结束 → 看板显示结果
+用户在任意电脑打开 http://100.111.43.6:9988 即可操作 Dashboard。
+不是"三台都打开本地看板"。
 ```
 
-**关键：从看板的角度，本地和远程没有区别。** 用户只需要选账号，系统自动判断哪个机器有这个身份的缓存。
+**各机器的身份归属**（来自 ORACLE.yaml）：
+
+| 机器 | 身份 | 所属平台账号 |
+|:-----|:------|:-----------|
+| chengzigedeAir | phone_15370103682 | douyin_test + xhs_01 |
+| | douyin_133 / douyin_133_2 / douyin_134 | 各一个抖音 |
+| 5kechengdeAir | douyin_01_camo | douyin_01 + xhs_01 |
+| | douyin_02_camo | douyin_02 + xhs_02 |
+| | douyin_camo01 | douyin_camo01 + xhs_03 |
+| 7kecheng | 13个身份 | 各一个抖音 + 小红书 |
+
+### 1.2 现有五层架构（不是新设计，是读出已有的）
+
+```
+Layer 5: Dashboard UI (静态前端 SPA)
+  → 本地访问 localhost:9988 或远程访问 100.111.43.6:9988
+
+Layer 4: FastAPI 后端路由
+  → app.py (plugins/ 插件管理, 数据聚合)
+  → routes/ops.py (POST /api/ops/run — 统一执行入口)
+  → routes/... (各功能路由)
+
+Layer 3: 命令分发总线 — CommandBus
+  → services/command_bus.py
+    → CommandBus.dispatch(type, accounts, params)
+    → 按 machine 分组 → MachineSession
+    → 本机: subprocess.Popen (mc run / mc collect / ...)
+    → 远程: SSH → remote_exec → 结果回传
+
+Layer 2: 执行引擎 — mc CLI + 养号脚本
+  → mc run → nurture_loop() → run_one_round()
+  → 养号: nurture_blueprint.py (Python step list)
+  → 登录: sms_login.py / xhs_login.py / douyin_login.py
+  → 状态检测: _execute_op() + read_state() + BehaviorConfig
+
+Layer 1: 浏览器管理层 — Camoufox
+  → CDPConnector → Camoufox (Firefox)
+  → 身份目录: agent-local/tools/matrix/identities/{name}/
+  → guardd 守护: 每60s检测孤儿浏览器/磁盘/超时
+```
+
+### 1.3 命令分发全过程
+
+```
+你在 Dashboard 选账号 → 选蓝图 → 填参数 → 点执行
+    ↓
+POST /api/ops/run  {
+  "type": "nurture",
+  "accounts": ["douyin_01"],
+  "params": {"blueprint": "douyin_daily", "rounds": 3}
+}
+    ↓
+CommandBus.dispatch()
+  → 从 ORACLE.yaml 查到 douyin_01 属于机器 A
+  → 获取/创建 MachineSession(A)
+  → preflight(): SSH可达? 活跃命令<3?
+  → 本机: Popen("mc run --accounts=douyin_01 --blueprint=douyin_daily --rounds=3")
+  → 远程: SSH("mc run ... > /tmp/ops_xxx.log &")
+    ↓
+GET /api/ops/status  ← 轮询状态
+  → 本地: 读 runtime/nurture/results/{run_id}.json
+  → 远程: SSH cat 远程的结果文件
+    ↓
+执行结果写文件 → Dashboard 显示
+```
+
+**这就是现有的框架。我 v1/v2 里写的"新五层模型"是重复造轮子，已废弃。**
 
 ---
 
-## 二、Layer 1: 浏览器管理层
+## 二、我用状态机要加的东西（不做新框架，只加新模块）
 
-### 2.1 身份模型（最重要的修正）
+### 2.1 加什么
 
-**一个身份 = 一个手机号 = 一个 Camoufox profile 目录**
+| 模块 | 位置 | 说明 | 依赖现有代码 |
+|:-----|:------|:-----|:-----------|
+| `login_state_machine.py` | `matrix_modules/account/` | 登录检测 + Cookie恢复 + SMS重登 | 复用 `xhs_login.py` `sms_login.py` `douyin_login.py` |
+| `blueprint_engine.py` | `matrix_modules/` | 蓝图执行引擎（注入状态检查钩子） | 复用 `nurture_blueprint.py` `runner.py` 的 step 格式 |
+| `cooldown_manager.py` | `matrix_modules/nurture/` | 操作冷却管理 | 对接现有 `BehaviorConfig` |
+| `vision_bridge.py` | ✅ 已存在 | oMLX 视觉分析 | 独立模块 |
 
-这个身份下可以存储**多个平台的账号**（抖音 + 小红书 + 其他），切换平台只需改 URL，不需要重新开浏览器。
+### 2.2 不加什么
 
-这样做的好处：
-1. **节省资源** — 一个身份只占一个浏览器进程
-2. **更真实** — 真人就是同一个浏览器打开不同网站
-3. **更难封号** — 平台检测到的是同一个"人", 行为更自然
-4. **账号复用** — 同一个手机号绑定不同平台的账号
+| ❌ 不加 | 原因 |
+|:---------|:------|
+| 新的命令分发 | `CommandBus` + `MachineSession` 已经完整 |
+| 新的路由 API | `ops.py` 的 `POST /api/ops/run` 已定义格式 |
+| 新的 ORACLE | ORACLE.yaml 已经是宪法 |
+| 新的身份管理 | 身份目录 + 账号分配已经在 ORACLE 中 |
+| 新的看板 | Dashboard 已有完整前后端 |
 
-```
-身份目录示例:
-identities/
-├── xhs_01/                    # 身份 = 手机号 138xxxx
-│   ├── user_data/             # Camoufox profile (cookie/存储全在里面)
-│   │   ├── cookies.json       # 小红书cookie
-│   │   └── ...                # 同时有抖音cookie(如果登录过)
-│   ├── config.yaml            # 手机号 + 平台账号映射
-│   └── thumb.png              # 头像
-├── douyin_test/               # 另一个身份 = 另一个手机号
-│   └── user_data/
-├── douyin_133/                # 注意: 这个是以手机号命名的身份
-└── ...
-```
-
-config.yaml 里存的是：
-```yaml
-phone: "138xxxx1234"        # 这个身份的本机手机号
-accounts:
-  xiaohongshu:               # 小红书账号信息
-    username: "user_abc"
-  douyin:                    # 同个手机号绑定的抖音
-    username: "dy_123456"
-```
-
-### 2.2 核心原则
-
-| 规则 | 说明 |
-|:-----|:------|
-| 统一引擎 | 三台机器全部使用 **Camoufox**（Firefox 内核 + 反检测指纹） |
-| 身份隔离 | 每个手机号一个独立 user_data 目录 → Cookie/Storage 完全隔离 |
-| 窗口规范 | 每个浏览器窗口 702×783，**最多同时开 3 个窗口** |
-| 窗口间距 | 每个窗口的 X 坐标 **+150 偏移**（重叠但不完全覆盖，能看到标题栏） |
-| 资源限制 | **三台机器统一：最多 3 个浏览器同时运行** |
-| 启动间隔 | 不能同时启动所有浏览器，每启动一个间隔 5-10 秒，防止资源毛刺 |
-| 资源保护 | 如果某机器低于 2GB 可用内存，自动拒绝新的浏览器启动请求 |
-
-### 2.3 窗口坐标图谱
+### 2.3 状态机怎么嵌入现有流程
 
 ```
-屏幕窗口排布（最多3个, X坐标依次+150, 重叠排布）
-┌──────────────────────────────────────────────────────┐
-│                                                        │
-│  ┌────────────┐                                        │
-│  │ 身份A      │                                        │
-│  │ 702×783    │                                        │
-│  │ @ (0,0)    │  ┌────────────┐                        │
-│  └────────────┘  │ 身份B      │                        │
-│                  │ 702×783    │  ┌────────────┐        │
-│                  │ @ (150,0)  │  │ 身份C      │        │
-│                  └────────────┘  │ 702×783    │        │
-│                                 │ @ (300,0)  │        │
-│                                 └────────────┘        │
-│                                                        │
-└──────────────────────────────────────────────────────┘
+现有流程:
+POST /api/ops/run → CommandBus → subprocess(Popen mc run) → 写结果文件
+                                                             
+我要加的 (在 mc run 内部加钩子):
+mc run → 登录状态机(加在开头) → 蓝图执行 → 每步后检查验证弹窗 → 冷却管理
+                                  ↑ 复用现有 nurture_blueprint.py
 ```
 
-窗口参数：`CDPConnector(..., window=(702, 783), window_position=(offset, 0))`，其中 offset = 0, 150, 300...
-
-### 2.4 同身份跨平台切换
-
-**同一个身份 = 同一个浏览器，切换平台只需改 URL。**
-
-```
-操作示例:
-1. 浏览小红书 → page.goto("https://www.xiaohongshu.com")
-2. 切到抖音    → page.goto("https://www.douyin.com")   ← 不关浏览器
-3. 再切回小红书 → page.goto("https://www.xiaohongshu.com")
-```
-
-因为 Cookie 都存在同一个 user_data 下，每个平台各自认自己的 cookie。切换时做到：
-- 不需要关浏览器
-- 不需要重新登录（除非 Cookie 过期）
-- 不额外消耗内存
-
-### 2.5 机器分工与身份归属
-
-| 机器 | 角色 | 同时窗口上限 | 视觉模型 | 本地身份目录 |
-|:-----|:------|:-----------|:---------|:-----------|
-| chengzigedeAir | **主控开发机** | 3 | ✅ oMLX + Qwen-VL | xhs_01, douyin_test, douyin_133, douyin_134 |
-| 5kechengdeAir | 养号节点 | 3 | ❌ | douyin_135, douyin_136 |
-| 7kecheng | 养号节点 | 3 | ❌ | douyin_137, xhs_02 |
-
-**每台机器独有的只有浏览器缓存（login state / cookies），因为 user_data 太大不可能来回同步。** 其他一切（代码、蓝图、原子操作、工具脚本、规则配置）都是 git 同步一致的。
-
-身份归属规则：
-- 每个身份只在一台机器上有浏览器缓存
-- Dashboard 上选账号时自动标注所属机器
-- 执行时 Ops 命令总线自动路由到对应机器
-- 如果缓存搬到了另一台机器（copy整个身份目录），那台机器就可以无缝接管
-
----
-
-## 三、Layer 2: 原子操作层
-
-### 3.1 核心设计思想
-
-**原子操作是最小执行单元**，每个原子操作有三大职责：
-1. **执行前**: 检测登录状态（调登录状态机）
-2. **执行中**: 检测是否触发验证弹窗
-3. **执行后**: 如果触发了验证，自动调用 SMS 登录原子操作恢复
-
-**关键：原子操作自己判断当前状态，动态组合其他原子操作。** 不是靠蓝图写死。
-
-```
-举例：执行"点赞"原子操作
-1. 检测登录态 → 已登录 ✅
-2. 执行点赞
-3. 检测结果 → ⚠️ 触发了短信验证弹窗
-   → 自动调用 SMS 登录原子操作
-   → SMS 登录完成 → 登录已恢复 ✅
-4. 不需要重试点赞（跳过，等下一轮冷却后再说）
-5. 记录日志：点赞触发验证 → SMS 恢复 → 跳过当前操作
-```
-
-### 3.2 登录状态机（基石）
-
-**每次操作前必检登录态，是保证系统稳定性的底线。**
-
-```
-                    ┌──────────────┐
-    开始 ──────────→│ 检测登录状态  │
-                    └──────┬───────┘
-                           │
-                ┌──────────┴──────────┐
-                ▼                     ▼
-        ┌──────────────┐     ┌──────────────┐
-        │  已登录 ✅    │     │  未登录 ❌    │
-        │  进入操作流程  │     │  进入恢复流程  │
-        └──────────────┘     └──────┬───────┘
-                                    │
-                           ┌────────┴────────┐
-                           ▼                 ▼
-                   ┌──────────────┐  ┌──────────────┐
-                   │ Cookie恢复   │  │ SMS 验证码    │
-                   │ (刷新页面)   │  │ (填手机→验证) │
-                   └──────┬───────┘  └──────┬───────┘
-                          │                 │
-                          ▼                 ▼
-                    ┌──────────────┐  ┌──────────────┐
-                    │ 检测→已登录   │  │ 检测→已登录   │
-                    │ ✅ 进入操作   │  │ ✅ 进入操作   │
-                    └──────────────┘  └──────────────┘
-                                           │
-                                          ❌ 3次失败
-                                           ▼
-                                    ┌──────────────┐
-                                    │ 截图+上报     │
-                                    │ 你手动处理    │
-                                    └──────────────┘
-```
-
-#### 状态检测特征锚点
-
-| 平台 | ✅ 已登录特征 | ❌ 未登录特征 |
-|:-----|:-------------|:-------------|
-| **小红书** | `.user-avatar` / `.reds-count` | `input[placeholder*="手机"]` |
-| **抖音** | `[data-e2e=user-avatar]` | 登录按钮 |
-
-检测优先级：DOM 最快 → Cookie 次之 → 视觉模型降级
-
-#### 登录恢复链
-
-```
-第1次: Cookie 恢复（刷新页面让已有cookie生效）
-  → 检测 → 已登录 ✅ → 继续
-
-第2次: SMS 验证码登录
-  → 填手机号 → 获取验证码 → 填6位码 → 点同意登录
-  → 检测 → 已登录 ✅ → 继续
-
-第3次: 截图 + vision_bridge 分析
-  → 记录日志 → 上报你
-  → 你手动登录完成后标记恢复
-```
-
-### 3.3 操作状态机
-
-```
-执行前检测登录
-     │
-     ▼
-┌──────────────┐
-│  正常执行     │ ← 点赞/评论/收藏/关注/滚动
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐      ┌──────────────────┐
-│  执行后检查   │──────│ 触发验证弹窗?    │
-└──────────────┘      └───────┬──────────┘
-       │                      │
-       │ 正常                  │ 触发
-       ▼                      ▼
-┌──────────────┐     ┌──────────────────┐
-│  冷却等待     │     │ 自动处理验证弹窗  │
-│  (随机间隔)   │     │ · SMS重登        │
-└──────────────┘     │ · 延长冷却(操作频繁)│
-       │             │ · 视觉分析(未知弹窗)│
-       │             └───────┬──────────┘
-       │                     │
-       └─────────┬───────────┘
-                 ▼
-          ┌──────────────┐
-          │  记录日志      │
-          │  冷却 → 下一步  │
-          └──────────────┘
-```
-
-### 3.4 验证弹窗自动处理
+核心改动点：**在 `nurture_blueprint.py` / `runner.py` 的执行循环里插入三个钩子**：
 
 ```python
-class VerificationHandler:
-    async def handle(self, page) -> bool:
-        """检测并处理验证弹窗, 返回是否恢复"""
+# 现有代码 (runner.py nurture_loop)
+for round in range(rounds):
+    for step in blueprint_steps:
+        result = await step.fn(page)   # ← 现有代码
 
-        # 1. DOM 锚点检测（最快）
-        if await self._check_dom_anchor(page, "captcha"):
-            # 滑块验证 → 你手动处理
-            return await self._report_to_user(page)
-
-        if await self._check_dom_anchor(page, "sms_verify"):
-            # 短信验证 → 自动SMS登录
-            return await self._do_sms_login(page)
-
-        if await self._check_dom_anchor(page, "rate_limit"):
-            # 操作频繁 → 延长冷却
-            await self.cooldown.extend()
-            return True
-
-        # 2. 未知弹窗 → 视觉分析
-        screenshot = await page.screenshot()
-        analysis = await vision_bridge(screenshot, "这个弹窗是什么? 怎么操作?")
-        return await self._handle_vision_result(analysis)
+# 改为:
+for round in range(rounds):
+    # 钩子1: 每轮开始前检测登录（新增）
+    await login_state_machine.ensure_login(page, account)
+    
+    for step in blueprint_steps:
+        # 钩子2: 执行每步后检查验证（新增）
+        result = await step.fn(page)     # ← 现有代码
+        if result == 'VERIFY':
+            await verification_handler.handle(page)
+            continue
+        
+        # 钩子3: 冷却等待（新增）
+        await cooldown_manager.wait(step.op)
 ```
+
+**不改现有代码结构，只插入三个钩子。**
 
 ---
 
-## 四、Layer 3: 蓝图交互层
+## 三、蓝图：保持现有 JSON 格式 + 参数模板
 
-### 4.1 Dashboard = 命令中心
-
-**蓝图是交互模板。Dashboard（联邦看板）是你配置参数、下达指令的地方。**
-
-```
-你在 Dashboard 上操作:
-  1. 下拉选账号    → xhs_01 / douyin_test / ...
-  2. 下拉选蓝图    → daily / comment / like / ...
-  3. 填参数表单    → URL、文案、次数、时长...
-  4. 点"执行"按钮  → 我收到指令开始跑
-  5. 看实时日志    → 每一步的输出和状态
-```
-
-**通过 Dashboard 你可以指定的全部参数：**
-- 选哪个账号? / 用哪个平台? / 执行哪个蓝图?
-- 评论哪个视频(贴URL)? / 评论什么内容(手动或语料库)?
-- 评论多少次? / 语料库是否重复用同一个文案?
-- 关注哪个用户? / 采集谁的信息?
-- 日活做几分钟? / 操作间隔快一点还是慢一点?
-
-### 4.2 蓝图参数表
-
-每个蓝图的可配置参数（对应 Dashboard 表单设计）：
-
-| 蓝图 | 参数 | 类型 | 说明 | 默认 |
-|:-----|:------|:-----|:------|:----|
-| **daily** | account | string | 身份目录 | 必填 |
-| | platform | enum | xhs/douyin | 自动 |
-| | duration | int | 执行秒数 | 600 |
-| | scroll_count | int | 滚动次数 | 30 |
-| | like_prob | float | 点赞概率 0-1 | 0.3 |
-| | follow_prob | float | 关注概率 0-1 | 0.1 |
-| | min_interval | int | 最小间隔秒 | 3 |
-| | max_interval | int | 最大间隔秒 | 8 |
-| **comment** | account | string | 身份目录 | 必填 |
-| | platform | enum | xhs/douyin | 自动 |
-| | target_url | string | 目标视频链接 | 必填 |
-| | text | string | 评论文案(手动) | 空(用语料库) |
-| | corpus_id | string | 语料库ID | 空 |
-| | repeat_count | int | 评论次数 | 1 |
-| | repeat_interval | int | 每条间隔秒 | 60 |
-| | use_same_text | bool | 固定同一文案? | false |
-| **like** | account | string | 身份目录 | 必填 |
-| | platform | enum | xhs/douyin | 自动 |
-| | target_url | string | 目标链接(空则随机) | 空 |
-| | count | int | 点赞数 | 1 |
-| **follow** | account | string | 身份目录 | 必填 |
-| | platform | enum | xhs/douyin | 自动 |
-| | target_user | string | 目标用户链接/ID | 必填 |
-| **collect_profile** | account | string | 身份目录 | 必填 |
-| | platform | enum | xhs/douyin | 自动 |
-| | target_user | string | 目标用户 | 必填 |
-| | data_type | string | all/notes/info | all |
-| **search_browse** | account | string | 身份目录 | 必填 |
-| | platform | enum | xhs/douyin | 自动 |
-| | keyword | string | 关键词 | 必填 |
-| | browse_count | int | 浏览结果数 | 10 |
-| **login** | account | string | 身份目录 | 必填 |
-| | platform | enum | xhs/douyin | 自动 |
-| | force | bool | 强制重登? | false |
-
-### 4.3 语料库机制
-
-评论操作支持**语料库模式**（text 为空时从 corpus_id 取文案）：
-
-```
-corpus_praise:    ["好作品!", "太棒了!", "学习了!", "有收获!"]
-corpus_question:  ["请问怎么做的?", "能分享教程吗?"]
-corpus_discuss:   ["有不同观点...", "我觉得..."]
-```
-
-`use_same_text=false` → 每次循环取不同文案；`true` → 固定用第一条。
-
-### 4.4 执行规则配置（系统级）
-
-在 Dashboard "执行设置"页面调整，不改代码：
-
-| 配置项 | 默认 | 说明 |
-|:-------|:------|:------|
-| max_browsers | 3 | 单机最大同时浏览器 |
-| browser_start_interval | 5-10s | 启动间隔防资源毛刺 |
-| min_memory_gb | 2 | 低于此不启动新浏览器 |
-| default_min_interval | 3s | 默认最小操作间隔 |
-| default_max_interval | 8s | 默认最大操作间隔 |
-| comment_cooldown | 60s | 评论后强制冷却 |
-| error_screenshot | true | 失败自动截图 |
-| auto_verify_recovery | true | 自动恢复验证弹窗 |
-
-### 4.5 完整执行流程示例
-
-```
-你在 Dashboard:
-  ① 选账号→xhs_01  ② 选蓝图→comment
-  ③ 填参数→url=... corpus_id=corpus_praise repeat=3
-  ④ 点 [▶ 执行]
-      ↓
-系统:
-  ⑤ 资源检查: 浏览器数<3? 内存>2GB? 距上次启动>5s?
-  ⑥ 打开/复用 xhs_01 窗口
-  ⑦ 登录确认 ✅
-  ⑧ 执行 comment 流程:
-     ├─ 打开目标URL → 定位评论区
-     ├─ 取文案"好作品!" → 写入 → 提交 ✅
-     ├─ 冷却60s → 取文案"太棒了!" → 提交 ✅
-     ├─ 冷却60s → ⚠️ 触发验证 → 自动SMS恢复 → 跳过
-     └─ 结束
-  ⑨ 回传: "成功2条/失败1条(验证已恢复), 用时4分钟"
-```
-
-### 4.6 Dashboard 命令视图布局
-
-```
-┌─ 账号 ───────────────────────────┐
-│  [xhs_01 ▼]                       │
-├─ 蓝图 ───────────────────────────┤
-│  [comment ▼]   平台:[xiaohongshu] │
-├─ 参数(动态) ─────────────────────┤
-│  目标URL: [__________________]    │
-│  文本/语料库: [corpus_praise ▼]  │
-│  次数:[3]  间隔:[60]秒 同文案:[☐]│
-├─ 规则(折叠) ─────────────────────┤
-│  操作间隔: 3~8s  自动恢复:[☑]    │
-├──────────────────────────────────┤
-│  [▶ 执行]                         │
-├─ 实时日志 ───────────────────────┤
-│  17:20:01  已登录 ✅              │
-│  17:20:12  评论成功(1/3)         │
-└──────────────────────────────────┘
-```
-
-## 五、异常处理体系
-
-### 5.1 异常分级
-
-| 等级 | 名称 | 处理方式 | 举例 |
-|:-----|:-----|:---------|:-----|
-| P0 | 致命 | 停止执行, 上报你 | 浏览器崩溃、账号被封 |
-| P1 | 可恢复 | 自动处理(不通知你) | 验证弹窗 → SMS恢复; 操作频繁 → 延长冷却 |
-| P2 | 可忽略 | 跳过当前操作, 继续 | 单篇笔记加载失败 |
-| P3 | 监控 | 记录日志不处理 | 页面布局微变 |
-
-**P1 是核心能力**：所有验证弹窗、登录过期、操作频繁，自动检测自动恢复，你不需要知道。
-
-### 5.2 失败上报格式
-
-当 3 次自动恢复失败后：
+### 3.1 当前 JSON 格式（保留不动）
 
 ```json
 {
-  "account": "xhs_01",
-  "blueprint": "daily",
-  "error_type": "LOGIN_FAILED_3X",
-  "screenshot": "/tmp/errors/2026-06-19/xhs_01_login_fail.png",
-  "vision_analysis": "页面显示滑块验证码, 需要手动滑动",
-  "logs": "...",
-  "needs_manual": true
+  "id": "douyin_comment",
+  "steps": [
+    {"step_id": 1, "op": "goto_url", "args": {"url": "@url"}},
+    {"step_id": 2, "op": "wait_watch", "args": {}},
+    {"step_id": 3, "op": "open_comments", "args": {}},
+    {"step_id": 4, "op": "post_comment", "args": {"text": "@comment_text"}},
+    {"step_id": 5, "op": "close_comments", "args": {}}
+  ]
 }
 ```
 
----
+**`@url` `@corpus` `@keyword` 这种参数模板系统很好**，保留并在 Dashboard 执行时替换。
 
-## 六、完整执行链路举例
+### 3.2 怎么区分评论的两种模式
 
-### 场景：执行"xhs_daily 10分钟 对账号 xhs_01"
+抖音评论有**两种入口**（当前代码已有这两种操作）：
 
+| op | 场景 | 当前实现位置 |
+|:---|:------|:-----------|
+| `post_comment` | 在视频评论区直接发评论 | `nurture_blueprint.py:op_comment()` |
+| `reply_comment` | 回复某条已有评论 | `runner.py:reply_comment` (蓝图 `douyin_reply` 中用) |
+
+蓝图选哪个 op 取决于你下发的参数。评论时如果给了 `reply_to` 就用 `reply_comment`，否则用 `post_comment`。
+
+### 3.3 语料库 + 多账号跟踪评论
+
+语料库存放：
 ```
-用户指令: "执行 daily, xhs_01, 10分钟"
-
-系统响应:
-① 浏览器管理
-   → xhs_01 的 Camoufox 窗口 → 如已开则复用, 否则新开
-   → URL: https://www.xiaohongshu.com
-
-② 登录状态机
-   → 检测头像 DOM → 已登录 ✅ → 继续
-
-③ 执行日活循环
-   时间剩余 10:00 | 随机滚动 ↓ | 等 4s
-   时间剩余 09:50 | 随机滚动 ↓ | 点开一篇笔记 | 浏览 8s | 返回
-   时间剩余 09:35 | 随机滚动 ↓ | 等 3s
-   时间剩余 09:28 | 随机点赞 ❤️ | 正常 ✅
-   时间剩余 09:20 | 随机滚动 ↓ | 等 5s
-   时间剩余 09:10 | 随机关注 ➕ | 正常 ✅
-   时间剩余 09:00 | 随机滚动 ↓ | 等 4s
-   ...（循环直到时间到）
-
-   ⚠️ 中途有一次评论触发验证弹窗:
-      → 自动检测到登录弹窗
-      → SMS 登录恢复（3s 完成）
-      → 跳过当前操作
-      → 继续下一轮
-
-④ 结束
-   → 记录日志: "xhs_01 日活10分钟完成, 操作12次, 触发验证1次(已自动恢复)"
-   → 浏览器保持打开（下轮复用）
+05_tools/07_matrix/corpus/
+├── corpus_praise.json    → ["好作品!", "太棒了!", ...]
+├── corpus_question.json  → ["请问怎么做的?", ...]
+└── corpus_thread.json    → [
+    {"step1": "第一句: 好作品!", "step2": "第二句回复: 同意!", "step3": "第三句: 关注了"}
+  ]
 ```
 
----
+**跟踪评论（A→B→C）通过蓝图序列实现**：
 
-## 七、关键点总结
+```python
+# 在 sequence_runner.py 中:
+SEQUENCE = [
+    {"blueprint": "comment", "account": "xhs_01", "params": {"url": "@input_url", "text": "@corpus_thread[0]"}},
+    {"blueprint": "reply_comment", "account": "douyin_test", "params": {"target_text": "@corpus_thread[0]", "reply": "@corpus_thread[1]"}},
+    {"blueprint": "reply_comment", "account": "douyin_133", "params": {"target_text": "@corpus_thread[1]", "reply": "@corpus_thread[2]"}},
+]
+```
 
-| 概念 | 正确定义 | 我之前错在哪 |
-|:-----|:---------|:------------|
-| 身份 | 一个手机号=一个身份, 跨平台共用浏览器profile | 我写成了"一个平台一个身份" |
-| 跨平台切换 | 同一个浏览器改URL就行, 省资源更真实 | 我写了"不建议" |
-| 窗口排布 | 最多3个, X坐标+150重叠排布 | 我写了4个平铺 |
-| 蓝图 | 你和我交互的命名模板(带参数) | 我写成了内部步骤链 |
-| 原子操作 | 最小执行单元, 自带状态检测和自动组合 | 我当纯函数对待 |
-| 验证处理 | 原子操作自行判断状态, 自动调SMS等其他原子操作 | 我写在蓝图层 |
-
-## 八、实施计划
-
-### Phase 1: 登录状态机（核心）
-- `login_state_machine.py` — 检测+恢复链
-- 完善 xhs/douyin的 锚点检测
-- vision_bridge 作为降级
-
-### Phase 2: 操作状态机
-- 每个原子操作加 pre-check / post-check
-- `VerificationHandler` — 验证弹窗自动处理
-- `CooldownManager` — 操作冷却
-
-### Phase 3: 蓝图交互
-- 蓝图的参数化定义
-- 蓝图执行器（调原子操作为主）
-- 对接 Dashboard 命令入口
-
-### Phase 4: 异常体系
-- 自动失败截图 + 视觉分析
-- 3次失败上报
-- 执行日志可视化
+每条语料的 step1/step2/step3 会被自动取用。这个不走新框架，直接走现有的 CommandBus 顺序下发。
 
 ---
 
-## 九、现有文件清单
+## 四、登录状态机（唯一真正要写的新模块）
 
-| 文件 | 说明 | 状态 |
-|:-----|:------|:------|
-| `login_state_machine.py` | 登录状态机 | ❌ 待建 |
-| `vision_bridge.py` | oMLX视觉分析桥接 | ✅ 已有 |
-| `cdp_connector.py` | 浏览器启动管理 (702x783, 窗口位置) | ✅ 已有 |
-| `browser_utils.py` | GracefulBrowser 生命周期 | ✅ 已有 |
-| `sms_login.py` | SMS验证码登录 | ✅ 已有 |
-| `xhs_login.py` | 小红书原子操作 | ✅ 已有 |
-| `douyin_login.py` | 抖音原子操作 | ✅ 已有 |
-| `matrix_modules/account/` | 各平台原子操作 | ✅ 已有 |
-| `blueprints/*.json` | 蓝图定义(需改参数化格式) | ⚠️ 需改造 |
-| `handlers/verification.py` | 验证弹窗处理 | ❌ 待建 |
-| `handlers/cooldown.py` | 冷却管理 | ❌ 待建 |
+### 4.1 接口
+
+```python
+class LoginStateMachine:
+    async def ensure_login(self, page, account_id: str, platform: str) -> bool:
+        """确保登录，返回 True=已登录"""
+        
+    async def _detect(self, page, platform: str) -> str:
+        """检测状态: 'logged_in' / 'not_logged' / 'unknown'"""
+        # DOM 检测: xhs → .user-avatar  douyin → [data-e2e=user-avatar]
+        
+    async def _recover_cookie(self, page) -> bool:
+        """刷新页面让 cookie 生效"""
+        
+    async def _recover_sms(self, page, phone: str) -> bool:
+        """SMS 验证码登录"""
+        # 复用 sms_login.py 的原子操作
+```
+
+### 4.2 用法
+
+```python
+# 在 runner.py nurture_loop 开头加:
+async def nurture_loop(...):
+    lsm = LoginStateMachine()
+    ok = await lsm.ensure_login(page, identity_name, platform)
+    if not ok:
+        return {"status": "failed", "error": "login_failed"}
+    # ... 继续现有逻辑
+```
+
+---
+
+## 五、执行计划（只做增量，不重构）
+
+| 任务 | 文件 | 工作量 | 前置依赖 |
+|:-----|:------|:------|:--------|
+| 写 LoginStateMachine | `matrix_modules/account/login_state_machine.py` | 半天 | 无（复用现有原子操作） |
+| 加登录钩子到 nurture_loop | 改 `runner.py` + `nurture_blueprint.py` | 1小时 | LoginStateMachine |
+| 加验证处理钩子到 op 执行后 | 改 `runner.py` | 1小时 | 无（复现现有 _handle_verify） |
+| 加冷却管理 | `matrix_modules/nurture/cooldown_manager.py` | 1小时 | 无 |
+| 语料库目录 + 蓝图参数扩展 | `corpus/*.json` + 改 blueprint JSON | 半天 | 无 |
+| Dashboard 参数表单对接 | `static/index.html` (Vite 迁移后) | 跟 Vite 一起 | Vite 迁移完成 |
+
+---
+
+## 六、误区总结（防止再跑偏）
+
+| 我原来写错的 | 实际上 | 参考文件 |
+|:------------|:-------|:--------|
+| "五层新架构" | 已有 `CommandBus` + `MachineSession` + `ORACLE.yaml` | `services/command_bus.py` |
+| "Dashboard三台都跑" | 只有 chengzigedeAir:9988 | `DEPLOYMENT.md` |
+| "蓝图是新概念" | 已有 14 个 JSON + 参数模板 `@url` `@corpus` | `blueprints/*.json` |
+| "新框架要造" | 只在现有代码插三个钩子 | `runner.py` `nurture_blueprint.py` |
+| "命令格式要定" | 已有 `POST /api/ops/run` 格式已定 | `routes/ops.py` `BUSINESS_ARCHITECTURE_v4.md` |
