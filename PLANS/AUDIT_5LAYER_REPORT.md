@@ -87,7 +87,36 @@ Layer 1: 浏览器 (Camoufox)                   → 执行操作
 
 ---
 
-## 四、总结
+## 四、ORACLE 合规检查规则
+
+### 4.1 账号→机器映射表
+
+`ORACLE.yaml` 是账号→机器的**宪法级**映射表。CommandBus 执行前自动校验：
+
+```
+请求: account=douyin_test, machine=5kechengdeAir
+  → ORACLE 查 douyin_test → 应属于 chengzigedeAir
+  → 发出警告: "douyin_test 按 ORACLE 应在 chengzigedeAir，实际发往 5kechengdeAir"
+  → 仍然允许执行（可能是临时调配）
+```
+
+### 4.2 三种结果
+
+| 检查结果 | 行为 | 前端显示 |
+|:---------|:-----|:---------|
+| 匹配 | 正常执行 | ✅ 绿色 |
+| 不匹配 | 执行 + 警告 | ⚠️ 橙色警告 |
+| 未登记 | 执行 + 警告 | ⚠️ 建议 git pull 后 fleet_reconcile |
+
+### 4.3 规则存证
+
+- `ORACLE.yaml` — 宪法文件，账号机器映射的 source of truth
+- `command_bus.py` — 运行时校验，每次 dispatch 自动检查
+- `fleet_reconcile` — 对账工具，检查实际状态是否符合 ORACLE
+
+---
+
+## 五、总结
 
 | 类别 | 数量 | 状态 |
 |:-----|:-----|:------|

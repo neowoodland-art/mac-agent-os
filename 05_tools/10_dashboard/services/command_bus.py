@@ -503,8 +503,23 @@ class CommandBus:
         except Exception as e:
             return {"status": "error", "message": f"加载账号失败: {e}", "errors": [{"message": str(e)}]}
 
+        # ── 加载 ORACLE 宪法（账号→机器映射表）──
+        oracle_map = {}  # account_id → assigned_machine
+        try:
+            oracle_path = AGENT_SYNC / "ORACLE.yaml"
+            if oracle_path.exists():
+                import yaml
+                oracle = yaml.safe_load(oracle_path.read_text())
+                for entry in oracle.get("accounts", []):
+                    machine = entry.get("machine", "")
+                    for plat, acct_id in entry.get("platforms", {}).items():
+                        oracle_map[acct_id] = machine
+        except:
+            pass  # ORACLE 文件不存在时不阻断执行
+
         # ── 逐个账号校验 ──
         errors = []
+        warnings = []
         for aid in accounts:
             acct = all_accts.get(aid) if isinstance(aid, str) else aid
             if not acct:
@@ -514,6 +529,12 @@ class CommandBus:
             if not machine:
                 errors.append({"account": aid, "message": f"账号 {aid} 未分配机器 (owner_machine 为空)"})
                 continue
+            # ORACLE 合规检查
+            oracle_machine = oracle_map.get(aid)
+            if oracle_machine and oracle_machine != machine:
+                warnings.append({"account": aid, "message": f"账号 {aid} 按 ORACLE 应在机器 {oracle_machine}，实际发往 {machine}"})
+            elif not oracle_machine:
+                warnings.append({"account": aid, "message": f"账号 {aid} 未在 ORACLE 登记，建议 git pull 同步后执行 fleet_reconcile"})
             if machine not in machine_groups:
                 machine_groups[machine] = []
             machine_groups[machine].append(acct)
@@ -561,6 +582,7 @@ class CommandBus:
             "status": "accepted" if not dry_run else "plan",
             "commands": results,
             "errors": errors if errors else None,
+            "warnings": warnings if warnings else None,
         }
 
     @classmethod
