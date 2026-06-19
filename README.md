@@ -25,6 +25,7 @@ AgentOS 是一个**本机运行的多智能体协同系统**。多台电脑通�
 | 你想看 | 去这里 |
 |--------|--------|
 | 这是什么、怎么用（本文件） | `README.md` |
+| **联邦系统完整使用指南** | **`FEDERATION_GUIDE.md`** |
 | 系统最近改了什么 | `CHANGELOG.md` |
 | Python 依赖清单 | `requirements.txt` |
 
@@ -50,6 +51,7 @@ AgentOS 是一个**本机运行的多智能体协同系统**。多台电脑通�
 | 你想看 | 去这里 |
 |--------|--------|
 | 联邦式数据架构完整设计 | `docs/DASHBOARD_DATA_LAYER_V2.md` |
+| **联邦系统实操指南（三台机器通用）** | **`FEDERATION_GUIDE.md`** |
 | 各机状态/事件/任务如何运作 | `docs/DASHBOARD_DATA_LAYER_V2.md` → 详细设计章节 |
 | guardd 守护进程操作 | `01_core/MAINTENANCE_GUIDE.md` → guardd 章节 |
 | 知识同步/加密通讯配置 | `01_core/MAINTENANCE_GUIDE.md` → 安全配置章节 |
