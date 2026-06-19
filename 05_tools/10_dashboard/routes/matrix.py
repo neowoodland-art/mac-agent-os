@@ -490,6 +490,53 @@ def api_matrix_atom_ops():
         raise HTTPException(500, detail=str(e))
 
 
+@router.post("/task/run")
+def api_matrix_task_run(data: dict = {}):
+    """统一执行评论/点赞等任务 — 通过 CommandBus 走 mc run
+
+    请求体:
+      type: str       — comment / like
+      account: str    — 账号ID
+      url: str        — 视频链接
+      direction: str  — 评论方向（可选）
+      corpus: str     — 语料库分类（可选）
+    """
+    task_type = data.get("type", "")
+    account = data.get("account", "")
+    url = data.get("url", "")
+
+    if not task_type or not account:
+        return {"error": "type 和 account 必填"}
+    if not url:
+        return {"error": "url 必填"}
+
+    # 通过 CommandBus 分发 — 走 mc run 蓝图
+    from services.command_bus import CommandBus
+
+    if task_type == "comment":
+        blueprint = "douyin_comment"
+        params = {"blueprint": blueprint, "rounds": 1, "url": url}
+        direction = data.get("direction")
+        corpus = data.get("corpus")
+        if direction:
+            params["direction"] = direction
+        if corpus:
+            params["corpus"] = corpus
+    elif task_type == "like":
+        blueprint = "douyin_daily"
+        params = {"blueprint": blueprint, "rounds": 1, "url": url}
+    else:
+        return {"error": f"不支持的任务类型: {task_type}"}
+
+    result = CommandBus.dispatch(task_type, [account], params)
+    return {
+        "task_id": result.get("status", "dispatched"),
+        "account": account,
+        "url": url,
+        "status": result.get("status", "ok"),
+        "commands": result.get("commands", []),
+    }
+
 @router.get("/record/list")
 def api_matrix_record_list():
     """获取录制列表"""

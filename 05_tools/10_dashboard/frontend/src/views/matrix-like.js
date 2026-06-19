@@ -3,7 +3,7 @@
  * 使用共享账号选择器
  */
 
-import { apiRequest } from '../router.js';
+import { apiRequest, confirmExecute } from '../router.js';
 import { createAccountSelector } from '../components/account-selector.js';
 
 let _selector = null;
@@ -54,6 +54,12 @@ function registerGlobals(uid) {
     if (!urlsText || !urlsText.trim()) { el.textContent = '请填写视频链接'; return; }
     const urls = urlsText.split('\n').map(u => u.trim()).filter(u => u);
     if (!selected.length) { el.textContent = '请先选择要执行的账号'; return; }
+
+    // 执行前确认
+    const detail = `账号: ${selected.map(s=>s.id).join(', ')}\n视频: ${urls.join('\n')}`;
+    const confirmed = await confirmExecute(`即将用 ${selected.length} 个账号点赞 ${urls.length} 个视频`, detail);
+    if (!confirmed) { el.textContent = '已取消'; return; }
+
     el.textContent = '⏳ 使用 ' + selected.length + ' 个账号点赞 ' + urls.length + ' 个视频...\n';
     const results = [];
     for (const url of urls) {
