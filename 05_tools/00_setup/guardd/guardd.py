@@ -235,8 +235,27 @@ def _ensure_machine_identity():
 
 
 def _push_to_dashboard(heartbeat_data):
-    """反向连接: 将本机心跳+事件推送到 Dashboard"""
+    """反向连接: 将本机心跳+事件推送到 Dashboard
+
+    优先级:
+      1. 环境变量 GUARDD_DASHBOARD_URL
+      2. agent-local/config.yaml 中的 dashboard_url 字段
+      3. 空 → 不推送（本机独立运行）
+    """
     dashboard_url = os.environ.get("GUARDD_DASHBOARD_URL", "")
+
+    # 回退: 读本机 config.yaml
+    if not dashboard_url:
+        config_file = AGENT_LOCAL / "config.yaml"
+        if config_file.exists():
+            try:
+                import yaml
+                cfg = yaml.safe_load(config_file.read_text())
+                if cfg and isinstance(cfg, dict):
+                    dashboard_url = str(cfg.get("dashboard_url", "")).strip()
+            except:
+                pass
+
     if not dashboard_url:
         return
 
