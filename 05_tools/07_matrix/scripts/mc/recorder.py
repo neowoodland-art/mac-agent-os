@@ -26,6 +26,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from matrix_mgmt import AGENT_LOCAL
+from ops._base import PageState
 LOCAL_ROOT = AGENT_LOCAL / "tools" / "matrix"
 RECORDINGS_DIR = LOCAL_ROOT / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -201,11 +202,51 @@ class RecordingSession:
         except:
             return []
 
+    async def _capture_page_state(self) -> dict:
+        """捕获当前页面的状态指纹（用于录制分析）
+        
+        使用与三段式操作相同的 PageState 结构，便于 Analyzer 分析。
+        """
+        state = PageState()
+        if not self.page:
+            return state.to_dict()
+        try:
+            state.url_pattern = self.page.url
+            # 页面模式
+            text = await self.page.evaluate("(document.body.innerText || '').trim()") or ""
+            has_video = await self.page.evaluate("document.querySelectorAll('video').length > 0")
+            if '/video/' in state.url_pattern and has_video:
+                state.page_mode = 'player'
+            elif has_video:
+                state.page_mode = 'player'
+            elif '/user/' in state.url_pattern or '/profile' in state.url_pattern:
+                state.page_mode = 'profile'
+            elif '/search/' in state.url_pattern:
+                state.page_mode = 'search'
+            elif 'xiaohongshu' in state.url_pattern:
+                state.page_mode = 'grid' if 'explore' in state.url_pattern else 'unknown'
+            else:
+                state.page_mode = 'grid'
+            # 关键选择器可见性
+            for sel in ['[data-e2e="video-player-digg"]', '[data-e2e="video-player-collect"]',
+                        '[data-e2e="searchbar-input"]', 'video', 'section.note-item']:
+                try:
+                    state.selectors[sel] = await self.page.locator(sel).first.is_visible()
+                except:
+                    state.selectors[sel] = False
+            # 文本片段
+            state.text_snippet = text[:2000]
+        except:
+            pass
+        return state.to_dict()
+
     async def record_step(self, step_number: int) -> dict:
-        """标记一个步骤——捕获当前页面状态 + 事件序列"""
+        """标记一个步骤——捕获当前页面状态 + 事件序列 + 状态指纹"""
         if not self._is_recording or not self.page:
             return {"step": step_number, "error": "not_recording"}
 
+        # 捕获操作前状态
+        before_state = await self._capture_page_state()
         ts = datetime.now()
         events = await self._flush_events()
         step_data = {
@@ -215,6 +256,7 @@ class RecordingSession:
             "elapsed": round(time.time() - self._start_time, 1),
             "events_since_last": len(events),
             "events": events,
+            "before_state": before_state,
         }
 
         # 采集页面状态
