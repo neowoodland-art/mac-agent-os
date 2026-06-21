@@ -55,6 +55,7 @@ class BatchRunner:
         log.info(f"     账号: {self.accounts}")
         log.info(f"     蓝图: {self.blueprints}")
         log.info(f"     轮数: {self.rounds} | 模式: {'混合随机' if self.mix else '顺序'}")
+        log.info(f"     浏览器上限: {self.max_browsers} | 错峰: {self.stagger}s | keep_open: {self.keep_open}")
 
         engine = BatchEngine(
             accounts=self.accounts,
