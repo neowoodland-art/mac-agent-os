@@ -475,7 +475,7 @@ class CommandBus:
     """全局命令总线 — 所有操作的统一入口"""
 
     @classmethod
-    def dispatch(cls, cmd_type: str, accounts: list, params: dict = None) -> dict:
+    def dispatch(cls, cmd_type: str, accounts: list, params: dict = None, wait: bool = False) -> dict:
         """主入口：按机器分组后分发
         之前: 每个账号一条命令
         现在: 每台机器一条命令（含多个账号）
@@ -542,16 +542,14 @@ class CommandBus:
 
         results = []
 
-        # 第二步：每台机器发命令（collect/login/logout 一条命令搞定全部账号）
-        #          nurture 需要按平台分（不同蓝图）
+        # 第二步：按机器分组构建命令任务
+        # 返回 list[dict] = {machine, cmd_type, ids_str, is_local, cmd_line, params, run_id}
+        tasks = []
         for machine, accts in machine_groups.items():
             is_local = (machine == HOSTNAME)
             all_ids = ",".join(a["id"] for a in accts)
-            phones = list(set(a.get("phone", "") for a in accts if a.get("phone")))
 
-            # 构造命令
             if cmd_type == "nurture":
-                # 养号: 按平台分（不同蓝图）
                 plat_groups = {}
                 for a in accts:
                     p = a.get("platform", "douyin")
@@ -560,10 +558,13 @@ class CommandBus:
                     ids_str = ",".join(a["id"] for a in plat_accts)
                     bp = params.get("blueprint") or {"douyin": "douyin_daily", "xiaohongshu": "xhs_daily"}.get(platform, "douyin_daily")
                     r = params.get("rounds", 10)
-                    cmd_line = f"mc run --accounts={ids_str} --blueprints={bp} --rounds={r} --mix --interval=45-90"
-                    result = cls._execute_one(cmd_type, ids_str, machine, is_local, cmd_line, params, now_ts, results, errors, dry_run)
+                    tasks.append({
+                        "machine": machine, "cmd_type": cmd_type,
+                        "ids_str": ids_str, "is_local": is_local,
+                        "cmd_line": f"mc run --accounts={ids_str} --blueprints={bp} --rounds={r} --mix --interval=45-90",
+                        "run_id": f"{cmd_type}_{now_ts}_{machine}_{platform}",
+                    })
             else:
-                # 其他操作: 一条命令搞定全部账号
                 templates = {
                     "collect": "mc run --accounts={ids_str} --blueprints=douyin_read_profile --rounds=1",
                     "login": f"mc smart-login {all_ids} --skip-check",
@@ -574,30 +575,97 @@ class CommandBus:
                 cmd_line = templates.get(cmd_type, "")
                 if cmd_type == "collect":
                     cmd_line = cmd_line.replace("{ids_str}", all_ids)
-                if cmd_line:
-                    result = cls._execute_one(cmd_type, all_ids, machine, is_local, cmd_line, params, now_ts, results, errors, dry_run)
-                else:
+                if not cmd_line:
                     errors.append({"account": all_ids, "message": f"不支持的操作: {cmd_type}"})
+                    continue
+                tasks.append({
+                    "machine": machine, "cmd_type": cmd_type,
+                    "ids_str": all_ids, "is_local": is_local,
+                    "cmd_line": cmd_line,
+                    "run_id": f"{cmd_type}_{now_ts}_{machine}",
+                })
+
+        # 第三步：并行分发到各台机器
+        dispatched_cmds = []
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def _do_send(t):
+            return cls._execute_one(
+                t["cmd_type"], t["ids_str"], t["machine"],
+                t["is_local"], t["cmd_line"], params,
+                t["run_id"], results, errors, dry_run
+            )
+
+        with ThreadPoolExecutor(max_workers=5) as ex:
+            futures = [ex.submit(_do_send, t) for t in tasks]
+            for f in as_completed(futures):
+                try:
+                    cmd = f.result()
+                    if cmd:
+                        dispatched_cmds.append(cmd)
+                except Exception as e:
+                    logger.error(f"并行分发异常: {e}")
+
+        # 第四步：等待执行结果（仅 wait=True 时）
+        per_machine = {}
+        if wait and dispatched_cmds:
+            deadline = time.time() + params.get("timeout", 600)
+            while time.time() < deadline:
+                all_terminal = True
+                for cmd in dispatched_cmds:
+                    session = MachineSession.get(cmd.machine)
+                    session.poll(cmd)
+                    if not cmd.status.is_terminal:
+                        all_terminal = False
+                if all_terminal:
+                    break
+                time.sleep(15)
+
+            # 聚合每台机器结果
+            for cmd in dispatched_cmds:
+                m = cmd.machine
+                if m not in per_machine:
+                    per_machine[m] = {"accounts": [], "status": "running",
+                                       "success": 0, "failed": 0, "duration": 0}
+                per_machine[m]["accounts"].extend(cmd.accounts)
+                per_machine[m]["status"] = cmd.status.value
+                per_machine[m]["duration"] = max(per_machine[m]["duration"], cmd.elapsed_sec)
+                result_data = cmd.result or {}
+                steps = result_data.get("steps", {}) or {}
+                per_machine[m]["success"] += steps.get("success", 0) if steps else 0
+                per_machine[m]["failed"] += steps.get("failed", 0) if steps else 0
+
+            # 若全部完成则标记总状态
+            all_terminal = all(cmd.status.is_terminal for cmd in dispatched_cmds)
+            for m in per_machine:
+                per_machine[m]["status"] = per_machine[m]["status"] if all_terminal else "running"
+
+        total_success = sum(pm["success"] for pm in per_machine.values())
+        total_failed = sum(pm["failed"] for pm in per_machine.values())
+        total_accounts = sum(len(pm["accounts"]) for pm in per_machine.values())
 
         return {
-            "status": "accepted" if not dry_run else "plan",
+            "status": "completed" if (wait and all_terminal) else ("accepted" if not dry_run else "plan"),
+            "total_accounts": total_accounts or None,
+            "total_success": total_success or None,
+            "total_failed": total_failed or None,
             "commands": results,
+            "per_machine": per_machine if per_machine else None,
             "errors": errors if errors else None,
             "warnings": warnings if warnings else None,
         }
 
     @classmethod
-    def _execute_one(cls, cmd_type, ids_str, machine, is_local, cmd_line, params, now_ts, results, errors, dry_run):
-        """执行单条命令（内部 helper）"""
+    def _execute_one(cls, cmd_type, ids_str, machine, is_local, cmd_line, params, run_id, results, errors, dry_run):
+        """执行单条命令，返回 Command 对象（供调用方追踪结果）"""
         acct_ids = ids_str.split(",")
         if dry_run:
             results.append({
                 "accounts": acct_ids, "account": ids_str,
                 "machine": machine, "is_local": is_local, "command": cmd_line,
             })
-            return
+            return None
 
-        run_id = f"{cmd_type}_{now_ts}_{machine}"
         cmd = Command(
             cmd_type=cmd_type, accounts=acct_ids, machine=machine,
             command_line=cmd_line, run_id=run_id, params=params
@@ -611,13 +679,14 @@ class CommandBus:
             cmd.message = pf["message"]
             errors.append({"account": ids_str, "message": pf["message"]})
             results.append(cmd.to_dict())
-            return
+            return cmd
 
         for a in acct_ids:
             session.graceful_exit(a)
 
         session.send(cmd)
         results.append(cmd.to_dict())
+        return cmd
 
     @classmethod
     def get_status(cls, machine: str = None, account: str = None) -> list[dict]:

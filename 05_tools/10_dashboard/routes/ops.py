@@ -40,10 +40,20 @@ def api_ops_run(data: dict = {}):
         if not accounts:
             return {"status": "error", "message": "accounts 必填"}
 
+        wait = data.get("wait", False)
         if data.get("dry_run") or params.get("dry_run"):
             params["dry_run"] = True
 
-        result = CommandBus.dispatch(op_type, accounts, params)
+        result = CommandBus.dispatch(op_type, accounts, params, wait=wait)
+
+        # wait=True 时响应可能包含执行结果摘要
+        if wait and result.get("status") == "completed":
+            summary = result.get("per_machine", {})
+            s = f"完成: "
+            for m, info in summary.items():
+                s += f"{m}: {info.get('success',0)}成功/{info.get('failed',0)}失败 "
+            logger.info(f"批量执行完毕 — {s}")
+
         return result
 
     except Exception as e:
