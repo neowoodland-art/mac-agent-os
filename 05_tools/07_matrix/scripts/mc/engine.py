@@ -157,8 +157,9 @@ class BatchEngine:
     def __init__(self, accounts: List[str], blueprints: List[str],
                  rounds: int = 10, mix: bool = False,
                  corpus: List[str] = None,
-                 stagger: str = "15-30",
-                 keep_open: bool = False):
+                  stagger: str = "15-30",
+                  keep_open: bool = False,
+                  max_browsers: int = 3):
         self.accounts = accounts
         self.blueprints = blueprints
         self.rounds_total = rounds
@@ -166,6 +167,7 @@ class BatchEngine:
         self.corpus = corpus or []
         self.stagger = stagger
         self.keep_open = keep_open
+        self.max_browsers = max_browsers
         self.task_params = {}
 
     def _pick_blueprint(self, round_idx: int) -> str:
@@ -311,16 +313,15 @@ class BatchEngine:
 
         # ── 浏览器数限制检查（L2 层，谁开浏览器谁检查）──
         import subprocess as _sp
-        MAX_BROWSERS = 3
         while True:
             try:
                 out = _sp.run("pgrep -f camoufox | wc -l", shell=True, capture_output=True, text=True, timeout=5)
                 count = int(out.stdout.strip() or 0)
             except:
                 count = 0
-            if count < MAX_BROWSERS:
+            if count < self.max_browsers:
                 break
-            log.warning(f"  ⏳ 已达最大浏览器数({MAX_BROWSERS})，等待其他任务释放...")
+            log.warning(f"  ⏳ 已达最大浏览器数({self.max_browsers})，等待其他任务释放...")
             await asyncio.sleep(15)
 
         if check_cookie(identity_dir) == "no_identity":

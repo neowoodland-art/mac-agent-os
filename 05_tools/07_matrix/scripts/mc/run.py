@@ -33,7 +33,8 @@ class BatchRunner:
     def __init__(self, accounts, blueprints, rounds=10,
                  interval_range=(30, 60), mix=False,
                  corpus=None, engine="auto", daemon=False,
-                 stagger="15-30", keep_open=False):
+                 stagger="15-30", keep_open=False,
+                 max_browsers=3):
         self.accounts = accounts
         self.blueprints = blueprints
         self.rounds = rounds
@@ -44,6 +45,7 @@ class BatchRunner:
         self.daemon = daemon
         self.stagger = stagger
         self.keep_open = keep_open
+        self.max_browsers = max_browsers
 
     async def run(self) -> dict:
         """执行 — 委托给 BatchEngine"""
@@ -62,6 +64,7 @@ class BatchRunner:
             corpus=self.corpus,
             stagger=self.stagger,
             keep_open=self.keep_open,
+            max_browsers=self.max_browsers,
         )
 
         report = await engine.run()
