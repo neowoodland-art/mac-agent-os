@@ -16,7 +16,8 @@ from typing import Optional
 
 # ── 抖音快捷键映射 ──
 DY_HOTKEYS = {
-    'z': 'like', 'x': 'comment', 'g': 'follow',
+    'z': 'like', 'x': 'comment', 'c': 'comment',
+    'g': 'follow',
     'k': 'loop', 'm': 'mute', 'j': 'clear',
     'p': 'loop', 'h': 'fullscreen',
     'ArrowDown': 'next_video', 'ArrowUp': 'prev_video',
@@ -178,7 +179,20 @@ def _analyze_step_pair(before: dict, after: dict) -> dict:
     # 7. 生成特征码（可复现的自动化选择器建议）
     analysis["features"] = _suggest_features(bp, ap, events, analysis)
 
-    # 8. 生成操作摘要
+    # 8. 检测空步骤（连续两次 · 无操作）
+    if not analysis.get("action_type"):
+        no_events = len(events) <= 1  # 只有 · 键事件
+        no_url_change = not analysis.get("url_changed", True)
+        no_sel_change = not analysis.get("selector_changes")
+        no_mode_change = not analysis.get("mode_changed")
+        no_clicks = len([e for e in events if e.get('t') == 'click']) == 0
+        no_scrolls = len([e for e in events if e.get('t') == 'scroll']) == 0
+        if no_events and no_url_change and no_sel_change and no_mode_change:
+            analysis["action_type"] = "skip"
+            analysis["action_desc"] = "无有效操作（空步骤）"
+            analysis["skip_reason"] = "no_change"
+
+        # 9. 生成操作摘要
     if not analysis.get("action_type"):
         analysis["action_type"] = "unknown"
         analysis["action_desc"] = f"页面内容变化 ({len(events)} events)"
