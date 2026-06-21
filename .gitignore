@@ -170,3 +170,4 @@ reports/
 
 # guardd 心跳数据 (已迁移到本机 local 目录, 不再提交 Gitee)
 04_memory/cross_machine/data/
+04_memory/cross_machine/status/live/

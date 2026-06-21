@@ -71,7 +71,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','ops-command'];
+  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','ops-command','matrix-record'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -127,7 +127,7 @@ function switchView(view) {
 
   // 视图显隐
   // 视图显隐
-  const viewIds = ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus',
+  const viewIds = ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-record',
                    'ave-render','ave-script','ave-materials','ave-templates',
                    'crawl-tasks','crawl-sources','crawl-history',
                    'machines','fleet-sync','fleet-reconcile','fleet-exec',
@@ -158,6 +158,7 @@ function switchView(view) {
   try { if (view === 'matrix-publish') window.loadMatrixPublish(); } catch(e) {}
   try { if (view === 'matrix-blueprints') window.loadMatrixBlueprints(); } catch(e) {}
   try { if (view === 'matrix-comment') window.loadMatrixComment(); } catch(e) {}
+  try { if (view === 'matrix-record') window.loadMatrixRecord(); } catch(e) {}
   try { if (view === 'matrix-schedule') window.loadMatrixSchedule(); } catch(e) {}
   try { if (view === 'matrix-corpus') window.loadCorpus(); } catch(e) {}
   try { if (view === 'ave-render') window.loadAveRender(); } catch(e) {}
@@ -658,6 +659,7 @@ async function loadPlugins() {
         {view:'matrix-blueprints', label:'📋 蓝图管理'},
         {view:'matrix-login', label:'🔑 登录管理'},
         {view:'matrix-schedule', label:'⏱ 定时任务'},
+        {view:'matrix-record', label:'🎬 录制管理'},
         {view:'matrix-corpus', label:'📚 语料库'},
         {view:'ops-command', label:'🖥️ 联邦指挥台'},
       ]},

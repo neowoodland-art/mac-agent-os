@@ -229,8 +229,184 @@ async function collectProfile(accountId) {
 }
 
 // 定向评论任务已合并到 cmdRunCommentTask（命令与任务页面）
+// ════════════════════════════════════════════════════════
+// 录制管理 — 列表 / 详情 / 导出
+// ════════════════════════════════════════════════════════
+
+async function loadMatrixRecord() {
+  var listEl = document.getElementById('recordList');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="loading">⏳ 加载录制包...</div>';
+
+  try {
+    var r = await fetch('/api/matrix/record/list');
+    var d = await r.json();
+    var recs = d.recordings || [];
+
+    if (!recs.length) {
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2)">暂无录制包。选择账号后点击「开始录制」。</div>';
+      document.getElementById('recordDetail').innerHTML = '';
+      return;
+    }
+
+    var html = '<div style="display:grid;gap:4px">';
+    recs.forEach(function(rec) {
+      var created = (rec.created || '').slice(0, 16).replace('T', ' ');
+      html += '<div class="record-item" data-name="'+rec.name+'" onclick="recordingDetail(this.dataset.name)" style="padding:6px 10px;cursor:pointer;border-radius:4px;background:var(--bg2);display:flex;justify-content:space-between;font-size:12px">';
+      html += '<span><b>'+rec.account+'</b> · '+rec.platform+' · '+rec.steps+'步 · '+rec.duration+'s</span>';
+      html += '<span style="color:var(--text2)">'+created+' <span style="color:var(--text2)">'+rec.size_kb+'KB</span></span>';
+      html += '</div>';
+    });
+    html += '</div>';
+    listEl.innerHTML = html;
+  } catch(e) {
+    listEl.innerHTML = '<div style="color:var(--red);padding:10px">❌ 加载失败: '+e.message+'</div>';
+  }
+}
+
+async function recordingStart() {
+  var sel = document.getElementById('recordAccountSelect');
+  var aid = sel ? sel.value : '';
+  if (!aid) { alert('请先选择账号'); return; }
+  document.getElementById('recordStartBtn').style.display = 'none';
+  document.getElementById('recordStopBtn').style.display = 'inline-block';
+  document.getElementById('recordStatus').innerHTML = '⏳ 正在启动浏览器...';
+  try {
+    var r = await fetch('/api/matrix/accounts/'+aid+'/record', {method:'POST'});
+    var d = await r.json();
+    if (d.status === 'ok') {
+      document.getElementById('recordStatus').innerHTML = '<span style="color:var(--green)">🎬 录制中... 操作浏览器，然后按数字键标记步骤 (0=结束)</span>';
+    } else {
+      document.getElementById('recordStatus').innerHTML = '<span style="color:var(--red)">❌ '+(d.message||'启动失败')+'</span>';
+      document.getElementById('recordStartBtn').style.display = 'inline-block';
+      document.getElementById('recordStopBtn').style.display = 'none';
+    }
+  } catch(e) {
+    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    document.getElementById('recordStartBtn').style.display = 'inline-block';
+    document.getElementById('recordStopBtn').style.display = 'none';
+  }
+}
+
+async function recordingStop() {
+  document.getElementById('recordStatus').innerHTML = '⏳ 正在停止...';
+  document.getElementById('recordStartBtn').style.display = 'inline-block';
+  document.getElementById('recordStopBtn').style.display = 'none';
+  try {
+    var r = await fetch('/api/matrix/record/list', {method:'GET'});
+    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--green)">✅ 录制已停止</span>';
+    loadMatrixRecord();
+  } catch(e) {
+    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+  }
+}
+
+var _recordLabels = {};  // step_num → {op, args}
+
+async function recordingDetail(name) {
+  var detailEl = document.getElementById('recordDetail');
+  if (!detailEl) return;
+  detailEl.innerHTML = '<div class="loading">⏳ 加载录制详情...</div>';
+
+  try {
+    var r = await fetch('/api/matrix/record/detail/'+encodeURIComponent(name));
+    var d = await r.json();
+    var meta = d.meta || {};
+    var steps = d.steps || [];
+    var analysis = d.analysis || {};
+
+    _recordLabels = {};
+    var html = '<div style="background:var(--bg2);padding:10px;border-radius:6px;margin-top:8px">';
+    html += '<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px;color:var(--text2)">';
+    html += '<span>账号: <b>'+meta.account_id+'</b> · 平台: '+meta.platform+' · 共 '+steps.length+' 步</span>';
+    html += '<span style="display:flex;gap:4px">';
+    html += '<button onclick="recordingExport(\''+name+'\')" style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">📦 导出为蓝图</button>';
+    html += '<button onclick="if(confirm(\'确定删除?\')){fetch(\'/api/matrix/record/delete\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({name:\''+name+'\'})}).then(function(){loadMatrixRecord();document.getElementById(\'recordDetail\').innerHTML=\'\';})}" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">🗑 删除</button>';
+    html += '</span></div>';
+
+    // 分析建议
+    var actions = analysis.actions || [];
+    var actMap = {};
+    actions.forEach(function(a) {
+      var idx = a.step_after || a.step_before;
+      actMap[idx] = a;
+    });
+
+    // 每一步
+    var opOptions = ['skip','goto_home','like','collect','follow','comment','open_comments','close_comments','post_comment','search','scroll_feed','wait_watch','next_video','prev_video','go_back','open_video','xhs_like','xhs_collect','xhs_comment','xhs_follow','xhs_scroll_feed','xhs_click_note','xhs_search'];
+
+    steps.forEach(function(step, i) {
+      var sn = step.step || (i+1);
+      var pg = step.page || {};
+      var suggests = actMap[sn] ? (actMap[sn].action_type || '') : '';
+      var suggestText = actMap[sn] ? (actMap[sn].action_desc || suggests) : '';
+
+      html += '<div style="border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px;font-size:12px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+      html += '<span><b>步骤 '+sn+'</b>  <span style="color:var(--text2)">'+pg.page_mode+'</span>  <span style="color:var(--text2);font-size:11px">'+(pg.url||'').slice(0,60)+'</span></span>';
+      html += '<span>';
+      if (suggests) html += '<span style="color:#6366f1;font-size:11px;margin-right:6px">💡 '+suggestText+'</span>';
+      html += '<select id="rec_op_'+sn+'" onchange="_recordLabels['+sn+']={op:this.value}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 6px;border-radius:4px;font-size:11px">';
+      html += '<option value="">— 选择操作 —</option>';
+      opOptions.forEach(function(op) {
+        var sel = (suggests === op || suggests === op.replace('xhs_', '').replace('dy_', '')) ? ' selected' : '';
+        html += '<option value="'+op+'"'+sel+'>'+op+'</option>';
+      });
+      html += '</select>';
+      html += '</span></div>';
+
+      if (step.events_since_last > 0) {
+        html += '<div style="color:var(--text2);font-size:11px">事件: '+step.events_since_last+' 个</div>';
+      }
+      html += '</div>';
+    });
+
+    html += '</div>';
+    detailEl.innerHTML = html;
+  } catch(e) {
+    detailEl.innerHTML = '<div style="color:var(--red);padding:10px">❌ 加载失败: '+e.message+'</div>';
+  }
+}
+
+async function recordingExport(name) {
+  var labels = [];
+  Object.keys(_recordLabels).forEach(function(sn) {
+    var sel = document.getElementById('rec_op_'+sn);
+    if (sel && sel.value) {
+      labels.push({step: parseInt(sn), op: sel.value});
+    }
+  });
+  if (!labels.length) {
+    alert('请先为至少一步选择操作类型');
+    return;
+  }
+  try {
+    var r = await fetch('/api/matrix/record/export', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:name, labels:labels, blueprint_name: name.replace('recording_','bp_')})
+    });
+    var d = await r.json();
+    if (d.status === 'ok') {
+      alert('✅ 蓝图已生成: '+d.blueprint+' ('+d.steps+'步)');
+      loadMatrixRecord();
+      document.getElementById('recordDetail').innerHTML = '';
+    } else {
+      alert('❌ 导出失败: '+(d.message||d.error));
+    }
+  } catch(e) {
+    alert('❌ 导出异常: '+e.message);
+  }
+}
+
 // ── 导出（防 Rollup tree-shake）──
 window.accountLogin = accountLogin;
+window.loadMatrixRecord = loadMatrixRecord;
+window.recordingStart = recordingStart;
+window.recordingStop = recordingStop;
+window.recordingDetail = recordingDetail;
+window.recordingExport = recordingExport;
+window._recordLabels = _recordLabels;
 window.clearCookies = clearCookies;
 window.collectAllPlatforms = collectAllPlatforms;
 window.collectProfile = collectProfile;

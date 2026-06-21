@@ -543,27 +543,132 @@ def api_matrix_record_list():
     record_dir = AGENT_LOCAL / "tools" / "matrix" / "recordings"
     recordings = []
     if record_dir.exists():
-        for f in record_dir.glob("*.json"):
-            recordings.append(f.stem)
+        for f in sorted(record_dir.glob("recording_*.json"), reverse=True):
+            try:
+                raw = f.read_text(encoding="utf-8")
+                meta_end = raw.find('"steps"')
+                if meta_end > 0:
+                    import re
+                    meta_json = raw[:meta_end].rstrip(',\n ') + '}'
+                    meta = json.loads(meta_json).get("meta", {})
+                else:
+                    meta = json.loads(raw).get("meta", {})
+                recordings.append({
+                    "name": f.stem,
+                    "account": meta.get("account_id", "?"),
+                    "platform": meta.get("platform", "?"),
+                    "steps": meta.get("total_steps", 0),
+                    "duration": meta.get("duration", 0),
+                    "created": meta.get("created", ""),
+                    "size_kb": round(f.stat().st_size / 1024, 1),
+                })
+            except:
+                recordings.append({"name": f.stem, "error": "parse_error"})
     return {"recordings": recordings}
+
+
+@router.get("/record/detail/{name}")
+def api_matrix_record_detail(name: str):
+    """获取录制详情（含分析结果）"""
+    record_dir = AGENT_LOCAL / "tools" / "matrix" / "recordings"
+    f = record_dir / f"{name}.json"
+    if not f.exists():
+        raise HTTPException(404, detail="录制包不存在")
+
+    try:
+        pkg = json.loads(f.read_text(encoding="utf-8"))
+    except:
+        raise HTTPException(500, detail="录制包解析失败")
+
+    # 运行分析器
+    analysis = {"actions": [], "steps_analyzed": 0}
+    try:
+        sys.path.insert(0, str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"))
+        from mc.analyzer import analyze_recording
+        analysis = analyze_recording(pkg)
+    except Exception as e:
+        analysis = {"error": str(e)}
+
+    # 组装返回
+    return {
+        "meta": pkg.get("meta", {}),
+        "steps": pkg.get("steps", []),
+        "analysis": analysis,
+        "total_steps": len(pkg.get("steps", [])),
+    }
 
 
 @router.post("/record/analyze")
 def api_matrix_record_analyze(data: dict):
-    """分析录制内容"""
-    return {"status": "ok", "note": "录制分析功能开发中"}
+    """分析录制内容 — 已合并到 /record/detail/{name}"""
+    name = data.get("name", "")
+    if not name:
+        return {"status": "error", "message": "name 必填"}
+    return api_matrix_record_detail(name)
 
 
 @router.post("/record/export")
 def api_matrix_record_export(data: dict):
-    """导出录制为蓝图"""
-    return {"status": "ok", "note": "录制导出功能开发中"}
+    """导出录制为蓝图——根据你的标签生成 JSON 蓝图"""
+    name = data.get("name", "")
+    labels = data.get("labels", [])       # [{"step":1, "op":"like"}, ...]
+    blueprint_name = data.get("blueprint_name", name.replace("recording_", ""))
+
+    if not name or not labels:
+        return {"status": "error", "message": "name 和 labels 必填"}
+
+    record_dir = AGENT_LOCAL / "tools" / "matrix" / "recordings"
+    f = record_dir / f"{name}.json"
+    if not f.exists():
+        raise HTTPException(404, detail="录制包不存在")
+
+    try:
+        pkg = json.loads(f.read_text(encoding="utf-8"))
+    except:
+        raise HTTPException(500, detail="录制包解析失败")
+
+    steps = pkg.get("steps", [])
+    bp_steps = []
+    seen_ops = set()
+    for label in labels:
+        step_num = label.get("step")
+        op = label.get("op", "wait")
+        # 去重：跳过连续重复的操作
+        if op == seen_ops and op in ("scroll_feed", "wait_watch", "wait"):
+            continue
+        seen_ops = op
+        step = {"step_id": len(bp_steps) + 1, "op": op, "args": label.get("args", {})}
+        bp_steps.append(step)
+
+    # 生成蓝图
+    blueprint = {
+        "id": blueprint_name,
+        "name": blueprint_name,
+        "platform": pkg.get("meta", {}).get("platform", "douyin"),
+        "version": "1.0",
+        "source": "recorded",
+        "steps": bp_steps,
+    }
+
+    # 保存到 blueprints 目录
+    blueprints_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "blueprints"
+    bp_file = blueprints_dir / f"{blueprint_name}.json"
+    bp_file.write_text(json.dumps(blueprint, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    return {"status": "ok", "blueprint": blueprint_name, "steps": len(bp_steps), "file": str(bp_file)}
 
 
 @router.post("/record/delete")
 def api_matrix_record_delete(data: dict):
     """删除录制"""
-    return {"status": "ok"}
+    name = data.get("name", "")
+    if not name:
+        return {"status": "error", "message": "name 必填"}
+    record_dir = AGENT_LOCAL / "tools" / "matrix" / "recordings"
+    f = record_dir / f"{name}.json"
+    if f.exists():
+        f.unlink()
+    return {"status": "ok", "deleted": name}
 
 
 @router.get("/blueprints")
