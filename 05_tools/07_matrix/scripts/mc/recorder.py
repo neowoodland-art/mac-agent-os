@@ -212,7 +212,7 @@ class RecordingSession:
             self._js_listener_ready = False
 
     async def _flush_events(self) -> list:
-        """取出并清空事件缓存"""
+        """取出并清空事件缓存（导航后自动重注入 JS 监听器）"""
         if not self._js_listener_ready or not self.page:
             events = list(self._event_buffer)
             self._event_buffer = []
@@ -221,8 +221,12 @@ class RecordingSession:
             events = await self.page.evaluate("""() => {
                 const buf = window.__recorded_events || [];
                 window.__recorded_events = [];
-                return buf.slice(-200);  // 最多取200条
+                return buf.slice(-200);
             }""")
+            # 如果事件数组为空但页面还在，可能是导航导致注入丢失，重注入
+            if not events and self.page:
+                print(f"  🔄 页面导航检测，重注入事件监听器")
+                await self._inject_event_listener()
             return events or []
         except:
             return []
