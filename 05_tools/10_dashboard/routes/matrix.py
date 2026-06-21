@@ -537,21 +537,85 @@ def api_matrix_task_run(data: dict = {}):
         "commands": result.get("commands", []),
     }
 
+_RECORDING_PID_FILE = AGENT_LOCAL / "runtime" / "recording.pid"
+
+
 @router.post("/accounts/{account_id}/record")
 def api_matrix_account_record(account_id: str):
-    """启动录制 — 通过 ops 系统在对应账号的浏览器中启用录制模式
+    """启动交互式录制（独立子进程）
 
-    前置条件: 账号的浏览器已通过 /accounts/{id}/login 启动
-    录制模式: Playwright 浏览器捕获帧事件 + 按键监听标记步骤
-    停止录制: 在浏览器中按 0 键, 自动保存 JSON 到 recordings/
+    启动一个独立子进程运行录制引擎，不依赖看板生命周期。
+    操作方式:
+      - Playwright 浏览器自动打开目标平台
+      - 浏览器中操作
+      - 反引号 `·` 标记步骤（截图+状态指纹）
+      - Esc 结束录制并保存
     """
+    # 检查是否有录制已在运行
+    if _RECORDING_PID_FILE.exists():
+        try:
+            pid = int(_RECORDING_PID_FILE.read_text().strip())
+            import os, signal
+            os.kill(pid, 0)  # 检查进程是否存在
+            return {"status": "ok", "message": f"已有录制进程在运行 (PID {pid})，请先结束再启动新录制"}
+        except (ProcessLookupError, ValueError):
+            _RECORDING_PID_FILE.unlink(missing_ok=True)
+
+    # 从 account_id 推断平台
+    platform = "douyin"
+    if account_id.startswith("xhs_"):
+        platform = "xiaohongshu"
+
     try:
-        from services.command_bus import CommandBus
-        result = CommandBus.dispatch("record", [account_id], {})
-        return {"status": "ok", "account": account_id, "detail": str(result.get("command_id", ""))}
-    except ImportError:
-        # command_bus 不可用时的降级
-        return {"status": "ok", "account": account_id, "note": "录制模式已触发，请操作浏览器后按数字键标记步骤"}
+        import subprocess, os, signal
+        recorder_py = str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "mc" / "recorder.py")
+
+        proc = subprocess.Popen(
+            [sys.executable, recorder_py, account_id, platform],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,  # 独立进程组，不受看板重启影响
+        )
+        _RECORDING_PID_FILE.write_text(str(proc.pid))
+
+        return {"status": "ok", "account": account_id, "platform": platform,
+                "pid": proc.pid,
+                "message": f"录制进程已启动 (PID {proc.pid})，操作后按 `·` 标记步骤，Esc 结束保存"}
+    except Exception as e:
+        return {"status": "error", "message": f"录制启动失败: {e}"}
+
+
+@router.post("/record/stop")
+def api_matrix_record_stop():
+    """停止当前录制进程"""
+    if not _RECORDING_PID_FILE.exists():
+        return {"status": "ok", "message": "没有正在运行的录制"}
+    try:
+        pid = int(_RECORDING_PID_FILE.read_text().strip())
+        import os, signal
+        os.kill(pid, signal.SIGTERM)
+        _RECORDING_PID_FILE.unlink(missing_ok=True)
+        return {"status": "ok", "message": f"已发送停止信号 (PID {pid})"}
+    except ProcessLookupError:
+        _RECORDING_PID_FILE.unlink(missing_ok=True)
+        return {"status": "ok", "message": "录制进程已结束"}
+    except Exception as e:
+        return {"status": "error", "message": f"停止失败: {e}"}
+
+
+@router.get("/record/status")
+def api_matrix_record_status():
+    """查询录制进程状态"""
+    if not _RECORDING_PID_FILE.exists():
+        return {"running": False, "pid": None}
+    try:
+        pid = int(_RECORDING_PID_FILE.read_text().strip())
+        import os, signal
+        os.kill(pid, 0)
+        return {"running": True, "pid": pid}
+    except (ProcessLookupError, ValueError):
+        _RECORDING_PID_FILE.unlink(missing_ok=True)
+        return {"running": False, "pid": None}
 
 
 @router.get("/record/list")

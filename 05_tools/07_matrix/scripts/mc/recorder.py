@@ -581,7 +581,20 @@ def _cleanup_playwright_drivers():
 
 
 if __name__ == "__main__":
-    import sys
+    import sys, os, atexit
     account = sys.argv[1] if len(sys.argv) > 1 else "douyin_01"
     platform = sys.argv[2] if len(sys.argv) > 2 else "douyin"
+
+    # 退出时清理 PID 文件
+    pid_file = RECORDINGS_DIR.parent.parent.parent / "agent-local" / "runtime" / "recording.pid"
+    def _cleanup_pid():
+        if pid_file.exists():
+            try:
+                pid = int(pid_file.read_text().strip())
+                if pid == os.getpid():
+                    pid_file.unlink(missing_ok=True)
+            except:
+                pass
+    atexit.register(_cleanup_pid)
+
     asyncio.run(_run_interactive(account, platform))
