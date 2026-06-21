@@ -301,7 +301,7 @@ async function recordingStart() {
   try {
     var r = await fetch('/api/matrix/accounts/'+aid+'/record', {method:'POST'});
     var d = await r.json();
-    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--green)">🎬 录制中... 操作浏览器，然后按数字键 1~9 标记步骤 (0=结束并保存)</span>';
+    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--green)">🎬 录制中... 操作浏览器，然后按反引号 `·` 标记步骤（截图），Esc 结束保存</span>';
   } catch(e) {
     document.getElementById('recordStatus').innerHTML = '<span style="color:var(--green)">🎬 录制已启动（操作浏览器后按数字键标记步骤，0=结束）</span>';
   }

@@ -1,17 +1,15 @@
 """
-recorder.py — 原子操作录制引擎 (v1.0)
+recorder.py — 原子操作录制引擎 (v2.0)
 
 三阶段管线 Phase 1:
-  启动 Camoufox → 用户操作 → 按数字键标记步骤 → 
+  启动 Camoufox → 用户操作 → 反引号 `·` 标记步骤 / Esc 结束 → 
   系统自动捕获: URL + DOM + 截图 + CDP事件序列
 
 用法:
   from mc.recorder import RecordingSession
   session = RecordingSession("douyin_01")
   await session.start()
-  await session.record_step(1)  # 用户按1
-  # 用户操作...
-  await session.record_step(2)  # 用户按2
+  # 用户操作后在浏览器按 `·` 标记步骤，按 Esc 结束
   package = await session.stop()
 """
 import asyncio
@@ -111,8 +109,8 @@ class RecordingSession:
         print(f" 🎬 录制就绪！")
         print(f"   账号: {self.account_id}")
         print(f"   在浏览器中操作，然后按:")
-        print(f"     数字键 1-8 → 标记步骤")
-        print(f"     数字键 0   → 结束录制")
+        print(f"     反引号 `·` → 标记步骤（截图+状态指纹）")
+        print(f"     Esc         → 结束录制")
         print(f"{'='*55}\n")
 
     async def _inject_event_listener(self):
