@@ -102,9 +102,11 @@ def index():
         })
     return {"error": "index.html not found"}
 
-@app.on_event("startup")
-async def startup():
-    _register_plugins()
+# 注：_register_plugins() 已在模块导入时执行（第57行）
+# 移除重复的 @app.on_event("startup") 避免 uvicorn 0.48+ 不兼容
+# @app.on_event("startup")
+# async def startup():
+#     _register_plugins()
 
 # ═══════════════════════════════════════════════════════════
 # 联邦基础 API
