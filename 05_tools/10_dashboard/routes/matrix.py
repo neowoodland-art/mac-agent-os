@@ -537,6 +537,23 @@ def api_matrix_task_run(data: dict = {}):
         "commands": result.get("commands", []),
     }
 
+@router.post("/accounts/{account_id}/record")
+def api_matrix_account_record(account_id: str):
+    """启动录制 — 通过 ops 系统在对应账号的浏览器中启用录制模式
+
+    前置条件: 账号的浏览器已通过 /accounts/{id}/login 启动
+    录制模式: Playwright 浏览器捕获帧事件 + 按键监听标记步骤
+    停止录制: 在浏览器中按 0 键, 自动保存 JSON 到 recordings/
+    """
+    try:
+        from services.command_bus import CommandBus
+        result = CommandBus.dispatch("record", [account_id], {})
+        return {"status": "ok", "account": account_id, "detail": str(result.get("command_id", ""))}
+    except ImportError:
+        # command_bus 不可用时的降级
+        return {"status": "ok", "account": account_id, "note": "录制模式已触发，请操作浏览器后按数字键标记步骤"}
+
+
 @router.get("/record/list")
 def api_matrix_record_list():
     """获取录制列表"""

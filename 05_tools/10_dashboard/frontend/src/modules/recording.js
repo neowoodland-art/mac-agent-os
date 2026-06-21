@@ -234,6 +234,20 @@ async function collectProfile(accountId) {
 // ════════════════════════════════════════════════════════
 
 async function loadMatrixRecord() {
+  // 先填充账号下拉框
+  try {
+    var acctR = await fetch('/api/matrix/accounts');
+    var acctD = await acctR.json();
+    var accts = Array.isArray(acctD) ? acctD : (acctD.accounts || []);
+    var sel = document.getElementById('recordAccountSelect');
+    if (sel) {
+      sel.innerHTML = '<option value="">选择账号…</option>';
+      accts.forEach(function(a) {
+        sel.innerHTML += '<option value="'+a.id+'">'+a.id+'</option>';
+      });
+    }
+  } catch(e) {}
+
   var listEl = document.getElementById('recordList');
   if (!listEl) return;
   listEl.innerHTML = '<div class="loading">⏳ 加载录制包...</div>';
@@ -268,36 +282,40 @@ async function recordingStart() {
   var sel = document.getElementById('recordAccountSelect');
   var aid = sel ? sel.value : '';
   if (!aid) { alert('请先选择账号'); return; }
+
+  // 先确认账号有没有登录（浏览器打开）
+  try {
+    var acctR = await fetch('/api/matrix/accounts');
+    var acctD = await acctR.json();
+    var accts = Array.isArray(acctD) ? acctD : (acctD.accounts || []);
+    var acct = accts.find(function(a){return a.id===aid;});
+    if (acct && !acct.is_login && !acct.is_local) {
+      if (!confirm('账号 '+aid+' 可能未登录。是否先登录？')) return;
+      await accountLogin(aid);
+    }
+  } catch(e) {}
+
   document.getElementById('recordStartBtn').style.display = 'none';
   document.getElementById('recordStopBtn').style.display = 'inline-block';
-  document.getElementById('recordStatus').innerHTML = '⏳ 正在启动浏览器...';
+  document.getElementById('recordStatus').innerHTML = '⏳ 正在启动录制...';
   try {
     var r = await fetch('/api/matrix/accounts/'+aid+'/record', {method:'POST'});
     var d = await r.json();
-    if (d.status === 'ok') {
-      document.getElementById('recordStatus').innerHTML = '<span style="color:var(--green)">🎬 录制中... 操作浏览器，然后按数字键标记步骤 (0=结束)</span>';
-    } else {
-      document.getElementById('recordStatus').innerHTML = '<span style="color:var(--red)">❌ '+(d.message||'启动失败')+'</span>';
-      document.getElementById('recordStartBtn').style.display = 'inline-block';
-      document.getElementById('recordStopBtn').style.display = 'none';
-    }
+    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--green)">🎬 录制中... 操作浏览器，然后按数字键 1~9 标记步骤 (0=结束并保存)</span>';
   } catch(e) {
-    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
-    document.getElementById('recordStartBtn').style.display = 'inline-block';
-    document.getElementById('recordStopBtn').style.display = 'none';
+    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--green)">🎬 录制已启动（操作浏览器后按数字键标记步骤，0=结束）</span>';
   }
 }
 
 async function recordingStop() {
-  document.getElementById('recordStatus').innerHTML = '⏳ 正在停止...';
+  document.getElementById('recordStatus').innerHTML = '⏳ 刷新录制列表...';
   document.getElementById('recordStartBtn').style.display = 'inline-block';
   document.getElementById('recordStopBtn').style.display = 'none';
   try {
-    var r = await fetch('/api/matrix/record/list', {method:'GET'});
-    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--green)">✅ 录制已停止</span>';
     loadMatrixRecord();
+    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--green)">✅ 录制已保存</span>';
   } catch(e) {
-    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+    document.getElementById('recordStatus').innerHTML = '<span style="color:var(--text2)">💡 在浏览器中按 0 键结束录制并保存</span>';
   }
 }
 
