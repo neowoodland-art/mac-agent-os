@@ -607,7 +607,7 @@ def api_matrix_record_stop():
 def api_matrix_record_status():
     """查询录制进程状态"""
     if not _RECORDING_PID_FILE.exists():
-        return {"running": False, "pid": None}
+        return {"running": False, "status": "idle", "pid": None}
     try:
         pid = int(_RECORDING_PID_FILE.read_text().strip())
         import os, signal
@@ -616,6 +616,49 @@ def api_matrix_record_status():
     except (ProcessLookupError, ValueError):
         _RECORDING_PID_FILE.unlink(missing_ok=True)
         return {"running": False, "pid": None}
+
+
+# ═══════════════════════════════════════════════════════════
+# 录制 API — 别名兼容（编译产物用 /recordings/ 路径）
+# ═══════════════════════════════════════════════════════════
+
+@router.get("/recordings")
+def api_matrix_recordings_list():
+    """兼容别名: /recordings → /record/list"""
+    return api_matrix_record_list()
+
+@router.get("/recordings/status")
+def api_matrix_recordings_status():
+    """兼容别名: /recordings/status → /record/status"""
+    return api_matrix_record_status()
+
+@router.post("/recordings/start")
+def api_matrix_recordings_start(data: dict = {}):
+    """兼容别名: /recordings/start → /accounts/{id}/record"""
+    account = data.get("account", "")
+    if not account:
+        return {"status": "error", "message": "account 必填"}
+    return api_matrix_account_record(account)
+
+@router.post("/recordings/stop")
+def api_matrix_recordings_stop():
+    """兼容别名: /recordings/stop → /record/stop"""
+    return api_matrix_record_stop()
+
+@router.get("/recordings/{name}")
+def api_matrix_recordings_detail(name: str):
+    """兼容别名: /recordings/{name} → /record/detail/{name}"""
+    return api_matrix_record_detail(name)
+
+@router.post("/recordings/{name}/export")
+def api_matrix_recordings_export(name: str):
+    """兼容别名: /recordings/{name}/export → /record/export"""
+    return api_matrix_record_export({"name": name, "labels": []})
+
+@router.delete("/recordings/{name}")
+def api_matrix_recordings_delete(name: str):
+    """兼容别名: DELETE /recordings/{name} → /record/delete"""
+    return api_matrix_record_delete({"name": name})
 
 
 @router.get("/record/list")
