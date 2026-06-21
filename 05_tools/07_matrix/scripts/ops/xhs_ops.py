@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from ops._base import PlatformOps, OpResult
+from ops._base import PlatformOps, OpResult, Condition
 
 log = logging.getLogger(__name__)
 
@@ -49,6 +49,66 @@ class XhsOps(PlatformOps):
     def set_account_id(self, account_id: str):
         """设置当前账号ID，供写 profiles.json"""
         self._account_id = account_id
+
+    # ── 三段式操作模型 v2.0 ──────────────────────────────────
+
+    STATE_SELECTORS = [
+        'section.note-item',
+        '[class*="like"]',
+        '[class*="collect"]',
+        '[class*="follow"]',
+        'input[placeholder*="搜索"]',
+    ]
+
+    def _get_pre_conditions(self, op: str) -> list[Condition]:
+        conds = {
+            "xhs_like": [
+                Condition("page_mode", "page_mode", "player", message="需要在笔记详情页"),
+            ],
+            "xhs_collect": [
+                Condition("page_mode", "page_mode", "player", message="需要在笔记详情页"),
+            ],
+            "xhs_comment": [
+                Condition("page_mode", "page_mode", "player", message="需要在笔记详情页"),
+            ],
+            "xhs_follow": [
+                Condition("page_mode", "page_mode", "profile", message="需要在用户主页"),
+            ],
+            "xhs_scroll_feed": [
+                Condition("page_mode", "page_mode", "grid", message="需要在发现页"),
+            ],
+            "xhs_click_note": [
+                Condition("page_mode", "page_mode", "grid", message="需要在发现页"),
+            ],
+            "xhs_search": [
+                Condition("selector", 'input[placeholder*="搜索"]', True,
+                          message="需要搜索框可见"),
+            ],
+            "xhs_goto_home": [],
+            "xhs_browse": [],
+            "xhs_goto_profile": [],
+            "xhs_read_nickname": [],
+            "xhs_read_user_id": [],
+            "xhs_read_following": [],
+            "xhs_read_fans": [],
+            "xhs_read_likes": [],
+            "xhs_read_bio": [],
+            "wait_watch": [],
+            "go_back": [],
+        }
+        return conds.get(op, [])
+
+    def _get_post_conditions(self, op: str) -> list[Condition]:
+        conds = {
+            "xhs_goto_home": [
+                Condition("page_mode", "page_mode", "grid", message="应回到发现页"),
+            ],
+            "xhs_like": [
+                Condition("selector", '[class*="like"]', True,
+                          message="点赞按钮应仍在页面"),
+            ],
+        }
+        return conds.get(op, [])
 
     # ── PlatformOps 入口 ────────────────────────────────────
 
