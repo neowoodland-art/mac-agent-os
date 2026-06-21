@@ -412,12 +412,19 @@ def module_heartbeat():
     path.write_text(json.dumps(heartbeat, indent=2, ensure_ascii=False), encoding="utf-8")
 
     # ── 同时写入 v4 格式 status/live/{uid}.json (向后兼容) ──
-    live_dir = DIR_STATUS / "live"
-    live_dir.mkdir(parents=True, exist_ok=True)
     live_data = {**heartbeat, "_uid": MACHINE_UID, "_hostname": HOSTNAME,
                  "_received_at": datetime.now(timezone.utc).isoformat()}
-    (live_dir / f"{MACHINE_UID}.json").write_text(
-        json.dumps(live_data, indent=2, ensure_ascii=False), encoding="utf-8")
+    live_json = json.dumps(live_data, indent=2, ensure_ascii=False)
+
+    # 写入本地
+    live_dir_local = DIR_STATUS / "live"
+    live_dir_local.mkdir(parents=True, exist_ok=True)
+    (live_dir_local / f"{MACHINE_UID}.json").write_text(live_json, encoding="utf-8")
+
+    # 同时写入 cross_machine（Dashboard 读这个目录）
+    live_dir_cross = CROSS_MACHINE / "status" / "live"
+    live_dir_cross.mkdir(parents=True, exist_ok=True)
+    (live_dir_cross / f"{MACHINE_UID}.json").write_text(live_json, encoding="utf-8")
 
     # ── WPRA v2.0 心跳写入已移除（v4.2.0）──
     # 心跳数据仅写入：
