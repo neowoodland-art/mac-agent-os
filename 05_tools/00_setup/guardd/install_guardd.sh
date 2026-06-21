@@ -79,8 +79,10 @@ cat > "$PLIST_PATH" << EOF
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/usr/bin:/bin:${HOME}/.workbuddy/binaries/python/versions/3.13.12/bin</string>
+        <!-- GUARDD_DASHBOARD_URL 已废弃: 改为读 agent-local/config.yaml 中的 dashboard_url
         <key>GUARDD_DASHBOARD_URL</key>
         <string>http://localhost:9988</string>
+        -->
     </dict>
     <key>KeepAlive</key>
     <false/>
