@@ -775,6 +775,9 @@ def api_matrix_record_detail(name: str):
         "steps": steps,
         "analysis": analysis,
         "total_steps": len(steps),
+        "steps_analyzed": analysis.get("steps_analyzed", 0),
+        "actions": analysis.get("actions", []),
+        "blueprint_suggestions": analysis.get("blueprint_suggestions", []),
     }
 
 
