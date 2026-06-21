@@ -99,25 +99,32 @@ class GuarddPlugin(DashboardPlugin):
     # ═══════════════════════════════════════════════════════
 
     def _read_live_data(self):
-        """WPRA v2.0: 优先 machines/*/, 降级 status/live/"""
-        # WPRA 优先
-        wpra = self._read_wpra_heartbeats()
-        if wpra:
-            return wpra
+        """实时数据优先: HTTP Push 写入的 status/live/, 补充 WPRA machines/*/
 
-        # 降级: 旧 status/live/{uid}.json
+        双轨制 (v4.2.0):
+          - 远程机器通过 HTTP Push 实时推送心跳 → status/live/{uid}.json（主数据源）
+          - 本地 guardd 写入 → machines/{uid}/heartbeat.json（降级补充）
+          优先读取实时推送数据，WPRA 文件仅作补充（适用于未推送的机器）。
+        """
+        # 主数据源: HTTP Push 实时推送 → status/live/{uid}.json
         live_dir = CROSS_MACHINE / "status" / "live"
         data = {}
-        if not live_dir.exists():
-            return data
-        for f in live_dir.iterdir():
-            if f.suffix != ".json" or f.name.startswith("_"):
-                continue
-            try:
-                uid = f.name.replace(".json", "")
-                data[uid] = json.loads(f.read_text())
-            except:
-                pass
+        if live_dir.exists():
+            for f in live_dir.iterdir():
+                if f.suffix != ".json" or f.name.startswith("_"):
+                    continue
+                try:
+                    uid = f.name.replace(".json", "")
+                    data[uid] = json.loads(f.read_text())
+                except:
+                    pass
+
+        # 补充: WPRA machines/*/heartbeat.json（如 live 中没有该机器的数据）
+        wpra = self._read_wpra_heartbeats()
+        for uid, hb in wpra.items():
+            if uid not in data:
+                data[uid] = hb
+
         return data
 
     def _read_registry(self):
