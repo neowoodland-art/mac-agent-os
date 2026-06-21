@@ -661,6 +661,21 @@ def api_matrix_recordings_delete(name: str):
     return api_matrix_record_delete({"name": name})
 
 
+@router.get("/screenshot/{screenshot_path:path}")
+def api_matrix_screenshot(screenshot_path: str):
+    """提供录制截图访问（位于 agent-local，不在 web 根目录下）"""
+    from fastapi.responses import FileResponse
+    full_path = AGENT_LOCAL / "tools" / "matrix" / "recordings" / "screenshots" / screenshot_path
+    if not full_path.exists():
+        # 也可能是绝对路径
+        alt_path = Path(screenshot_path)
+        if alt_path.exists():
+            full_path = alt_path
+        else:
+            raise HTTPException(404, detail="截图不存在")
+    return FileResponse(str(full_path))
+
+
 @router.get("/record/list")
 def api_matrix_record_list():
     """获取录制列表"""
@@ -713,12 +728,21 @@ def api_matrix_record_detail(name: str):
     except Exception as e:
         analysis = {"error": str(e)}
 
-    # 组装返回
+    # 组装返回（截图路径转 API URL）
+    steps = pkg.get("steps", [])
+    for s in steps:
+        ss = s.get("screenshot", "")
+        if ss and os.path.exists(ss):
+            # 绝对路径 → /api/matrix/screenshot/ 相对URL
+            s["screenshot_url"] = f"/api/matrix/screenshot/{os.path.basename(ss)}"
+        else:
+            s["screenshot_url"] = ""
+
     return {
         "meta": pkg.get("meta", {}),
-        "steps": pkg.get("steps", []),
+        "steps": steps,
         "analysis": analysis,
-        "total_steps": len(pkg.get("steps", [])),
+        "total_steps": len(steps),
     }
 
 
