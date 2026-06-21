@@ -443,6 +443,11 @@ class MatrixPlugin(AgentOSPlugin):
             elif rest[i] == '--mix': mix_flag = '--mix'; i += 1
             elif rest[i] == '--daemon': daemon = True; i += 1
             elif rest[i] == '--keep': keep = True; i += 1
+            elif rest[i] == '--max-browsers' and i+1 < len(rest):
+                try:
+                    MAX_CONCURRENT = int(rest[i+1])
+                except: pass
+                i += 2
             else: i += 1
 
         if not accounts or not blueprints:
@@ -469,6 +474,7 @@ class MatrixPlugin(AgentOSPlugin):
         if mix_flag: cmd += [mix_flag]
         if daemon: cmd += ['--daemon']
         if keep: cmd += ['--keep']
+        if MAX_CONCURRENT != 3: cmd += ['--max-browsers', str(MAX_CONCURRENT)]
 
         # 后台运行
         log_dir = Path.home() / "workbuddy-agent-os" / "agent-local" / "runtime" / "commands"
