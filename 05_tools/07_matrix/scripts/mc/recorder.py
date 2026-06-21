@@ -102,6 +102,33 @@ class RecordingSession:
         await self.page.goto(target, timeout=30000, wait_until="domcontentloaded")
         await asyncio.sleep(4)
 
+        # ── 登录态检测 ──
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+            from auth_manager import check_login_by_dom
+            logged_in = await check_login_by_dom(self.page, self.platform)
+            if not logged_in:
+                print(f"⚠️  账号 {self.account_id} 未登录")
+                print(f"   请在浏览器中扫码登录，登录后按 Enter 继续...")
+                # 等用户登录——轮询检测每 3 秒一次
+                import select, sys as _sys
+                for i in range(60):  # 最多等 3 分钟
+                    if await check_login_by_dom(self.page, self.platform):
+                        print(f" ✅ 检测到登录成功!")
+                        break
+                    # 也允许按 Enter 跳过
+                    if i % 10 == 0:  # 每 30 秒提示一次
+                        print(f"   等待登录中... (剩余 {3-i//20} 分钟)")
+                    await asyncio.sleep(3)
+                else:
+                    print(f" ⏰ 等待超时，继续以未登录状态录制")
+            else:
+                print(f" ✅ 已登录")
+        except ImportError:
+            print(f" ⚠️  登录检测模块不可用，跳过")
+        except Exception as e:
+            print(f" ⚠️  登录检测异常: {e}")
+
         # 注入 JS 事件监听器（捕获键盘/鼠标事件到 window.__recorded_events）
         await self._inject_event_listener()
 
