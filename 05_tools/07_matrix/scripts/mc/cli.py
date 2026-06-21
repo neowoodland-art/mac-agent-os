@@ -158,6 +158,7 @@ def cmd_run(args):
         daemon=args.daemon,
         stagger=getattr(args, 'stagger', '15-30'),
         keep_open=getattr(args, 'keep', False),
+        max_browsers=getattr(args, 'max_browsers', 3),
     )
 
     try:
@@ -1218,6 +1219,7 @@ def build_parser(subparsers=None, plugin_name="mc"):
     p_run.add_argument("--rounds", type=int, default=10, help="每轮循环次数")
     p_run.add_argument("--interval", default="30-60", help="轮间隔范围(秒)")
     p_run.add_argument("--stagger", default="15-30", help="身份组间错峰延迟(秒)")
+    p_run.add_argument("--max-browsers", type=int, default=3, help="最大同时浏览器数(默认3)")
     p_run.add_argument("--corpus", default="", help="语料分类，逗号分隔")
     p_run.add_argument("--engine", default="auto", choices=["chrome", "camoufox", "auto"], help="浏览器引擎")
     p_run.add_argument("--mix", action="store_true", help="混合随机模式(每轮随机选蓝图)")
