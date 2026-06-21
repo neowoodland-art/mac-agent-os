@@ -542,26 +542,61 @@ _RECORDING_PID_FILE = AGENT_LOCAL / "runtime" / "recording.pid"
 
 @router.post("/accounts/{account_id}/record")
 def api_matrix_account_record(account_id: str):
-    """启动交互式录制（独立子进程）
+    """启动交互式录制（自动路由：本地 / 远程）
 
-    启动一个独立子进程运行录制引擎，不依赖看板生命周期。
+    检查账号归属机器，如果账号在远程机器上
+    则通过 federation 系统在远程启动录制。
     操作方式:
       - Playwright 浏览器自动打开目标平台
       - 浏览器中操作
       - 反引号 `·` 标记步骤（截图+状态指纹）
       - Esc 结束录制并保存
     """
-    # 检查是否有录制已在运行
+    # 检查账号是否在远程机器
+    _target_machine = None
+    try:
+        from services.command_bus import CommandBus
+        machines = CommandBus.get_all_machines_status()
+        for m in machines:
+            for a in (m.get("accounts") or []):
+                if a.get("id") == account_id:
+                    owner = a.get("owner_machine", "")
+                    if owner and owner != HOSTNAME:
+                        _target_machine = owner
+                    break
+    except:
+        pass
+
+    # 远程路由
+    if _target_machine:
+        import urllib.request, json as _json
+        payload = _json.dumps({
+            "machine": _target_machine,
+            "account": account_id,
+            "platform": "xiaohongshu" if account_id.startswith("xhs_") else "douyin"
+        }).encode()
+        try:
+            req = urllib.request.Request(
+                f"http://localhost:9988/api/federation/record",
+                data=payload, headers={"Content-Type": "application/json"}, method="POST"
+            )
+            resp = urllib.request.urlopen(req, timeout=10)
+            result = _json.loads(resp.read())
+            return {"status": "ok", "account": account_id, "machine": _target_machine,
+                    "message": f"远程录制已启动 ({_target_machine})，操作后按 `·` 标记，Esc 结束"}
+        except Exception as e:
+            return {"status": "error", "message": f"远程录制启动失败: {e}"}
+
+    # 本地执行
     if _RECORDING_PID_FILE.exists():
         try:
             pid = int(_RECORDING_PID_FILE.read_text().strip())
             import os, signal
-            os.kill(pid, 0)  # 检查进程是否存在
+            os.kill(pid, 0)
             return {"status": "ok", "message": f"已有录制进程在运行 (PID {pid})，请先结束再启动新录制"}
         except (ProcessLookupError, ValueError):
             _RECORDING_PID_FILE.unlink(missing_ok=True)
 
-    # 从 account_id 推断平台
     platform = "douyin"
     if account_id.startswith("xhs_"):
         platform = "xiaohongshu"
@@ -569,15 +604,12 @@ def api_matrix_account_record(account_id: str):
     try:
         import subprocess, os, signal
         recorder_py = str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "mc" / "recorder.py")
-
         proc = subprocess.Popen(
             [sys.executable, recorder_py, account_id, platform],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,  # 独立进程组，不受看板重启影响
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
         _RECORDING_PID_FILE.write_text(str(proc.pid))
-
         return {"status": "ok", "account": account_id, "platform": platform,
                 "pid": proc.pid,
                 "message": f"录制进程已启动 (PID {proc.pid})，操作后按 `·` 标记步骤，Esc 结束保存"}

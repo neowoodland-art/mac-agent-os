@@ -166,6 +166,12 @@ def exec_comment(machine: str, account_id: str, url: str, direction: str = "") -
     return exec_remote(machine, cmd, timeout=120)
 
 
+def exec_record(machine: str, account_id: str, platform: str = "douyin") -> dict:
+    """在远程机器启动交互式录制"""
+    cmd = f"cd $AGENT_SYNC/05_tools/07_matrix/scripts/mc && $MC_PYTHON recorder.py {account_id} {platform}"
+    return exec_remote(machine, cmd, timeout=30, fire_and_forget=True)
+
+
 def exec_nurture_stop(machine: str) -> dict:
     """停止远程机器的养号任务"""
     cmd = "pkill -f 'mc run' 2>/dev/null; pkill -f camoufox 2>/dev/null; echo 'stopped'"

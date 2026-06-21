@@ -1304,6 +1304,18 @@ async def api_federation_comment(data: dict):
     return exec_comment(machine, account, url, direction)
 
 
+@app.post("/api/federation/record")
+async def api_federation_record(data: dict):
+    """在远程机器启动录制"""
+    from services.remote_exec import exec_record
+    machine = data.get("machine", "")
+    account = data.get("account", "")
+    platform = data.get("platform", "douyin")
+    if not machine or not account:
+        return {"status": "error", "message": "machine/account 必填"}
+    return exec_record(machine, account, platform)
+
+
 @app.post("/api/federation/nurture-stop")
 async def api_federation_nurture_stop(data: dict):
     """停止远程机器的养号"""
