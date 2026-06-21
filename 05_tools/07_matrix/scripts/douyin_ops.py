@@ -7,7 +7,7 @@ import random
 import time
 from typing import Optional
 
-from ops._base import PlatformOps, OpResult
+from ops._base import PlatformOps, OpResult, Condition
 
 # ── 抖音 Web 选择器常量 ──────────────────────────────────────────
 SELECTORS = {
@@ -117,6 +117,68 @@ class DouyinOps(PlatformOps):
                 "dy_read_nickname", "dy_read_douyin_id",
                 "dy_read_following", "dy_read_fans",
                 "dy_read_likes", "dy_read_posts", "dy_read_bio"]
+
+    # ── 三段式操作模型 v2.0 ──────────────────────────────────
+
+    # 状态采集时检查的关键选择器
+    STATE_SELECTORS = [
+        '[data-e2e="video-player-digg"]',        # 点赞按钮
+        '[data-e2e="video-player-collect"]',      # 收藏按钮
+        '[data-e2e="feed-comment-icon"]',         # 评论图标
+        '[data-e2e="feed-follow-icon"]',          # 关注按钮
+        '[data-e2e="searchbar-input"]',           # 搜索框
+        'video',                                   # 视频元素
+    ]
+
+    def _get_pre_conditions(self, op: str) -> list[Condition]:
+        """每个操作的前置条件（三段式 v2.0）"""
+        conds = {
+            "like": [
+                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
+                Condition("selector", '[data-e2e="video-player-digg"]', True,
+                          message="需要点赞按钮可见"),
+            ],
+            "collect": [
+                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
+                Condition("selector", '[data-e2e="video-player-collect"]', True,
+                          message="需要收藏按钮可见"),
+            ],
+            "follow": [
+                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
+                Condition("selector", '[data-e2e="feed-follow-icon"]', True,
+                          message="需要关注按钮可见"),
+            ],
+            "goto_home": [],
+            "search": [
+                Condition("selector", '[data-e2e="searchbar-input"]', True,
+                          message="需要搜索框可见"),
+            ],
+            "open_comments": [
+                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
+            ],
+            "scroll_feed": [
+                Condition("page_mode", "page_mode", "grid", message="需要在 feed 流页"),
+            ],
+        }
+        return conds.get(op, [])
+
+    def _get_post_conditions(self, op: str) -> list[Condition]:
+        """每个操作的后置验证条件（三段式 v2.0）"""
+        conds = {
+            "like": [
+                Condition("selector", '[data-e2e="video-player-digg"]', True,
+                          message="点赞按钮应仍在页面"),
+            ],
+            "goto_home": [
+                Condition("page_mode", "page_mode", "grid",
+                          message="应回到 feed 首页"),
+            ],
+            "search": [
+                Condition("selector", '[data-e2e="searchbar-input"]', True,
+                          message="搜索框应仍可见"),
+            ],
+        }
+        return conds.get(op, [])
 
     async def _do_execute(self, op: str, args: dict, step_id: int) -> Optional[OpResult]:
         """实现 PlatformOps._do_execute — 操作分发"""
