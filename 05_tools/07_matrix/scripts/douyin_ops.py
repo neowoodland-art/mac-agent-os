@@ -133,6 +133,7 @@ class DouyinOps(PlatformOps):
     def _get_pre_conditions(self, op: str) -> list[Condition]:
         """每个操作的前置条件（三段式 v2.0）"""
         conds = {
+            # ── 视频播放页操作 ──
             "like": [
                 Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
                 Condition("selector", '[data-e2e="video-player-digg"]', True,
@@ -148,17 +149,63 @@ class DouyinOps(PlatformOps):
                 Condition("selector", '[data-e2e="feed-follow-icon"]', True,
                           message="需要关注按钮可见"),
             ],
+            "open_comments": [
+                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
+            ],
+            "close_comments": [
+                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
+            ],
+            "next_video": [
+                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
+            ],
+            "prev_video": [
+                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
+            ],
+            "post_comment": [
+                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
+            ],
+
+            # ── Feed 流页操作 ──
+            "scroll_feed": [
+                Condition("page_mode", "page_mode", "grid", message="需要在 feed 流页"),
+            ],
+            "click_search_result": [
+                Condition("page_mode", "page_mode", "search", message="需要在搜索结果页"),
+            ],
+
+            # ── 导航操作 ──
             "goto_home": [],
+            "goto_url": [],
             "search": [
                 Condition("selector", '[data-e2e="searchbar-input"]', True,
                           message="需要搜索框可见"),
             ],
-            "open_comments": [
-                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
-            ],
-            "scroll_feed": [
+            "open_video": [
                 Condition("page_mode", "page_mode", "grid", message="需要在 feed 流页"),
             ],
+            "search_browse": [
+                Condition("selector", '[data-e2e="searchbar-input"]', True,
+                          message="需要搜索框可见"),
+            ],
+
+            # ── 读操作（任何页面都能执行，失败不计）──
+            "dy_read_nickname": [],
+            "dy_read_douyin_id": [],
+            "dy_read_following": [],
+            "dy_read_fans": [],
+            "dy_read_likes": [],
+            "dy_read_posts": [],
+            "dy_read_bio": [],
+
+            # ── 无需条件的操作 ──
+            "wait_watch": [],
+            "wait": [],
+            "go_back": [],
+            "goto_profile": [],
+            "read_profile_field": [],
+            "read_my_comments": [],
+            "reply_comment": [],
+            "sms_login": [],
         }
         return conds.get(op, [])
 
