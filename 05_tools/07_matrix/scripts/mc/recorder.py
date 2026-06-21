@@ -511,82 +511,62 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
     step_counter = 0
     _manual_end = False
 
+    print(f"⌨️  在浏览器中按反引号 `·` 标记步骤, Esc 结束录制")
+    print(f"    无操作 {timeout_minutes} 分钟自动退出\n")
+
     try:
-        from pynput import keyboard
-
-        def on_release(key):
-            nonlocal last_activity, step_counter, _manual_end
-            try:
-                char = getattr(key, 'char', None)
-                # 反引号 `·` → 标记一步
-                if char == '`':
-                    step_counter += 1
-                    last_activity = loop.time()
-                    asyncio.run_coroutine_threadsafe(
-                        session.record_step(step_counter), loop
-                    )
-                    return True
-
-                # Esc → 结束录制
-                if key == keyboard.Key.esc:
-                    _manual_end = True
-                    asyncio.run_coroutine_threadsafe(
-                        session.stop(keep_open=True), loop
-                    )
-                    return False
-
-                return True
-            except:
-                return True
-
-        listener = keyboard.Listener(on_release=on_release)
-        listener.start()
-        print(f"⌨️  反引号 `·` 标记步骤, Esc 结束录制")
-        print(f"    无操作 {timeout_minutes} 分钟自动退出\n")
-
         while session._is_recording:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
+
+            # 从浏览器 JS 事件缓冲区读取按键
+            try:
+                key_pressed = await session.page.evaluate("""() => {
+                    const buf = window.__recorded_events || [];
+                    for (let i = buf.length - 1; i >= 0; i--) {
+                        const e = buf[i];
+                        if (e && e.t === 'key') {
+                            if (e.k === '`') return 'step';
+                            if (e.k === 'Escape') return 'quit';
+                        }
+                    }
+                    return '';
+                }""")
+            except:
+                key_pressed = ''
+
+            if key_pressed == 'step':
+                step_counter += 1
+                last_activity = loop.time()
+                await session.record_step(step_counter)
+                print(f"  ✅ 第{step_counter}步已记录")
+
+            elif key_pressed == 'quit':
+                _manual_end = True
+                print(f"\n  🛑 结束录制...")
+                await session.stop(keep_open=True)
+                break
+
+            # 超时检查
             if loop.time() - last_activity > timeout_seconds:
                 print(f"\n⏰ 无操作超过 {timeout_minutes} 分钟，自动退出")
                 await session.stop(keep_open=False)
                 break
 
-        listener.stop()
-        print(f"\n✅ 录制结束, 共 {step_counter} 步")
-
-    except ImportError:
-        print("⚠️ pynput 不可用，使用终端模式 (每操作一步按一次 Enter)")
-        print("   输入 q + Enter 结束录制\n")
-        try:
-            import sys, select
-            while session._is_recording:
-                # 非阻塞读 stdin
-                r, _, _ = select.select([sys.stdin], [], [], 1.0)
-                if r:
-                    line = sys.stdin.readline().strip()
-                    if line == 'q':
-                        _manual_end = True
-                        break
-                    step_counter += 1
-                    await session.record_step(step_counter)
-                    print(f"   ✅ 已记录 第{step_counter}步, 继续操作后按 Enter...")
-        except Exception:
-            pass
-        finally:
-            if not _manual_end:
-                await session.stop()
+        if not _manual_end and session._is_recording:
+            await session.stop()
 
     except Exception as e:
         print(f"\n⚠️ 录制异常: {e}")
-        # 异常不关闭浏览器（保持打开便于排查）
         print(f"   浏览器保持打开状态, 可手动操作或关闭")
-        return  # 不调用 session.stop(), 保持浏览器
+        return
 
     finally:
         if keep_open and _manual_end:
             print(f"\n🔓 录制已完成, 浏览器保持打开 (可继续查看或手动关闭)")
         elif not keep_open:
             _cleanup_playwright_drivers()
+
+    print(f"\n✅ 录制结束, 共 {step_counter} 步")
 
 
 def _cleanup_playwright_drivers():
