@@ -259,7 +259,7 @@ agentos --version
 
 ## 八、guardd 守护进程运维
 
-guardd 是 AgentOS 联邦多机协同守护进程，每 300 秒执行一轮 7 模块循环（心跳/任务/版本/记忆/知识/加密/清理）。
+guardd 是 AgentOS 联邦多机协同守护进程，每 300 秒执行一轮 9 模块循环（心跳/dashboard同步/任务/版本/记忆/知识/加密/git同步/清理）。
 
 ### 安装
 
@@ -306,7 +306,7 @@ cat ~/workbuddy-agent-os/agent-local/runtime/guardd/guardd.log
 cat ~/workbuddy-agent-os/agent-local/runtime/guardd/errors.log
 ```
 
-### 7 模块说明
+### 9 模块说明
 
 | 模块 | 职责 | 输出 |
 |------|------|------|

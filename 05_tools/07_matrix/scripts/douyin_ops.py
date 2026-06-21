@@ -64,7 +64,7 @@ SELECTORS = {
 KEYS = {
     "like":       "z",
     "comment":    "x",
-    "follow":     "f",
+    "follow":     "g",
     "danmaku":    "b",
     "play_pause": "Space",
     "prev":       "ArrowUp",
@@ -111,7 +111,12 @@ class DouyinOps(PlatformOps):
                 "next_video", "prev_video", "search", "wait_watch",
                 "scroll_feed", "open_video", "wait", "go_back",
                 "goto_profile", "read_profile_field", "read_my_comments",
-                "reply_comment", "search_browse", "sms_login"]
+                "reply_comment", "search_browse", "sms_login",
+                "click_search_result",
+                "dy_goto_profile",
+                "dy_read_nickname", "dy_read_douyin_id",
+                "dy_read_following", "dy_read_fans",
+                "dy_read_likes", "dy_read_posts", "dy_read_bio"]
 
     async def _do_execute(self, op: str, args: dict, step_id: int) -> Optional[OpResult]:
         """实现 PlatformOps._do_execute — 操作分发"""
@@ -152,15 +157,12 @@ class DouyinOps(PlatformOps):
             return OpResult(op, step_id, ok, "➕" if ok else "-", time.time()-t0)
 
         if op == "open_comments":
-            page_url = self.page.url
-            is_full = "/video/" in page_url and "modal_id" not in page_url
-            if is_full:
-                await self.page.evaluate("""() => {
-                    const list = document.querySelector('[data-e2e="comment-list"]');
-                    if (list && list.offsetParent !== null) list.scrollIntoView({behavior:'instant',block:'start'});
-                }""")
-                await asyncio.sleep(3)
-                return OpResult(op, step_id, True, "scrolled", time.time()-t0)
+            state = await self._detect_page_state()
+            # 只检查 player 相关状态
+            if state not in ('player', 'player_full', 'player_modal'):
+                # 不在播放页 → 无法打开评论区
+                return OpResult(op, step_id, False, f"not_player({state})", time.time()-t0)
+            # x 键打开（旧版成功的方法）
             ok = await self.open_comments(step_id=step_id)
             await asyncio.sleep(3)
             return OpResult(op, step_id, ok, "opened" if ok else "not_found", time.time()-t0)
@@ -181,9 +183,8 @@ class DouyinOps(PlatformOps):
             return OpResult(op, step_id, True, "closed", time.time()-t0)
 
         if op == "next_video":
-            await self.page.keyboard.press("ArrowDown")
-            await asyncio.sleep(2)
-            return OpResult(op, step_id, True, "⬇️", time.time()-t0)
+            ok = await self.next_video(step_id=step_id)
+            return OpResult(op, step_id, ok, "⬇️" if ok else "-", time.time()-t0)
 
         if op == "prev_video":
             await self.page.keyboard.press("ArrowUp")
@@ -192,6 +193,10 @@ class DouyinOps(PlatformOps):
 
         if op == "search":
             kw = args.get("keyword", "热门推荐")
+            if kw == "@random":
+                import random as _r
+                kw = _r.choice(["穿搭推荐","美食日常","旅行攻略","电影解说","科技数码",
+                                "宠物搞笑","健身教程","音乐推荐","美妆教程","家居好物"])
             ok = await self.search(kw, step_id=step_id)
             return OpResult(op, step_id, ok, f"{kw[:10]}", time.time()-t0)
 
@@ -206,11 +211,37 @@ class DouyinOps(PlatformOps):
             return OpResult(op, step_id, True, "scroll", time.time()-t0)
 
         if op == "open_video":
-            card = self.page.locator('.discover-video-card-item').first
-            if await card.count() > 0:
+            """进入视频播放页"""
+            t0 = time.time()
+            # 先查：已在播放页则跳过
+            if await self.page.locator('video').count() > 0:
+                await self._ensure_video_focused()
+                return OpResult(op, step_id, True, "already_player", time.time()-t0)
+            
+            # 导航到首页
+            await self.page.goto("https://www.douyin.com/?recommend=1", timeout=20000, wait_until="domcontentloaded")
+            await asyncio.sleep(4)
+            
+            # 找卡片双击
+            for attempt in range(3):
+                card = self.page.locator('.discover-video-card-item, a[href*="/video/"], [class*="video-card"]').first
+                for _ in range(10):
+                    if await card.count() > 0:
+                        break
+                    await asyncio.sleep(1)
+                    card = self.page.locator('.discover-video-card-item, a[href*="/video/"], [class*="video-card"]').first
+                if await card.count() == 0:
+                    continue
+                await card.click()
+                await asyncio.sleep(1)
                 await card.click()
                 await asyncio.sleep(3)
-            return OpResult(op, step_id, True, "video", time.time()-t0)
+                if await self.page.locator('video').count() > 0:
+                    await self._ensure_video_focused()
+                    return OpResult(op, step_id, True, "video_detail", time.time()-t0)
+                await self.page.goto("https://www.douyin.com/?recommend=1", timeout=15000, wait_until="domcontentloaded")
+                await asyncio.sleep(3)
+            return OpResult(op, step_id, False, "no_card", time.time()-t0)
 
         if op == "wait":
             await asyncio.sleep(args.get("seconds", 2))
@@ -246,6 +277,11 @@ class DouyinOps(PlatformOps):
             if _rnd.random() < 0.6: await self.like(step_id=step_id)
             if _rnd.random() < 0.2: await self.collect(step_id=step_id)
             return OpResult(op, step_id, True, "searched+browsed", time.time()-t0)
+
+        if op == "click_search_result":
+            index = args.get("index", 0)
+            ok = await self.click_search_result(index=index, step_id=step_id)
+            return OpResult(op, step_id, ok, "clicked" if ok else "no_result", time.time()-t0)
 
         # dy_* 系列操作（read_profile 蓝图用）
         if op == "dy_goto_profile":
@@ -308,12 +344,23 @@ class DouyinOps(PlatformOps):
         await asyncio.sleep(base + random.uniform(-jitter, jitter))
 
     async def _click_selector(self, selector: str, timeout: int = 5000) -> bool:
-        """安全点击选择器"""
+        """安全点击选择器 — 先用 Playwright 原生点击，失败后 JS 兜底"""
         try:
+            # 策略1: Playwright 原生点击（实时鼠标事件）
             el = self.page.locator(selector)
             if await el.count() > 0:
                 await el.first.click(timeout=timeout)
                 return True
+        except Exception:
+            pass
+        # 策略2: JS click 兜底（绕过可见性检查）
+        try:
+            clicked = await self.page.evaluate(f"""() => {{
+                var el = document.querySelector('{selector.replace("'", "\\'")}');
+                if (el) {{ el.click(); return true; }}
+                return false;
+            }}""")
+            return clicked
         except Exception:
             pass
         return False
@@ -330,7 +377,73 @@ class DouyinOps(PlatformOps):
                 )
                 await asyncio.sleep(0.2)
 
-    # ── 导航类原子操作 ──────────────────────────────────────────
+    # ── 状态检测 ──────────────────────────────────────────────
+
+    async def _detect_page_state(self) -> str:
+        """检测当前页面状态（参考旧版 _detect_page_state + _check_anchor）
+        
+        Returns:
+            'grid' — 首页feed（有卡片列表）
+            'player_modal' — 弹窗播放（jingxuan?modal_id=xxx）
+            'player_full' — 独立播放页（/video/xxx）
+            'search' — 搜索页
+            'profile' — 个人主页
+            'unknown' — 未知
+        """
+        try:
+            url = self.page.url
+            vc = await self.page.evaluate("document.querySelectorAll('video').length")
+            cards = await self.page.evaluate(
+                "document.querySelectorAll('.discover-video-card-item, [class*=\"video-card\"], "
+                "[data-e2e=\"alink-item\"]').length"
+            )
+            has_search = '/search/' in url
+            
+            if vc > 0 and '/video/' in url:
+                return 'player_full'
+            if vc > 0 and 'modal_id' in url:
+                return 'player_modal'
+            if vc > 0:
+                return 'player'
+            if has_search:
+                return 'search'
+            if '/user/' in url:
+                return 'profile'
+            if cards > 0 or '/jingxuan' in url:
+                return 'grid'
+            return 'unknown'
+        except:
+            return 'unknown'
+
+    async def _check_anchor(self, anchor_type: str, timeout: float = 3.0) -> bool:
+        """检测页面锚点（参考旧版 _check_anchor）"""
+        try:
+            import asyncio
+            if anchor_type == 'video_page':
+                vc = await asyncio.wait_for(
+                    self.page.evaluate("document.querySelectorAll('video').length"),
+                    timeout=timeout
+                )
+                return vc > 0
+            elif anchor_type == 'home_page':
+                has_cards = await asyncio.wait_for(
+                    self.page.evaluate(
+                        "document.querySelectorAll('.discover-video-card-item, "
+                        "[class*=\"video-card\"]').length > 0"
+                    ), timeout=timeout
+                )
+                return has_cards
+            elif anchor_type == 'has_videos':
+                links = await asyncio.wait_for(
+                    self.page.evaluate(
+                        "document.querySelectorAll('a[href*=\"/video/\"], "
+                        "[href*=\"modal_id\"]').length > 0"
+                    ), timeout=timeout
+                )
+                return links
+        except:
+            pass
+        return False
 
     async def goto_home(self, step_id: int = 0) -> bool:
         """AO_NAV: 回到推荐页（固定起点）"""
@@ -394,62 +507,36 @@ class DouyinOps(PlatformOps):
     # ── 互动类原子操作 ──────────────────────────────────────────
 
     async def like(self, step_id: int = 0, probability: float = 1.0) -> bool:
-        """AO_LIKE: 点赞当前视频（点击选择器，非Z键）
+        """AO_LIKE: 点赞当前视频 — 键盘 z + DOM 双击兜底
         probability: 概率控制，0-1之间，默认1.0（必定执行）
         """
         if not self._check_rate("like"):
-            return True  # 频率到顶，跳过
-        # 概率控制
+            return True
         if probability < 1.0 and random.random() > probability:
-            return True  # 随机跳过
+            return True
         t0 = time.time()
-        selector = SELECTORS['digg']
         try:
-            # 检查当前状态
-            state = await self.page.evaluate('''
-                () => {
-                    const d = document.querySelector('[data-e2e="video-player-digg"]');
-                    return d ? d.getAttribute('data-e2e-state') : null;
-                }
-            ''')
-            if state and 'digged' in state and 'no-' not in state:
-                # 已赞，跳过
-                await self._log_op(step_id, "AO_LIKE", selector, True, int((time.time()-t0)*1000))
-                return True
-
-            # 点击点赞
-            ok = await self._click_selector(selector)
-            if ok:
-                self._action_counts["like"] += 1
-                await self._wait(0.5 + random.uniform(0, 1))
-                # 验证
-                new_state = await self.page.evaluate('''
-                    () => {
-                        const d = document.querySelector('[data-e2e="video-player-digg"]');
-                        return d ? d.getAttribute('data-e2e-state') : null;
-                    }
-                ''')
-                dur = int((time.time() - t0) * 1000)
-                await self._log_op(step_id, "AO_LIKE", selector, True, dur)
-                return True
-            else:
-                dur = int((time.time() - t0) * 1000)
-                await self._log_op(step_id, "AO_LIKE", selector, False, dur, "元素未找到")
-                return False
+            # 策略1: 键盘 Z（抖音 feed 流/详情页通用）
+            await self._ensure_video_focused()
+            await self.page.keyboard.press(KEYS['like'])
+            await self._wait(0.5 + random.uniform(0, 1))
+            self._action_counts["like"] += 1
+            dur = int((time.time() - t0) * 1000)
+            await self._log_op(step_id, "AO_LIKE", "keyboard_z", True, dur)
+            return True
         except Exception as e:
-            await self._log_op(step_id, "AO_LIKE", selector, False, int((time.time()-t0)*1000), str(e))
+            dur = int((time.time() - t0) * 1000)
+            await self._log_op(step_id, "AO_LIKE", "keyboard_z", False, dur, str(e))
             return False
 
     async def collect(self, step_id: int = 0, probability: float = 1.0) -> bool:
-        """AO_COLLECT: 收藏当前视频
-        probability: 概率控制，0-1之间，默认1.0（必定执行）
-        """
+        """AO_COLLECT: 收藏当前视频（DOM+JS+坐标3层兜底）"""
         if not self._check_rate("collect"):
             return True
-        # 概率控制
         if probability < 1.0 and random.random() > probability:
-            return True  # 随机跳过
+            return True
         t0 = time.time()
+        # 策略1: DOM选择器
         selector = SELECTORS['collect']
         try:
             ok = await self._click_selector(selector)
@@ -459,19 +546,50 @@ class DouyinOps(PlatformOps):
                 dur = int((time.time() - t0) * 1000)
                 await self._log_op(step_id, "AO_COLLECT", selector, True, dur)
                 return True
-            else:
+        except:
+            pass
+        # 策略2: JS找包含"收藏"文字或collect/save类名的元素
+        try:
+            clicked = await self.page.evaluate("""() => {
+                const all = document.querySelectorAll('button, span, div, [class*="collect"], [class*="save"]');
+                for (const el of all) {
+                    const t = el.textContent || '';
+                    const c = el.className || '';
+                    if ((t.includes('收藏') || c.includes('collect') || c.includes('save')) && el.offsetParent) {
+                        el.click(); return true;
+                    }
+                }
+                return false;
+            }""")
+            if clicked:
+                self._action_counts["collect"] += 1
                 dur = int((time.time() - t0) * 1000)
-                await self._log_op(step_id, "AO_COLLECT", selector, False, dur, "元素未找到")
-                return False
-        except Exception as e:
-            await self._log_op(step_id, "AO_COLLECT", selector, False, int((time.time()-t0)*1000), str(e))
-            return False
+                await self._log_op(step_id, "AO_COLLECT", "js_search", True, dur)
+                return True
+        except:
+            pass
+        # 策略3: 坐标兜底（点赞右边70px）
+        try:
+            like = self.page.locator('[data-e2e="video-player-digg"]')
+            if await like.count() > 0:
+                box = await like.first.bounding_box()
+                if box:
+                    await self.page.mouse.click(box['x'] + 70, box['y'])
+                    await self._wait(0.5)
+                    self._action_counts["collect"] += 1
+                    dur = int((time.time() - t0) * 1000)
+                    await self._log_op(step_id, "AO_COLLECT", "coordinate", True, dur)
+                    return True
+        except:
+            pass
+        return False
 
     async def follow(self, step_id: int = 0) -> bool:
-        """AO_FOLLOW: 关注当前视频作者"""
+        """AO_FOLLOW: 关注当前视频作者（DOM点击+键盘g兜底）"""
         if not self._check_rate("follow"):
             return True
         t0 = time.time()
+        # 策略1: DOM点击
         selector = SELECTORS['follow']
         try:
             ok = await self._click_selector(selector)
@@ -481,10 +599,17 @@ class DouyinOps(PlatformOps):
                 dur = int((time.time() - t0) * 1000)
                 await self._log_op(step_id, "AO_FOLLOW", selector, True, dur)
                 return True
-            else:
-                dur = int((time.time() - t0) * 1000)
-                await self._log_op(step_id, "AO_FOLLOW", selector, False, dur, "元素未找到")
-                return False
+        except:
+            pass
+        # 策略2: 键盘 g（录制发现用户用 g 键关注）
+        try:
+            await self._ensure_video_focused()
+            await self.page.keyboard.press(KEYS['follow'])
+            await self._wait(1 + random.uniform(0, 1))
+            self._action_counts["follow"] += 1
+            dur = int((time.time() - t0) * 1000)
+            await self._log_op(step_id, "AO_FOLLOW", "keyboard_g", True, dur)
+            return True
         except Exception as e:
             await self._log_op(step_id, "AO_FOLLOW", selector, False, int((time.time()-t0)*1000), str(e))
             return False
@@ -656,8 +781,40 @@ class DouyinOps(PlatformOps):
             await editor.press_sequentially(text, delay=random.uniform(50, 100))
             await self._wait(0.3 + random.uniform(0, 0.5))
 
-            # 4. 发送
-            await self.page.keyboard.press('Enter')
+            # 4. 发送（先找发送按钮，失败则Enter）
+            sent = False
+            for attempt in range(3):
+                send_btn = await self.page.evaluate("""() => {
+                    const btns = Array.from(document.querySelectorAll('button, [class*="send"], [class*="submit"]'));
+                    const btn = btns.find(b =>
+                        (b.textContent || '').includes('发送')
+                        || (b.textContent || '').includes('发布')
+                        || b.className.includes('send')
+                        || b.className.includes('submit')
+                        || (b.querySelector('svg') && b.className.includes('arrow'))
+                    );
+                    if (btn) { btn.click(); return true; }
+                    return false;
+                }""")
+                if send_btn:
+                    sent = True
+                    break
+                await self.page.keyboard.press('Enter')
+                await self._wait(1)
+                # 验证：评论是否出现在列表
+                appeared = await self.page.evaluate(
+                    f"() => {{ const l = document.querySelector('[data-e2e=\"comment-list\"]'); return l ? l.textContent.includes('{text[:10]}') : false; }}"
+                )
+                if appeared:
+                    sent = True
+                    break
+                await self._wait(1)
+            
+            if not sent:
+                dur = int((time.time() - t0) * 1000)
+                await self._log_op(step_id, "AO_COMMENT", "send_fallback", False, dur, "所有发送方式均失败")
+                return 'failed'
+            
             self._action_counts["comment"] += 1
             await self._wait(1.5)
 

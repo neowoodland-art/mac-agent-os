@@ -82,6 +82,12 @@ if [ -f "$CORE_DIR/IDENTITY.md" ]; then
     ok "IDENTITY.md 已部署"
 fi
 
+# CONSTITUTION.md（架构宪法，按需加载）
+if [ -f "$AGENT_OS_ROOT/CONSTITUTION.md" ]; then
+    cp "$AGENT_OS_ROOT/CONSTITUTION.md" "$WORKBUDDY_DIR/CONSTITUTION.md"
+    ok "CONSTITUTION.md 已部署（架构宪法，WorkBuddy AI 按需加载）"
+fi
+
 # USER.md
 if [ -f "$CORE_DIR/USER.md" ]; then
     cp "$CORE_DIR/USER.md" "$WORKBUDDY_DIR/USER.md"

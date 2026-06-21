@@ -150,6 +150,26 @@ class RecordingSession:
                     });
                 }, true);
 
+                // 监听鼠标悬浮（元素边界变化时记录，不会产生大量事件）
+                document.addEventListener('mouseover', (e) => {
+                    const t = e.target;
+                    const tag = (t.tagName || '').toLowerCase();
+                    const txt = (t.textContent || '').trim().slice(0, 20);
+                    const cls = (t.className && typeof t.className === 'string') ? t.className.slice(0,25) : '';
+                    // 只记录有意义的悬浮：按钮/链接/菜单等
+                    if (['a','button','li','span','div','img'].includes(tag) && (txt || cls)) {
+                        window.__recorded_events.push({
+                            t: 'hover',
+                            tag: tag,
+                            text: txt,
+                            cls: cls,
+                            x: e.clientX,
+                            y: e.clientY,
+                            ts: Date.now()
+                        });
+                    }
+                }, true);
+
                 // 监听鼠标滚轮
                 document.addEventListener('wheel', (e) => {
                     window.__recorded_events.push({
@@ -202,24 +222,25 @@ class RecordingSession:
             state = await self.page.evaluate("""() => {
                 const text = (document.body.innerText || '').trim();
 
-                // 收集页面上所有可见的可交互元素
+                // 收集页面上所有可见的可交互元素（包括弹层里的）
                 const interactables = [];
-                const selectors = ['button', 'a', 'input', 'textarea',
-                    '[contenteditable]', '[data-e2e]', '[class*="btn"]', '[class*="tab"]',
-                    'video', 'audio', '[role="button"]', '[role="link"]'];
                 const found = new Set();
-                document.querySelectorAll(selectors.join(',')).forEach(el => {
+                // 获取所有可见元素（不限制选择器）
+                const allEls = document.querySelectorAll('input, button, a, textarea, [contenteditable], [tabindex], [role="button"], [role="link"], [data-e2e], select, [class*="btn"], [class*="tab"]');
+                allEls.forEach(el => {
                     const r = el.getBoundingClientRect();
                     if (r.width > 0 && r.height > 0 && r.top < window.innerHeight) {
-                        const key = el.tagName + (el.className && typeof el.className === 'string' ? el.className.slice(0,20) : '');
+                        const key = el.tagName + (typeof el.className === 'string' ? el.className.slice(0,20) : '');
                         if (!found.has(key)) {
                             found.add(key);
                             const e2e = el.getAttribute && el.getAttribute('data-e2e');
                             interactables.push({
                                 tag: el.tagName.toLowerCase(),
-                                text: (el.textContent||'').trim().slice(0,30),
-                                cls: (el.className && typeof el.className === 'string') ? el.className.slice(0,40) : '',
+                                text: (el.textContent||'').trim().slice(0,35),
+                                cls: (typeof el.className === 'string') ? el.className.slice(0,50) : '',
                                 e2e: e2e || '',
+                                placeholder: el.getAttribute ? (el.getAttribute('placeholder') || '') : '',
+                                type: el.getAttribute ? (el.getAttribute('type') || '') : '',
                                 rect: `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.w)}x${Math.round(r.h)}`,
                                 vis: r.top < window.innerHeight && r.left < window.innerWidth
                             });
@@ -227,10 +248,30 @@ class RecordingSession:
                     }
                 });
 
+                // 额外：专门查找所有 input（可能是登录浮层里的）
+                const allInputs = document.querySelectorAll('input');
+                allInputs.forEach(el => {
+                    const r = el.getBoundingClientRect();
+                    const key = 'INPUT_extra_' + (el.placeholder || '') + (el.className || '');
+                    if (r.width > 0 && r.height > 0 && !found.has(key)) {
+                        found.add(key);
+                        interactables.push({
+                            tag: 'input',
+                            text: '',
+                            cls: (typeof el.className === 'string') ? el.className.slice(0,50) : '',
+                            e2e: el.getAttribute ? (el.getAttribute('data-e2e') || '') : '',
+                            placeholder: el.getAttribute ? (el.getAttribute('placeholder') || '') : '',
+                            type: el.getAttribute ? (el.getAttribute('type') || '') : '',
+                            rect: `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.w)}x${Math.round(r.h)}`,
+                            vis: true
+                        });
+                    }
+                });
+
                 return {
                     url: window.location.href,
                     title: document.title,
-                    text_snippet: text.slice(0, 2000),
+                    text_snippet: text.slice(0, 4000),
                     interactable_count: interactables.length,
                     interactables: interactables.slice(0, 50),
                     viewport: `${window.innerWidth}x${window.innerHeight}`,
@@ -273,8 +314,12 @@ class RecordingSession:
 
         return step_data
 
-    async def stop(self) -> dict:
-        """结束录制——打包保存"""
+    async def stop(self, keep_open: bool = True) -> dict:
+        """结束录制——打包保存
+
+        Args:
+            keep_open: 是否保持浏览器打开（默认 True）
+        """
         self._is_recording = False
 
         package = {
@@ -300,13 +345,15 @@ class RecordingSession:
         print(f"   {package['meta']['total_steps']} 步, "
               f"耗时 {package['meta']['duration']}s")
 
-        # 关闭浏览器
-        if self.conn:
+        # 关闭浏览器（keep_open=False 时才关）
+        if self.conn and not keep_open:
             try:
                 await self.conn.close()
                 print("🛑 浏览器已关闭")
             except:
                 pass
+        elif self.conn and keep_open:
+            print("🔓 浏览器保持打开状态")
 
         return package
 
@@ -369,93 +416,106 @@ class RecordingSession:
 
 
 # ── 独立运行（热键监听模式）──
-async def _run_interactive(account_id: str, platform: str, timeout_minutes: int = 60):
-    """交互式录制——监听键盘数字键
-    
+async def _run_interactive(account_id: str, platform: str, timeout_minutes: int = 60,
+                           keep_open: bool = True):
+    """交互式录制——反引号标记步骤, Esc 结束
+
+    操作方式:
+      - 在浏览器窗口中操作
+      - 每完成一个动作 → 按反引号 `·` 键标记一步
+      - Esc → 结束录制
+      - 无操作超时自动退出
+
     Args:
         account_id: 账号 ID
         platform: 平台 (douyin/xiaohongshu)
-        timeout_minutes: 无操作超时分钟 (默认 60，超时自动退出清理)
+        timeout_minutes: 无操作超时分钟
+        keep_open: 录制结束后是否保持浏览器打开
     """
     session = RecordingSession(account_id, platform)
     await session.start()
     loop = asyncio.get_running_loop()
     timeout_seconds = timeout_minutes * 60
     last_activity = loop.time()
+    step_counter = 0
+    _manual_end = False
 
     try:
         from pynput import keyboard
-        DIGIT_VK = {18:1, 19:2, 20:3, 21:4, 23:5, 22:6, 26:7, 28:8, 25:9, 29:0}
 
         def on_release(key):
-            nonlocal last_activity
+            nonlocal last_activity, step_counter, _manual_end
             try:
-                n = None
-                if hasattr(key, 'vk') and key.vk in DIGIT_VK:
-                    n = DIGIT_VK[key.vk]
-                elif hasattr(key, 'char') and key.char and key.char.isdigit():
-                    n = int(key.char)
-
-                if n is None:
+                char = getattr(key, 'char', None)
+                # 反引号 `·` → 标记一步
+                if char == '`':
+                    step_counter += 1
+                    last_activity = loop.time()
+                    asyncio.run_coroutine_threadsafe(
+                        session.record_step(step_counter), loop
+                    )
                     return True
 
-                last_activity = loop.time()  # 更新最后活动时间
+                # Esc → 结束录制
+                if key == keyboard.Key.esc:
+                    _manual_end = True
+                    asyncio.run_coroutine_threadsafe(
+                        session.stop(keep_open=True), loop
+                    )
+                    return False
 
-                if 1 <= n <= 8:
-                    asyncio.run_coroutine_threadsafe(
-                        session.record_step(n), loop
-                    )
-                elif n == 0:
-                    asyncio.run_coroutine_threadsafe(
-                        session.stop(), loop
-                    )
-                    return False  # 告诉 pynput 停止监听
                 return True
             except:
                 return True
 
         listener = keyboard.Listener(on_release=on_release)
         listener.start()
-        print(f"⌨️ 数字键 1-8 标记步骤, 0 结束 (无操作 {timeout_minutes} 分钟自动退出)\n")
+        print(f"⌨️  反引号 `·` 标记步骤, Esc 结束录制")
+        print(f"    无操作 {timeout_minutes} 分钟自动退出\n")
 
         while session._is_recording:
             await asyncio.sleep(1)
-            # 超时检查
             if loop.time() - last_activity > timeout_seconds:
                 print(f"\n⏰ 无操作超过 {timeout_minutes} 分钟，自动退出")
-                await session.stop()
+                await session.stop(keep_open=False)
                 break
 
         listener.stop()
-        print("✅ 录制结束")
+        print(f"\n✅ 录制结束, 共 {step_counter} 步")
 
     except ImportError:
-        print("⚠️ pynput 不可用，使用终端输入模式")
+        print("⚠️ pynput 不可用，使用终端模式 (每操作一步按一次 Enter)")
+        print("   输入 q + Enter 结束录制\n")
         try:
-            while True:
-                try:
-                    cmd = input("步骤? ").strip()
-                    if not cmd: continue
-                    n = int(cmd)
-                    if 1 <= n <= 8:
-                        await session.record_step(n)
-                    elif n == 0:
-                        await session.stop()
+            import sys, select
+            while session._is_recording:
+                # 非阻塞读 stdin
+                r, _, _ = select.select([sys.stdin], [], [], 1.0)
+                if r:
+                    line = sys.stdin.readline().strip()
+                    if line == 'q':
+                        _manual_end = True
                         break
-                except (ValueError, KeyboardInterrupt):
-                    break
+                    step_counter += 1
+                    await session.record_step(step_counter)
+                    print(f"   ✅ 已记录 第{step_counter}步, 继续操作后按 Enter...")
+        except Exception:
+            pass
         finally:
-            await session.stop()
-            print("✅ 录制已停止，资源已清理")
+            if not _manual_end:
+                await session.stop()
 
-    except Exception:
-        # 异常时也确保清理
-        await session.stop()
-        raise
+    except Exception as e:
+        print(f"\n⚠️ 录制异常: {e}")
+        # 异常不关闭浏览器（保持打开便于排查）
+        print(f"   浏览器保持打开状态, 可手动操作或关闭")
+        return  # 不调用 session.stop(), 保持浏览器
+
     finally:
-        # 无论如何，确保 Playwright driver 被清理
-        await session.stop()
-        _cleanup_playwright_drivers()
+        if keep_open and _manual_end:
+            print(f"\n🔓 录制已完成, 浏览器保持打开 (可继续查看或手动关闭)")
+        elif not keep_open:
+            _cleanup_playwright_drivers()
 
 
 def _cleanup_playwright_drivers():

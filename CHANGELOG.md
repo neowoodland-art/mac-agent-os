@@ -1,5 +1,48 @@
 # AgentOS 项目变更日志
 
+## [4.2.0] - 2026-06-21
+
+### 文档体系重构
+- **新建 `01_core/VERSION`** — 版本唯一来源，终结版本打架
+- **新建 `99_system/INDEX.md`** — 项目文档总索引，一处维护全部引用
+- **精简 AGENTS.md** — 从 180 行→56 行，去掉过时硬编码数字
+- **精简 README.md** — 从 246 行→26 行，改为入口性质
+
+### 技能归档
+- **归档 4 个空技能**：content_processor、web_crawler、auto_collector、cloakbrowser_controller（移至 `02_skills/_archived/`）
+- **collect_to_inbox 降级**：SKILL.md 从 v2.0 降为 v1.0，标记 `status: legacy`，文档与实际代码一致
+
+### 版本收敛
+- **guardd.py 版本从 VERSION 读取**：不再硬编码 `version = "2.3.0"`
+- **所有 version.json 对齐到 SKILL_CARD.yaml**：memory_manager 1.2.0, inbox_refine 1.1.0, kb_manager 1.1.0, sync_manager 1.1.0
+- **collect_to_inbox SKILL_CARD 降级**：1.1.0→1.0.0 `status: legacy`
+
+### 架构宪法发布
+- **新建 `CONSTITUTION.md`**（根目录）— 架构总纲，包含 12 维全景、10 条硬规则、版本规则、开发决策流程
+- **部署到 `~/.workbuddy/CONSTITUTION.md`** — WorkBuddy AI 按需加载，开发工具硬性读取
+- **规则 11：架构变更必须更新宪法** — 目录层级/功能维度/版本规则/文件权限等变更时同步更新
+- **`99_system/ARCHITECTURE_CONSTITUTION.md`** 标记为已迁移（指向根目录版本）
+- **所有入口已更新**：AGENTS.md / 99_system/INDEX.md / apply-config.sh
+- **inbox_refine SKILL.md 对齐**：1.0.0→1.1.0
+- **03_knowledge/versions.json 更新**：4.1.0→4.2.0
+
+### 代码层清理
+- **统一 CLI 入口**：`00_setup/agentos` 成为统一入口，同时加载 `07_matrix/scripts/agentos/plugins/` 的联邦命令
+- **`mc` 脚本指向统一 CLI**：优先使用 00_setup/agentos 包路径
+- **废止 accounts_registry.yaml**：所有账号分配统一在 ORACLE.yaml 中管理
+  - `guardd _sync_account_override()` 改为读取 ORACLE.yaml
+  - 支持 ORACLE 多平台格式（一个 identity 绑定 douyin + xiaohongshu）
+- **删除 guardd cross_machine 心跳写入**：不再写入 `cross_machine/machines/{UID}/heartbeat.json`，避免 Git 污染
+- **自动化配置入仓**：新建 `01_core/automation/`
+  - `workflows.yaml` — WorkBuddy 4 个自动化任务定义
+  - `launchd/com.agentos.guardd.plist.template` — guardd plist 模板
+
+### 文档修复
+- **FEDERATION_GUIDE.md 数字更新**：蓝图 14→12，guardd 检查项更新为 9 模块
+- **federated-multi-machine-architecture.md guardd 模块更新**：7→9，补齐 dashboard_sync 和 sync_checker
+- **SOUL.md.v2-backup 归档标记**
+- **03_knowledge/99_system/ 冗余文件归档**：ARCHITECTURE_AUDIT.md 等 6 个文件标记为已归档
+
 ## [4.1.0] - 2026-05-15
 
 ### 联邦式多机协同架构（V2.1）
@@ -12,7 +55,7 @@
   5. 知识双向同步（拉取总知识库更新 + 推送本地知识到 submissions/）
   6. 自动升级（versions.json 版本清单, breaking 自动/手动双模式）
   7. 文件直传（SSH rsync 全自动 + AirDrop 半自动备选）
-- **新增 `guardd` 守护进程**：7 模块主循环, launchd 安装, 5 分钟周期, 全规则引擎 0 token 消耗
+- **新增 `guardd` 守护进程**：9 模块主循环（最初文档记录为 7 模块，实际代码实现 9 模块，v4.2.0 已修正）, launchd 安装, 5 分钟周期, 全规则引擎 0 token 消耗
 - **新增 `cross_machine/` 子目录**：events/ status/ tasks/ encrypted/ knowledge/
 - **README.md 升级 v4.1.0**：新增"多机联邦协作"章节 + 第四层导航
 - **新增安全边界**：私钥/API Key 固定在 agent-local/identity/secrets/, 永不进入 agent-sync/

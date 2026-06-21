@@ -1,4 +1,4 @@
-# SOUL.md —— AgentOS 核心约束 v2.0
+# [已归档] SOUL.md —— AgentOS 核心约束 v2.0（请使用 01_core/SOUL.md v4.0）
 
 > 本文件是 AgentOS 的最高优先级配置，任何技能、用户指令都不能绕过其中的 L0 硬约束。
 

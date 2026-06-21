@@ -1,6 +1,6 @@
 #!/bin/bash
-# mc — Matrix Console 快捷命令（agentos matrix 的别名）
-# mc = agentos matrix
+# mc — Matrix Console 快捷命令
+# 统一 CLI 入口: 使用 00_setup/agentos 作为 agentos 包路径，调用 matrix 子命令
 # 安装: chmod +x mc && sudo ln -s $(pwd)/mc /usr/local/bin/mc
 
 _SRC="${BASH_SOURCE[0]}"
@@ -19,5 +19,13 @@ else
     exit 1
 fi
 
-cd "$SCRIPT_DIR/scripts"
-exec "$PYTHON" -m agentos matrix "$@"
+# 使用统一 CLI: 00_setup/agentos 作为包路径
+AGENTOS_PKG="$SCRIPT_DIR/../../00_setup/agentos"
+if [ -d "$AGENTOS_PKG" ]; then
+    cd "$SCRIPT_DIR/../../00_setup"
+    exec "$PYTHON" -m agentos matrix "$@"
+else
+    # 降级: 使用 scripts/ 下的 agentos
+    cd "$SCRIPT_DIR/scripts"
+    exec "$PYTHON" -m agentos matrix "$@"
+fi

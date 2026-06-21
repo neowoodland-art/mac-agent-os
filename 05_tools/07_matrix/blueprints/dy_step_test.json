@@ -1,0 +1,20 @@
+{
+  "id": "dy_step_test",
+  "name": "抖音-逐步测试",
+  "description": "11步顺序测试每个原子操作",
+  "version": "1.0",
+  "platform": "douyin",
+  "steps": [
+    {"step_id": 1,  "op": "goto_home",       "args": {}},
+    {"step_id": 2,  "op": "open_video",       "args": {}},
+    {"step_id": 3,  "op": "wait_watch",       "args": {}},
+    {"step_id": 4,  "op": "like",             "args": {}},
+    {"step_id": 5,  "op": "collect",          "args": {}},
+    {"step_id": 6,  "op": "follow",           "args": {}},
+    {"step_id": 7,  "op": "open_comments",    "args": {}},
+    {"step_id": 8,  "op": "post_comment",     "args": {"text": "好内容"}},
+    {"step_id": 9,  "op": "close_comments",   "args": {}},
+    {"step_id": 10, "op": "next_video",       "args": {}},
+    {"step_id": 11, "op": "go_back",          "args": {}}
+  ]
+}

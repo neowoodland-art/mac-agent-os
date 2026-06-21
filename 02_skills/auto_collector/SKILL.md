@@ -1,15 +1,10 @@
 ---
 name: auto_collector
 version: 1.0.0
-description: 24小时自动信息收集——多平台监控、定时采集、自动分类入库、日报汇总
-triggers:
-  - 开始收集
-  - 停止收集
-  - 收集状态
-  - 收集报告
-  - auto collect
-  - 监控
-  - 自动采集
+status: archived
+archived_date: 2026-06-21
+description: [已归档] 24小时自动信息收集设计，无实现代码
+triggers: []
 ---
 
 # Auto Collector Skill（24h 自动信息收集）

@@ -1,168 +1,92 @@
 {
   "id": "douyin_active_v1",
   "name": "抖音-高活跃养号",
-  "version": "1.0.0",
+  "version": "2.0",
   "platform": "douyin",
-  "description": "多浏览+多点赞+多搜索+带评论的高活跃养号蓝图",
+  "description": "多浏览+点赞+收藏+50%评论率+2次@random搜索+搜索结果浏览",
   "steps": [
-    {
-      "step_id": 1,
-      "op": "wait_watch",
-      "args": {
-        "seconds": 10
-      }
-    },
-    {
-      "step_id": 3,
-      "op": "like",
-      "args": {}
-    },
-    {
-      "step_id": 4,
-      "op": "next_video",
-      "args": {}
-    },
-    {
-      "step_id": 5,
-      "op": "wait_watch",
-      "args": {
-        "seconds": 12
-      }
-    },
-    {
-      "step_id": 6,
-      "op": "like",
-      "args": {}
-    },
-    {
-      "step_id": 7,
-      "op": "next_video",
-      "args": {}
-    },
-    {
-      "step_id": 8,
-      "op": "wait_watch",
-      "args": {
-        "seconds": 8
-      }
-    },
-    {
-      "step_id": 9,
-      "op": "open_comments",
-      "args": {}
-    },
-    {
-      "step_id": 10,
-      "op": "post_comment",
-      "args": {
-        "text": "@corpus"
-      }
-    },
-    {
-      "step_id": 11,
-      "op": "next_video",
-      "args": {}
-    },
-    {
-      "step_id": 12,
-      "op": "wait_watch",
-      "args": {
-        "seconds": 10
-      }
-    },
-    {
-      "step_id": 13,
-      "op": "collect",
-      "args": {}
-    },
-    {
-      "step_id": 14,
-      "op": "next_video",
-      "args": {}
-    },
-    {
-      "step_id": 15,
-      "op": "wait_watch",
-      "args": {
-        "seconds": 6
-      }
-    },
-    {
-      "step_id": 16,
-      "op": "like",
-      "args": {}
-    },
-    {
-      "step_id": 17,
-      "op": "search",
-      "args": {
-        "keyword": "搞笑视频"
-      }
-    },
-    {
-      "step_id": 18,
-      "op": "open_video",
-      "args": {}
-    },
-    {
-      "step_id": 19,
-      "op": "wait_watch",
-      "args": {
-        "seconds": 10
-      }
-    },
-    {
-      "step_id": 20,
-      "op": "like",
-      "args": {}
-    },
-    {
-      "step_id": 21,
-      "op": "next_video",
-      "args": {}
-    },
-    {
-      "step_id": 22,
-      "op": "wait_watch",
-      "args": {
-        "seconds": 8
-      }
-    },
-    {
-      "step_id": 23,
-      "op": "open_comments",
-      "args": {}
-    },
-    {
-      "step_id": 24,
-      "op": "post_comment",
-      "args": {
-        "text": "@corpus"
-      }
-    },
-    {
-      "step_id": 25,
-      "op": "search",
-      "args": {
-        "keyword": "电影解说"
-      }
-    },
-    {
-      "step_id": 26,
-      "op": "open_video",
-      "args": {}
-    },
-    {
-      "step_id": 27,
-      "op": "wait_watch",
-      "args": {
-        "seconds": 12
-      }
-    },
-    {
-      "step_id": 28,
-      "op": "like",
-      "args": {}
-    }
+    {"step_id": 1,  "op": "goto_home",   "args": {}},
+    {"step_id": 2,  "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 3,  "op": "like",        "args": {}},
+    {"step_id": 4,  "op": "next_video",  "args": {}},
+    {"step_id": 5,  "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 6,  "op": "like",        "args": {}},
+    {"step_id": 7,  "op": "collect",     "args": {}},
+    {"step_id": 8,  "op": "next_video",  "args": {}},
+    {"step_id": 9,  "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 10, "op": "like",        "args": {}},
+    {"step_id": 11, "op": "next_video",  "args": {}},
+    {"step_id": 12, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 13, "op": "like",        "args": {}},
+    {"step_id": 14, "op": "collect",     "args": {}},
+    {"step_id": 15, "op": "next_video",  "args": {}},
+    {"step_id": 16, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 17, "op": "like",        "args": {}},
+
+    {"step_id": 18, "op": "search",      "args": {"keyword": "@random"}},
+    {"step_id": 19, "op": "open_video",  "args": {}},
+    {"step_id": 20, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 21, "op": "like",        "args": {}},
+    {"step_id": 22, "op": "collect",     "args": {}},
+    {"step_id": 23, "op": "scroll_feed", "args": {}},
+    {"step_id": 24, "op": "open_video",  "args": {}},
+    {"step_id": 25, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 26, "op": "like",        "args": {}},
+    {"step_id": 27, "op": "scroll_feed", "args": {}},
+    {"step_id": 28, "op": "open_video",  "args": {}},
+    {"step_id": 29, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 30, "op": "like",        "args": {}},
+    {"step_id": 31, "op": "collect",     "args": {}},
+    {"step_id": 32, "op": "scroll_feed", "args": {}},
+    {"step_id": 33, "op": "open_video",  "args": {}},
+    {"step_id": 34, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 35, "op": "like",        "args": {}},
+    {"step_id": 36, "op": "scroll_feed", "args": {}},
+    {"step_id": 37, "op": "open_video",  "args": {}},
+    {"step_id": 38, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 39, "op": "like",        "args": {}},
+    {"step_id": 40, "op": "collect",     "args": {}},
+    {"step_id": 41, "op": "open_comments","args": {}},
+    {"step_id": 42, "op": "post_comment", "args": {"text": "@corpus"}},
+    {"step_id": 43, "op": "close_comments","args": {}},
+
+    {"step_id": 44, "op": "search",      "args": {"keyword": "@random"}},
+    {"step_id": 45, "op": "open_video",  "args": {}},
+    {"step_id": 46, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 47, "op": "like",        "args": {}},
+    {"step_id": 48, "op": "scroll_feed", "args": {}},
+    {"step_id": 49, "op": "open_video",  "args": {}},
+    {"step_id": 50, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 51, "op": "like",        "args": {}},
+    {"step_id": 52, "op": "collect",     "args": {}},
+    {"step_id": 53, "op": "scroll_feed", "args": {}},
+    {"step_id": 54, "op": "open_video",  "args": {}},
+    {"step_id": 55, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 56, "op": "like",        "args": {}},
+    {"step_id": 57, "op": "scroll_feed", "args": {}},
+    {"step_id": 58, "op": "open_video",  "args": {}},
+    {"step_id": 59, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 60, "op": "like",        "args": {}},
+    {"step_id": 61, "op": "collect",     "args": {}},
+    {"step_id": 62, "op": "scroll_feed", "args": {}},
+    {"step_id": 63, "op": "open_video",  "args": {}},
+    {"step_id": 64, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 65, "op": "like",        "args": {}},
+    {"step_id": 66, "op": "scroll_feed", "args": {}},
+    {"step_id": 67, "op": "open_video",  "args": {}},
+    {"step_id": 68, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 69, "op": "like",        "args": {}},
+    {"step_id": 70, "op": "collect",     "args": {}},
+    {"step_id": 71, "op": "open_comments","args": {}},
+    {"step_id": 72, "op": "post_comment", "args": {"text": "@corpus"}},
+    {"step_id": 73, "op": "close_comments","args": {}},
+
+    {"step_id": 74, "op": "goto_home",   "args": {}},
+    {"step_id": 75, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 76, "op": "like",        "args": {}},
+    {"step_id": 77, "op": "next_video",  "args": {}},
+    {"step_id": 78, "op": "wait_watch",  "args": {"seconds": null}},
+    {"step_id": 79, "op": "like",        "args": {}},
+    {"step_id": 80, "op": "collect",     "args": {}}
   ]
 }

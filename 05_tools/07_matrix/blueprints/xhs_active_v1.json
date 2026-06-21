@@ -1,143 +1,101 @@
 {
   "id": "xhs_active_v1",
   "name": "小红书-高活跃养号",
-  "version": "1.0.0",
+  "version": "2.0",
   "platform": "xiaohongshu",
-  "description": "多浏览+多点赞+多搜索+带评论+关注的完整活跃蓝图",
+  "description": "多浏览+点赞+收藏+50%评论率+2次@random搜索+关注+搜索结果浏览",
   "steps": [
-    {
-      "step_id": 1,
-      "op": "xhs_goto_home",
-      "args": {}
-    },
-    {
-      "step_id": 2,
-      "op": "xhs_browse",
-      "args": {}
-    },
-    {
-      "step_id": 3,
-      "op": "xhs_scroll_feed",
-      "args": {}
-    },
-    {
-      "step_id": 4,
-      "op": "xhs_click_note",
-      "args": {}
-    },
-    {
-      "step_id": 5,
-      "op": "xhs_like",
-      "args": {}
-    },
-    {
-      "step_id": 6,
-      "op": "xhs_goto_home",
-      "args": {}
-    },
-    {
-      "step_id": 7,
-      "op": "xhs_scroll_feed",
-      "args": {}
-    },
-    {
-      "step_id": 8,
-      "op": "xhs_scroll_feed",
-      "args": {}
-    },
-    {
-      "step_id": 9,
-      "op": "xhs_click_note",
-      "args": {}
-    },
-    {
-      "step_id": 10,
-      "op": "xhs_like",
-      "args": {}
-    },
-    {
-      "step_id": 11,
-      "op": "xhs_comment",
-      "args": {}
-    },
-    {
-      "step_id": 12,
-      "op": "xhs_goto_home",
-      "args": {}
-    },
-    {
-      "step_id": 13,
-      "op": "xhs_search",
-      "args": {
-        "keyword": "穿搭推荐"
-      }
-    },
-    {
-      "step_id": 14,
-      "op": "xhs_click_note",
-      "args": {}
-    },
-    {
-      "step_id": 15,
-      "op": "xhs_like",
-      "args": {}
-    },
-    {
-      "step_id": 16,
-      "op": "xhs_collect",
-      "args": {}
-    },
-    {
-      "step_id": 17,
-      "op": "xhs_goto_home",
-      "args": {}
-    },
-    {
-      "step_id": 18,
-      "op": "xhs_scroll_feed",
-      "args": {}
-    },
-    {
-      "step_id": 19,
-      "op": "xhs_click_note",
-      "args": {}
-    },
-    {
-      "step_id": 20,
-      "op": "xhs_like",
-      "args": {}
-    },
-    {
-      "step_id": 21,
-      "op": "xhs_follow",
-      "args": {}
-    },
-    {
-      "step_id": 22,
-      "op": "xhs_goto_home",
-      "args": {}
-    },
-    {
-      "step_id": 23,
-      "op": "xhs_search",
-      "args": {
-        "keyword": "美妆教程"
-      }
-    },
-    {
-      "step_id": 24,
-      "op": "xhs_click_note",
-      "args": {}
-    },
-    {
-      "step_id": 25,
-      "op": "xhs_like",
-      "args": {}
-    },
-    {
-      "step_id": 26,
-      "op": "xhs_collect",
-      "args": {}
-    }
+    {"step_id": 1,  "op": "xhs_goto_home",    "args": {}},
+    {"step_id": 2,  "op": "xhs_scroll_feed",  "args": {}},
+    {"step_id": 3,  "op": "xhs_click_note",   "args": {}},
+    {"step_id": 4,  "op": "wait_watch",       "args": {"seconds": null}},
+    {"step_id": 5,  "op": "xhs_like",         "args": {}},
+    {"step_id": 6,  "op": "go_back",          "args": {}},
+    {"step_id": 7,  "op": "xhs_scroll_feed",  "args": {}},
+    {"step_id": 8,  "op": "xhs_click_note",   "args": {}},
+    {"step_id": 9,  "op": "wait_watch",       "args": {"seconds": null}},
+    {"step_id": 10, "op": "xhs_like",         "args": {}},
+    {"step_id": 11, "op": "xhs_collect",      "args": {}},
+    {"step_id": 12, "op": "go_back",          "args": {}},
+    {"step_id": 13, "op": "xhs_scroll_feed",  "args": {}},
+    {"step_id": 14, "op": "xhs_click_note",   "args": {}},
+    {"step_id": 15, "op": "wait_watch",       "args": {"seconds": null}},
+    {"step_id": 16, "op": "xhs_like",         "args": {}},
+    {"step_id": 17, "op": "go_back",          "args": {}},
+    {"step_id": 18, "op": "xhs_scroll_feed",  "args": {}},
+    {"step_id": 19, "op": "xhs_click_note",   "args": {}},
+    {"step_id": 20, "op": "wait_watch",       "args": {"seconds": null}},
+    {"step_id": 21, "op": "xhs_like",         "args": {}},
+    {"step_id": 22, "op": "xhs_collect",      "args": {}},
+    {"step_id": 23, "op": "go_back",          "args": {}},
+
+    {"step_id": 24, "op": "xhs_search",      "args": {"keyword": "@random"}},
+    {"step_id": 25, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 26, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 27, "op": "xhs_like",        "args": {}},
+    {"step_id": 28, "op": "xhs_collect",     "args": {}},
+    {"step_id": 29, "op": "go_back",         "args": {}},
+    {"step_id": 30, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 31, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 32, "op": "xhs_like",        "args": {}},
+    {"step_id": 33, "op": "go_back",         "args": {}},
+    {"step_id": 34, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 35, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 36, "op": "xhs_like",        "args": {}},
+    {"step_id": 37, "op": "xhs_collect",     "args": {}},
+    {"step_id": 38, "op": "go_back",         "args": {}},
+    {"step_id": 39, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 40, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 41, "op": "xhs_like",        "args": {}},
+    {"step_id": 42, "op": "go_back",         "args": {}},
+    {"step_id": 43, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 44, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 45, "op": "xhs_like",        "args": {}},
+    {"step_id": 46, "op": "xhs_collect",     "args": {}},
+    {"step_id": 47, "op": "xhs_post_comment","args": {"text": "@corpus"}},
+    {"step_id": 48, "op": "go_back",         "args": {}},
+    {"step_id": 49, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 50, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 51, "op": "xhs_like",        "args": {}},
+    {"step_id": 52, "op": "xhs_collect",     "args": {}},
+    {"step_id": 53, "op": "go_back",         "args": {}},
+    {"step_id": 54, "op": "xhs_follow",      "args": {}},
+
+    {"step_id": 55, "op": "xhs_search",      "args": {"keyword": "@random"}},
+    {"step_id": 56, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 57, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 58, "op": "xhs_like",        "args": {}},
+    {"step_id": 59, "op": "go_back",         "args": {}},
+    {"step_id": 60, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 61, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 62, "op": "xhs_like",        "args": {}},
+    {"step_id": 63, "op": "xhs_collect",     "args": {}},
+    {"step_id": 64, "op": "go_back",         "args": {}},
+    {"step_id": 65, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 66, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 67, "op": "xhs_like",        "args": {}},
+    {"step_id": 68, "op": "go_back",         "args": {}},
+    {"step_id": 69, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 70, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 71, "op": "xhs_like",        "args": {}},
+    {"step_id": 72, "op": "xhs_collect",     "args": {}},
+    {"step_id": 73, "op": "xhs_post_comment","args": {"text": "@corpus"}},
+    {"step_id": 74, "op": "go_back",         "args": {}},
+    {"step_id": 75, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 76, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 77, "op": "xhs_like",        "args": {}},
+    {"step_id": 78, "op": "go_back",         "args": {}},
+    {"step_id": 79, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 80, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 81, "op": "xhs_like",        "args": {}},
+    {"step_id": 82, "op": "xhs_collect",     "args": {}},
+    {"step_id": 83, "op": "go_back",         "args": {}},
+
+    {"step_id": 84, "op": "xhs_goto_home",   "args": {}},
+    {"step_id": 85, "op": "xhs_scroll_feed", "args": {}},
+    {"step_id": 86, "op": "xhs_click_note",  "args": {}},
+    {"step_id": 87, "op": "wait_watch",      "args": {"seconds": null}},
+    {"step_id": 88, "op": "xhs_like",        "args": {}},
+    {"step_id": 89, "op": "xhs_collect",     "args": {}}
   ]
 }

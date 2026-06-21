@@ -16,7 +16,8 @@ from typing import Optional
 # ═══════════════════════════════════════════════
 
 SMS_INPUT_SELECTOR = "input[placeholder*='验证码']"
-LOGIN_PANEL_ID = '#login-panel-new'
+LOGIN_PANEL_SEL = '.login-container'  # 小红书登录面板
+PHONE_INPUT_SEL = "input[placeholder*='手机']"
 ONEKEY_TEXT = '一键登录'
 CONFIRM_BTN_TEXTS = ['确认', '提交', '验证', '登录', '确定', '下一步', '立即登录']
 RESEND_TEXTS = ['重新发送', '获取验证码', '重发']
@@ -26,7 +27,14 @@ RESEND_TEXTS = ['重新发送', '获取验证码', '重发']
 # ═══════════════════════════════════════════════
 
 async def has_login_panel(page) -> bool:
-    return await page.evaluate(f'() => !!document.querySelector("{LOGIN_PANEL_ID}")')
+    """检测登录面板是否可见"""
+    for sel in [LOGIN_PANEL_SEL, '#login-panel-new', '.reds-modal-open']:
+        try:
+            if await page.evaluate(f'() => !!document.querySelector("{sel}")'):
+                return True
+        except:
+            continue
+    return False
 
 async def has_sms_input(page) -> bool:
     return await page.evaluate(f'() => !!document.querySelector("{SMS_INPUT_SELECTOR}")')
@@ -45,8 +53,18 @@ async def has_resend_btn(page) -> bool:
     }}""")
 
 async def is_logged_in(page) -> bool:
-    """检测登录成功（面板消失+有头像）"""
-    return not await has_login_panel(page) and await page.evaluate('() => !!document.querySelector("[data-e2e=user-avatar]")')
+    """检测登录成功（面板消失+用户已登录）"""
+    if await has_login_panel(page):
+        return False  # 面板还在就不算登录
+    try:
+        from matrix_modules.account.login_state_machine import DETECTORS
+        detector = DETECTORS.get("xiaohongshu")
+        if detector:
+            status = await detector.detect(page, "")
+            return status == "logged_in"
+    except:
+        pass
+    return False
 
 # ═══════════════════════════════════════════════
 # 操作函数

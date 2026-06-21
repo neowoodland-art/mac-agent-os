@@ -1,7 +1,8 @@
 ---
 name: collect_to_inbox
-version: 2.0.0
-description: 提交箱→收件箱。扫描 01_submissions/（+ 兼容旧分类目录）中的文件，提取内容生成标准化 MD 放入 00_inbox/，供 inbox_refine 后续提纯归档。
+version: 1.0.0
+status: legacy
+description: [降级] 扫描旧目录的文件转入 00_inbox/。注：v2.0 设计（以 01_submissions/ 为主入口）尚未实现。当前实际代码扫描的是 50_resources/、20_methods/、01_daily/、40_references/ 等旧目录。
 triggers:
   - 归集
   - 归集收件箱

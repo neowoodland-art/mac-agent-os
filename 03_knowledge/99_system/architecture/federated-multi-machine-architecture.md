@@ -75,16 +75,18 @@ version: 1.0.0
 - **路径**: `05_tools/00_setup/guardd/guardd.py`
 - **日志**: `agent-local/runtime/guardd/`
 
-### guardd 7 模块
+### guardd 9 模块
 
 | 模块 | 职责 |
 |------|------|
-| `heartbeat` | 状态上报（CPU/内存/任务）写入 heartbeat.json |
+| `heartbeat` | 状态上报（CPU/内存/任务）写入 heartbeat.json + 推送 Dashboard |
+| `dashboard_sync` | 将本机 Dashboard 插件数据写入跨机共享目录 |
 | `task_worker` | 扫描本机任务并执行 |
 | `upgrade_checker` | 版本清单比对，自动/手动升级 |
 | `memory_triage` | 过滤本地记忆，推送通用内容到提交箱 |
-| `knowledge_sync` | 检测知识库变更，发出事件通知 |
+| `knowledge_sync` | 检测知识库变更 + 推送本地提交箱到远程 |
 | `encrypted_channel` | 解密加密消息到本地 |
+| `sync_checker` | 自动 git pull 拉取远程变更 |
 | `cleanup` | 清理 30 天以上的旧事件和已完成任务 |
 
 ## 相关文件

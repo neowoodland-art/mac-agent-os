@@ -4,16 +4,19 @@
 
 ## 目录结构
 
-| 目录 | 用途 | 脚本 |
-|------|------|------|
-| `00_setup/` | 首次安装工具（ffmpeg 静态二进制等） | — |
-| `01_system/` | 环境检查、诊断、系统健康脚本 | `check_automation_env.py` `check_facts.py` `test_omlx_embedding.py` |
-| `01_system/reports/` | 系统检查报告存档 | — |
-| `02_browser/` | Playwright 相关工具 | — |
-| `03_ocr/` | OCR 工具 | — |
-| `04_media/` | 媒体处理（yt-dlp、ffmpeg 等） | — |
-| `05_crawl/` | 爬虫工具（MediaCrawler 等） | — |
-| `06_mobile/` | 移动端工具 | — |
+| 目录 | 用途 |
+|:-----|:------|
+| `00_setup/` | agentos CLI（14 子命令）+ guardd 守护进程（9 模块）+ 多机同步脚本 |
+| `01_system/` | 环境检查、诊断、系统健康脚本（12 个） |
+| `02_browser/` | [已清空] 浏览器工具已迁移至 07_matrix/ |
+| `03_ocr/` | [已清空] OCR 由 Peekaboo MCP 提供 |
+| `04_media/` | [已清空] 媒体处理由 FFmpeg + AVE 提供 |
+| `05_crawl/` | 爬虫工具（longcat 长期爬虫 + content-inspiration 口播素材采集） |
+| `06_mobile/` | [已清空] |
+| `07_matrix/` | 矩阵养号系统（mc CLI + Camoufox + 12 个蓝图） |
+| `08_trae_agent/` | Trae AI 编程助手集成 |
+| `09_ave/` | AVE 视频工厂（文案→合成→渲染全链路） |
+| `10_dashboard/` | 系统监控面板（FastAPI + 15 插件 + 前端） |
 
 ## 与 02_skills 的区别
 

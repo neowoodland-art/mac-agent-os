@@ -207,7 +207,32 @@ window.loadCosts = loadCosts;
 window.loadMachines = loadMachines;
 window.loadFleetReconcileView = loadFleetReconcileView;
 
-// ── 执行历史 ──
+// ── 执行历史（细腻度增强版：显示完整状态机 10 种状态）──
+var STATUS_MAP = {
+  'queued':          { icon: '📋', color: '#6b7280', label: '已排队',      group: 'active' },
+  'preflighting':    { icon: '🔍', color: '#f59e0b', label: '预检中',      group: 'active' },
+  'preflight_failed':{ icon: '⚠️', color: '#ef4444', label: '预检失败',    group: 'fail' },
+  'dispatching':     { icon: '📡', color: '#3b82f6', label: '分发中',      group: 'active' },
+  'running':         { icon: '🟢', color: '#22c55e', label: '运行中',      group: 'active' },
+  'completed':       { icon: '✅', color: '#22c55e', label: '已完成',      group: 'ok' },
+  'failed':          { icon: '❌', color: '#ef4444', label: '执行失败',    group: 'fail' },
+  'timed_out':       { icon: '⏰', color: '#f97316', label: '执行超时',    group: 'fail' },
+  'crashed':         { icon: '💥', color: '#dc2626', label: '进程崩溃',    group: 'fail' },
+  'cancelled':       { icon: '⏸️', color: '#9ca3af', label: '用户取消',    group: 'fail' },
+};
+var STATUS_GROUPS = ['ok','active','fail'];
+var STATUS_GROUP_LABELS = { 'ok':'✅ 成功','active':'⏳ 活跃','fail':'❌ 终止' };
+var STATUS_GROUP_COLORS = { 'ok':'var(--green)','active':'var(--blue)','fail':'var(--red)' };
+
+function formatElapsed(sec) {
+  if (sec == null || sec === 0) return '-';
+  sec = Math.round(sec);
+  if (sec < 60) return sec + 's';
+  var m = Math.floor(sec / 60);
+  var s = sec % 60;
+  return m + 'm' + (s > 0 ? s + 's' : '');
+}
+
 async function loadExecutionHistory() {
   try {
     const r = await fetch('/api/ops/status');
@@ -216,35 +241,89 @@ async function loadExecutionHistory() {
     const el = document.getElementById('execHistory');
     if (!el) return;
     if (!cmds.length) { el.innerHTML = '<div style="color:var(--text2);font-size:11px;padding:8px">暂无执行记录</div>'; return; }
-    var stats = { total: cmds.length, completed: 0, failed: 0, running: 0 };
+
+    // ── 按状态分组统计 ──
+    var byStatus = {};
     var byMachine = {};
-    var terminal = ['completed','failed','timed_out','crashed','cancelled'];
     for (var i = 0; i < cmds.length; i++) {
-      var c = cmds[i], s = c.status || '?';
-      if (s === 'completed') stats.completed++;
-      else if (terminal.indexOf(s) >= 0) stats.failed++;
-      else stats.running++;
+      var c = cmds[i], s = c.status || 'unknown';
+      var sm = STATUS_MAP[s] || { icon: '❓', label: s, group: 'fail' };
+      byStatus[s] = (byStatus[s] || 0) + 1;
       var mach = c.machine || '?';
-      if (!byMachine[mach]) byMachine[mach] = { total:0, ok:0, fail:0 };
+      if (!byMachine[mach]) byMachine[mach] = { total:0, ok:0, active:0, fail:0 };
       byMachine[mach].total++;
-      if (s === 'completed') byMachine[mach].ok++;
-      else if (terminal.indexOf(s) >= 0) byMachine[mach].fail++;
+      byMachine[mach][sm.group]++;
     }
-    var html = '<div style="display:flex;gap:12px;margin-bottom:6px;font-size:11px">';
-    html += '<span>📊 总数: '+stats.total+'</span><span style="color:var(--green)">✅ 成功: '+stats.completed+'</span>';
-    html += '<span style="color:var(--red)">❌ 失败: '+stats.failed+'</span><span style="color:var(--blue)">⏳ 运行中: '+stats.running+'</span>';
-    html += '</div><div style="font-size:10px">';
+
+    var html = '<div style="font-size:10px">';
+
+    // ── 全状态行列（每个状态一行）──
+    html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">';
+    for (var s in STATUS_MAP) {
+      var sm = STATUS_MAP[s];
+      var count = byStatus[s] || 0;
+      if (count === 0) continue;
+      html += '<span style="display:inline-flex;align-items:center;gap:3px;background:var(--bg3);padding:2px 8px;border-radius:4px;font-size:10px">'
+        + sm.icon + ' <span style="font-weight:600;color:' + sm.color + '">' + count + '</span> ' + sm.label
+        + '</span>';
+    }
+    html += '</div>';
+
+    // ── 总数行 ──
+    var okCount = 0, activeCount = 0, failCount = 0;
+    for (var s in byStatus) {
+      var g = (STATUS_MAP[s] || STATUS_MAP['cancelled']).group;
+      if (g === 'ok') okCount += byStatus[s];
+      else if (g === 'active') activeCount += byStatus[s];
+      else failCount += byStatus[s];
+    }
+    html += '<div style="display:flex;gap:12px;margin-bottom:6px;font-size:11px">'
+      + '<span>📊 <strong>' + cmds.length + '</strong></span>'
+      + '<span style="color:var(--green)">✅ ' + okCount + '</span>'
+      + '<span style="color:var(--red)">❌ ' + failCount + '</span>'
+      + '<span style="color:var(--blue)">⏳ ' + activeCount + '</span>'
+      + '</div>';
+
+    // ── 每台机器详细（含各状态小计数）──
     for (var mach in byMachine) {
-      var s = byMachine[mach], rate = s.total > 0 ? Math.round(s.ok / s.total * 100) : 0;
-      html += '<div style="margin:2px 0">  '+mach+': '+s.ok+'/'+s.total+' ('+rate+'%) '+Array(Math.round(rate/10)+1).join('█')+Array(10-Math.round(rate/10)+1).join('░')+'</div>';
+      var s = byMachine[mach];
+      var rate = s.total > 0 ? Math.round(s.ok / s.total * 100) : 0;
+      var barLen = Math.round(rate / 10);
+      var bar = '█'.repeat(Math.max(0, barLen)) + '░'.repeat(Math.max(0, 10 - barLen));
+      var detailParts = [];
+      if (s.active > 0) detailParts.push('<span style="color:var(--blue)">▶' + s.active + '</span>');
+      if (s.fail > 0) detailParts.push('<span style="color:var(--red)">✕' + s.fail + '</span>');
+      var detailStr = detailParts.length > 0 ? ' (' + detailParts.join(' ') + ')' : '';
+      html += '<div style="margin:2px 0;display:flex;align-items:center;gap:6px">'
+        + '<span style="min-width:100px;font-weight:500">🖥 ' + mach + '</span>'
+        + '<span style="font-size:10px;color:var(--text2)">' + s.ok + '/' + s.total + ' (' + rate + '%)</span>'
+        + '<span style="font-size:9px">' + bar + '</span>'
+        + '<span style="font-size:10px">' + detailStr + '</span>'
+        + '</div>';
     }
-    html += '</div>';
-    html += '<div style="font-size:10px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px"><div style="color:var(--text2);margin-bottom:2px">最近执行:</div>';
-    for (var i = 0; i < Math.min(5, cmds.length); i++) {
-      var c = cmds[i], accts = c.accounts ? c.accounts.join(',') : (c.account || '?'), icon = c.status === 'completed' ? '✅' : c.status === 'running' ? '⏳' : c.status === 'dispatching' ? '📡' : '❌';
-      html += '<div>'+icon+' '+c.machine+' '+accts+': '+(c.message || c.status)+' ('+c.elapsed_sec+'s)</div>';
+
+    // ── 最近执行（每条命令显示完整状态）──
+    html += '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">'
+      + '<div style="color:var(--text2);font-size:10px;margin-bottom:4px;font-weight:500">最近执行:</div>';
+    var showCount = Math.min(8, cmds.length);
+    for (var i = 0; i < showCount; i++) {
+      var c = cmds[i], s = c.status || 'unknown';
+      var sm = STATUS_MAP[s] || { icon: '❓', color: '#999', label: s };
+      var accts = c.accounts ? c.accounts.join(',') : (c.account || '?');
+      var elapsed = formatElapsed(c.elapsed_sec);
+      var msg = (c.message || sm.label);
+      var timeStr = c.created_at ? c.created_at.slice(11, 19) : '';
+      html += '<div style="display:flex;align-items:center;gap:4px;padding:2px 0;font-size:10px;line-height:1.4">'
+        + '<span style="flex-shrink:0">' + sm.icon + '</span>'
+        + '<span style="color:' + sm.color + ';font-weight:500;flex-shrink:0;min-width:28px;font-size:9px">' + sm.label + '</span>'
+        + '<span style="color:var(--text2);flex-shrink:0;min-width:80px">' + (c.machine || '?') + '</span>'
+        + '<span style="font-weight:500;min-width:60px">' + accts + '</span>'
+        + '<span style="color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + msg + '</span>'
+        + '<span style="color:var(--text2);flex-shrink:0;min-width:36px;text-align:right">' + elapsed + '</span>'
+        + (timeStr ? '<span style="color:var(--text2);flex-shrink:0;font-size:9px;min-width:50px;text-align:right">' + timeStr + '</span>' : '')
+        + '</div>';
     }
-    html += '</div>';
+    html += '</div></div>';
     el.innerHTML = html;
   } catch(e) { var el = document.getElementById('execHistory'); if (el) el.innerHTML = '<div style="color:var(--text2);font-size:11px">❌ 加载失败: '+e.message+'</div>'; }
 }

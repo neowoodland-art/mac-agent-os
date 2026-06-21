@@ -53,9 +53,16 @@ def print_banner():
 
 def setup_log(path: str = None):
     """设置日志文件"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(name)s] %(message)s',
+        datefmt='%H:%M:%S',
+        force=True,
+    )
     if path:
         fh = logging.FileHandler(path, mode='a', encoding='utf-8')
         fh.setFormatter(logging.Formatter('[%(asctime)s] %(message)s', datefmt='%H:%M:%S'))
+        fh.setLevel(logging.INFO)
         logging.getLogger().addHandler(fh)
 
 def log(msg: str):

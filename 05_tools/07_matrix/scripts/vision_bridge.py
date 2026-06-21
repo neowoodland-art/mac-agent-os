@@ -28,6 +28,10 @@ OMLX_MODEL = "Qwen2.5-VL-3B-Instruct-8bit"
 VISION_TIMEOUT = 300  # 秒
 TEXT_TIMEOUT = 30
 
+# DashScope (阿里百炼) 配置
+DASHSCOPE_API_KEY = "sk-7e62716bffe349a59e74e9182cf22c3a"
+DASHSCOPE_MODEL = "qwen-vl-plus"  # 性价比高
+
 # 代理问题：oMLX 不能用代理
 _orig_env = {}
 
@@ -48,7 +52,7 @@ def _restore_proxy():
 # ── 核心 API ─────────────────────────────────────────
 
 def _omlx_request(messages: list, max_tokens: int = 300, timeout: int = None) -> dict:
-    """向 oMLX 发送请求"""
+    """向 oMLX 发送请求（本地）"""
     _ensure_no_proxy()
     try:
         data = json.dumps({
@@ -69,9 +73,42 @@ def _omlx_request(messages: list, max_tokens: int = 300, timeout: int = None) ->
             "usage": result.get("usage", {}),
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "provider": "omlx"}
     finally:
         _restore_proxy()
+
+
+def _dashscope_request(messages: list, max_tokens: int = 300, timeout: int = None) -> dict:
+    """向 DashScope (阿里百炼) 发送请求（远程）"""
+    try:
+        import dashscope
+        dashscope.api_key = DASHSCOPE_API_KEY
+
+        resp = dashscope.MultiModalConversation.call(
+            model=DASHSCOPE_MODEL,
+            messages=messages,
+            max_tokens=max_tokens,
+            timeout=timeout or VISION_TIMEOUT,
+        )
+        if resp.status_code == 200:
+            content = resp.output.choices[0].message.content[0]["text"]
+            return {"success": True, "text": content, "usage": resp.usage, "provider": "dashscope"}
+        return {"success": False, "error": f"DashScope {resp.status_code}: {resp.message}", "provider": "dashscope"}
+    except ImportError:
+        return {"success": False, "error": "dashscope SDK 未安装", "provider": "dashscope"}
+    except Exception as e:
+        return {"success": False, "error": str(e), "provider": "dashscope"}
+
+
+def _request(messages: list, max_tokens: int = 300, timeout: int = None) -> dict:
+    """自动选择：oMLX 本地优先 → DashScope 远程兜底"""
+    result = _omlx_request(messages, max_tokens, timeout)
+    if result["success"]:
+        return result
+    # oMLX 失败 → 用 DashScope
+    print(f"  [vision] oMLX 不可用 ({result.get('error','?')}), 切换到 DashScope...")
+    result2 = _dashscope_request(messages, max_tokens, timeout)
+    return result2
 
 
 def _encode_image(image_path: str) -> str:
@@ -109,7 +146,7 @@ def analyze_screenshot(image_path: str, question: str,
     }]
 
     t0 = time.time()
-    result = _omlx_request(messages, max_tokens, timeout)
+    result = _request(messages, max_tokens, timeout)
     result["elapsed"] = round(time.time() - t0, 1)
     return result
 
@@ -168,7 +205,7 @@ def text_chat(prompt: str, max_tokens: int = 100) -> dict:
     """纯文本对话（不走视觉，速度更快）"""
     messages = [{"role": "user", "content": prompt}]
     t0 = time.time()
-    result = _omlx_request(messages, max_tokens, TEXT_TIMEOUT)
+    result = _request(messages, max_tokens, TEXT_TIMEOUT)
     result["elapsed"] = round(time.time() - t0, 1)
     return result
 

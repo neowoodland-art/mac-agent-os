@@ -273,7 +273,7 @@ class BatchEngine:
             verify_type = await lsm.check_verify_dialog(conn.page)
             if verify_type == "sms":
                 log.warning(f"    📱 [{account_id}] 触发短信验证，自动恢复...")
-                await lsm._recover_sms(conn.page, account_id)
+                await lsm.recover_sms(conn.page, account_id)
                 # 跳过当前步
                 log.info(f"    ⏭️ 跳过当前操作 [{sn}]")
             elif verify_type == "captcha":
@@ -287,8 +287,8 @@ class BatchEngine:
         return report
 
     def _get_cooldown(self, op_name: str) -> float:
-        """操作完成后冷却时间"""
-        import random
+        """操作完成后冷却时间（自动去掉 xhs_/dy_ 前缀匹配）"""
+        import random, re
         COOLDOWNS = {
             "like":       (2, 4),
             "collect":    (3, 6),
@@ -299,7 +299,9 @@ class BatchEngine:
             "scroll_feed": (2, 3),
             "wait_watch":  (0, 0),   # wait_watch 自带等待
         }
-        base = COOLDOWNS.get(op_name, (2, 5))
+        # 去掉 xhs_/dy_ 前缀再匹配
+        base_name = re.sub(r'^(xhs_|dy_|xhs_|dy_)', '', op_name)
+        base = COOLDOWNS.get(base_name, COOLDOWNS.get(op_name, (2, 5)))
         return random.uniform(*base)
 
     async def _run_identity_group(self, group_accts: List[dict]) -> List[AccountRunReport]:
@@ -321,14 +323,18 @@ class BatchEngine:
             log.warning(f"  ⏳ 已达最大浏览器数({MAX_BROWSERS})，等待其他任务释放...")
             await asyncio.sleep(15)
 
-        if check_cookie(identity_dir) != "ok":
-            log.warning(f"  ⏭️ 身份 {identity_dir}: cookie 无效，全部跳过")
+        if check_cookie(identity_dir) == "no_identity":
+            log.warning(f"  ⏭️ 身份 {identity_dir}: 身份目录不存在，全部跳过")
             for acct in group_accts:
                 for r in range(1, self.rounds_total + 1):
                     rpt = AccountRunReport(acct["id"], "", r)
                     rpt.skipped = True
                     reports.append(rpt)
             return reports
+        
+        # cookie 不存在或过期 → 让 ensure_login 恢复链处理
+        if check_cookie(identity_dir) in ("no_cookie", "expired", "error"):
+            log.info(f"  🔐 [{identity_dir}] cookie 状态需恢复，由 LoginStateMachine 处理")
 
         from cdp_connector import CDPConnector
         conn = CDPConnector(browser_type="camoufox", headless=False,

@@ -1,0 +1,37 @@
+# AgentOS 自动化任务定义
+# 版本: 1.0 | 更新: 2026-06-21
+#
+# 此文件定义 WorkBuddy 应注册的自动化任务。
+# 使用 agentos init 或 agentos sync 自动部署。
+#
+# 字段说明:
+#   name:        任务名称
+#   schedule:    cron 格式定时
+#   command:     执行的命令（含完整路径）
+#   enabled:     是否启用
+#   description: 任务说明
+
+automations:
+  - name: "AgentOS 每日记忆提炼"
+    schedule: "0 2 * * *"
+    command: "~/.workbuddy/binaries/python/envs/agent-os/bin/python3 ~/workbuddy-agent-os/agent-sync/02_skills/memory_manager/daily_digest.py --root ~/workbuddy-agent-os/agent-sync"
+    enabled: true
+    description: "从昨日对话中提取关键事实，更新 L2 facts.db + L1 索引"
+
+  - name: "AgentOS 提交箱归集"
+    schedule: "30 2 * * *"
+    command: "~/.workbuddy/binaries/python/envs/agent-os/bin/python3 ~/workbuddy-agent-os/agent-sync/02_skills/collect_to_inbox/collect_to_inbox.py --root ~/workbuddy-agent-os/agent-sync"
+    enabled: true
+    description: "将 01_submissions/ 和各旧目录内容归集到 00_inbox/"
+
+  - name: "AgentOS 收件箱提纯"
+    schedule: "0 3 * * *"
+    command: "~/.workbuddy/binaries/python/envs/agent-os/bin/python3 ~/workbuddy-agent-os/agent-sync/02_skills/inbox_refine/inbox_refine.py --root ~/workbuddy-agent-os/agent-sync"
+    enabled: true
+    description: "00_inbox/ → AI 分类 → 归档到知识库 → 更新统计"
+
+  - name: "向量库与索引定时更新"
+    schedule: "30 3 * * *"
+    command: "~/.workbuddy/binaries/python/envs/agent-os/bin/python3 ~/workbuddy-agent-os/agent-sync/02_skills/kb_manager/vector_db_rebuild.py --root ~/workbuddy-agent-os/agent-sync --incremental"
+    enabled: true
+    description: "知识库 → 关键词索引 + ChromaDB 向量索引"

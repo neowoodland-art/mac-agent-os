@@ -1,3 +1,8 @@
+# [已废弃] accounts_registry.yaml
+# 自 v4.2.0 起废除，所有账号分配统一在 ORACLE.yaml 中管理。
+# guardd _sync_account_override() 已改为读取 ORACLE.yaml。
+# 此文件保留仅供历史参考，不再被任何代码引用。
+
 accounts:
 - assigned_machine: 5kechengdeAir
   id: douyin_01

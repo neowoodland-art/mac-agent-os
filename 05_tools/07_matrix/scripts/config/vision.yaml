@@ -1,0 +1,12 @@
+# 视觉分析配置
+# oMLX: 本地模型（优先）
+omlx:
+  base_url: "http://127.0.0.1:8000/v1"
+  api_key: "omlx"
+  model: "Qwen2.5-VL-3B-Instruct-8bit"
+
+# DashScope: 远程备用（阿里百炼）
+dashscope:
+  api_key: "sk-7e62716bffe349a59e74e9182cf22c3a"
+  model: "qwen-vl-plus"  # 性价比高，支持图片理解
+  # 更便宜的选择: qwen-vl-max (更强) / qwen2.5-vl-7b (开源版)

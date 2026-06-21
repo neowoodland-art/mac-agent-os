@@ -1,6 +1,6 @@
 {
   "name": "kb_manager",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "知识库管理技能——入库、分类、检索、备份、重分类",
   "dependencies": ["sqlite3"],
   "mcp_tools": []

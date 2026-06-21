@@ -1,15 +1,10 @@
 ---
 name: web_crawler
 version: 1.2.0
-description: 网页抓取+反爬技能——Scrapling 三引擎自适应抓取、Crawl4AI 智能过滤、CloakBrowser 反检测
-triggers:
-  - 抓取
-  - 爬取
-  - crawl
-  - 获取网页
-  - fetch
-  - 爬虫
-  - 抓网页
+status: archived
+archived_date: 2026-06-21
+description: [已归档] 网页抓取设计，无实现代码
+triggers: []
 ---
 
 # Web Crawler Skill（网页抓取+反爬）

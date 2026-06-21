@@ -114,6 +114,55 @@ agent-os.code-workspace
 04_memory/cross_machine/events/
 04_memory/cross_machine/knowledge/*.json
 04_memory/cross_machine/tasks/
+
+# ────── v4.2.0 新增排除项 ──────
+
+# 图片文件（截图、素材，不入库）
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# ChromaDB 数据（各机独立）
+chroma.sqlite3
+**/chroma/
+
+# 前端构建产物
+node_modules/
+dist/
+build/
+
+# ML 模型文件
+*.pth
+*.bin
+*.onnx
+*.npy
+*.npz
+
+# 运行时数据目录
+04_memory/cross_machine/data/
+04_memory/cross_machine/machines/
+
+# Matrix 截图
+05_tools/07_matrix/screenshots/
+
+# AVE 输出
+05_tools/09_ave/output/
+05_tools/09_ave/cache/
+
+# 系统报告归档
+reports/
+
+# Dashboard 前端产物
+05_tools/10_dashboard/frontend/node_modules/
+05_tools/10_dashboard/frontend/dist/
+
+# Obsidian 插件（大文件 JS 不入库）
+.obsidian/plugins/
+
+# longcat 本地包（含 120MB Playwright node 二进制）
+05_tools/05_crawl/longcat/.local_packages/
 03_knowledge/01_submissions/*/
 
 # 多机共享注册表（已迁移到 machines/*/ 方式，旧文件冲突不断，排除）

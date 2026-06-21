@@ -528,7 +528,17 @@ class CDPConnector:
     async def close(self):
         # 优先通过 AsyncCamoufox 实例优雅关闭（会依次关浏览器+Playwright驱动）
         if hasattr(self, '_camoufox') and self._camoufox:
-            await self._camoufox.stop()
+            try:
+                await self._camoufox.stop()
+            except (AttributeError, Exception):
+                # camoufox 部分版本没有 stop() 方法, 用 close() 或 kill() 兜底
+                try:
+                    await self._camoufox.close()
+                except (AttributeError, Exception):
+                    try:
+                        await self._camoufox.kill()
+                    except Exception:
+                        pass
         elif self._camoufox_browser:
             await self._camoufox_browser.close()
         if self._playwright:

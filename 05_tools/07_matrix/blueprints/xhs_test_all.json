@@ -1,0 +1,25 @@
+{
+  "id": "xhs_test_all",
+  "name": "小红书-原子操作全测",
+  "description": "所有原子操作各执行一次，测试每个是否正常工作",
+  "version": "1.0",
+  "platform": "xiaohongshu",
+  "steps": [
+    {"step_id": 1,  "op": "xhs_goto_home",    "args": {}},
+    {"step_id": 2,  "op": "xhs_scroll_feed",  "args": {}},
+    {"step_id": 3,  "op": "xhs_click_note",   "args": {}},
+    {"step_id": 4,  "op": "wait_watch",       "args": {}},
+    {"step_id": 5,  "op": "xhs_like",         "args": {}},
+    {"step_id": 6,  "op": "xhs_collect",      "args": {}},
+    {"step_id": 7,  "op": "xhs_post_comment", "args": {"text": "测试评论"}},
+    {"step_id": 8,  "op": "go_back",          "args": {}},
+    {"step_id": 9,  "op": "xhs_search",       "args": {"keyword": "美食"}},
+    {"step_id": 11, "op": "xhs_click_note",   "args": {}},
+    {"step_id": 12, "op": "wait_watch",       "args": {}},
+    {"step_id": 13, "op": "xhs_like",         "args": {}},
+    {"step_id": 14, "op": "xhs_collect",      "args": {}},
+    {"step_id": 15, "op": "xhs_follow",       "args": {}},
+    {"step_id": 16, "op": "go_back",          "args": {}},
+    {"step_id": 17, "op": "xhs_goto_profile", "args": {}}
+  ]
+}

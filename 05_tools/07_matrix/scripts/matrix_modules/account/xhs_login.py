@@ -43,7 +43,7 @@ from pathlib import Path
 
 PHONE_PLACEHOLDER = '输入手机号'
 CONTINUE_TEXT = '继续'
-AGREE_LOGIN_TEXT = '同意并登录'
+AGREE_LOGIN_TEXT = '同意并继续'
 LOGIN_BTN_TEXTS = ['登录', '登 录']
 RESEND_TEXTS = ['重新获取', '重发', '重新发送']
 LOGIN_INDICATORS = ['.user-avatar', '.reds-count']
@@ -126,13 +126,27 @@ async def has_agree_text(page) -> bool:
 
 
 async def is_logged_in(page) -> bool:
-    """检测小红书是否已登录"""
+    """检测小红书是否已登录（严格模式）"""
     try:
-        return await page.evaluate(
-            '() => !!document.querySelector(".user-avatar") || '
-            '!!document.querySelector(".reds-count") || '
-            '!!document.querySelector("[class*=avatar]")'
-        )
+        # 登录面板可见 → 肯定没登录
+        if await has_login_panel(page):
+            return False
+        return await page.evaluate("""() => {
+            // 查用户头像 — 只在顶栏区域（不是 feed 里的创作者头像）
+            const topAvatars = document.querySelectorAll(
+                '.reds-count, [class*="reds-user"], ' +
+                '[class*="user-sidebar"], .side-bar [class*="avatar"], ' +
+                '[class*="user-info"] [class*="avatar"]'
+            );
+            if (topAvatars.length > 0) return true;
+
+            // 兜底：找整体登录指示元素
+            const indicators = document.querySelectorAll(
+                '[class*="user-center"], [class*="user-profile"], ' +
+                '[class*="my-info"], [data-testid*="user"]'
+            );
+            return indicators.length > 0;
+        }""")
     except Exception:
         return False
 
@@ -155,6 +169,15 @@ async def fill_phone(page, phone: str):
 
 async def click_continue(page) -> bool:
     """点「继续」按钮（触发SMS发送）"""
+    # 先检查是否有 oauth-tip（切换登录方式），有则先点它
+    try:
+        oauth = page.locator('div.oauth-tip')
+        if await oauth.count() > 0 and await oauth.first.is_visible():
+            await oauth.first.click()
+            await asyncio.sleep(1)
+    except:
+        pass
+
     clicked = await page.evaluate(
         f"""() => {{
             var all = document.querySelectorAll('span,div,button');
@@ -172,26 +195,41 @@ async def click_continue(page) -> bool:
 
 async def click_agree_and_login(page) -> bool:
     """
-    点「同意并登录」按钮（v3核心方案 — 替代复选框勾选）
-
-    用户发现：登录弹窗中（或点「登录」后触发的浮窗上）有该按钮，
-    点击后一次性处理协议勾选+登录意图。
+    点「同意并继续」按钮（先点登录后弹出的浮层按钮）
+    先试 .foot-btn CSS 选择器，再搜文本
     """
-    clicked = await page.evaluate(
-        f"""() => {{
-            var all = document.querySelectorAll('span,div,button');
-            for (var i=0; i<all.length; i++) {{
-                if (!all[i].offsetParent) continue;
-                var t = all[i].textContent.trim();
-                if (t === '{AGREE_LOGIN_TEXT}' || t.includes('{AGREE_LOGIN_TEXT}')) {{
-                    all[i].click();
-                    return true;
+    # 先试 CSS 选择器
+    try:
+        fb = page.locator('div.foot-btn')
+        cnt = await fb.count()
+        if cnt > 0 and await fb.first.is_visible():
+            await fb.first.click()
+            return True
+    except:
+        pass
+
+    # 再搜文本（找 z-index 最高的可见元素）
+    for _ in range(6):
+        clicked = await page.evaluate(
+            f"""() => {{
+                var all = document.querySelectorAll('span,div,button');
+                var found = null, maxZ = 0;
+                for (var i=0; i<all.length; i++) {{
+                    if (!all[i].offsetParent) continue;
+                    var t = all[i].textContent.trim();
+                    if (t.includes('同意并继续') || t.includes('同意并登录')) {{
+                        var z = parseInt(window.getComputedStyle(all[i]).zIndex) || 0;
+                        if (z > maxZ) {{ maxZ = z; found = all[i]; }}
+                    }}
                 }}
-            }}
-            return false;
-        }}"""
-    )
-    return clicked
+                if (found) {{ found.click(); return true; }}
+                return false;
+            }}"""
+        )
+        if clicked:
+            return True
+        await asyncio.sleep(1)
+    return False
 
 
 async def click_agreement_checkbox(page) -> bool:
@@ -512,27 +550,8 @@ async def xhs_login(page, phone: str = '', account_name: str = '',
         return False
     log_func('✅ 验证码框已出现')
 
-    # ── Step 5: 处理协议同意 ──
-    #   v3（优先）: 点「同意并登录」弹出浮窗按钮
-    #   v2（兜底）: 鼠标定位"同意"文字左侧20px → 点击复选框
-    log_func('📄 Step 5: 协议同意处理')
-    await asyncio.sleep(0.5)
-    v3_ok = await click_agree_and_login(page)
-    if not v3_ok:
-        log_func('  ⚠️ v3 方案未找到"同意并登录"按钮')
-        # 如果 v3 找不到，尝试 v2 复选框兜底
-        log_func('  ⚠️ 回退 v2 复选框方案...')
-        if await click_agreement_checkbox(page):
-            log_func('  ✅ v2 复选框已点击（不可靠方案）')
-        else:
-            log_func('  ❌ 两种方案均失败，将尝试继续登录')
-    else:
-        log_func('  ✅ 已点「同意并登录」')
-
-    await asyncio.sleep(0.5)
-
-    # ── Step 6: 轮询验证码 ──
-    log_func('📡 Step 6: 获取短信验证码')
+    # ── Step 5: 轮询验证码 ──
+    log_func('📡 Step 5: 获取短信验证码')
     from matrix_modules.account.sms.api import ApiSMSHandler
 
     handler = ApiSMSHandler(phone=phone) if phone and phone.strip() else ApiSMSHandler()
@@ -561,18 +580,30 @@ async def xhs_login(page, phone: str = '', account_name: str = '',
     if not code or len(code) not in (4, 5, 6):
         return False
 
-    # ── Step 7: 填6位验证码 ──
-    log_func(f'📝 Step 7: 填验证码 {code}')
+    # ── Step 6: 填6位验证码 ──
+    log_func(f'📝 Step 6: 填验证码 {code}')
     await fill_6_digit_code(page, code[:6], log_func)
     await asyncio.sleep(0.5)
 
-    # ── Step 8: 点「登录」按钮 ──
-    #   v3 方案下"同意并登录"可能已处理，但仍需点登录
-    log_func('🔘 Step 8: 点击登录')
+    # ── Step 7: 点「登录」按钮（触发「同意并登录」浮层）──
+    #   先点登录，会弹出「同意并登录」浮动层，然后再点它
+    log_func('🔘 Step 7: 点击登录')
     ok = await click_largest_login_btn(page, log_func)
     if not ok:
         log_func('  ⚠️ DOM 点击失败，尝试系统级鼠标点击')
         ok = await click_login_system(page, log_func)
+    await asyncio.sleep(2)
+
+    # ── Step 8: 点「同意并继续」（登录后弹出的浮层）──
+    #   等浮层出现（最多5秒），点击后即完成登录
+    log_func('📄 Step 8: 同意并继续')
+    await asyncio.sleep(0.5)
+    v3_ok = await click_agree_and_login(page)
+    if v3_ok:
+        log_func('  ✅ 已点「同意并登录」')
+    else:
+        log_func('  ⚠️ 未找到"同意并继续"按钮，尝试继续...')
+
     await asyncio.sleep(3)
 
     # ── Step 9: 验证登录 ──

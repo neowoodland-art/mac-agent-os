@@ -1,6 +1,6 @@
 # AgentOS 联邦系统使用指南
 
-> 版本 4.2.0 | 2026-06-19
+> 版本 4.2.0 | 2026-06-21
 > 本文档让三台机器都能理解整个联邦系统：架构、工具、操作流程、故障处理
 
 ---
@@ -9,15 +9,15 @@
 
 | 主机名 | Tailscale IP | SSH 用户 | Home | 角色 |
 |:-------|:-------------|:---------|:-----|:-----|
-| **chengzigedeAir** (macbook-air) | 100.111.43.6 | chengzige | /Users/chengzige | 主控 + Dashboard |
-| **5kechengdeAir** (5macbook-air) | 100.72.182.121 | 5kecheng | /Users/5kecheng | 工作节点 |
-| **7kecheng** (7macbook-air) | 100.65.35.28 | 7kecheng | /Users/7kecheng | 工作节点 |
+| **chengzigedeAir** (macbook-air) | 100.111.43.6 | chengzige | /Users/chengzige | master |
+| **5kechengdeAir** (5macbook-air) | 100.72.182.121 | 5kecheng | /Users/5kecheng | worker |
+| **7kecheng** (7macbook-air) | 100.65.35.28 | 7kecheng | /Users/7kecheng | worker |
 
 **共同点**（三台一致）：
 - Python 3.13.12 agent-os venv
 - Playwright 1.58.0 + Camoufox 0.4.11
 - Git 双端同步（Gitee + GitHub）
-- 14 个蓝图文件
+- 12 个蓝图 JSON 文件（另有测试蓝图）
 - 联邦目录结构
 
 **本机独有**（agent-local/ 不同步）：
@@ -129,7 +129,7 @@ launchctl unload ~/Library/LaunchAgents/com.agentos.guardd.plist
 launchctl load ~/Library/LaunchAgents/com.agentos.guardd.plist
 ```
 
-**检查项**：心跳上报、Dashboard 存活、磁盘空间、孤儿进程、知识同步、Git 同步。
+**检查项**（9 模块）：心跳上报 → Dashboard 数据同步 → 任务执行 → 升级检查 → 记忆整理 → 知识同步 → 加密通道 → Git 同步拉取 → 过期数据清理。
 
 ### 3.3 Socks5 代理转发
 
@@ -187,34 +187,60 @@ python3 matrix_mgmt.py accounts list           # 列出账号
 python3 matrix_mgmt.py accounts sync           # 同步账号
 python3 matrix_mgmt.py backup                  # 备份
 
-### 4.4 登录状态机（2026-06-19 新增）
+### 4.4 登录状态机（2026-06-20 重构 v2.0）
 
 **代码位置**: `scripts/matrix_modules/account/login_state_machine.py`
 
-每次 `mc run` 执行蓝图时，引擎自动插入三个安全钩子，不需要手动操作：
+**架构**：三组件模式
 
 ```
-钩子1: 执行前 → ensure_login(账号, 平台)
-   → DOM检测已登录? 是→继续
-   → Cookie恢复(刷新页面)? 是→继续
-   → SMS重登(填手机→等验证码→点同意)? 是→继续
-   → 截图→视觉分析→上报→跳过本轮
-
-钩子2: 每步后 → check_verify_dialog(页面)
-   → 检测到短信验证弹窗? → 自动sms_login恢复 → 跳过当前操作
-   → 检测到滑块验证? → 记录日志但不断
-
-钩子3: 每步后 → 操作冷却
-   → 评论后30-45s / 点赞后2-4s / 关注后10-20s / 搜索后3-6s
-```
-python3 matrix_mgmt.py restore                 # 恢复
+LoginStateMachine (编排器)
+  ├─ PlatformDetector (策略模式, 按平台可插拔)
+  │   ├─ DouyinDetector  — 文本检测 + DOM锚点 + Cookie辅助
+  │   └─ XhsDetector     — DOM锚点 + Cookie辅助
+  └─ RecoveryChain (可配置恢复链)
+      ├─ DouyinLoginRecovery — 抖音专用：点击登录 → 一键登录或填手机
+      │   → SMS验证码 → 确认登录  ← 2026-06-20 完成
+      ├─ CookieRecovery     — 导航到 user/self
+      ├─ SmsRecovery        — 小红书 SMS 备用
+      └─ VisualRecovery     — 截图上报
 ```
 
-### 4.4 `guardd.py` — 守护进程（手动运行）
+**三种登录场景全部通过验证**（2026-06-20）：
+
+| 场景 | 触发条件 | 流程 | 状态 |
+|:-----|:---------|:-----|:----:|
+| **已登录** | Session cookie 有效 | detect → `logged_in` → 直接执行蓝图 | ✅ |
+| **短期过期** | Session cookie 存在但服务端标记过期 | detect → `not_logged` → 点登录 → 点一键登录 → SMS码 → **确认登录** → 蓝图 | ✅ |
+| **全新登录** | 无 cookie | detect → `not_logged` → 点登录 → 自动填手机 → 获取验证码 → **登录** → 蓝图 | ✅ |
+
+**关键发现**：
+- 登录按钮文字在不同场景不同：全新登录是「登录」，短期过期是「**确认登录**」
+- 抖音 UI 使用自定义组件，`<input>` 的 placeholder 无法通过通用 CSS 选择器匹配
+- 使用 JS `page.evaluate()` 遍历所有元素 + 文本匹配作为兜底
+- 点击被浮层拦截时，JS `el.click()` 绕过 Playwright 的可见性检查
+
+**2026-06-20 重构要点**：
+1. `DouyinDetector.detect()` 四重检测：DOM锚点 → 页面文本 → 标题 → Cookie（仅日志）
+2. 修复 `[data-e2e="user-avatar"]` 误匹配视频创作者头像的问题
+3. `RecoveryChain` 每一步有独立 timeout，超时自动跳过
+4. SMS 验证码轮询用 `_fetch_messages()` 直接调用，只接受 `id > min_id` 的新消息
+  1. 抖音 `logged_in` 锚点从 2 个 -> 9 个（增加 `img[alt*="头像"]`、`a[href*="/user/self"]` 等）
+  2. 新增 Cookie 兜底检测：DOM 检测失败后，检查 `page.context.cookies()` 中是否存在 `sessionid/token`，有则返回 `"logged_in"`
+  3. `_recover_cookie()` 改为直接导航到 `https://www.douyin.com/user/self`，强制触发登录态渲染
+- 验证：`douyin_test`（3个 session cookie）从之前的 `"未登录(status=unknown) 跳过本轮"` 变为能正常进入蓝图执行流程
+
+### 4.5 多机账号管理
 
 ```bash
-cd ~/workbuddy-agent-os/agent-sync/05_tools/00_setup/guardd
-python3 guardd.py                              # 前台运行（调试用）
+cd ~/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts
+python3 matrix_mgmt.py --help
+
+# 常用操作
+python3 matrix_mgmt.py accounts list           # 列出账号（所有机器声明+读聚合去重）
+python3 matrix_mgmt.py accounts sync           # 多机同步
+python3 matrix_mgmt.py backup                  # 备份
+python3 matrix_mgmt.py restore                 # 恢复
 ```
 
 ---
@@ -259,15 +285,22 @@ Dashboard → 联邦 → 对账检查：检查本机是否符合 ORACLE.yaml 宪
 
 蓝图是定义好"做什么"的 JSON 文件，位于 `05_tools/07_matrix/blueprints/`：
 
-| 蓝图 | 说明 |
-|:-----|:------|
-| `douyin_daily.json` | 抖音日常养号 |
-| `xhs_daily.json` | 小红书日常养号 |
-| `douyin_comment.json` | 抖音定向评论 |
-| `douyin_search.json` | 抖音搜索 |
-| `douyin_collect.json` | 抖音信息采集 |
-| `xiaohongshu_read_profile.json` | 小红书读主页 |
-| `douyin_read_profile.json` | 抖音读主页 |
+| 蓝图 | 说明 | 步数 | 状态 |
+|:-----|:------|:----:|:----:|
+| `douyin_read_profile.json` | 抖音读主页（昵称/粉丝/获赞等） | 9 | ✅ 验证通过 |
+| `douyin_daily.json` | 日常养号（浏览/点赞/收藏/评论随机） | 23 | 🔵 待测试 |
+| `douyin_active_v1.json` | 高活跃养号（多浏览+多搜索+评论） | 27 | 🔵 待测试 |
+| `douyin_comment.json` | 定向评论（给链接→看视频→评论） | 5 | 🔵 待测试 |
+| `douyin_search.json` | 搜索浏览（关键词→搜索→互动） | 14 | 🔵 待测试 |
+| `douyin_collect.json` | 搜索博主→采集主页 | 5 | 🔵 待测试 |
+| `douyin_search_browse.json` | 搜索+点赞+返回 | 7 | 🔵 待测试 |
+| `douyin_reply.json` | 回复评论 | 5 | 🔵 待测试 |
+| `douyin_comment_test.json` | 评论测试 | 5 | 🔵 待测试 |
+| `dy_test_all.json` | 抖音全量功能测试 | — | 🔵 测试用 |
+| `xhs_daily.json` | 小红书日常养号 | 17 | 🔵 待测试 |
+| `xhs_active_v1.json` | 小红书高活跃养号 | 26 | 🔵 待测试 |
+| `xiaohongshu_read_profile.json` | 小红书读主页 | 8 | 🔵 待测试 |
+| `xhs_test_all.json` | 小红书全量功能测试 | — | 🔵 测试用 |
 
 ### 6.2 养号执行流程
 
@@ -437,7 +470,89 @@ curl -s http://localhost:9988/api/health
 
 ---
 
-## 十、关键路径速查
+## 十一、五层执行架构 (L1–L5)
+
+所有 Dashboard 操作（养号、采集、登录、评论）都经过这五层：
+
+```
+L5 ─── Dashboard UI ───────── frontend/src/views/*.js
+  │     用户点击按钮 → API 调用
+  ▼
+L4 ─── API 路由 ───────────── routes/matrix.py, routes/ops.py
+  │     POST /api/ops/run → 调 CommandBus
+  ▼
+L3 ─── CommandBus ─────────── services/command_bus.py
+  │     ORACLE.yaml 合规检查 → account→machine 映射
+  │     预检（SSH可达、进程数）→ 分组 → mc/SSH
+  ▼
+L2 ─── mc 引擎 ────────────── scripts/mc/engine.py
+  │     BatchEngine → 身份分组 → 启动浏览器
+  │     蓝图解析 → 执行步骤 → 钩子检测
+  ▼
+L1 ─── Camoufox 浏览器 ────── scripts/douyin_ops.py / xhs_ops.py
+       真实浏览器操作 → 点赞/评论/采集/登录
+```
+
+### 各层职责
+
+| 层 | 位置 | 核心文件 | 职责 |
+|:---|:-----|:---------|:-----|
+| **L5** | Dashboard 前端 | `frontend/src/views/matrix-*.js` | 按钮交互、确认弹窗、状态轮询、结果展示 |
+| **L4** | FastAPI 路由 | `routes/ops.py` `routes/matrix.py` | 参数校验 → 调用 CommandBus → 返回结果 |
+| **L3** | CommandBus | `services/command_bus.py` | ORACLE合规、按机器分组、预检、SSH/本机分发、状态轮询 |
+| **L2** | mc引擎 | `scripts/mc/engine.py` `scripts/mc/run.py` | 身份分组→浏览器→蓝图步骤执行→钩子检查 |
+| **L1** | 平台Ops | `scripts/douyin_ops.py` `scripts/xhs_ops.py` | 页面操作原子（goto/like/comment/read_profile等） |
+
+### 命令的生命周期
+
+用户点击「养号执行」→ 命令经过的完整路径：
+
+```
+L5: 用户选账号→选蓝图→点执行
+    → 前端 /api/ops/run POST {type:"nurture", accounts:[...], params:{blueprint:"douyin_daily"}}
+L4: POST /api/ops/run → CommandBus.dispatch("nurture", accounts, params)
+L3: CommandBus.dispatch():
+    1. ORACLE.yaml 检查 account→machine 映射
+    2. 按机器分组（同机账号合并为一条命令）
+    3. 预检：SSH 可达性、活跃进程数
+    4. 构造命令行: mc run --accounts=... --blueprints=... --rounds=N
+    5. _send_local: subprocess.Popen(mc run ...) → 返回 PID
+    6. Command.status = DISPATCHING → RUNNING → COMPLETED/FAILED
+L2: BatchEngine.run():
+    1. 身份分组：同 identity_dir 的账号共用浏览器
+    2. 启动 Camoufox 浏览器
+    3. LoginStateMachine.ensure_login() 钩子
+    4. 遍历蓝图步骤 → ops.execute(op, args)
+    5. 每步后 check_verify_dialog() 钩子 + 冷却
+    6. 返回 BatchReport
+L1: DouyinOps/XhsOps:
+    → goto_home / like / comment / dy_read_nickname / ...
+```
+
+### 登录检测流程（L1 关键钩子）
+
+```
+ensure_login(account, platform)
+  ├─ _detect(page)
+  │   ├─ DOM锚点检查（平台特定选择器）
+  │   ├─ 页面标题检测（抖音："xxx的抖音"=已登录）
+  │   └─ Cookie兜底检测（sessionid/token 是否存在）
+  ├─ _recover_cookie(page)
+  │   └─ 导航到 user/self → 强制触发登录态
+  └─ _recover_sms(page, account)
+      └─ sms_login() → 填手机→等验证码→点同意
+```
+
+### 常见断点排查
+
+| 现象 | 可能断点 | 排查方法 |
+|:-----|:---------|:---------|
+| 点击按钮没反应 | L5 事件绑定→L4 API | 检查前端控制台、API 返回 |
+| API 返回 500 | L4 路由→L3 CommandBus | 看 dashboard.log |
+| 命令"已分发"但状态不变 | L3 poll()→L2 进程 | `ps aux \| grep mc run`、看 runtime/commands/run_id.log |
+| 命令"已完成"但没数据 | L2→L1 引擎 | 看命令日志中 `ensure_login` 是否通过 |
+| 账号被跳过（skipped） | L1 ensure_login 失败 | 检查 session cookie 是否有效 |
+| 执行卡住不动 | L1 SMS 验证弹窗 | 手动输入验证码或等超时 |
 
 | 要找什么 | 路径 |
 |:---------|:-----|

@@ -1,6 +1,6 @@
 {
   "name": "inbox_refine",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "知识库收件箱提纯——每日将 00_inbox/ 内容分类归档到知识库，更新首页统计和变更日志",
   "created": "2026-04-25",
   "last_modified": "2026-04-25",

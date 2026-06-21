@@ -2,13 +2,26 @@
 """
 guardd — AgentOS 联邦式协同守护进程
 
-职责：每 5 分钟执行一轮 7 模块循环，自动化跨机器协同。
+职责：每 5 分钟执行一轮 9 模块循环，自动化跨机器协同。
 安装方式：launchd (macOS) 或 crontab
 周期：300 秒（可配置）
 
 所有模块使用规则引擎，不调用 LLM，0 token 消耗。
 """
-version = "2.3.0"
+# 版本号从 01_core/VERSION 读取（唯一来源）
+try:
+    ver_file = Path(__file__).resolve().parent.parent.parent.parent / "01_core" / "VERSION"
+    if ver_file.exists():
+        for line in ver_file.read_text().splitlines():
+            if line.startswith("GUARDD_VERSION="):
+                version = line.split("=", 1)[1].strip()
+                break
+        else:
+            version = "2.3.0"
+    else:
+        version = "2.3.0"
+except Exception:
+    version = "2.3.0"
 
 import json
 import logging
@@ -387,28 +400,13 @@ def module_heartbeat():
     (live_dir / f"{MACHINE_UID}.json").write_text(
         json.dumps(live_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    # ── WPRA v2.0: 写入 machines/{MACHINE_UID}/heartbeat.json ──
-    # 每台机器只写自己的命名空间，永远不会冲突
-    machine_hb = {
-        # WPRA 通用字段
-        "schema_version": "2.0",
-        "file_schema": "heartbeat-v2",
-        "file_version": _read_file_version(DIR_MY_MACHINE / "heartbeat.json") + 1,
-        "machine_uid": MACHINE_UID,
-        "machine_name": HOSTNAME,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        # 心跳数据
-        "status": "online",
-        "guardd_version": version,
-        "cpu_load": cpu_load,
-        "memory_pct": memory_info.get("percent", 0),
-        "disk_avail_gb": disk_info.get("available_gb", 0),
-        "uptime_sec": round(time.time() - _guardd_start_time) if _guardd_start_time else 0,
-        "current_task": current_task,
-    }
-    (DIR_MY_MACHINE / "heartbeat.json").write_text(
-        json.dumps(machine_hb, indent=2, ensure_ascii=False), encoding="utf-8")
-
+    # ── WPRA v2.0 心跳写入已移除（v4.2.0）──
+    # 心跳数据仅写入：
+    #   - status/{HOSTNAME}/heartbeat.json（本地状态目录）
+    #   - status/live/{MACHINE_UID}.json（实时状态）
+    # 不再写入 cross_machine/machines/{UID}/heartbeat.json，避免 Git 污染。
+    # Dashboard 通过 guardd 的反向连接推送获取心跳。
+    #
     # ── 记录心跳事件到 events/ ──
     _write_machine_event("heartbeat", {"cpu": cpu_load, "disk_avail": disk_info.get("available_gb", 0)})
 
@@ -487,49 +485,58 @@ def _git_sync():
 
 
 def _sync_account_override():
-    """自动同步 registry → override: 检测本机新账号并自动补全
+    """从 ORACLE.yaml 同步 override: 检测本机新账号并自动补全
 
     流程:
-      1. 读取 accounts_registry.yaml（Gitee 同步）
-      2. 读取 accounts.override.yaml（本机私有）
-      3. 找到 registry 中 assigned_machine=本机 但 override 中不存在的账号
-      4. 自动添加到 override（phone 用 phone_mask 占位，用户后续可改）
+       1. 读取 ORACLE.yaml（联邦宪法，Gitee 同步）
+       2. 读取 accounts.override.yaml（本机私有）
+       3. 找到 ORACLE 中 machine=本机 但 override 中不存在的账号 ID
+       4. 自动添加到 override（phone 用 mask 占位，用户后续可改）
 
-    这样新机器加入后不需要手动配置 override，guardd 自动补全。
+    废除 accounts_registry.yaml（v4.2.0），所有账号分配统一在 ORACLE.yaml 中管理。
     """
     import yaml
 
-    REGISTRY_PATH = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
+    ORACLE_PATH = AGENT_SYNC / "ORACLE.yaml"
     OVERRIDE_PATH = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.override.yaml"
 
-    if not REGISTRY_PATH.exists():
-        logger.warning("  accounts_registry.yaml 不存在，跳过 override 同步")
+    if not ORACLE_PATH.exists():
+        logger.warning("  ORACLE.yaml 不存在，跳过 override 同步")
         return
 
     try:
-        reg = yaml.safe_load(REGISTRY_PATH.read_text()) or {"accounts": []}
+        oracle = yaml.safe_load(ORACLE_PATH.read_text()) or {}
         ovr = yaml.safe_load(OVERRIDE_PATH.read_text()) if OVERRIDE_PATH.exists() else {"version": "1.0", "hostname": HOSTNAME, "accounts": []}
 
         ovr_ids = {a["id"] for a in ovr.get("accounts", [])}
         new_accounts = []
 
-        for acct in reg.get("accounts", []):
+        for acct in oracle.get("accounts", []):
             # 只处理本机归属的账号
-            if acct.get("assigned_machine", "") != HOSTNAME:
+            if acct.get("machine", "") != HOSTNAME:
                 continue
-            aid = acct["id"]
-            if aid in ovr_ids:
-                continue  # 已在 override 中
 
-            # 自动补全
-            new_entry = {
-                "id": aid,
-                "phone": acct.get("phone_mask", ""),
-                "enabled": True,
-            }
-            ovr.setdefault("accounts", []).append(new_entry)
-            new_accounts.append(aid)
-            logger.info(f"  📝 自动补全 override: {aid} (phone={new_entry['phone']})")
+            # ORACLE 中一个 identity 可能绑定多个平台（douyin + xiaohongshu）
+            platforms = acct.get("platforms", {})
+            for platform, account_id in platforms.items():
+                if account_id in ovr_ids:
+                    continue  # 已在 override 中
+
+                # 自动补全
+                phone_mask = acct.get("phone", "")
+                if len(phone_mask) > 7:
+                    phone_mask = phone_mask[:3] + "****" + phone_mask[-4:]
+
+                new_entry = {
+                    "id": account_id,
+                    "phone": phone_mask,
+                    "platform": platform,
+                    "identity": acct.get("identity", ""),
+                    "enabled": True,
+                }
+                ovr.setdefault("accounts", []).append(new_entry)
+                new_accounts.append(account_id)
+                logger.info(f"  📝 自动补全 override: {account_id} ({platform})")
 
         if new_accounts:
             OVERRIDE_PATH.parent.mkdir(parents=True, exist_ok=True)

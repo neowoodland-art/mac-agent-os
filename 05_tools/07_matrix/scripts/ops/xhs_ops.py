@@ -43,6 +43,7 @@ class XhsOps(PlatformOps):
             "xhs_goto_profile",
             "xhs_read_nickname", "xhs_read_user_id", "xhs_read_following",
             "xhs_read_fans", "xhs_read_likes", "xhs_read_bio",
+            "wait_watch", "go_back", "goto_url",
         ]
 
     def set_account_id(self, account_id: str):
@@ -83,25 +84,60 @@ class XhsOps(PlatformOps):
             await note.click()
             await asyncio.sleep(4)
             return OpResult("xhs_click_note", step_id, True, "note_opened")
-        return OpResult("xhs_click_note", step_id, True, "no_note")
+        # 找不到笔记 → 回首页重试
+        await self.page.goto("https://www.xiaohongshu.com/explore", timeout=15000, wait_until="domcontentloaded")
+        await asyncio.sleep(3)
+        note2 = self.page.locator('section.note-item, a[href*="/explore/"], [class*="note-item"]').first
+        if await note2.count() > 0:
+            await note2.click()
+            await asyncio.sleep(4)
+            return OpResult("xhs_click_note", step_id, True, "note_opened_retry")
+        return OpResult("xhs_click_note", step_id, False, "no_note")
 
     # ═══════════════════════════════════════════════════════
     # 互动类
     # ═══════════════════════════════════════════════════════
 
     async def xhs_like(self, args: dict, step_id: int) -> OpResult:
+        """点赞 — 点 SPAN.like-lottie（force=True 绕过可见性检查）"""
+        try:
+            btn = self.page.locator('span.like-lottie')
+            if await btn.count() > 0:
+                await btn.first.click(force=True)
+                await asyncio.sleep(1)
+                return OpResult("xhs_like", step_id, True, "👍")
+        except:
+            pass
+        # 快速兜底
         r = await self.page.evaluate("""() => {
-            const btns = document.querySelectorAll('[class*="like"],[data-testid*="like"]');
-            for (const b of btns) {
-                if (b.offsetParent !== null) { b.click(); return '👍'; }
+            const all = document.querySelectorAll('span, button, div');
+            for (const el of all) {
+                const c = (el.className || '') + (el.textContent || '');
+                if ((c.includes('like') || c.includes('赞')) && el.offsetParent) {
+                    if (c.includes('collect') || c.includes('save')) continue;
+                    el.click(); return '👍';
+                }
             }
             return '-';
         }""")
         await asyncio.sleep(1)
-        ok = r == "👍"
-        return OpResult("xhs_like", step_id, ok, r, error="" if ok else "like_not_found")
+        return OpResult("xhs_like", step_id, r == "👍", r)
 
     async def xhs_collect(self, args: dict, step_id: int) -> OpResult:
+        """收藏 — 找收藏 SVG 按钮（在点赞按钮右侧）"""
+        try:
+            # 先找点赞按钮位置，再找旁边的收藏
+            like = self.page.locator('span.like-lottie')
+            if await like.count() > 0:
+                box = await like.first.bounding_box()
+                if box:
+                    # 收藏通常在点赞右边60-80px
+                    await self.page.mouse.click(box['x'] + 70, box['y'])
+                    await asyncio.sleep(1)
+                    return OpResult("xhs_collect", step_id, True, "⭐")
+        except:
+            pass
+        # 兜底：找收藏相关元素
         r = await self.page.evaluate("""() => {
             const btns = document.querySelectorAll('[class*="collect"],[class*="save"]');
             for (const b of btns) {
@@ -110,8 +146,7 @@ class XhsOps(PlatformOps):
             return '-';
         }""")
         await asyncio.sleep(1)
-        ok = r == "⭐"
-        return OpResult("xhs_collect", step_id, ok, r, error="" if ok else "collect_not_found")
+        return OpResult("xhs_collect", step_id, r == "⭐", r)
 
     async def xhs_comment(self, args: dict, step_id: int) -> OpResult:
         await self.page.keyboard.press("x")
@@ -119,19 +154,29 @@ class XhsOps(PlatformOps):
         return OpResult("xhs_comment", step_id, True, "comment_opened")
 
     async def xhs_follow(self, args: dict, step_id: int) -> OpResult:
+        """关注 — 点 SPAN.reds-button-new-text（基于录制）"""
+        try:
+            btn = self.page.locator('span.reds-button-new-text')
+            if await btn.count() > 0:
+                await btn.first.click(force=True)
+                await asyncio.sleep(2)
+                return OpResult("xhs_follow", step_id, True, "✅")
+        except:
+            pass
+        # 兜底
         r = await self.page.evaluate("""() => {
-            const btns = document.querySelectorAll('button');
+            const btns = document.querySelectorAll('button, span');
             for (const b of btns) {
                 const t = (b.textContent || '').trim();
-                if (t.includes('关注') && !t.includes('已关注')) { b.click(); return '✅'; }
+                if (t.includes('关注') && !t.includes('已关注') && b.offsetParent) { b.click(); return '✅'; }
             }
             return '-';
         }""")
-        ok = r == "✅"
-        return OpResult("xhs_follow", step_id, ok, r, error="" if ok else "follow_not_found")
+        await asyncio.sleep(2)
+        return OpResult("xhs_follow", step_id, r == "✅", r)
 
     async def xhs_post_comment(self, args: dict, step_id: int) -> OpResult:
-        """小红书发评论 — pbcopy + Meta+V + Enter"""
+        """小红书发评论 — JS找输入框+按钮，不依赖CSS类名（CSS modules不可靠）"""
         text = args.get("text", "")
         if not text or text == "@corpus":
             try:
@@ -145,12 +190,59 @@ class XhsOps(PlatformOps):
             except Exception:
                 text = "好实用呀"
         try:
-            proc = await asyncio.create_subprocess_exec("pbcopy", stdin=asyncio.subprocess.PIPE)
-            await proc.communicate(input=text.encode())
-            await asyncio.sleep(0.5)
-            await self.page.keyboard.press("Meta+V")
-            await asyncio.sleep(1.5)
-            await self.page.keyboard.press("Enter")
+            # Step 1: 滑到底部（评论区在底部）
+            await self.page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
+            await asyncio.sleep(2)
+            
+            # Step 2: JS找输入框并填字（不限类名，找任何可见的textarea/input/editable）
+            filled = await self.page.evaluate(f"""() => {{
+                const all = document.querySelectorAll(
+                    'textarea, input[type="text"], [contenteditable="true"], ' +
+                    '[class*="input"], [class*="editor"], [class*="textarea"]'
+                );
+                for (const el of all) {{
+                    if (el.offsetParent !== null) {{
+                        el.focus();
+                        el.click();
+                        // 尝试 execCommand 写入
+                        const sel = window.getSelection();
+                        const range = document.createRange();
+                        range.selectNodeContents(el);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        document.execCommand('insertText', false, '{text}');
+                        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        return true;
+                    }}
+                }}
+                return false;
+            }}""")
+            await asyncio.sleep(1)
+            
+            # Step 3: 如果JS填字失败，pbcopy 兜底
+            if not filled:
+                proc = await asyncio.create_subprocess_exec("pbcopy", stdin=asyncio.subprocess.PIPE)
+                await proc.communicate(input=text.encode())
+                await asyncio.sleep(0.5)
+                await self.page.keyboard.press("Meta+V")
+                await asyncio.sleep(1.5)
+            
+            # Step 4: 找发送按钮（找包含"发送"文本/class含submit的按钮）
+            sent = await self.page.evaluate("""() => {
+                const btns = document.querySelectorAll('button, [class*="submit"], [class*="send"]');
+                for (const b of btns) {
+                    const t = (b.textContent || '').trim();
+                    if ((t.includes('发送') || t.includes('发布') || b.className.includes('submit')) 
+                        && b.offsetParent) {
+                        b.click(); return true;
+                    }
+                }
+                return false;
+            }""")
+            if not sent:
+                # 没找到发送按钮 → Enter发送
+                await self.page.keyboard.press("Enter")
+            
             await asyncio.sleep(2)
             return OpResult("xhs_post_comment", step_id, True, f"👍评论({text[:10]})")
         except Exception as e:
@@ -158,14 +250,35 @@ class XhsOps(PlatformOps):
 
     async def xhs_search(self, args: dict, step_id: int) -> OpResult:
         kw = args.get("keyword", "热门推荐")
-        await self.page.evaluate(
-            "(k) => { const i = document.querySelector('input'); if(i) { i.value=k; i.dispatchEvent(new Event('input')); } }",
-            kw
-        )
-        await asyncio.sleep(1)
-        await self.page.keyboard.press("Enter")
-        await asyncio.sleep(3)
-        return OpResult("xhs_search", step_id, True, f"searched({kw[:10]})")
+        if kw == "@random":
+            import random as _r
+            kw = _r.choice(["穿搭推荐","美食日常","旅行攻略","化妆教程","家居好物",
+                            "宠物日常","电影推荐","读书分享","健身打卡","摄影技巧"])
+        try:
+            # 小红书搜索栏是 TEXTAREA.textarea（非 input）
+            search_box = self.page.locator('textarea.textarea')
+            if await search_box.count() > 0:
+                await search_box.first.click()
+                await asyncio.sleep(0.5)
+                await search_box.first.fill(kw)
+                await asyncio.sleep(1)
+                await self.page.keyboard.press("Enter")
+                await asyncio.sleep(3)
+                return OpResult("xhs_search", step_id, True, f"searched({kw[:10]})")
+        except:
+            pass
+        # 兜底
+        try:
+            await self.page.evaluate(
+                "(k) => { const i = document.querySelector('input,textarea'); if(i) { i.value=k; i.dispatchEvent(new Event('input')); } }",
+                kw
+            )
+            await asyncio.sleep(1)
+            await self.page.keyboard.press("Enter")
+            await asyncio.sleep(3)
+            return OpResult("xhs_search", step_id, True, f"searched({kw[:10]})")
+        except Exception as e:
+            return OpResult("xhs_search", step_id, False, "search_failed", error=str(e))
 
     # ═══════════════════════════════════════════════════════
     # 主页信息采集
@@ -262,8 +375,34 @@ class XhsOps(PlatformOps):
         return OpResult("xhs_read_bio", step_id, True, f"bio={v}")
 
     # ═══════════════════════════════════════════════════════
-    # 内部
+    # 内部 + 通用操作
     # ═══════════════════════════════════════════════════════
+
+    async def wait_watch(self, args: dict, step_id: int) -> OpResult:
+        """等待观看（随机5-15秒）"""
+        import random
+        seconds = args.get("seconds") or random.randint(5, 15)
+        await asyncio.sleep(seconds)
+        return OpResult("wait_watch", step_id, True, f"watched_{seconds}s")
+
+    async def go_back(self, args: dict, step_id: int) -> OpResult:
+        """返回上一页"""
+        try:
+            await self.page.go_back(wait_until="domcontentloaded")
+            await asyncio.sleep(2)
+            return OpResult("go_back", step_id, True, "back")
+        except Exception as e:
+            return OpResult("go_back", step_id, True, "back_fallback")
+
+    async def goto_url(self, args: dict, step_id: int) -> OpResult:
+        """跳转到指定URL（定向评论用）"""
+        url = args.get("url", XHS_HOME_URL)
+        try:
+            await self.page.goto(url, timeout=20000, wait_until="domcontentloaded")
+            await asyncio.sleep(4)
+            return OpResult("goto_url", step_id, True, f"goto {url[:30]}")
+        except Exception as e:
+            return OpResult("goto_url", step_id, False, "goto_fail", error=str(e))
 
     def _save_profiles_json(self):
         """保存主页信息到 profiles.json（供 Dashboard 读取）"""

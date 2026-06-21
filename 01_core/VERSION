@@ -1,0 +1,12 @@
+# AgentOS 版本
+# 此为版本唯一来源。所有文档/代码从本文件读取。
+#
+# 版本规则：
+#   大版本（X.0.0）— 核心框架或联邦架构升级
+#   中版本（0.X.0）— 工具级增加或重大升级
+#   小版本（0.0.X）— 配置小项目升级、bugfix
+
+AGENTOS_VERSION=4.2.0
+GUARDD_VERSION=2.3.0
+ORACLE_SCHEMA=1.0
+LAST_UPDATED=2026-06-21

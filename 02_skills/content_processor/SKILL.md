@@ -1,20 +1,10 @@
 ---
 name: content_processor
 version: 2.0.0
-description: 统一内容采集入口——按内容类型路由，区分知识类与素材类，输出到提交箱或素材库。触发词："收集"类指令均进入此路由
-triggers:
-  - 收集这个视频
-  - 收集这个链接
-  - 收集这篇文章
-  - 收集这个音频
-  - 收集这个图片
-  - 提取字幕
-  - 提取背景音乐
-  - 视频总结
-  - 转文字
-  - 语音摘要
-  - 采集
-  - 处理内容
+status: archived
+archived_date: 2026-06-21
+description: [已归档] 统一内容采集入口设计，无实现代码
+triggers: []
 ---
 
 # Content Processor Skill（统一内容采集入口）

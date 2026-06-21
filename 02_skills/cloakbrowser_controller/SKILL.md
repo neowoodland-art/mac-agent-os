@@ -1,15 +1,10 @@
 ---
 name: cloakbrowser_controller
 version: 1.0.0
-description: CloakBrowser 源码级反爬浏览器——替代 agent-browser/Playwright，30/30反爬检测通过
-triggers:
-  - 爬虫
-  - 反爬
-  - 浏览器自动化
-  - 采集
-  - 抓取
-  - 绕过验证码
-  - cloakbrowser
+status: archived
+archived_date: 2026-06-21
+description: [已归档] CloakBrowser 反爬浏览器设计，无实现代码
+triggers: []
 ---
 
 # CloakBrowser Controller Skill
