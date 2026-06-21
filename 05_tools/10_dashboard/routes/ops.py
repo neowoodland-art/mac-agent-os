@@ -67,6 +67,12 @@ def api_ops_status(machine: str = None, account: str = None):
     return {"commands": CommandBus.get_status(machine=machine, account=account)}
 
 
+@router.get("/history")
+def api_ops_history(limit: int = 20):
+    """查询命令执行历史（含每台机器的执行结果）"""
+    return {"commands": CommandBus.get_status()[:limit]}
+
+
 @router.get("/machines")
 def api_ops_machines():
     """查询所有机器聚合状态"""

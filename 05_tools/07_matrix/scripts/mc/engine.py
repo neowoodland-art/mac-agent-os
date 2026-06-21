@@ -356,7 +356,7 @@ class BatchEngine:
                     rpt = await self._run_acct_on_conn(acct_info, bp_name, round_idx, conn)
                     reports.append(rpt)
                     if round_idx < self.rounds_total:
-                        wait = random.uniform(15, 30)
+                        wait = random.uniform(5, 10)
                         log.info(f"  ⏳ [{acct_id}] 等待 {wait:.0f}s...")
                         await asyncio.sleep(wait)
 
