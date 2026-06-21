@@ -66,6 +66,10 @@ def _analyze_step_pair(before: dict, after: dict) -> dict:
     ap = after.get("page", {})
     events = before.get("events", [])
 
+    # before_state 对比（三段式记录的状态指纹）
+    bbs = before.get("before_state", {}) or {}
+    abs = after.get("before_state", {}) or {}
+
     analysis = {
         "step_before": before["step"],
         "step_after": after["step"],
@@ -74,6 +78,27 @@ def _analyze_step_pair(before: dict, after: dict) -> dict:
         "page_mode": ap.get("page_mode", "?"),
         "interactable_count": ap.get("interactable_count", 0),
     }
+
+    # 0. before_state 选择器变化分析（优先级最高）
+    sel_before = bbs.get("selectors", {})
+    sel_after = abs.get("selectors", {})
+    if sel_before and sel_after:
+        sel_changes = {}
+        all_keys = set(sel_before) | set(sel_after)
+        for k in all_keys:
+            v1 = sel_before.get(k, False)
+            v2 = sel_after.get(k, False)
+            if v1 != v2:
+                sel_changes[k] = f"{'✅' if v1 else '❌'}→{'✅' if v2 else '❌'}"
+        if sel_changes:
+            analysis["selector_changes"] = sel_changes
+
+        # 基于选择器变化推断操作
+        op = _infer_op_from_selectors(sel_before, sel_after, bbs, abs)
+        if op:
+            analysis["action_type"] = op["type"]
+            analysis["action_desc"] = op["desc"]
+            analysis["confidence"] = op["confidence"]
 
     # 1. URL 变化分析
     url_before = bp.get("url", "")
@@ -159,6 +184,65 @@ def _analyze_step_pair(before: dict, after: dict) -> dict:
         analysis["action_desc"] = f"页面内容变化 ({len(events)} events)"
 
     return analysis
+
+
+def _infer_op_from_selectors(sel_before: dict, sel_after: dict,
+                              bbs: dict, abs: dict) -> Optional[dict]:
+    """基于 before_state 的选择器变化推断具体操作"""
+    # 抖音 like 按钮: [data-e2e="video-player-digg"]
+    # 抖音 collect: [data-e2e="video-player-collect"]
+    # 小红书 note: section.note-item
+    digg_key = '[data-e2e="video-player-digg"]'
+    collect_key = '[data-e2e="video-player-collect"]'
+    search_key = '[data-e2e="searchbar-input"]'
+    video_key = 'video'
+    note_key = 'section.note-item'
+
+    p_before = bbs.get("page_mode", "")
+    p_after = abs.get("page_mode", "")
+
+    # 检测抖音点赞操作
+    digg_before = sel_before.get(digg_key, False)
+    digg_after = sel_after.get(digg_key, False)
+    if digg_before and not digg_after and p_before == "player":
+        return {"type": "like", "desc": "点赞", "confidence": "high"}
+    # 检测抖音取消点赞
+    if not digg_before and digg_after and p_before == "player":
+        liked_text_before = bbs.get("markers", {}).get("liked", "")
+        liked_text_after = abs.get("markers", {}).get("liked", "")
+        return {"type": "like", "desc": "点赞（按钮重显）", "confidence": "medium"}
+
+    # 检测抖音收藏操作
+    collect_before = sel_before.get(collect_key, False)
+    collect_after = sel_after.get(collect_key, False)
+    if collect_before and not collect_after and p_before == "player":
+        return {"type": "collect", "desc": "收藏", "confidence": "high"}
+
+    # 检测搜索操作
+    search_before = sel_before.get(search_key, False)
+    search_after = sel_after.get(search_key, False)
+    if not search_before and search_after:
+        return {"type": "search", "desc": "打开搜索", "confidence": "high"}
+    if search_before and not search_after:
+        return {"type": "go_back", "desc": "关闭搜索", "confidence": "medium"}
+
+    # 检测进入小红书笔记
+    note_before = sel_before.get(note_key, False)
+    note_after = sel_after.get(note_key, False)
+    if note_before and not note_after and p_before == "grid":
+        return {"type": "xhs_click_note", "desc": "点击笔记", "confidence": "high"}
+    if not note_before and note_after:
+        return {"type": "go_back", "desc": "返回笔记列表", "confidence": "medium"}
+
+    # 检测视频播放状态变化
+    video_before = sel_before.get(video_key, False)
+    video_after = sel_after.get(video_key, False)
+    if not video_before and video_after:
+        return {"type": "enter_video", "desc": "进入视频页", "confidence": "medium"}
+    if video_before and not video_after:
+        return {"type": "exit_video", "desc": "退出视频", "confidence": "medium"}
+
+    return None
 
 
 def _infer_action_from_events(events: list) -> Optional[dict]:
