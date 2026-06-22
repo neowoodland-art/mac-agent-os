@@ -133,7 +133,7 @@ function switchView(view) {
                    'machines','fleet-sync','fleet-reconcile','fleet-exec',
                    'serve-mcp','serve-dashboard','serve-schedule',
                    'productions','assets','costs','capabilities','workflow','kb',
-                   'ops-command'];
+                   'ops-command','dynamic'];
   viewIds.forEach(v => {
     document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
   });
