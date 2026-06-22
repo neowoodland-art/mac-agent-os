@@ -6,7 +6,7 @@ export async function loadView(container) {
   try {
     const r = await fetch('/api/matrix/corpus');
     const d = await r.json();
-    const cats = d.categories || [];
+    const cats = d.categories || d.corpus || [];
 
     // 按平台分组
     const groups = {};

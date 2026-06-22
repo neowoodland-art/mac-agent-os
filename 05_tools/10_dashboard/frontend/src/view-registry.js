@@ -22,7 +22,7 @@ const MIGRATED_VIEWS = [
   'matrix-corpus',
   'matrix-sms-proxy',
   'matrix-like',
-  'matrix-login',
+  // 'matrix-login', // 已合并到信息采集
   'matrix-atom-ops',
 
   // ── 命令与任务 ──

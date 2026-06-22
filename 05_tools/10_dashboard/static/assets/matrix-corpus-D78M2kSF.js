@@ -1,4 +1,4 @@
-async function e(e){e.innerHTML=`<div class="loading">加载中...</div>`;try{let t=await(await fetch(`/api/matrix/corpus`)).json(),n=t.categories||[],r={};n.forEach(e=>{let t=e.platform===`xiaohongshu`?`📕 小红书`:`🎵 抖音`;r[t]||(r[t]=[]),r[t].push(e)});let i=`<div style="padding:16px">
+async function e(e){e.innerHTML=`<div class="loading">加载中...</div>`;try{let t=await(await fetch(`/api/matrix/corpus`)).json(),n=t.categories||t.corpus||[],r={};n.forEach(e=>{let t=e.platform===`xiaohongshu`?`📕 小红书`:`🎵 抖音`;r[t]||(r[t]=[]),r[t].push(e)});let i=`<div style="padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <h2 style="font-size:18px;margin:0">📚 语料库</h2>
         <span style="font-size:12px;color:var(--text2)">共 ${n.length} 个分类 · ${t.total_comments||0} 条评论</span>

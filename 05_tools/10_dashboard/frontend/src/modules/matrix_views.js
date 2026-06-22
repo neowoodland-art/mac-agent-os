@@ -71,7 +71,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','ops-command','matrix-record'];
+  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','ops-command','matrix-record'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -208,7 +208,7 @@ function _tryMigratedView(view) {
     'ave-render','ave-script','ave-materials','ave-templates','workflow','capabilities',
     // ── 采集外壳 + 重定向 ──
     'crawl-tasks','crawl-sources','crawl-history',
-    'matrix-publish','matrix-login',
+    'matrix-publish',
   ];
   if (_migratedViews.indexOf(view) === -1) return false;
 
@@ -693,7 +693,7 @@ async function loadPlugins() {
         {view:'matrix-comment', label:'💬 定向评论'},
         {view:'matrix-like', label:'❤️ 收藏点赞'},
         {view:'matrix-blueprints', label:'📋 蓝图管理'},
-        {view:'matrix-login', label:'🔑 登录管理'},
+        // {view:'matrix-login', label:'🔑 登录管理'}, // 已合并到信息采集
         {view:'matrix-schedule', label:'⏱ 定时任务'},
         {view:'matrix-record', label:'🎬 录制管理'},
         {view:'matrix-corpus', label:'📚 语料库'},
