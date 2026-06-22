@@ -384,15 +384,10 @@ async function loadServeSchedule() { _renderShell('view-serve-schedule', '⏰ �
 window.loadServeSchedule = loadServeSchedule;
 
 
-// ── SMS & Proxy ──
-async function loadSmsProxy() {
-  loadSmsConfig();
-  loadProxyList();
-  loadPhonePresets();
-  loadSmsAccounts();
-}
-// 导出供其他模块调用
-window.loadSmsProxy = loadSmsProxy;
+// ── SMS & Proxy（已迁移至 inline.js，此处不再重复定义）──
+/* 以下函数已由 inline.js 统一管理，使用正确的 Promise.all + await 调用：
+   loadSmsProxy, loadSmsAccounts, loadSmsConfig, loadPhonePresets, loadProxyList
+   见 inline.js 第 2454-2651 行 */
 
 
 async function loadSmsAccounts() {
@@ -1049,27 +1044,15 @@ function editDialog(id) {
 // ── 导出（防 Rollup tree-shake）──
 window.editDialog = editDialog;
 window.editNote = editNote;
-window.fmtSmsTime = fmtSmsTime;
+// SMS/代理相关函数已由 inline.js 统一管理（避免重复定义导致覆盖）
 window.loadCollectHistory = loadCollectHistory;
 window.loadHomepageInfoSms = loadHomepageInfoSms;
-window.loadPhonePresets = loadPhonePresets;
-window.loadProxyList = loadProxyList;
-window.loadSmsAccounts = loadSmsAccounts;
-window.loadSmsConfig = loadSmsConfig;
 window.opsBatchExec = opsBatchExec;
 window.opsRun = opsRun;
-window.proxyTest = proxyTest;
 window.saveNote = saveNote;
-window.setProxy = setProxy;
-window.smsCheckSelected = smsCheckSelected;
-window.smsFilterAccounts = smsFilterAccounts;
-window.smsQuery = smsQuery;
-window.smsSelectAccount = smsSelectAccount;
-window.smsUpdateAndTest = smsUpdateAndTest;
 window.testAccountProxy = testAccountProxy;
 window.toggleCollectHistory = toggleCollectHistory;
 window.toggleHomepageInfo = toggleHomepageInfo;
-window.toggleProxyPanel = toggleProxyPanel;
 window._loadAccounts = _loadAccounts;
 window._renderAccountSelector = _renderAccountSelector;
 window._asToggleMachine = _asToggleMachine;
