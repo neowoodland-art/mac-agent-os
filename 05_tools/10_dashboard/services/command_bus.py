@@ -154,7 +154,10 @@ class MachineSession:
         if self.is_local:
             target = account_id or ""
             try:
-                subprocess.run(["pkill", "-f", f"mc (run|task|collect|smart-login).*{target}"], capture_output=True, timeout=3)
+                subprocess.run(["pkill", "-f", f"mc run.*{target}"], capture_output=True, timeout=3)
+                subprocess.run(["pkill", "-f", f"mc task.*{target}"], capture_output=True, timeout=3)
+                subprocess.run(["pkill", "-f", f"mc collect.*{target}"], capture_output=True, timeout=3)
+                subprocess.run(["pkill", "-f", f"mc smart-login.*{target}"], capture_output=True, timeout=3)
             except:
                 pass
         elif self.ssh_target:
