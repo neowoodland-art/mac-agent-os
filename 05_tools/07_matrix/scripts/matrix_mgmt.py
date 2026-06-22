@@ -1160,6 +1160,9 @@ class MatrixManager:
             if am == local_hostname:
                 return True
             if acct["id"] in override_map:
+                # ORACLE 如果已将本账号分配给其他机器，以 ORACLE 为准
+                if am and am != local_hostname:
+                    return False
                 return True
             # 兜底: 仅当其他机器都没声明此 ID 时才用身份目录判断
             # (避免 xhs_01 被 5kecheng 声明了却在本机显示为 local)
