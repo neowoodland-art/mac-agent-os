@@ -353,11 +353,10 @@ async function showRecSteps(name, uid) {
       }
     };
     window._recSaveAll = function(uid) {
-      // 收集所有输入框的值
-      document.querySelectorAll(`[id^="recNameInput_"]`).forEach(inp => {
-        const parts = inp.id.replace('recNameInput_','').split('_');
-        const idx = parseInt(parts[0]);
-        if (!isNaN(idx) && inp.value.trim()) {
+      // 遍历所有步骤，确保每个输入框的值都被收集
+      _recData.steps.forEach((s, idx) => {
+        const inp = document.getElementById(`recNameInput_${idx}_${uid}`);
+        if (inp && inp.value.trim()) {
           if (!_recNames[_recData.name]) _recNames[_recData.name] = {};
           _recNames[_recData.name][idx] = inp.value.trim();
         }
@@ -378,6 +377,14 @@ function showStepDetail(idx, uid) {
   const detailEl = document.getElementById(`recStepDetail_${uid}`);
   if (!detailEl || !_recData.steps) return;
 
+  // 切换步骤前，保存当前显示的输入框的值
+  if (window._recActiveStep !== undefined && window._recActiveStep !== idx) {
+    const curInp = document.getElementById(`recNameInput_${window._recActiveStep}_${uid}`);
+    if (curInp && curInp.value.trim()) {
+      if (!_recNames[_recData.name]) _recNames[_recData.name] = {};
+      _recNames[_recData.name][window._recActiveStep] = curInp.value.trim();
+    }
+  }
   window._recActiveStep = idx;
   const s = _recData.steps[idx];
   if (!s) return;
