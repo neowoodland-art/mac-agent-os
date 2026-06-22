@@ -579,7 +579,18 @@ function bpRenderSteps() {
     var label = s.label;
     if (typeof label !== 'string') {
       var op2 = window._matrixOps?.[s.name];
-      label = op2?.label || s.name || '(未知)';
+      label = (typeof op2?.label === 'string') ? op2.label : (s.name || '(未知)');
+    }
+    if (typeof label !== 'string') {
+      // 最终兜底：尝试用 s.op 或 s.name 直接查 _matrixOps
+      var stepKey = s.op || s.name;
+      if (stepKey && window._matrixOps?.[stepKey]) {
+        var lbl = window._matrixOps[stepKey].label;
+        if (typeof lbl === 'string') label = lbl;
+        else label = stepKey;
+      } else {
+        label = '❌错误:' + String(typeof s) + '/' + String(s);
+      }
     }
     return `<div style="padding:2px 0">
       <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)">
