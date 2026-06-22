@@ -27,6 +27,7 @@ export async function loadView(container) {
           </div>
           <button onclick="smsCheckSelected()" style="background:var(--primary);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px">📥 查短信</button>
         </div>
+        <div id="smsSelectedAccount" style="font-size:11px;margin-top:2px;color:var(--green)"></div>
         <div id="smsMessages" style="font-size:11px;margin-top:4px;max-height:200px;overflow-y:auto"></div>
         <div id="collectProfileStatus" style="font-size:11px;margin-top:2px"></div>
       </div>
