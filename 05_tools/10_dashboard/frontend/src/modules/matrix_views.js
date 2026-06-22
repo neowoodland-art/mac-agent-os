@@ -71,7 +71,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','ops-command','matrix-record'];
+  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','ops-command','ops-recorder'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -164,7 +164,7 @@ function switchView(view) {
   try { if (view === 'matrix-publish') window.loadMatrixPublish(); } catch(e) {}
   try { if (view === 'matrix-blueprints') window.loadMatrixBlueprints(); } catch(e) {}
   try { if (view === 'matrix-comment') window.loadMatrixComment(); } catch(e) {}
-  try { if (view === 'matrix-record') window.loadMatrixRecord(); } catch(e) {}
+  try { if (view === 'ops-recorder') {} /* no fallback needed */ } catch(e) {}
   try { if (view === 'matrix-schedule') window.loadMatrixSchedule(); } catch(e) {}
   try { if (view === 'matrix-corpus') window.loadCorpus(); } catch(e) {}
   try { if (view === 'ave-render') window.loadAveRender(); } catch(e) {}
@@ -199,8 +199,8 @@ function _tryMigratedView(view) {
     'matrix-summary','machines','productions','assets','costs',
     // ── 功能完整的操作视图 ──
     'matrix-comment','matrix-like','ops-command',
-    // ── 原子操作体系 ──
-    'ops-flow','ops-recorder','ops-workbench',
+    // ── 录制标注 ──
+    'ops-recorder',
     // ── 列表/管理视图 ──
     'matrix-atom-ops','matrix-schedule',
     // ── 联邦管理 ──
@@ -698,7 +698,7 @@ async function loadPlugins() {
         {view:'matrix-blueprints', label:'📋 蓝图管理'},
         // {view:'matrix-login', label:'🔑 登录管理'}, // 已合并到信息采集
         {view:'matrix-schedule', label:'⏱ 定时任务'},
-        {view:'matrix-record', label:'🎬 录制管理'},
+        {view:'ops-recorder', label:'🎬 录制标注'},
         {view:'matrix-corpus', label:'📚 语料库'},
         {view:'ops-command', label:'🖥️ 联邦指挥台'},
       ]},
@@ -712,11 +712,6 @@ async function loadPlugins() {
         {view:'crawl-tasks', label:'采集任务'},
         {view:'crawl-sources', label:'源管理'},
         {view:'crawl-history', label:'采集历史'},
-      ]},
-      '原子操作': { icon: '🧩', items: [
-        {view:'ops-flow', label:'🧭 操作流程图'},
-        {view:'ops-recorder', label:'🎬 录制标注'},
-        {view:'ops-workbench', label:'🛠 工作台'},
       ]},
       '联邦': { icon: '🖥️', items: [
         {view:'machines', label:'机器状态'},

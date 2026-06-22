@@ -506,11 +506,6 @@ async function loadPlugins() {
         {view:'crawl-sources', label:'源管理'},
         {view:'crawl-history', label:'采集历史'},
       ]},
-      '原子操作': { icon: '🧩', items: [
-        {view:'ops-flow', label:'🧭 操作流程图'},
-        {view:'ops-recorder', label:'🎬 录制标注'},
-        {view:'ops-workbench', label:'🛠 工作台'},
-      ]},
       '联邦': { icon: '🖥️', items: [
         {view:'machines', label:'机器状态'},
         {view:'fleet-sync', label:'一键同步'},
