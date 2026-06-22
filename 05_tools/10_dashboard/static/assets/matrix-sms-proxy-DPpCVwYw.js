@@ -1,10 +1,4 @@
-/**
- * matrix-sms-proxy.js — 短信与代理管理（壳层）
- * 
- * 创建 inline 函数需要的 DOM 结构，委托 inline.js 渲染
- */
-export async function loadView(container) {
-  container.innerHTML = `
+async function e(e){e.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="font-size:18px">📡 短信与代理</h2>
       <button onclick="loadSmsProxy()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
@@ -47,6 +41,4 @@ export async function loadView(container) {
       </div>
       <div id="smsQueryPanel" style="font-size:11px;margin-top:4px"></div>
     </div>
-  `;
-  window.loadSmsProxy();
-}
+  `,window.loadSmsProxy()}export{e as loadView};

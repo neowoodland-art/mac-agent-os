@@ -1,12 +1,4 @@
-/**
- * matrix-accounts.js — 账号管理（壳层）
- * 
- * 创建 inline 函数需要的 DOM 结构，委托 inline.js 渲染
- * 确保功能与旧版完全一致
- */
-export async function loadView(container) {
-  // 创建 inline 函数需要的 DOM 元素
-  container.innerHTML = `
+async function e(e){e.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="font-size:18px">👤 账号管理</h2>
       <button class="btn btn-primary btn-sm" onclick="showCreateAccount()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">+ 新建账号</button>
@@ -17,7 +9,4 @@ export async function loadView(container) {
     </div>
     <div id="acct-tab-list"><div id="matrixAccountsContent"><div class="loading">加载中...</div></div></div>
     <div id="acct-tab-identity" style="display:none"><div id="matrixIdentityContent"><div class="loading">加载中...</div></div></div>
-  `;
-  // 委托 inline 函数渲染
-  window.loadMatrixAccounts();
-}
+  `,window.loadMatrixAccounts()}export{e as loadView};

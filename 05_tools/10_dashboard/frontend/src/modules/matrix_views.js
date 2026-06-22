@@ -195,7 +195,7 @@ function _tryMigratedView(view) {
     // ── 只读仪表盘 ──
     'matrix-summary','machines','productions','assets','costs',
     // ── 功能完整的操作视图 ──
-    'matrix-comment','matrix-like','ops-command',
+    'matrix-comment','matrix-like','ops-command','matrix-sms-proxy',
     // ── 原子操作体系 ──
     'ops-flow','ops-recorder',
     // ── 列表/管理视图 ──
