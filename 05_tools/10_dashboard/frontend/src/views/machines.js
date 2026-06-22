@@ -32,12 +32,13 @@ export async function loadView(container) {
 }
 
 function renderMachineCard(m) {
-  const isOnline = m.status === 'online' || m._live === true;
-  const isRecent = m.status === 'recent';
-  const isLive = m._live === true;
+  // 真实在线以心跳时间为准：120秒内无心跳 = 离线
+  const lastPushSec = m._last_push_sec || 999;
+  const isLive = m._live === true || lastPushSec < 30;
+  const isOnline = isLive || (m.status === 'online' && lastPushSec < 120);
+  const isRecent = m.status === 'recent' || (m.status === 'online' && lastPushSec < 300);
   const dotColor = isLive ? '#1D9E75' : isOnline ? '#22C55E' : isRecent ? '#F59E0B' : '#EF4444';
   const statusText = isLive ? '实时' : isOnline ? '在线' : isRecent ? '近期' : '离线';
-  const lastPushSec = m._last_push_sec || 0;
   const minAgo = m.minutes_ago || Math.round(lastPushSec / 60) || 999;
   const timeStr = isLive
     ? `${lastPushSec}秒前`
