@@ -18,7 +18,7 @@ _MACHINE_ALIASES: dict[str, str] = {
     "192.168.31.95":               "7kecheng",
     "7kechengdeAir":               "7kecheng",
     "7kechengdeMacBook-Air.local": "7kecheng",
-    "Redmi-12C":                   "7kecheng",
+    "Redmi-12C":                   "chengzigedeAir",
     "192.168.31.96":               "chengzigedeAir",
 }
 
