@@ -1237,10 +1237,16 @@ function bpRenderSteps() {
     const numStyle = warn.includes('不兼容') || warn.includes('不能作为首步')
       ? 'background:var(--red);color:#fff'
       : 'background:var(--primary);color:#fff';
+    // 兜底：保证 label 是字符串（防止 [object Object]）
+    var label = s.label;
+    if (typeof label !== 'string') {
+      var op2 = window._matrixOps?.[s.name];
+      label = op2?.label || s.name || '(未知)';
+    }
     return `<div style="padding:2px 0">
       <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)">
         <span style="width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;${numStyle}">${i+1}</span>
-        <span style="flex:1;font-size:13px"><strong>${s.label}</strong> ${warn}</span>
+        <span style="flex:1;font-size:13px"><strong>${label}</strong> ${warn}</span>
         <span style="cursor:pointer;color:var(--red);font-size:16px;opacity:.5" onclick="bpRemoveStep(${i})">✕</span>
       </div>
       ${arrow}
