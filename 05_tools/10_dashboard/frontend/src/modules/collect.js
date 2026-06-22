@@ -75,7 +75,7 @@ async function loadMatrixCommands() {
   // 填充定向评论的账号选择器（折叠式）
   try {
     const data = await _loadAccounts();
-    _renderAccountSelector('commentTaskAccountList', {_data: data, height: '200px'});
+    _renderAccountSelector('commentTaskAccountList', {_data: data, height: '350px'});
     document.getElementById('commentTaskSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
   } catch(e) { /* ignore */ }
 }
