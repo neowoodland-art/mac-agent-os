@@ -19,7 +19,7 @@ const MIGRATED_VIEWS = [
   // 'matrix-blueprints', // 暂回退到 inline 完整编辑器
   'matrix-comment',
   'matrix-schedule',
-  'matrix-corpus',
+  // 'matrix-corpus', // 回退到 inline 完整版（含添加/批量导入/详情）
   'matrix-sms-proxy',
   'matrix-like',
   // 'matrix-login', // 已合并到信息采集

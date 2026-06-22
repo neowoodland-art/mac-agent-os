@@ -199,7 +199,7 @@ function _tryMigratedView(view) {
     // ── 原子操作体系 ──
     'ops-flow','ops-recorder',
     // ── 列表/管理视图 ──
-    'matrix-atom-ops','matrix-corpus','matrix-schedule',
+    'matrix-atom-ops','matrix-schedule',
     // ── 联邦管理 ──
     'fleet-sync','fleet-reconcile','fleet-exec',
     // ── 服务状态 ──
