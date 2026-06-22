@@ -2450,10 +2450,12 @@ async function loadServeSchedule() { _renderShell('view-serve-schedule', '⏰ �
 
 // ── SMS & Proxy ──
 async function loadSmsProxy() {
-  loadSmsConfig();
-  loadProxyList();
-  loadPhonePresets();
-  loadSmsAccounts();
+  await Promise.all([
+    loadSmsConfig(),
+    loadProxyList(),
+    loadPhonePresets(),
+    loadSmsAccounts(),
+  ]);
 }
 
 async function loadSmsAccounts() {
@@ -2652,8 +2654,13 @@ async function loadSmsAccounts() {
 function smsFilterAccounts() {
   const input = document.getElementById('smsAccountSearch');
   const sel = document.getElementById('smsAccountSelect');
-  const opts = window._smsAccountOptions || [];
   if (!input || !sel) return;
+  if (!window._smsAccountOptions) {
+    sel.innerHTML = '<option value="">⏳ 账号列表加载中...</option>';
+    sel.style.display = 'block';
+    return;
+  }
+  const opts = window._smsAccountOptions;
   const q = input.value.trim().toLowerCase();
 
   // 构建匹配选项
