@@ -16,7 +16,7 @@ const MIGRATED_VIEWS = [
   'matrix-nurture',
   'matrix-collect',
   'matrix-publish',
-  'matrix-blueprints',
+  // 'matrix-blueprints', // 暂回退到 inline 完整编辑器
   'matrix-comment',
   'matrix-schedule',
   'matrix-corpus',

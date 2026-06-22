@@ -45,7 +45,7 @@ export async function loadView(container) {
             <span style="font-size:10px;color:var(--text2)">${ops.length} 步</span>
           </div>
           <div style="font-size:10px;color:var(--text2);margin-top:2px">${ops.map((o, i) =>
-            `${i + 1}. ${o.name || o}`).join(' · ')}
+            `${i + 1}. ${o.op || o.name || ''}`).join(' · ')}
           </div>
         </div>`;
       });

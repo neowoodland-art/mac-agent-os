@@ -8,7 +8,7 @@ async function e(e){e.innerHTML=`<div class="loading">加载中...</div>`;try{le
             <span style="font-weight:600;font-size:12px">${e.name}</span>
             <span style="font-size:10px;color:var(--text2)">${t.length} 步</span>
           </div>
-          <div style="font-size:10px;color:var(--text2);margin-top:2px">${t.map((e,t)=>`${t+1}. ${e.name||e}`).join(` · `)}
+          <div style="font-size:10px;color:var(--text2);margin-top:2px">${t.map((e,t)=>`${t+1}. ${e.op||e.name||``}`).join(` · `)}
           </div>
         </div>`}),l+=`</div>`)}),l+=`<div style="background:var(--bg2);border-radius:var(--radius);padding:10px;border:1px solid var(--border)">
       <div style="font-weight:600;font-size:13px;margin-bottom:6px">⚙️ 原子操作 (${o.length})</div>`;let u={};o.forEach(e=>{let t=e.platform||`通用`;u[t]||(u[t]=[]),u[t].push(e)}),Object.entries(u).forEach(([e,t])=>{l+=`<div style="margin-bottom:4px">
