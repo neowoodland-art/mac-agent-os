@@ -28,6 +28,10 @@ const MIGRATED_VIEWS = [
   // ── 命令与任务 ──
   'ops-command',
 
+  // ── 原子操作体系 ──
+  'ops-flow',
+  'ops-recorder',
+
   // ── 视频工厂 ──
   'ave-render',
   'ave-script',

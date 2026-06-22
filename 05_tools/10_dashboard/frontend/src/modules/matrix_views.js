@@ -196,6 +196,8 @@ function _tryMigratedView(view) {
     'matrix-summary','machines','productions','assets','costs',
     // ── 功能完整的操作视图 ──
     'matrix-comment','matrix-like','matrix-sms-proxy','ops-command',
+    // ── 原子操作体系 ──
+    'ops-flow','ops-recorder',
     // ── 列表/管理视图 ──
     'matrix-blueprints','matrix-atom-ops','matrix-corpus','matrix-schedule',
     // ── 联邦管理 ──
