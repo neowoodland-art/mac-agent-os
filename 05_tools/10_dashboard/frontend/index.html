@@ -188,8 +188,9 @@
   <div id="cmd-comment-content" style="display:none">
     <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">💬 定向评论</div>
+      <div id="commentTaskAccountList" style="margin-bottom:8px;background:var(--bg3);border-radius:6px;padding:6px">加载账号列表...</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="cmdTaskUrl" placeholder="视频链接" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:280px">
+        <input id="cmdTaskUrl" placeholder="视频链接" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;flex:1;min-width:200px">
         <select id="cmdTaskDirection" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
           <option value="">自动选方向</option>
           <option value="称赞">👍 称赞</option>
@@ -198,10 +199,8 @@
           <option value="感慨">😌 感慨</option>
           <option value="客观">📊 客观</option>
         </select>
-        <select id="cmdTaskAccount" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:150px">
-          <option value="">自动选账号</option>
-        </select>
         <button onclick="cmdRunCommentTask()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🚀 执行评论</button>
+        <span id="commentTaskSelCount" style="font-size:10px;color:var(--text2)">已选 0 个</span>
       </div>
       <div id="cmdTaskResult" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
     </div>

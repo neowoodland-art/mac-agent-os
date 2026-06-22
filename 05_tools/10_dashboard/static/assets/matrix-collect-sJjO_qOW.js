@@ -1,4 +1,4 @@
-import{t as e}from"./index-HVW_abmy.js";import{t}from"./account-selector-DBZWFo9Z.js";var n=null;async function r(t){let n=t.id||`collect`;t.innerHTML=`
+import{t as e}from"./index-CzuVQdXZ.js";import{t}from"./account-selector-DBZWFo9Z.js";var n=null;async function r(t){let n=t.id||`collect`;t.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:6px">📡 登录与信息采集 <span style="font-size:10px;color:var(--text2);font-weight:400">登录+采集一体化</span></div>

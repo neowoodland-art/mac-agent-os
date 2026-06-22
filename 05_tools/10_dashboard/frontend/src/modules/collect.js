@@ -72,24 +72,20 @@ async function loadMatrixCommands() {
     document.getElementById('collectSelCount2').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
   } catch(e) { /* ignore */ }
 
-  // 填充定向评论的账号下拉
-  const acctSel = document.getElementById('cmdTaskAccount');
-  if (acctSel) {
-    try {
-      const r = await fetch('/api/matrix/sms/accounts');
-      const d = await r.json();
-      acctSel.innerHTML = '<option value="">自动选账号</option>' +
-        (d.accounts||[]).filter(a => a.is_local).map(a =>
-          '<option value="'+a.id+'">'+(a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
-    } catch(e) { /* ignore */ }
-  }
+  // 填充定向评论的账号选择器（折叠式）
+  try {
+    const data = await _loadAccounts();
+    _renderAccountSelector('commentTaskAccountList', {_data: data, height: '200px'});
+    document.getElementById('commentTaskSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
+  } catch(e) { /* ignore */ }
 }
 
 async function cmdRunCommentTask() {
   const url = document.getElementById('cmdTaskUrl')?.value.trim();
   if (!url) { alert('请填写视频链接'); return; }
   const direction = document.getElementById('cmdTaskDirection')?.value || '';
-  const account = document.getElementById('cmdTaskAccount')?.value || '';
+  const selected = _getSelectedAccounts();
+  const account = selected.length ? selected[0].id : '';
   const resultEl = document.getElementById('cmdTaskResult');
   if (resultEl) resultEl.innerHTML = '⏳ 执行中...';
   try {
