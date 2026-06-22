@@ -758,7 +758,7 @@ window.showBpEditor = async function(name) {
   try {
     const r = await fetch('/api/matrix/blueprints');
     const d = await r.json();
-    const bp = (d.blueprints||[]).find(b => b.name === name);
+    const bp = Array.isArray(d) ? d.find(b => b.name === name) : (d.blueprints||[]).find(b => b.name === name);
     if (!bp) return;
     window._editingBp = name;
     document.getElementById('bp-name').value = name;
