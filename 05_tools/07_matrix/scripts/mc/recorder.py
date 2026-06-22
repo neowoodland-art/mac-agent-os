@@ -149,8 +149,8 @@ class RecordingSession:
         print(f" 🎬 录制就绪！")
         print(f"   账号: {self.account_id}")
         print(f"   在浏览器中操作，然后按:")
-        print(f"     反引号 `·` → 标记步骤（截图+状态指纹）")
-        print(f"     Esc         → 结束录制")
+        print(f"     数字键 1-9 → 标记步骤（截图+状态指纹）")
+        print(f"     数字键 0   → 结束录制")
         print(f"{'='*55}\n")
 
     async def _inject_event_listener(self):
@@ -544,8 +544,11 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
                     for (let i = buf.length - 1; i >= 0; i--) {
                         const e = buf[i];
                         if (e && e.t === 'key') {
-                            if (e.code === 'Backquote') return 'step';
-                            if (e.k === 'Escape' || e.code === 'Escape') return 'quit';
+                            // 数字键 1-9 标记步骤, 0 结束
+                            const code = e.code || '';
+                            const num = parseInt(code.replace('Digit', ''), 10);
+                            if (num >= 1 && num <= 9) return 'step';
+                            if (num === 0 || e.k === 'Escape' || code === 'Escape') return 'quit';
                         }
                     }
                     // 检测页面是否正在关闭（浏览器标签被关）
