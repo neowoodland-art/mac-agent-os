@@ -40,15 +40,22 @@ async function loadPhonePresets() {
   const el = document.getElementById('phonePresets');
   if (!el) return;
   try {
-    const r = await fetch('/api/matrix/sms/presets');
+    const r = await fetch('/api/matrix/accounts');
     const d = await r.json();
-    const presets = d.presets || [];
-    el.innerHTML = presets.length
-      ? presets.map(p =>
-        `<div style="font-size:11px;padding:3px 4px;border-bottom:1px solid var(--border)">
-          ${p.phone || p} ${p.platform ? '(' + p.platform + ')' : ''}
-        </div>`
-      ).join('')
+    const accounts = Array.isArray(d) ? d : (d.accounts || []);
+    const phones = [];
+    accounts.forEach(function(a) {
+      var p = a.phone || '';
+      if (p && p.length >= 11 && phones.indexOf(p) === -1) {
+        phones.push(p);
+      }
+    });
+    el.innerHTML = phones.length
+      ? phones.map(function(p) {
+          var acct = accounts.find(function(a) { return a.phone === p; });
+          return '<div style="font-size:11px;padding:3px 4px;border-bottom:1px solid var(--border)">' +
+            p + (acct && acct.platform ? ' (' + acct.platform + ')' : '') + '</div>';
+        }).join('')
       : '<span style="font-size:11px;color:var(--text2)">无预设</span>';
   } catch (e) {
     el.innerHTML = `<span style="color:var(--red);font-size:11px">❌ ${e.message}</span>`;
@@ -59,16 +66,17 @@ async function loadProxyList() {
   const el = document.getElementById('proxyList');
   if (!el) return;
   try {
-    const r = await fetch('/api/matrix/sms/proxies');
+    const r = await fetch('/api/matrix/proxies');
     const d = await r.json();
     const proxies = d.proxies || [];
     el.innerHTML = proxies.length
-      ? proxies.map(p =>
-        `<div style="font-size:11px;padding:3px 4px;border-bottom:1px solid var(--border)">
-          ${p.name || p.host || p} ${p.status === 'online' ? '🟢' : '🔴'}
-        </div>`
-      ).join('')
-      : '<span style="font-size:11px;color:var(--text2)">无代理</span>';
+      ? proxies.map(function(p) {
+          var proxyInfo = p.proxy || '-';
+          var statusIcon = p.login_status === 'logged_in' ? '🟢' : '🔴';
+          return '<div style="font-size:11px;padding:3px 4px;border-bottom:1px solid var(--border)">' +
+            statusIcon + ' ' + p.account + ' (' + p.platform + ') → ' + proxyInfo + '</div>';
+        }).join('')
+      : '<span style="font-size:11px;color:var(--text2)">无代理配置</span>';
   } catch (e) {
     el.innerHTML = `<span style="color:var(--red);font-size:11px">❌ ${e.message}</span>`;
   }
