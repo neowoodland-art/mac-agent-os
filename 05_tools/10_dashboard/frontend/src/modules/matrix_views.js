@@ -189,23 +189,24 @@ function switchView(view) {
 // ── 迁移视图辅助函数（全部33个已迁移视图）──
 function _tryMigratedView(view) {
   // 完整白名单 = views/ 目录下所有含 loadView 的文件
+  // 白名单：只保留确认功能完整的视图
+  // 交互操作类视图（accounts/nurture/collect）回退到 inline 旧代码
   var _migratedViews = [
-    // ── 矩阵养号 ──
-    'matrix-summary','matrix-accounts','matrix-nurture','matrix-collect',
-    'matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule',
-    'matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','matrix-atom-ops',
-    // ── 命令 ──
-    'ops-command',
-    // ── 视频工厂 ──
-    'ave-render','ave-script','ave-materials','ave-templates','workflow','capabilities',
-    // ── 内容采集 ──
-    'crawl-tasks','crawl-sources','crawl-history',
+    // ── 只读仪表盘 ──
+    'matrix-summary','machines','productions','assets','costs',
+    // ── 功能完整的操作视图 ──
+    'matrix-comment','matrix-like','matrix-sms-proxy','ops-command',
+    // ── 列表/管理视图 ──
+    'matrix-blueprints','matrix-atom-ops','matrix-corpus','matrix-schedule',
     // ── 联邦管理 ──
-    'machines','fleet-sync','fleet-reconcile','fleet-exec',
+    'fleet-sync','fleet-reconcile','fleet-exec',
     // ── 服务状态 ──
     'serve-mcp','serve-dashboard','serve-schedule',
-    // ── 概览 / 资产 ──
-    'productions','assets','costs',
+    // ── 视频工厂外壳 ──
+    'ave-render','ave-script','ave-materials','ave-templates','workflow','capabilities',
+    // ── 采集外壳 + 重定向 ──
+    'crawl-tasks','crawl-sources','crawl-history',
+    'matrix-publish','matrix-login',
   ];
   if (_migratedViews.indexOf(view) === -1) return false;
 
