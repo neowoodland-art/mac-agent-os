@@ -59,7 +59,6 @@ accounts:
     machine: chengzigedeAir
     platforms:
       douyin: douyin_test
-      xiaohongshu: xhs_01
 
   - identity: douyin_133
     phone: '13382504284'
