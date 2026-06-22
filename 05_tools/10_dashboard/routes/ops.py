@@ -119,12 +119,12 @@ def api_ops_test_atom(data: dict = {}):
         bp_file.parent.mkdir(parents=True, exist_ok=True)
         bp_file.write_text(json.dumps(bp, ensure_ascii=False, indent=2))
 
-        # 执行 (1轮)
+        # 执行 (1轮，不等待 → 后台异步执行)
         result = CommandBus.dispatch("nurture", [account], {
             "blueprint": f"_test_{op}".replace(".json",""),
             "rounds": 1,
             "single_op": op,
-        }, wait=True)
+        }, wait=False)
 
         # 清理临时蓝图
         if bp_file.exists():
