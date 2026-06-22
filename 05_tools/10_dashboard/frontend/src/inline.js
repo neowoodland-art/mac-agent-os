@@ -1,3 +1,4 @@
+// __UNIQUE_TEST_MARKER_987654321__
 
 // ── State ──
 const API = '';

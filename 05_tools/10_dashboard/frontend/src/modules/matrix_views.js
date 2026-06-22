@@ -387,21 +387,15 @@ async function loadStats() {
   try {
     const r = await fetch(`${API}/api/summary`);
     const d = await r.json();
-    // 从插件式响应中提取 AVE 数据
-    const avePlugin = d.plugins && d.plugins.ave;
-    const aveData = (avePlugin && avePlugin.data) || {};
-    const machines = aveData['各机器'] || {};
-    
-    // 聚合所有机器数据
-    let totalProd = 0, totalCost = 0, todayProd = 0;
-    Object.values(machines).forEach(m => {
-      totalProd += m['总生产'] || 0;
-      totalCost += m['费用'] || 0;
-      todayProd += m['今日'] || 0;
-    });
+    // 从 guardd 插件获取机器数据（AVE 插件数据不全）
+    const guarddPlugin = d.plugins && d.plugins.guardd;
+    const guarddData = (guarddPlugin && guarddPlugin.data) || {};
+    const machines = guarddData['各机器'] || {};
+    const onlineCount = guarddData['在线'] || 0;
+    const totalMachines = guarddData['总机器'] || Object.keys(machines).length || 0;
     
     document.getElementById('statsBar').innerHTML = `
-      <div class="stat-card"><div class="label">机器数</div><div class="value" style="color:var(--green)">${Object.keys(machines).length}</div><div class="sub">在线 ${aveData['在线']||0}</div></div>
+      <div class="stat-card"><div class="label">机器数</div><div class="value" style="color:var(--green)">${totalMachines}</div><div class="sub">在线 ${onlineCount}</div></div>
       <div class="stat-card"><div class="label">模块</div><div class="value" style="color:var(--blue)">${Object.keys(d.plugins||{}).length}</div><div class="sub">已加载</div></div>
       <div class="stat-card"><div class="label">主机</div><div class="value" style="color:var(--amber)">${d.source_hostname||'-'}</div></div>
       <div class="stat-card"><div class="label">知识库</div><div class="value" style="color:var(--primary)">${d.kb_stats?.total||'?'}</div><div class="sub">篇</div></div>
