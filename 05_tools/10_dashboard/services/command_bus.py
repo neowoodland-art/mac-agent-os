@@ -154,7 +154,7 @@ class MachineSession:
         if self.is_local:
             target = account_id or ""
             try:
-                subprocess.run(["pkill", "-f", f"mc run.*{target}"], capture_output=True, timeout=3)
+                subprocess.run(["pkill", "-f", f"mc (run|task|collect|smart-login).*{target}"], capture_output=True, timeout=3)
             except:
                 pass
         elif self.ssh_target:
@@ -193,7 +193,18 @@ class MachineSession:
             else:
                 return self._send_remote(cmd)
 
+    MAX_ACTIVE_PROCESSES = 3  # 最大并发进程数（含所有类型）
+
     def _send_local(self, cmd: Command) -> dict:
+        # 限制并发进程数
+        active_count = len([c for c in self.commands if c.status.is_active])
+        if active_count >= self.MAX_ACTIVE_PROCESSES:
+            # 先清理最老的 zombie
+            self._cleanup_zombies()
+            active_count = len([c for c in self.commands if c.status.is_active])
+            if active_count >= self.MAX_ACTIVE_PROCESSES:
+                return {"error": f"并发进程数已达上限 ({active_count}/{self.MAX_ACTIVE_PROCESSES})，请等待当前任务完成"}
+
         scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
         log_dir = AGENT_LOCAL / "runtime" / "commands"
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -458,6 +469,19 @@ class MachineSession:
             cmd.message = "用户取消"
             cmd.completed_at = time.time()
             return {"ok": True}
+
+    def _cleanup_zombies(self):
+        """清理僵尸进程：进程已死但状态未更新的命令"""
+        for cmd in self.commands[:]:
+            if cmd.status.is_active:
+                if not self._is_alive(cmd):
+                    if cmd.log_path and cmd.log_path.exists() and cmd.log_path.stat().st_size > 0:
+                        cmd.status = CommandStatus.COMPLETED
+                        cmd.message = "进程已结束"
+                    else:
+                        cmd.status = CommandStatus.CRASHED
+                        cmd.message = "进程已消失"
+                    cmd.completed_at = time.time()
 
     def _trim_history(self):
         while len(self.commands) > self.max_history:
