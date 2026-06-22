@@ -43,8 +43,14 @@ export async function loadView(container) {
           <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap" id="opCategoryTabs_${uid}">
             <span onclick="_filterCat('all','${uid}')" data-cat="all" style="padding:3px 8px;border-radius:4px;cursor:pointer;background:var(--primary);color:#fff;font-size:10px">全部</span>
           </div>
-          <div id="opList_${uid}" style="max-height:400px;overflow-y:auto">
+          <div id="opList_${uid}" style="max-height:260px;overflow-y:auto">
             <div class="loading" style="padding:8px">加载原子操作...</div>
+          </div>
+          <!-- 操作详情面板 -->
+          <div id="opDetail_${uid}" style="margin-top:6px;font-size:10px;display:none">
+            <div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--primary)">
+              <div id="opDetailBody_${uid}"></div>
+            </div>
           </div>
         </div>
 
@@ -247,7 +253,8 @@ function renderOps(ops, uid) {
     const desc = o.desc || '';
     const requires = o.requires && o.requires[0] !== '*' ? `← ${o.requires[0]}` : '';
 
-    html += `<div style="background:var(--bg3);border-radius:6px;padding:8px;margin-bottom:4px;border:1px solid var(--border)">
+    const safeName = o.name.replace(/'/g,"\\'");
+    html += `<div onclick="window._showOpDetail('${safeName}','${uid}')" style="cursor:pointer;background:var(--bg3);border-radius:6px;padding:8px;margin-bottom:4px;border:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
         <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span>
         <span style="font-weight:600;font-size:11px">${label}</span>
@@ -260,6 +267,40 @@ function renderOps(ops, uid) {
 
   listEl.innerHTML = html;
 }
+
+// ── 中栏：操作详情 ──
+window._showOpDetail = function(opName, uid) {
+  const el = document.getElementById(`opDetail_${uid}`);
+  const body = document.getElementById(`opDetailBody_${uid}`);
+  if (!el || !body) return;
+
+  const op = _allOps.find(o => o.name === opName);
+  if (!op) return;
+
+  const status = getOpStatus(opName);
+  const statusText = {tested:'✅已通过', partial:'🟡部分', failed:'🔴失败', untested:'⚪未测'}[status] || '⚪未测';
+  const label = op.label || opName;
+  const desc = op.desc || '暂无描述';
+  const requires = (op.requires && op.requires[0] !== '*') ? `前置: ${op.requires.join(', ')}` : '无前置依赖';
+  const category = op.category || '其他';
+  const params = op.params ? Object.keys(op.params).map(k => `${k}: ${op.params[k]}`).join(', ') : '无参数';
+  const returns = op.returns ? op.returns.slice(0,200) : '无返回值';
+
+  el.style.display = 'block';
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-weight:600;font-size:12px">${label}</span>
+      <span style="font-size:10px;color:var(--text2);cursor:pointer" onclick="document.getElementById('opDetail_${uid}').style.display='none'">✕ 关闭</span>
+    </div>
+    <div style="margin-bottom:4px"><span style="color:var(--text2)">ID:</span> ${opName} · <span style="color:var(--text2)">分类:</span> ${category} · ${statusText}</div>
+    <div style="margin-bottom:4px;color:var(--text2)">${desc}</div>
+    <div style="margin-bottom:4px;color:var(--text2)">${requires}</div>
+    <div style="margin-bottom:6px;color:var(--text2);font-size:9px"><span style="color:var(--text2)">参数:</span> ${params}</div>
+    <div style="margin-bottom:6px;color:var(--text2);font-size:9px"><span style="color:var(--text2)">返回:</span> ${returns}</div>
+    <div style="display:flex;gap:4px">
+      <button onclick="console.log('TODO: 测试 '+opName)" style="flex:1;background:#22c55e;color:#fff;border:none;padding:4px;border-radius:4px;cursor:pointer;font-size:10px">🧪 测试此操作</button>
+    </div>`;
+};
 
 // ── 右栏：录制标注 ──
 let _recData = {}; // 缓存当前录制数据
