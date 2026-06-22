@@ -2518,7 +2518,12 @@ async function loadSmsAccounts() {
       });
       
       var cardsHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px;margin-bottom:16px">'+
-        Object.values(groups).map(function(g) {
+        Object.values(groups).sort(function(a,b) {
+          var ma = a.machine, mb = b.machine;
+          if (ma < mb) return -1;
+          if (ma > mb) return 1;
+          return a.phone.localeCompare(b.phone);
+        }).map(function(g) {
           var accts = g.accts;
           var sharedIdent = accts.find(function(a){return (a.identity_dir||'').startsWith('phone_');})?.identity_dir
             || accts.find(function(a){return a.has_identity;})?.id || accts[0]?.id;
