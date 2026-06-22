@@ -48,7 +48,7 @@ async function e(e){let t=Math.random().toString(36).slice(2,6);e.innerHTML=`
         </div>
 
       </div>
-    </div>`,window._reloadWorkbench=function(e){i(e),n(e),d(e)},window._filterCat=function(e,t){a(e,t)},window._reloadRecList=function(e){d(e)},window._loadRecDetail=function(e,t){e&&f(e,t)},i(t),n(t),d(t)}var t={douyin:[{id:`grid`,label:`首页精选`,icon:`🏠`},{id:`branch`,label:`分支页`,icon:`📂`},{id:`player_modal`,label:`视频浮层`,icon:`▶️`},{id:`player_full`,label:`视频全屏`,icon:`📺`},{id:`search`,label:`搜索结果`,icon:`🔍`},{id:`profile`,label:`个人主页`,icon:`👤`},{id:`user_profile`,label:`博主主页`,icon:`🌟`}],xiaohongshu:[{id:`grid`,label:`首页推荐`,icon:`🏠`},{id:`note_detail`,label:`笔记详情`,icon:`📄`},{id:`search`,label:`搜索结果`,icon:`🔍`},{id:`profile`,label:`个人主页`,icon:`👤`}]};async function n(e){let n=document.getElementById(`stateFlow_${e}`);if(!n)return;let r=``,i=t.douyin;i.forEach((e,t)=>{r+=`<div style="display:flex;align-items:center;padding:4px 6px;border-radius:4px;margin:2px 0;background:var(--bg3)">
+    </div>`,window._reloadWorkbench=function(e){i(e),n(e),p(e)},window._filterCat=function(e,t){a(e,t)},window._reloadRecList=function(e){p(e)},window._loadRecDetail=function(e,t){e&&m(e,t)},i(t),n(t),p(t)}var t={douyin:[{id:`grid`,label:`首页精选`,icon:`🏠`},{id:`branch`,label:`分支页`,icon:`📂`},{id:`player_modal`,label:`视频浮层`,icon:`▶️`},{id:`player_full`,label:`视频全屏`,icon:`📺`},{id:`search`,label:`搜索结果`,icon:`🔍`},{id:`profile`,label:`个人主页`,icon:`👤`},{id:`user_profile`,label:`博主主页`,icon:`🌟`}],xiaohongshu:[{id:`grid`,label:`首页推荐`,icon:`🏠`},{id:`note_detail`,label:`笔记详情`,icon:`📄`},{id:`search`,label:`搜索结果`,icon:`🔍`},{id:`profile`,label:`个人主页`,icon:`👤`}]};async function n(e){let n=document.getElementById(`stateFlow_${e}`);if(!n)return;let r=``,i=t.douyin;i.forEach((e,t)=>{r+=`<div style="display:flex;align-items:center;padding:4px 6px;border-radius:4px;margin:2px 0;background:var(--bg3)">
       <span style="margin-right:6px">${e.icon}</span>
       <span style="flex:1">${e.label}</span>
       <span style="font-size:9px;color:var(--text2)">⬤</span>
@@ -64,7 +64,7 @@ async function e(e){let t=Math.random().toString(36).slice(2,6);e.innerHTML=`
         <span style="font-size:9px;color:var(--text2);margin-left:auto">${e.name}</span>
       </div>
       <div style="font-size:9px;color:var(--text2)">${s} ${l?` | `+l:``}</div>
-    </div>`}),n.innerHTML=r}var u={};async function d(e){let t=document.getElementById(`recSelect_${e}`);if(t)try{t.innerHTML=`<option value="">— 选择录制包 —</option>`+((await(await fetch(`/api/matrix/record/list`)).json()).recordings||[]).map(e=>`<option value="${e.name}">🎬 ${e.account} ${e.platform} (${e.steps}步)</option>`).join(``)}catch{t.innerHTML=`<option value="">加载失败</option>`}}async function f(e,t){let n=document.getElementById(`recSteps_${t}`);if(n)try{let r=await(await fetch(`/api/matrix/record/detail/`+encodeURIComponent(e))).json(),i=r.steps||[],a=(r.analysis||{}).actions||[],o={};a.forEach(e=>{let t=e.step_after||e.step_before;o[t]||(o[t]=[]),o[t].push(e)}),u={steps:i,actMap:o,uid:t,name:e};let s=`<div style="font-weight:600;margin-bottom:6px;font-size:11px;display:flex;justify-content:space-between">
+    </div>`}),n.innerHTML=r}var u={},d={};try{d=JSON.parse(localStorage.getItem(`rec_names`)||`{}`)}catch{}function f(){try{localStorage.setItem(`rec_names`,JSON.stringify(d))}catch{}}async function p(e){let t=document.getElementById(`recSelect_${e}`);if(t)try{t.innerHTML=`<option value="">— 选择录制包 —</option>`+((await(await fetch(`/api/matrix/record/list`)).json()).recordings||[]).map(e=>`<option value="${e.name}">🎬 ${e.account} ${e.platform} (${e.steps}步)</option>`).join(``)}catch{t.innerHTML=`<option value="">加载失败</option>`}}async function m(e,t){let n=document.getElementById(`recSteps_${t}`);if(n)try{let r=await(await fetch(`/api/matrix/record/detail/`+encodeURIComponent(e))).json(),i=r.steps||[],a=(r.analysis||{}).actions||[],o={};a.forEach(e=>{let t=e.step_after||e.step_before;o[t]||(o[t]=[]),o[t].push(e)}),u={steps:i,actMap:o,uid:t,name:e};let s=`<div style="font-weight:600;margin-bottom:6px;font-size:11px;display:flex;justify-content:space-between">
       <span>${e}</span>
       <span style="font-size:10px;color:var(--text2)">${i.length}步</span>
     </div>`;s+=`<div style="max-height:220px;overflow-y:auto;margin-bottom:6px">`,i.forEach((e,t)=>{let n=o[e.step]||[],r=n[0]||{};(r.action_desc||`浏览`).slice(0,30);let a=r.suggested_op||r.action_type||`?`,c=r.page_mode||`?`,l=n.length&&(o[i[t+1]?i[t+1].step:-1]||[])[0]?.page_mode||`?`,u=window._recActiveStep;s+=`<div onclick="window._recShowDetail(${t})" data-sidx="${t}"
@@ -72,7 +72,10 @@ async function e(e){let t=Math.random().toString(36).slice(2,6);e.innerHTML=`
         <span style="font-size:9px;font-weight:600;color:${u===t?`#fff`:`var(--text)`}">#${t+1}</span>
         <span style="font-size:8px;color:${u===t?`rgba(255,255,255,.7)`:`var(--text2)`}">${c}→${l}</span>
         <span style="font-size:8px;color:${u===t?`rgba(255,255,255,.7)`:`var(--text2)`};margin-left:auto">${a}</span>
-      </div>`}),s+=`</div>`,s+=`<div id="recStepDetail_${t}" style="font-size:10px"></div>`,n.innerHTML=s,window._recShowDetail=function(e){p(e,t)},window._recSetName=function(e,t){let n=document.getElementById(`recNameInput_${e}_${t}`)?.value?.trim();n&&(document.getElementById(`recNameLabel_${e}_${t}`).textContent=n)},p(0,t)}catch(e){n.innerHTML=`<div style="color:var(--red);padding:8px">❌ ${e.message}</div>`}}function p(e,t){let n=document.getElementById(`recStepDetail_${t}`);if(!n||!u.steps)return;window._recActiveStep=e;let r=u.steps[e];if(!r)return;document.querySelectorAll(`#recSteps_${t} [data-sidx]`).forEach(t=>{let n=parseInt(t.dataset.sidx)===e;t.style.background=n?`var(--primary)`:`var(--bg3)`,t.style.color=n?`#fff`:``,t.querySelectorAll(`span`).forEach(e=>{n&&(e.style.color=e.dataset.origColor||(e.style.color===`rgb(255,255,255)`?``:`rgba(255,255,255,.7)`))})});let i=(u.actMap[r.step]||[])[0]||{},a=i.action_desc||`浏览`,o=i.suggested_op||i.action_type||`?`,s=r.screenshot_url||``,c=r.page?r.page.url:``;r.page&&(r.page.text_snippet||``).slice(0,100);let l=u.steps[e+1],d=i.features||[];n.innerHTML=`
+      </div>`}),s+=`</div>`,s+=`<div id="recStepDetail_${t}" style="font-size:10px"></div>`;let c=d[e]?Object.keys(d[e]).length:0;s+=`<div style="margin-top:6px;display:flex;gap:4px;align-items:center">
+      <button onclick="window._recSaveAll('${t}')" style="flex:1;background:var(--primary);color:#fff;border:none;padding:4px;border-radius:4px;cursor:pointer;font-size:10px">💾 保存全部命名</button>
+      <span id="recSaveStatus_${t}" style="font-size:9px;color:var(--text2)">${c>0?`已保存 `+c+` 步`:``}</span>
+    </div>`,n.innerHTML=s,window._recShowDetail=function(e){h(e,t)},window._recSetName=function(e,t){let n=document.getElementById(`recNameInput_${e}_${t}`)?.value?.trim();n&&(d[u.name]||(d[u.name]={}),d[u.name][e]=n,document.getElementById(`recNameLabel_${e}_${t}`).textContent=n)},window._recSaveAll=function(e){document.querySelectorAll(`[id^="recNameInput_"]`).forEach(e=>{let t=e.id.replace(`recNameInput_`,``).split(`_`),n=parseInt(t[0]);!isNaN(n)&&e.value.trim()&&(d[u.name]||(d[u.name]={}),d[u.name][n]=e.value.trim())}),f();let t=d[u.name]?Object.keys(d[u.name]).length:0;document.getElementById(`recSaveStatus_${e}`).textContent=`✅ 已保存 `+t+`/`+u.steps.length+` 步命名`},h(0,t)}catch(e){n.innerHTML=`<div style="color:var(--red);padding:8px">❌ ${e.message}</div>`}}function h(e,t){let n=document.getElementById(`recStepDetail_${t}`);if(!n||!u.steps)return;window._recActiveStep=e;let r=u.steps[e];if(!r)return;document.querySelectorAll(`#recSteps_${t} [data-sidx]`).forEach(t=>{let n=parseInt(t.dataset.sidx)===e;t.style.background=n?`var(--primary)`:`var(--bg3)`,t.style.color=n?`#fff`:``,t.querySelectorAll(`span`).forEach(e=>{n&&(e.style.color=e.dataset.origColor||(e.style.color===`rgb(255,255,255)`?``:`rgba(255,255,255,.7)`))})});let i=(u.actMap[r.step]||[])[0]||{},a=i.action_desc||`浏览`,o=i.suggested_op||i.action_type||`?`,s=d[u.name]?.[e]||o,c=r.screenshot_url||``,l=r.page?r.page.url:``;r.page&&(r.page.text_snippet||``).slice(0,100);let f=u.steps[e+1],p=i.features||[];n.innerHTML=`
     <div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--primary)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-weight:600;font-size:11px">步骤 #${e+1}</span>
@@ -83,25 +86,25 @@ async function e(e){let t=Math.random().toString(36).slice(2,6);e.innerHTML=`
       <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;margin-bottom:6px">
         <div style="background:rgba(37,99,235,.08);border-radius:4px;padding:4px;border:1px solid rgba(37,99,235,.15)">
           <div style="font-size:8px;color:#3b82f6;font-weight:600;margin-bottom:2px">⬅ 前状态</div>
-          <div style="font-size:8px;word-break:break-all;color:var(--text2)">${c?c.slice(0,50):`(无URL)`}</div>
-          ${s?`<div style="margin-top:2px"><img src="`+s+`" style="max-width:100%;max-height:80px;border-radius:3px;background:var(--bg2)" onerror="this.style.display='none'"></div>`:``}
+          <div style="font-size:8px;word-break:break-all;color:var(--text2)">${l?l.slice(0,50):`(无URL)`}</div>
+          ${c?`<div style="margin-top:2px"><img src="`+c+`" style="max-width:100%;max-height:80px;border-radius:3px;background:var(--bg2)" onerror="this.style.display='none'"></div>`:``}
         </div>
         <div style="display:flex;align-items:center;font-size:14px;color:var(--text2)">→</div>
         <div style="background:rgba(5,150,105,.08);border-radius:4px;padding:4px;border:1px solid rgba(5,150,105,.15)">
           <div style="font-size:8px;color:#22c55e;font-weight:600;margin-bottom:2px">➡ 后状态</div>
-          <div style="font-size:8px;word-break:break-all;color:var(--text2)">${l?(l.page?.url||`同页`).slice(0,50):`(结束)`}</div>
-          ${l&&l.screenshot_url?`<div style="margin-top:2px"><img src="`+l.screenshot_url+`" style="max-width:100%;max-height:80px;border-radius:3px;background:var(--bg2)" onerror="this.style.display='none'"></div>`:``}
+          <div style="font-size:8px;word-break:break-all;color:var(--text2)">${f?(f.page?.url||`同页`).slice(0,50):`(结束)`}</div>
+          ${f&&f.screenshot_url?`<div style="margin-top:2px"><img src="`+f.screenshot_url+`" style="max-width:100%;max-height:80px;border-radius:3px;background:var(--bg2)" onerror="this.style.display='none'"></div>`:``}
         </div>
       </div>
 
       <!-- 原子操作命名 -->
       <div style="display:flex;gap:4px;align-items:center">
         <span style="font-size:9px;color:var(--text2)">🏷️ 命名:</span>
-        <input id="recNameInput_${e}_${t}" value="${o}" style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:10px" onchange="window._recSetName(${e},'${t}')">
-        <span id="recNameLabel_${e}_${t}" style="display:none">${o}</span>
+        <input id="recNameInput_${e}_${t}" value="${s}" style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:10px" onchange="window._recSetName(${e},'${t}')">
+        <span id="recNameLabel_${e}_${t}" style="display:none">${s}</span>
       </div>
 
-      ${d.length?`<div style="margin-top:4px;font-size:8px;color:var(--text2)">`+d.map(e=>`<code style="background:var(--bg2);padding:1px 3px;border-radius:2px;margin:1px;font-size:8px">`+e.code+`</code>`).join(``)+`</div>`:``}
+      ${p.length?`<div style="margin-top:4px;font-size:8px;color:var(--text2)">`+p.map(e=>`<code style="background:var(--bg2);padding:1px 3px;border-radius:2px;margin:1px;font-size:8px">`+e.code+`</code>`).join(``)+`</div>`:``}
       
       <!-- 步骤导航 -->
       <div style="display:flex;gap:4px;margin-top:6px">

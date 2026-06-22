@@ -263,6 +263,13 @@ function renderOps(ops, uid) {
 
 // ── 右栏：录制标注 ──
 let _recData = {}; // 缓存当前录制数据
+let _recNames = {}; // {recordingName: {stepIdx: name}} 缓存命名
+
+// 从 localStorage 加载已保存的命名
+try { _recNames = JSON.parse(localStorage.getItem('rec_names')||'{}'); } catch(e) {}
+function _saveRecNames() {
+  try { localStorage.setItem('rec_names', JSON.stringify(_recNames)); } catch(e) {}
+}
 
 async function loadRecList(uid) {
   const selectEl = document.getElementById(`recSelect_${uid}`);
@@ -326,6 +333,12 @@ async function showRecSteps(name, uid) {
 
     // 详情面板（默认展示第1步）
     html += `<div id="recStepDetail_${uid}" style="font-size:10px"></div>`;
+    // 保存按钮 + 状态
+    const savedCount = _recNames[name] ? Object.keys(_recNames[name]).length : 0;
+    html += `<div style="margin-top:6px;display:flex;gap:4px;align-items:center">
+      <button onclick="window._recSaveAll('${uid}')" style="flex:1;background:var(--primary);color:#fff;border:none;padding:4px;border-radius:4px;cursor:pointer;font-size:10px">💾 保存全部命名</button>
+      <span id="recSaveStatus_${uid}" style="font-size:9px;color:var(--text2)">${savedCount > 0 ? '已保存 '+savedCount+' 步' : ''}</span>
+    </div>`;
     el.innerHTML = html;
 
     // 挂载全局函数
@@ -333,7 +346,25 @@ async function showRecSteps(name, uid) {
     window._recSetName = function(idx, uid) {
       const inp = document.getElementById(`recNameInput_${idx}_${uid}`);
       const val = inp?.value?.trim();
-      if (val) { document.getElementById(`recNameLabel_${idx}_${uid}`).textContent = val; }
+      if (val) {
+        if (!_recNames[_recData.name]) _recNames[_recData.name] = {};
+        _recNames[_recData.name][idx] = val;
+        document.getElementById(`recNameLabel_${idx}_${uid}`).textContent = val;
+      }
+    };
+    window._recSaveAll = function(uid) {
+      // 收集所有输入框的值
+      document.querySelectorAll(`[id^="recNameInput_"]`).forEach(inp => {
+        const parts = inp.id.replace('recNameInput_','').split('_');
+        const idx = parseInt(parts[0]);
+        if (!isNaN(idx) && inp.value.trim()) {
+          if (!_recNames[_recData.name]) _recNames[_recData.name] = {};
+          _recNames[_recData.name][idx] = inp.value.trim();
+        }
+      });
+      _saveRecNames();
+      const saved = _recNames[_recData.name] ? Object.keys(_recNames[_recData.name]).length : 0;
+      document.getElementById(`recSaveStatus_${uid}`).textContent = '✅ 已保存 '+saved+'/'+_recData.steps.length+' 步命名';
     };
 
     // 显示第1步
@@ -365,6 +396,8 @@ function showStepDetail(idx, uid) {
   const firstAct = acts[0] || {};
   const actionDesc = firstAct.action_desc || '浏览';
   const autoOp = firstAct.suggested_op || firstAct.action_type || '?';
+  const savedName = _recNames[_recData.name]?.[idx] || '';
+  const defaultName = savedName || autoOp;
   const screenshotUrl = s.screenshot_url || '';
   const pageUrl = s.page ? s.page.url : '';
   const pageText = s.page ? (s.page.text_snippet||'').slice(0,100) : '';
@@ -396,8 +429,8 @@ function showStepDetail(idx, uid) {
       <!-- 原子操作命名 -->
       <div style="display:flex;gap:4px;align-items:center">
         <span style="font-size:9px;color:var(--text2)">🏷️ 命名:</span>
-        <input id="recNameInput_${idx}_${uid}" value="${autoOp}" style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:10px" onchange="window._recSetName(${idx},'${uid}')">
-        <span id="recNameLabel_${idx}_${uid}" style="display:none">${autoOp}</span>
+        <input id="recNameInput_${idx}_${uid}" value="${defaultName}" style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:10px" onchange="window._recSetName(${idx},'${uid}')">
+        <span id="recNameLabel_${idx}_${uid}" style="display:none">${defaultName}</span>
       </div>
 
       ${features.length ? '<div style="margin-top:4px;font-size:8px;color:var(--text2)">'+features.map(f => '<code style="background:var(--bg2);padding:1px 3px;border-radius:2px;margin:1px;font-size:8px">'+f.code+'</code>').join('')+'</div>' : ''}
