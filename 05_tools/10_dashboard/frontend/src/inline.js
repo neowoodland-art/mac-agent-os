@@ -1719,7 +1719,7 @@ async function loadMatrixCollect() {
       </div>
     </div>`;
   const data = await _loadAccounts();
-  _renderAccountSelector('collectAccountList', {_data: data, height: '300px', checkAll: false});
+  _renderAccountSelector('collectAccountList', {_data: data, height: '350px'});
   document.getElementById('collectSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
   // 加载采集状态
   try {
@@ -1916,7 +1916,7 @@ async function loadMatrixComment() {
       </div>
     </div>`;
   const data = await _loadAccounts();
-  _renderAccountSelector('commentAccountList', {_data: data, height: '300px', checkAll: false, hideFilter: true});
+  _renderAccountSelector('commentAccountList', {_data: data, height: '350px'});
 }
 window.runComment = async function() {
   const selected = _getSelectedAccounts();
@@ -1996,7 +1996,7 @@ async function loadMatrixLike() {
       </div>
     </div>`;
   const data = await _loadAccounts();
-  _renderAccountSelector('likeAccountList', {_data: data, height: '300px', checkAll: false, hideFilter: true});
+  _renderAccountSelector('likeAccountList', {_data: data, height: '350px'});
 }
 
 window.runLike = async function() {
@@ -2075,7 +2075,7 @@ async function loadOpsCommand() {
       </div>
     </div>`;
   const data = await _loadAccounts();
-  _renderAccountSelector('opsAccountList', {_data: data, height: '280px', checkAll: false});
+  _renderAccountSelector('opsAccountList', {_data: data, height: '350px'});
   document.getElementById('opsSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
   loadOpsHistory();
 }
