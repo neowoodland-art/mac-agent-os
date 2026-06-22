@@ -186,30 +186,34 @@ function switchView(view) {
   }
 }
 
-// ── 迁移视图辅助函数 ──
+// ── 迁移视图辅助函数（全部33个已迁移视图）──
 function _tryMigratedView(view) {
+  // 完整白名单 = views/ 目录下所有含 loadView 的文件
   var _migratedViews = [
-    'matrix-summary','matrix-accounts','matrix-blueprints','matrix-atom-ops',
+    // ── 矩阵养号 ──
+    'matrix-summary','matrix-accounts','matrix-nurture','matrix-collect',
+    'matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule',
+    'matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','matrix-atom-ops',
+    // ── 命令 ──
     'ops-command',
-    'productions','assets','costs',
-    'fleet-reconcile','fleet-sync','fleet-exec',
+    // ── 视频工厂 ──
+    'ave-render','ave-script','ave-materials','ave-templates','workflow','capabilities',
+    // ── 内容采集 ──
+    'crawl-tasks','crawl-sources','crawl-history',
+    // ── 联邦管理 ──
+    'machines','fleet-sync','fleet-reconcile','fleet-exec',
+    // ── 服务状态 ──
     'serve-mcp','serve-dashboard','serve-schedule',
+    // ── 概览 / 资产 ──
+    'productions','assets','costs',
   ];
   if (_migratedViews.indexOf(view) === -1) return false;
 
   var container = document.getElementById('view-dynamic');
   if (!container) return false;
 
-  // 隐藏所有旧视图
-  ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-record',
-   'ave-render','ave-script','ave-materials','ave-templates',
-   'crawl-tasks','crawl-sources','crawl-history',
-   'machines','fleet-sync','fleet-reconcile','fleet-exec',
-   'serve-mcp','serve-dashboard','serve-schedule',
-   'productions','assets','costs','capabilities','workflow','kb','ops-command'].forEach(function(v) {
-    var el = document.getElementById('view-' + v);
-    if (el) el.classList.add('hidden');
-  });
+  // 隐藏所有旧视图（通杀所有 view- 和 plugin-view- 开头的元素）
+  document.querySelectorAll('[id^="view-"]').forEach(function(el) { el.classList.add('hidden'); });
   document.querySelectorAll('[id^="plugin-view-"]').forEach(function(el) { el.classList.add('hidden'); });
 
   // 显示动态容器并开始加载
