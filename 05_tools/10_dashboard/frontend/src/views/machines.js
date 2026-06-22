@@ -32,15 +32,15 @@ export async function loadView(container) {
 }
 
 function renderMachineCard(m) {
-  // 真实在线以心跳时间为准：120秒内无心跳 = 离线
-  const lastPushSec = m._last_push_sec || 999;
-  const isLive = m._live === true || lastPushSec < 30;
-  const isOnline = isLive || (m.status === 'online' && lastPushSec < 120);
-  const isRecent = m.status === 'recent' || (m.status === 'online' && lastPushSec < 300);
-  const dotColor = isLive ? '#1D9E75' : isOnline ? '#22C55E' : isRecent ? '#F59E0B' : '#EF4444';
-  const statusText = isLive ? '实时' : isOnline ? '在线' : isRecent ? '近期' : '离线';
-  const minAgo = m.minutes_ago || Math.round(lastPushSec / 60) || 999;
-  const timeStr = isLive
+  // 在线状态 = 信任 API 的 status 字段
+  // 心跳时间仅做参考提示，不改变状态判定
+  const lastPushSec = m._last_push_sec || 0;
+  const isOnline = m.status === 'online';
+  const isRecent = m.status === 'recent';
+  const dotColor = isOnline ? '#22C55E' : isRecent ? '#F59E0B' : '#EF4444';
+  const statusText = isOnline ? '在线' : isRecent ? '近期' : '离线';
+  const minAgo = m.minutes_ago || Math.round(lastPushSec / 60) || 0;
+  const timeStr = lastPushSec < 60
     ? `${lastPushSec}秒前`
     : minAgo < 60
       ? `${minAgo} 分钟前`
