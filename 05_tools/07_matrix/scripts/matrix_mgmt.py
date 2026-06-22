@@ -1179,6 +1179,25 @@ class MatrixManager:
                         return True
             return False
 
+        # ── ORACLE.yaml 权威源: 覆盖 owner_machine ──
+        try:
+            ORACLE_PATH = AGENT_SYNC / "ORACLE.yaml"
+            if ORACLE_PATH.exists():
+                import yaml
+                oracle = yaml.safe_load(ORACLE_PATH.read_text())
+                oracle_map = {}
+                for entry in oracle.get("accounts", []):
+                    machine = entry.get("machine", "")
+                    for plat, acct_id in entry.get("platforms", {}).items():
+                        oracle_map[acct_id] = machine
+                for acct in deduped.values():
+                    oid = acct["id"]
+                    if oid in oracle_map:
+                        acct["assigned_machine"] = oracle_map[oid]
+                        acct["owner_machine"] = oracle_map[oid]
+        except Exception:
+            pass
+
         # 构建所有机器的 assignment 映射 (用于 is_local 兜底判断)
         _all_assignments = {a["id"]: a.get("assigned_machine", "") for a in deduped.values()}
 
