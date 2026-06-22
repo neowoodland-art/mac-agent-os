@@ -4,7 +4,7 @@
  * 职责：
  * - 管理已迁移视图的动态加载
  * - 提供工具函数供已迁移视图使用
- * - 与 index.html 内联代码共存
+ * - 与 index.html 内联代码共存（暴露到 window 供电线函数调用）
  */
 
 let _migrated = new Set();
@@ -36,6 +36,37 @@ export async function loadMigratedView(viewName, container) {
     container.innerHTML = `<div class="error">❌ 加载视图失败: ${err.message}</div>`;
   }
   return false;
+}
+
+// ── 全局接口（供 inline.js 调用）─────────────────────────
+
+/**
+ * 尝试加载已迁移视图。供电线函数 switchView() 使用。
+ * 内部检查视图是否已注册，已注册则加载到 #view-dynamic。
+ * 
+ * @param {string} viewName
+ * @returns {boolean} 是否找到并开始加载
+ */
+export function tryLoadView(viewName) {
+  if (!_migrated.has(viewName)) return false;
+
+  const container = document.getElementById('view-dynamic');
+  if (!container) return false;
+
+  // 隐藏所有旧视图
+  document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.classList.add('hidden'));
+
+  // 显示动态容器
+  container.classList.remove('hidden');
+  container.innerHTML = '<div class="loading">⏳ 加载中...</div>';
+
+  // 异步加载（不阻塞 switchView 返回）
+  loadMigratedView(viewName, container).catch(err => {
+    console.error(`[router] tryLoadView failed:`, err);
+  });
+
+  return true;
 }
 
 // ── 工具函数 ──

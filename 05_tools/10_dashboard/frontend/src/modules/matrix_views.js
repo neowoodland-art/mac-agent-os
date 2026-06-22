@@ -145,7 +145,10 @@ function switchView(view) {
     if (pv) pv.classList.remove('hidden');
   }
 
-  // 加载数据（try-catch 包裹跨模块函数，未暴露时不会中断后续代码）
+  // ── 已迁移视图（动态加载，先试路由再回退旧逻辑）──
+  if (_tryMigratedView(view)) return;
+
+  // 加载数据（回退：未迁移视图走旧 inline 函数）
   try { if (view === 'productions') window.loadProductions(); } catch(e) {}
   try { if (view === 'assets') window.loadAssets(); } catch(e) {}
   try { if (view === 'costs') window.loadCosts(); } catch(e) {}
@@ -172,17 +175,6 @@ function switchView(view) {
   try { if (view === 'fleet-exec') window.loadFleetExec(); } catch(e) {}
   try { if (view === 'matrix-like') window.loadMatrixLike(); } catch(e) {}
   try { if (view === 'matrix-login') window.loadMatrixLogin(); } catch(e) {}
-  try { if (view === 'ops-command') {
-    var _opsEl = document.getElementById('view-ops-command');
-    if (_opsEl) {
-      _opsEl.innerHTML = '<div class="loading">⌛ Loading...</div>';
-      import(`../views/ops-command.js`).then(function(m) {
-        if (m && typeof m.loadView === 'function') m.loadView(_opsEl);
-      }).catch(function(e) {
-        _opsEl.innerHTML = '<div class="error">❌ ' + e.message + '</div>';
-      });
-    }
-  } } catch(e) {}
   try { if (view === 'serve-mcp') window.loadServeMCP(); } catch(e) {}
   try { if (view === 'serve-dashboard') window.loadServeDashboard(); } catch(e) {}
   try { if (view === 'serve-schedule') window.loadServeSchedule(); } catch(e) {}
@@ -192,6 +184,49 @@ function switchView(view) {
     var _fre = document.getElementById('view-fleet-reconcile');
     if (_fre) { try { loadFleetReconcileView(_fre); } catch(e) { _fre.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; } }
   }
+}
+
+// ── 迁移视图辅助函数 ──
+function _tryMigratedView(view) {
+  var _migratedViews = [
+    'matrix-summary','matrix-accounts','matrix-blueprints','matrix-atom-ops',
+    'ops-command',
+    'productions','assets','costs',
+    'fleet-reconcile','fleet-sync','fleet-exec',
+    'serve-mcp','serve-dashboard','serve-schedule',
+  ];
+  if (_migratedViews.indexOf(view) === -1) return false;
+
+  var container = document.getElementById('view-dynamic');
+  if (!container) return false;
+
+  // 隐藏所有旧视图
+  ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-record',
+   'ave-render','ave-script','ave-materials','ave-templates',
+   'crawl-tasks','crawl-sources','crawl-history',
+   'machines','fleet-sync','fleet-reconcile','fleet-exec',
+   'serve-mcp','serve-dashboard','serve-schedule',
+   'productions','assets','costs','capabilities','workflow','kb','ops-command'].forEach(function(v) {
+    var el = document.getElementById('view-' + v);
+    if (el) el.classList.add('hidden');
+  });
+  document.querySelectorAll('[id^="plugin-view-"]').forEach(function(el) { el.classList.add('hidden'); });
+
+  // 显示动态容器并开始加载
+  container.classList.remove('hidden');
+  container.innerHTML = '<div class="loading">⏳ 加载中...</div>';
+
+  import('../views/' + view + '.js').then(function(m) {
+    if (m && typeof m.loadView === 'function') {
+      m.loadView(container);
+    } else {
+      container.innerHTML = '<div class="error">❌ 视图 ' + view + ' 没有 loadView 导出</div>';
+    }
+  }).catch(function(e) {
+    container.innerHTML = '<div class="error">❌ 加载失败: ' + e.message + '</div>';
+  });
+
+  return true;
 }
 
 // ── 暴露全局（供 onclick 使用，Vite 模块化后不再自动暴露）──

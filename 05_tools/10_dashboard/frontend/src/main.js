@@ -25,3 +25,6 @@ import './modules/workflow.js';
 import './modules/c2_remote.js';
 import './modules/machine_bar.js';
 import './modules/kb_management.js';
+
+// ── 视图注册表（注册已迁移视图，供 switchView 路由用）──
+import './view-registry.js';
