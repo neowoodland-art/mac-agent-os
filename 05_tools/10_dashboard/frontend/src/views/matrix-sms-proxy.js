@@ -48,5 +48,14 @@ export async function loadView(container) {
       <div id="smsQueryPanel" style="font-size:11px;margin-top:4px"></div>
     </div>
   `;
+  // 先预加载账号列表到缓存，确保输入框匹配立即可用
+  fetch('/api/matrix/sms/accounts').then(function(r) { return r.json(); }).then(function(d) {
+    var accts = d.accounts || [];
+    if (!window._smsFetchedOnce) {
+      window._smsAccountOptions = accts;
+      window._smsFetchedOnce = true;
+    }
+  }).catch(function() { /* 静默失败，loadSmsProxy 会重试 */ });
+
   window.loadSmsProxy();
 }

@@ -1,4 +1,4 @@
-import{n as e,t}from"./index-CQCjWAbY.js";import{t as n}from"./account-selector-DBZWFo9Z.js";var r=null;async function i(e){let i=e.id||`comment`;e.innerHTML=`
+import{n as e,t}from"./index-HKNLmijC.js";import{t as n}from"./account-selector-DBZWFo9Z.js";var r=null;async function i(e){let i=e.id||`comment`;e.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:6px">💬 定向评论 <span style="font-size:10px;color:var(--text2);font-weight:400">选择账号 → 填入视频链接 → 方向/语料 → 执行</span></div>

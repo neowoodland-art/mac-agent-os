@@ -41,4 +41,4 @@ async function e(e){e.innerHTML=`
       </div>
       <div id="smsQueryPanel" style="font-size:11px;margin-top:4px"></div>
     </div>
-  `,window.loadSmsProxy()}export{e as loadView};
+  `,fetch(`/api/matrix/sms/accounts`).then(function(e){return e.json()}).then(function(e){var t=e.accounts||[];window._smsFetchedOnce||(window._smsAccountOptions=t,window._smsFetchedOnce=!0)}).catch(function(){}),window.loadSmsProxy()}export{e as loadView};
