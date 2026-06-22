@@ -153,11 +153,11 @@ class RecordingSession:
                     window.__recorded_events.push({
                         t: 'key',
                         k: e.key,
+                        code: e.code,
                         c: e.ctrlKey,
                         m: e.metaKey,
                         a: e.altKey,
                         s: e.shiftKey,
-                        code: e.code,
                         ts: Date.now()
                     });
                 }, true);
@@ -531,8 +531,8 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
                     for (let i = buf.length - 1; i >= 0; i--) {
                         const e = buf[i];
                         if (e && e.t === 'key') {
-                            if (e.k === '`') return 'step';
-                            if (e.k === 'Escape') return 'quit';
+                            if (e.code === 'Backquote') return 'step';
+                            if (e.k === 'Escape' || e.code === 'Escape') return 'quit';
                         }
                     }
                     // 检测页面是否正在关闭（浏览器标签被关）
