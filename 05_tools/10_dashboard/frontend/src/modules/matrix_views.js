@@ -220,7 +220,7 @@ function _tryMigratedView(view) {
   container.classList.remove('hidden');
   container.innerHTML = '<div class="loading">⏳ 加载中...</div>';
 
-  import('../views/' + view + '.js').then(function(m) {
+  import(`../views/${view}.js`).then(function(m) {
     if (m && typeof m.loadView === 'function') {
       m.loadView(container);
     } else {
