@@ -604,9 +604,12 @@ def api_matrix_account_record(account_id: str):
     try:
         import subprocess, os, signal
         recorder_py = str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "mc" / "recorder.py")
+        log_dir = AGENT_LOCAL / "runtime" / "commands"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = open(log_dir / f"recorder_{account_id}_{int(time.time())}.log", "w")
         proc = subprocess.Popen(
             [sys.executable, recorder_py, account_id, platform],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=log_file, stderr=subprocess.STDOUT,
             start_new_session=True,
         )
         _RECORDING_PID_FILE.write_text(str(proc.pid))
