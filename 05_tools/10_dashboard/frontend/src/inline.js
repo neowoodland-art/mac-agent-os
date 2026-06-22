@@ -2461,47 +2461,14 @@ async function loadSmsAccounts() {
   const overview = document.getElementById('smsAccountsOverview');
   if (!sel) return;
   try {
-    // 用联邦API获取所有机器的账号，本地API作为下拉选择的数据源
-    let accounts = [];
-    let fedOk = false;
-    try {
-      const fr = await fetch('/api/federation/accounts');
-      const fd = await fr.json();
-      if (Array.isArray(fd) && fd.length) {
-        accounts = fd.map(a => ({
-          id: a.id,
-          phone: a.phone || a.phone_mask || '',
-          nickname: a.identity_hint || a.id,
-          platform: a.platform || '',
-          is_local: a.is_local || a.owner_machine === window.location.hostname,
-          owner_machine: a.owner_machine || a._source_machine_name || '',
-          has_cookie: a._status === 'logged_in',
-          has_identity: a.identity_dir ? true : false,
-          has_profile: false,
-          has_registry: false,
-          fans: a.fans || '?',
-          posts: a.posts || '?',
-          following: a.following || '?',
-          likes: a.likes || '?',
-          identity_dir: a.identity_dir || '',
-          fingerprint: a.fingerprint || {},
-          busy: a.busy || false,
-          busy_since: a.busy_since || '',
-        }));
-        fedOk = true;
-      }
-    } catch(e) { /* fallback to local API */ }
-
-    if (!fedOk) {
-      // 降级：使用本地 SMS API
-      const r = await fetch('/api/matrix/sms/accounts');
-      const d = await r.json();
-      if (d.error) {
-        if (overview) overview.innerHTML = '<span style="color:var(--red)">❌ '+d.error+'</span>';
-        return;
-      }
-      accounts = d.accounts || [];
+    // 直接从 SMS API 获取账号（/api/federation/accounts 返回的是 HTML，不是 JSON）
+    const r = await fetch('/api/matrix/sms/accounts');
+    const d = await r.json();
+    if (d.error) {
+      if (overview) overview.innerHTML = '<span style="color:var(--red)">❌ '+d.error+'</span>';
+      return;
     }
+    const accounts = d.accounts || [];
 
     window._lastSmsAccounts = accounts;
     // 下拉框（隐藏，用于存储完整选项数据）
