@@ -6805,20 +6805,24 @@ window.restoreBackup = restoreBackup;
 window.doExport = doExport;
 window.doImport = doImport;
 window._renderShell = _renderShell;
-window.loadMatrixNurture = loadMatrixNurture;
-window.loadMatrixCollect = loadMatrixCollect;
+// 被 modules/account_selector.js 覆盖
+// window.loadMatrixNurture = loadMatrixNurture;
+// window.loadMatrixCollect = loadMatrixCollect;
 window.toggleCollectGroup = toggleCollectGroup;
 window.toggleCollectMachine = toggleCollectMachine;
 window.collectSelected = collectSelected;
 window.loadMatrixPublish = loadMatrixPublish;
-window.loadMatrixComment = loadMatrixComment;
+// 被 modules/account_selector.js 覆盖
+// window.loadMatrixComment = loadMatrixComment;
 window.loadMatrixSchedule = loadMatrixSchedule;
-window.loadMatrixLike = loadMatrixLike;
+// window.loadMatrixLike = loadMatrixLike;
 window.loadMatrixLogin = loadMatrixLogin;
-window.loadOpsCommand = loadOpsCommand;
+// 被 modules/account_selector.js 覆盖
+// window.loadOpsCommand = loadOpsCommand;
 window.loadOpsHistory = loadOpsHistory;
-window._loadAccounts = _loadAccounts;
-window._renderAccountSelector = _renderAccountSelector;
+// 被 modules/corpus.js 覆盖
+// window._loadAccounts = _loadAccounts;
+// window._renderAccountSelector = _renderAccountSelector;
 window._asToggleMachine = _asToggleMachine;
 window._asRefreshCount = _asRefreshCount;
 window._getSelectedAccounts = _getSelectedAccounts;
@@ -6886,8 +6890,9 @@ window.recordingAnalyze = recordingAnalyze;
 window.recordingExport = recordingExport;
 window.recordingDelete = recordingDelete;
 window.switchCmdTab = switchCmdTab;
-window.loadMatrixCommands = loadMatrixCommands;
-window.cmdRunCommentTask = cmdRunCommentTask;
+// 被 modules/collect.js 覆盖
+// window.loadMatrixCommands = loadMatrixCommands;
+// window.cmdRunCommentTask = cmdRunCommentTask;
 window.createAutoTaskFromSchedule = createAutoTaskFromSchedule;
 window.switchCollectMode = switchCollectMode;
 window.renderCollectList = renderCollectList;
