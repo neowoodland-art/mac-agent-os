@@ -168,16 +168,11 @@
   <div id="cmd-collect-content" style="display:none">
     <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">👤 信息采集</div>
-      <div style="display:flex;gap:6px;margin-bottom:8px;font-size:12px">
-        <span style="color:var(--text2)">选择范围：</span>
-        <span onclick="switchCollectMode('identity',this)" class="collect-mode active" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:#6366f1;color:#fff">📱 按身份</span>
-        <span onclick="switchCollectMode('platform',this)" class="collect-mode" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:var(--bg3);color:var(--text)">🎯 按平台</span>
-        <span onclick="switchCollectMode('account',this)" class="collect-mode" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:var(--bg3);color:var(--text)">👤 按账号</span>
-      </div>
-      <div id="collectList" style="font-size:12px;max-height:200px;overflow-y:auto;margin-bottom:8px;background:var(--bg3);border-radius:6px;padding:6px">加载账号列表...</div>
-      <div style="display:flex;gap:6px">
+      <div id="collectList" style="font-size:12px;margin-bottom:8px;background:var(--bg3);border-radius:6px;padding:6px">加载账号列表...</div>
+      <div style="display:flex;gap:6px;align-items:center">
         <button onclick="cmdCollectSelected()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">👤 执行选中</button>
         <button onclick="cmdCollectAll()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📋 全部采集</button>
+        <span id="collectSelCount2" style="font-size:10px;color:var(--text2)">已选 0 个</span>
       </div>
       <div id="collectStatus" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
       <div id="collectLog" style="font-size:11px;background:var(--bg2);border-radius:6px;padding:8px;margin-top:4px;max-height:300px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>

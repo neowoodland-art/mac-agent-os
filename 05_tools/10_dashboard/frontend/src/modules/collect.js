@@ -64,12 +64,12 @@ async function loadMatrixCommands() {
     corpusEl3.innerHTML = corpusOrig.innerHTML || '<div class="loading">加载语料库...</div>';
   }
 
-  // 加载采集模块账号列表
+  // 加载采集模块账号列表（复用养号执行的折叠式选择器）
   try {
-    const r = await fetch('/api/matrix/sms/accounts');
-    const d = await r.json();
-    _collectAccounts = d.accounts || [];
-    renderCollectList();
+    const data = await _loadAccounts();
+    _collectAccounts = data.accounts || [];
+    _renderAccountSelector('collectList', {_data: data, height: '300px', checkAll: false});
+    document.getElementById('collectSelCount2').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
   } catch(e) { /* ignore */ }
 
   // 填充定向评论的账号下拉
