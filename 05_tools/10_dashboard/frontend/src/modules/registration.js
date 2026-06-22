@@ -435,7 +435,7 @@ async function loadMatrixBlueprints() {
       html += '<div style="padding:6px 0;color:var(--text2);font-size:13px">暂无蓝图</div>';
     } else {
       bps.forEach(b => {
-        const stepsPreview = (b.steps||[]).slice(0,3).map(s => window._matrixOps?.[s.op||s.name]?.label||s.op||s.name||'').join(' → ');
+        const stepsPreview = (b.steps||[]).slice(0,3).map(s => { var sn = s.op||s.name; return window._matrixOps?.[sn]?.label||sn||''; }).join(' → ');
         html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px">
           <span style="flex:1"><strong>${b.name}</strong> <span style="color:var(--text2);font-size:11px">${b.step_count}步 · ${b.platform||'douyin'}</span>
             ${stepsPreview ? `<br><span style="color:var(--text2);font-size:11px">${stepsPreview}</span>` : ''}</span>
