@@ -2519,6 +2519,12 @@ async function loadSmsAccounts() {
       
       var cardsHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px;margin-bottom:16px">'+
         Object.values(groups).sort(function(a,b) {
+          // 本机优先
+          var aLocal = a.accts.some(function(acct){return acct.is_local;});
+          var bLocal = b.accts.some(function(acct){return acct.is_local;});
+          if (aLocal && !bLocal) return -1;
+          if (!aLocal && bLocal) return 1;
+          // 同是本机或同是远程：按机器名+手机号排
           var ma = a.machine, mb = b.machine;
           if (ma < mb) return -1;
           if (ma > mb) return 1;
@@ -2584,6 +2590,19 @@ async function loadSmsAccounts() {
       var localCount = accounts.filter(function(a){return a.is_local;}).length;
       var loggedIn = accounts.filter(function(a){return a.has_cookie;}).length;
 
+      // 本机优先排序
+      var sortedAccounts = accounts.slice().sort(function(a,b) {
+        if (a.is_local && !b.is_local) return -1;
+        if (!a.is_local && b.is_local) return 1;
+        var ma = machineLabel(a), mb = machineLabel(b);
+        if (ma < mb) return -1;
+        if (ma > mb) return 1;
+        var pa = a.phone||'', pb = b.phone||'';
+        if (pa < pb) return -1;
+        if (pa > pb) return 1;
+        return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+      });
+
       var tableId = 'acctTableBody';
       var sortState = {col:'账号', asc:true};
 
@@ -2624,7 +2643,7 @@ async function loadSmsAccounts() {
           '<th onclick="sortAcctTable(5)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">昵称</th>'+
           '<th style="padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">操作</th></tr></thead>'+
           '<tbody id="'+tableId+'">'+
-        accounts.map(function(a, idx) {
+        sortedAccounts.map(function(a, idx) {
           var ml = machineLabel(a);
           var icon = a.platform==='xiaohongshu'?'📕':'🎵';
           var platName = a.platform==='xiaohongshu'?'小红书':'抖音';
@@ -2645,8 +2664,8 @@ async function loadSmsAccounts() {
               '<button onclick="'+dop+'" style="background:transparent;border:none;cursor:pointer;'+btnStyle(a,ld)+'" title="'+delTitle(a)+'">🗑</button>'+
             '</td></tr>';
         }).join('')+'</tbody></table></div></div>';
-      // 保存accounts数据供排序筛选用
-      window._acctTableData = accounts;
+      // 保存accounts数据供排序筛选用（使用已排序的列表）
+      window._acctTableData = sortedAccounts;
 
       overview.innerHTML = cardsHtml + tableHtml;
     }
