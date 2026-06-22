@@ -100,7 +100,20 @@ class RecordingSession:
 
         print(f"🌐 打开 {target}")
         await self.page.goto(target, timeout=30000, wait_until="domcontentloaded")
-        await asyncio.sleep(4)
+        await asyncio.sleep(3)
+
+        # ── 鼠标响应测试（确认浏览器加载完成）──
+        try:
+            await self.page.mouse.move(400, 300)
+            await asyncio.sleep(0.3)
+            await self.page.mouse.move(400, 320)
+            await asyncio.sleep(0.3)
+            await self.page.mouse.move(400, 300)
+            print(f"   ✅ 浏览器响应正常")
+        except Exception as e:
+            print(f"   ⚠️ 浏览器响应异常: {e}")
+            print(f"   可能是身份加载卡顿，继续等待...")
+            await asyncio.sleep(5)
 
         # ── 登录态检测 ──
         try:
