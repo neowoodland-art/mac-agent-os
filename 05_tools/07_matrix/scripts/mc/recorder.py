@@ -205,6 +205,12 @@ class RecordingSession:
                         ts: Date.now()
                     });
                 }, true);
+
+                // 页面关闭/离开时自动结束录制
+                window.__recorder_closing = false;
+                window.addEventListener('beforeunload', () => {
+                    window.__recorder_closing = true;
+                });
             }""")
             self._js_listener_ready = True
         except Exception as e:
@@ -529,10 +535,16 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
                             if (e.k === 'Escape') return 'quit';
                         }
                     }
+                    // 检测页面是否正在关闭（浏览器标签被关）
+                    if (window.__recorder_closing) return 'quit';
                     return '';
                 }""")
             except:
-                key_pressed = ''
+                # page.evaluate 失败 = 页面已关闭，保存录制
+                print(f"\n  🛑 浏览器已关闭，保存录制...")
+                _manual_end = True
+                await session.stop(keep_open=False)
+                break
 
             if key_pressed == 'step':
                 step_counter += 1
