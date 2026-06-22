@@ -298,8 +298,48 @@ window._showOpDetail = function(opName, uid) {
     <div style="margin-bottom:6px;color:var(--text2);font-size:9px"><span style="color:var(--text2)">参数:</span> ${params}</div>
     <div style="margin-bottom:6px;color:var(--text2);font-size:9px"><span style="color:var(--text2)">返回:</span> ${returns}</div>
     <div style="display:flex;gap:4px">
-      <button onclick="console.log('TODO: 测试 '+opName)" style="flex:1;background:#22c55e;color:#fff;border:none;padding:4px;border-radius:4px;cursor:pointer;font-size:10px">🧪 测试此操作</button>
+      <button id="testBtn_${uid}" onclick="window._testOp('${opName}','${uid}')" style="flex:1;background:#22c55e;color:#fff;border:none;padding:4px;border-radius:4px;cursor:pointer;font-size:10px">🧪 测试此操作</button>
+      <div id="opTestResult_${uid}" style="margin-top:4px;font-size:9px;color:var(--text2)"></div>
     </div>`;
+};
+
+// 执行单步测试
+window._testOp = async function(opName, uid) {
+  const btn = document.getElementById('testBtn_'+uid);
+  const res = document.getElementById('opTestResult_'+uid);
+  if (!btn || !res) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ 执行中...';
+  btn.style.opacity = '0.6';
+  res.textContent = '请求中...';
+
+  try {
+    // 尝试获取第一个可用的本机账号
+    const ar = await fetch('/api/matrix/accounts');
+    const accts = await ar.json();
+    const accounts = (Array.isArray(accts) ? accts : accts.accounts||[]);
+    const localAcct = accounts.find(a => a.is_local) || accounts[0];
+    if (!localAcct) { res.textContent = '❌ 无可用账号'; return; }
+
+    const r = await fetch('/api/ops/run', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        type: 'nurture',
+        accounts: [localAcct.id],
+        params: { blueprint: 'douyin_daily', rounds: 1, single_op: opName },
+        wait: true
+      })
+    });
+    const result = await r.json();
+    res.textContent = '✅ 已提交: ' + (result.status || result.message || JSON.stringify(result));
+  } catch(e) {
+    res.textContent = '❌ ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🧪 测试此操作';
+    btn.style.opacity = '1';
+  }
 };
 
 // ── 右栏：录制标注 ──
@@ -378,7 +418,8 @@ async function showRecSteps(name, uid) {
     const savedCount = _recNames[name] ? Object.keys(_recNames[name]).length : 0;
     html += `<div style="margin-top:6px;display:flex;gap:4px;align-items:center">
       <button onclick="window._recSaveAll('${uid}')" style="flex:1;background:var(--primary);color:#fff;border:none;padding:4px;border-radius:4px;cursor:pointer;font-size:10px">💾 保存全部命名</button>
-      <span id="recSaveStatus_${uid}" style="font-size:9px;color:var(--text2)">${savedCount > 0 ? '已保存 '+savedCount+' 步' : ''}</span>
+      <button onclick="window._recExport('${uid}')" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px">📦 导出蓝图</button>
+      <span id="recSaveStatus_${uid}" style="font-size:9px;color:var(--text2);flex-shrink:0">${savedCount > 0 ? '已保存 '+savedCount+' 步' : ''}</span>
     </div>`;
     el.innerHTML = html;
 
@@ -405,6 +446,28 @@ async function showRecSteps(name, uid) {
       _saveRecNames();
       const saved = _recNames[_recData.name] ? Object.keys(_recNames[_recData.name]).length : 0;
       document.getElementById(`recSaveStatus_${uid}`).textContent = '✅ 已保存 '+saved+'/'+_recData.steps.length+' 步命名';
+    };
+    window._recExport = function(uid) {
+      const names = _recNames[_recData.name] || {};
+      const namedSteps = _recData.steps.map((s, idx) => ({
+        step_id: idx + 1,
+        op: names[idx] || '',
+        args: {}
+      })).filter(s => s.op);
+      const account = _recData.name.split('_').slice(1,2).join('_') || 'unknown';
+      const blueprint = {
+        name: 'recording_' + _recData.name.split('recording_').pop() || 'exported',
+        description: '从录制导出：' + _recData.name,
+        platform: _recData.steps[0]?.page?.url?.includes('douyin') ? 'douyin' : 'xiaohongshu',
+        steps: namedSteps
+      };
+      const blob = new Blob([JSON.stringify(blueprint, null, 2)], {type: 'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = blueprint.name + '.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      document.getElementById(`recSaveStatus_${uid}`).textContent = '📦 蓝图已导出: ' + namedSteps.length + ' 步';
     };
 
     // 显示第1步

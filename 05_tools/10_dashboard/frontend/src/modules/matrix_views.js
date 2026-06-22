@@ -128,12 +128,15 @@ function switchView(view) {
   // 视图显隐
   // 视图显隐
   const viewIds = ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-record',
+                   'matrix-accounts','matrix-atom-ops','matrix-settings','matrix-run','matrix-commands','matrix-summary',
+                   'matrix-c2','matrix-backup','matrix-export',
                    'ave-render','ave-script','ave-materials','ave-templates',
                    'crawl-tasks','crawl-sources','crawl-history',
                    'machines','fleet-sync','fleet-reconcile','fleet-exec',
                    'serve-mcp','serve-dashboard','serve-schedule',
                    'productions','assets','costs','capabilities','workflow','kb',
-                   'ops-command','dynamic'];
+                   'ops-command','dynamic',
+                   'timeline','alerts','summary','characters','char-gen'];
   viewIds.forEach(v => {
     document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
   });
