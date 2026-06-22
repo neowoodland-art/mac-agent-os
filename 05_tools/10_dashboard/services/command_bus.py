@@ -199,6 +199,19 @@ class MachineSession:
     MAX_ACTIVE_PROCESSES = 3  # 最大并发进程数（含所有类型）
 
     def _send_local(self, cmd: Command) -> dict:
+        # 系统级进程数检查（查实际 mc 进程，不依赖内存状态）
+        try:
+            mc_count = int(subprocess.run(
+                ["pgrep", "-f", "python3.*-m mc"], capture_output=True, text=True, timeout=3
+            ).stdout.strip() or "0") or 0
+            if mc_count > 100:  # 系统级警戒线：超过100个 mc 进程时强制清理
+                # 进程太多，强制清理
+                subprocess.run(["pkill", "-f", "python3.*-m mc"], capture_output=True, timeout=3)
+                time.sleep(1)
+                return {"error": f"系统 mc 进程数过高 ({mc_count})，已自动清理，请重试"}
+        except:
+            pass
+
         # 限制并发进程数
         active_count = len([c for c in self.commands if c.status.is_active])
         if active_count >= self.MAX_ACTIVE_PROCESSES:
