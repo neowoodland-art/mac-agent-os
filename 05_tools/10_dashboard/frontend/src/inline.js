@@ -7095,3 +7095,8 @@ async function loadExecutionHistory() {
 // 增加自动刷新
 window.refreshMachineHealth = refreshMachineHealth;
 window.loadExecutionHistory = loadExecutionHistory;
+
+// ── 冲突解决：确保内部调用使用最终版本（来自后被导入的模块）──
+// 这些函数在其他模块中有覆盖定义，这里将本地引用指向最终版本
+_loadAccounts = typeof window._loadAccounts !== 'undefined' ? window._loadAccounts : _loadAccounts;
+_renderAccountSelector = typeof window._renderAccountSelector !== 'undefined' ? window._renderAccountSelector : _renderAccountSelector;
