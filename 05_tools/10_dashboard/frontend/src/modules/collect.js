@@ -68,7 +68,7 @@ async function loadMatrixCommands() {
   try {
     const data = await _loadAccounts();
     _collectAccounts = data.accounts || [];
-    _renderAccountSelector('collectList', {_data: data, height: '300px', checkAll: false});
+    _renderAccountSelector('collectList', {_data: data, height: '350px'});
     document.getElementById('collectSelCount2').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
   } catch(e) { /* ignore */ }
 

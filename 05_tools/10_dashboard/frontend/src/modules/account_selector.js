@@ -237,7 +237,7 @@ async function loadMatrixCollect() {
       </div>
     </div>`;
   const data = await _loadAccounts();
-  _renderAccountSelector('collectAccountList', {_data: data, height: '300px', checkAll: false});
+  _renderAccountSelector('collectAccountList', {_data: data, height: '350px'});
   document.getElementById('collectSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
   // 加载采集状态
   try {
