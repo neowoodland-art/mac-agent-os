@@ -197,7 +197,7 @@ function _tryMigratedView(view) {
     // ── 功能完整的操作视图 ──
     'matrix-comment','matrix-like','ops-command',
     // ── 原子操作体系 ──
-    'ops-flow','ops-recorder',
+    'ops-flow','ops-recorder','ops-workbench',
     // ── 列表/管理视图 ──
     'matrix-atom-ops','matrix-schedule',
     // ── 联邦管理 ──

@@ -509,6 +509,7 @@ async function loadPlugins() {
       '原子操作': { icon: '🧩', items: [
         {view:'ops-flow', label:'🧭 操作流程图'},
         {view:'ops-recorder', label:'🎬 录制标注'},
+        {view:'ops-workbench', label:'🛠 工作台'},
       ]},
       '联邦': { icon: '🖥️', items: [
         {view:'machines', label:'机器状态'},

@@ -31,6 +31,7 @@ const MIGRATED_VIEWS = [
   // ── 原子操作体系 ──
   'ops-flow',
   'ops-recorder',
+  'ops-workbench',
 
   // ── 视频工厂 ──
   'ave-render',

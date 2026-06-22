@@ -1,0 +1,111 @@
+async function e(e){let t=Math.random().toString(36).slice(2,6);e.innerHTML=`
+    <div style="padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 style="font-size:18px;margin:0">🧭 操作原子工作台</h2>
+        <div style="display:flex;gap:6px;font-size:12px">
+          <button onclick="_reloadWorkbench('${t}')" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 12px;border-radius:6px;cursor:pointer">⟳ 刷新</button>
+        </div>
+      </div>
+
+      <!-- 三栏布局 -->
+      <div style="display:grid;grid-template-columns:220px 1fr 280px;gap:10px;min-height:500px">
+
+        <!-- ═══ 左栏：状态流 ═══ -->
+        <div style="background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);padding:10px;font-size:11px">
+          <div style="font-weight:600;font-size:12px;margin-bottom:8px">🔄 状态流</div>
+          <div id="stateFlow_${t}" style="color:var(--text2)">
+            <div class="loading" style="padding:8px">加载流程图...</div>
+          </div>
+        </div>
+
+        <!-- ═══ 中栏：原子操作面板 ═══ -->
+        <div style="background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);padding:10px;font-size:11px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-weight:600;font-size:12px">⚡ 原子操作</span>
+            <span id="opCount_${t}" style="font-size:10px;color:var(--text2)"></span>
+          </div>
+          <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap" id="opCategoryTabs_${t}">
+            <span onclick="_filterCat('all','${t}')" data-cat="all" style="padding:3px 8px;border-radius:4px;cursor:pointer;background:var(--primary);color:#fff;font-size:10px">全部</span>
+          </div>
+          <div id="opList_${t}" style="max-height:400px;overflow-y:auto">
+            <div class="loading" style="padding:8px">加载原子操作...</div>
+          </div>
+        </div>
+
+        <!-- ═══ 右栏：录制标注 ═══ -->
+        <div style="background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);padding:10px;font-size:11px;display:flex;flex-direction:column">
+          <div style="font-weight:600;font-size:12px;margin-bottom:8px">🎬 录制标注</div>
+          <div id="recPanel_${t}" style="flex:1;overflow-y:auto">
+            <div style="color:var(--text2);padding:8px;text-align:center">
+              <p style="font-size:12px;margin-bottom:8px">选择录制包开始标注</p>
+              <select id="recSelect_${t}" onchange="_loadRecDetail(this.value,'${t}')" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px;border-radius:4px;font-size:11px;margin-bottom:6px">
+                <option value="">— 选择录制包 —</option>
+              </select>
+              <button onclick="_reloadRecList('${t}')" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">⟳ 刷新</button>
+            </div>
+            <div id="recSteps_${t}" style="font-size:10px;margin-top:4px"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>`,window._reloadWorkbench=function(e){i(e),n(e),d(e)},window._filterCat=function(e,t){a(e,t)},window._reloadRecList=function(e){d(e)},window._loadRecDetail=function(e,t){e&&f(e,t)},i(t),n(t),d(t)}var t={douyin:[{id:`grid`,label:`首页精选`,icon:`🏠`},{id:`branch`,label:`分支页`,icon:`📂`},{id:`player_modal`,label:`视频浮层`,icon:`▶️`},{id:`player_full`,label:`视频全屏`,icon:`📺`},{id:`search`,label:`搜索结果`,icon:`🔍`},{id:`profile`,label:`个人主页`,icon:`👤`},{id:`user_profile`,label:`博主主页`,icon:`🌟`}],xiaohongshu:[{id:`grid`,label:`首页推荐`,icon:`🏠`},{id:`note_detail`,label:`笔记详情`,icon:`📄`},{id:`search`,label:`搜索结果`,icon:`🔍`},{id:`profile`,label:`个人主页`,icon:`👤`}]};async function n(e){let n=document.getElementById(`stateFlow_${e}`);if(!n)return;let r=``,i=t.douyin;i.forEach((e,t)=>{r+=`<div style="display:flex;align-items:center;padding:4px 6px;border-radius:4px;margin:2px 0;background:var(--bg3)">
+      <span style="margin-right:6px">${e.icon}</span>
+      <span style="flex:1">${e.label}</span>
+      <span style="font-size:9px;color:var(--text2)">⬤</span>
+    </div>`,t<i.length-1&&(r+=`<div style="text-align:center;font-size:8px;color:var(--text2);padding:1px 0">│</div>`)}),r+=`<div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border)">
+    <div style="font-size:10px;color:var(--text2);margin-bottom:4px">📕 小红书流程</div>`,t.xiaohongshu.forEach(e=>{r+=`<div style="display:flex;align-items:center;padding:3px 6px;border-radius:3px;margin:1px 0;background:var(--bg3)">
+      <span style="margin-right:6px">${e.icon}</span>
+      <span>${e.label}</span>
+    </div>`}),r+=`</div>`,n.innerHTML=r}var r=[];async function i(e){let t=document.getElementById(`opList_${e}`),n=document.getElementById(`opCategoryTabs_${e}`),i=document.getElementById(`opCount_${e}`);if(t)try{r=(await(await fetch(`/api/matrix/atom-ops`)).json()).ops||[];let t={};r.forEach(e=>{let n=e.category||`其他`;t[n]||(t[n]=0),t[n]++});let a=`<span onclick="_filterCat('all','${e}')" data-cat="all" style="padding:3px 8px;border-radius:4px;cursor:pointer;background:var(--primary);color:#fff;font-size:10px">全部 (${r.length})</span>`;Object.keys(t).sort().forEach(n=>{a+=`<span onclick="_filterCat('${n.replace(/'/g,`\\'`)}','${e}')" data-cat="${n}" style="padding:3px 8px;border-radius:4px;cursor:pointer;background:var(--bg3);color:var(--text);font-size:10px">${n} (${t[n]})</span>`}),n.innerHTML=a,i.textContent=`${r.length} 个操作`,l(r,e)}catch(e){t.innerHTML=`<div style="color:var(--red);padding:8px">❌ 加载失败: ${e.message}</div>`}}function a(e,t){document.querySelectorAll(`[data-cat]`).forEach(t=>{let n=t.dataset.cat===e;t.style.background=n?`var(--primary)`:`var(--bg3)`,t.style.color=n?`#fff`:`var(--text)`}),l(e===`all`?r:r.filter(t=>(t.category||`其他`)===e),t)}var o={tested:`#22c55e`,partial:`#f59e0b`,untested:`#6b7280`,failed:`#ef4444`},s={scroll_feed:`tested`,open_video:`tested`,go_back:`tested`,like:`tested`,comment:`tested`,next_video:`tested`,read_field:`tested`,goto_home:`tested`,goto_branch:`tested`,search_input:`tested`,goto_profile:`partial`,follow:`partial`,click_result:`partial`,search_user:`partial`,read_fans:`partial`,collect:`failed`,collect_profile:`failed`,post_comment:`failed`,open_video_new:`untested`,goto_author:`untested`,expand_full:`untested`,open_comments:`untested`,goto_user:`untested`,click_user:`untested`,click_note:`untested`,next_note:`untested`};function c(e){return s[e]||`untested`}function l(e,t){let n=document.getElementById(`opList_${t}`);if(!n)return;if(!e.length){n.innerHTML=`<div style="color:var(--text2);padding:12px;text-align:center">无匹配操作</div>`;return}let r=``;e.forEach(e=>{let t=c(e.name),n=o[t]||`#6b7280`,i={tested:`✅已通过`,partial:`🟡部分`,failed:`🔴失败`,untested:`⚪未测`}[t]||`⚪未测`,a=e.label||e.name||`?`,s=e.desc||``,l=e.requires&&e.requires[0]!==`*`?`← ${e.requires[0]}`:``;r+=`<div style="background:var(--bg3);border-radius:6px;padding:8px;margin-bottom:4px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${n}"></span>
+        <span style="font-weight:600;font-size:11px">${a}</span>
+        <span style="font-size:9px;color:${n};margin-left:8px;font-weight:600">${i}</span>
+        <span style="font-size:9px;color:var(--text2);margin-left:auto">${e.name}</span>
+      </div>
+      <div style="font-size:9px;color:var(--text2)">${s} ${l?` | `+l:``}</div>
+    </div>`}),n.innerHTML=r}var u={};async function d(e){let t=document.getElementById(`recSelect_${e}`);if(t)try{t.innerHTML=`<option value="">— 选择录制包 —</option>`+((await(await fetch(`/api/matrix/record/list`)).json()).recordings||[]).map(e=>`<option value="${e.name}">🎬 ${e.account} ${e.platform} (${e.steps}步)</option>`).join(``)}catch{t.innerHTML=`<option value="">加载失败</option>`}}async function f(e,t){let n=document.getElementById(`recSteps_${t}`);if(n)try{let r=await(await fetch(`/api/matrix/record/detail/`+encodeURIComponent(e))).json(),i=r.steps||[],a=(r.analysis||{}).actions||[],o={};a.forEach(e=>{let t=e.step_after||e.step_before;o[t]||(o[t]=[]),o[t].push(e)}),u={steps:i,actMap:o,uid:t,name:e};let s=`<div style="font-weight:600;margin-bottom:6px;font-size:11px;display:flex;justify-content:space-between">
+      <span>${e}</span>
+      <span style="font-size:10px;color:var(--text2)">${i.length}步</span>
+    </div>`;s+=`<div style="max-height:220px;overflow-y:auto;margin-bottom:6px">`,i.forEach((e,t)=>{let n=o[e.step]||[],r=n[0]||{};(r.action_desc||`浏览`).slice(0,30);let a=r.suggested_op||r.action_type||`?`,c=r.page_mode||`?`,l=n.length&&(o[i[t+1]?i[t+1].step:-1]||[])[0]?.page_mode||`?`,u=window._recActiveStep;s+=`<div onclick="window._recShowDetail(${t})" data-sidx="${t}"
+        style="cursor:pointer;background:${u===t?`var(--primary)`:`var(--bg3)`};border-radius:4px;padding:5px 6px;margin-bottom:3px;border:1px solid var(--border);display:flex;gap:4px;align-items:center">
+        <span style="font-size:9px;font-weight:600;color:${u===t?`#fff`:`var(--text)`}">#${t+1}</span>
+        <span style="font-size:8px;color:${u===t?`rgba(255,255,255,.7)`:`var(--text2)`}">${c}→${l}</span>
+        <span style="font-size:8px;color:${u===t?`rgba(255,255,255,.7)`:`var(--text2)`};margin-left:auto">${a}</span>
+      </div>`}),s+=`</div>`,s+=`<div id="recStepDetail_${t}" style="font-size:10px"></div>`,n.innerHTML=s,window._recShowDetail=function(e){p(e,t)},window._recSetName=function(e,t){let n=document.getElementById(`recNameInput_${e}_${t}`)?.value?.trim();n&&(document.getElementById(`recNameLabel_${e}_${t}`).textContent=n)},p(0,t)}catch(e){n.innerHTML=`<div style="color:var(--red);padding:8px">❌ ${e.message}</div>`}}function p(e,t){let n=document.getElementById(`recStepDetail_${t}`);if(!n||!u.steps)return;window._recActiveStep=e;let r=u.steps[e];if(!r)return;document.querySelectorAll(`#recSteps_${t} [data-sidx]`).forEach(t=>{let n=parseInt(t.dataset.sidx)===e;t.style.background=n?`var(--primary)`:`var(--bg3)`,t.style.color=n?`#fff`:``,t.querySelectorAll(`span`).forEach(e=>{n&&(e.style.color=e.dataset.origColor||(e.style.color===`rgb(255,255,255)`?``:`rgba(255,255,255,.7)`))})});let i=(u.actMap[r.step]||[])[0]||{},a=i.action_desc||`浏览`,o=i.suggested_op||i.action_type||`?`,s=r.screenshot_url||``,c=r.page?r.page.url:``;r.page&&(r.page.text_snippet||``).slice(0,100);let l=u.steps[e+1],d=i.features||[];n.innerHTML=`
+    <div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--primary)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:600;font-size:11px">步骤 #${e+1}</span>
+        <span style="font-size:9px;color:var(--text2)">操作: ${a}</span>
+      </div>
+
+      <!-- before / after 截图 -->
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;margin-bottom:6px">
+        <div style="background:rgba(37,99,235,.08);border-radius:4px;padding:4px;border:1px solid rgba(37,99,235,.15)">
+          <div style="font-size:8px;color:#3b82f6;font-weight:600;margin-bottom:2px">⬅ 前状态</div>
+          <div style="font-size:8px;word-break:break-all;color:var(--text2)">${c?c.slice(0,50):`(无URL)`}</div>
+          ${s?`<div style="margin-top:2px"><img src="`+s+`" style="max-width:100%;max-height:80px;border-radius:3px;background:var(--bg2)" onerror="this.style.display='none'"></div>`:``}
+        </div>
+        <div style="display:flex;align-items:center;font-size:14px;color:var(--text2)">→</div>
+        <div style="background:rgba(5,150,105,.08);border-radius:4px;padding:4px;border:1px solid rgba(5,150,105,.15)">
+          <div style="font-size:8px;color:#22c55e;font-weight:600;margin-bottom:2px">➡ 后状态</div>
+          <div style="font-size:8px;word-break:break-all;color:var(--text2)">${l?(l.page?.url||`同页`).slice(0,50):`(结束)`}</div>
+          ${l&&l.screenshot_url?`<div style="margin-top:2px"><img src="`+l.screenshot_url+`" style="max-width:100%;max-height:80px;border-radius:3px;background:var(--bg2)" onerror="this.style.display='none'"></div>`:``}
+        </div>
+      </div>
+
+      <!-- 原子操作命名 -->
+      <div style="display:flex;gap:4px;align-items:center">
+        <span style="font-size:9px;color:var(--text2)">🏷️ 命名:</span>
+        <input id="recNameInput_${e}_${t}" value="${o}" style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:10px" onchange="window._recSetName(${e},'${t}')">
+        <span id="recNameLabel_${e}_${t}" style="display:none">${o}</span>
+      </div>
+
+      ${d.length?`<div style="margin-top:4px;font-size:8px;color:var(--text2)">`+d.map(e=>`<code style="background:var(--bg2);padding:1px 3px;border-radius:2px;margin:1px;font-size:8px">`+e.code+`</code>`).join(``)+`</div>`:``}
+      
+      <!-- 步骤导航 -->
+      <div style="display:flex;gap:4px;margin-top:6px">
+        <button onclick="showStepDetail(${Math.max(0,e-1)},'${t}')" ${e===0?`disabled`:``} style="flex:1;background:${e===0?`var(--bg3)`:`var(--primary)`};color:${e===0?`var(--text2)`:`#fff`};border:none;padding:3px;border-radius:3px;cursor:${e===0?`default`:`pointer`};font-size:9px">◀ 上一步</button>
+        <button onclick="showStepDetail(${Math.min(u.steps.length-1,e+1)},'${t}')" ${e>=u.steps.length-1?`disabled`:``} style="flex:1;background:${e>=u.steps.length-1?`var(--bg3)`:`var(--primary)`};color:${e>=u.steps.length-1?`var(--text2)`:`#fff`};border:none;padding:3px;border-radius:3px;cursor:${e>=u.steps.length-1?`default`:`pointer`};font-size:9px">下一步 ▶</button>
+      </div>
+    </div>`}export{e as loadView};
