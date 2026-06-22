@@ -321,14 +321,13 @@ window._testOp = async function(opName, uid) {
     const localAcct = accounts.find(a => a.is_local) || accounts[0];
     if (!localAcct) { res.textContent = '❌ 无可用账号'; return; }
 
-    const r = await fetch('/api/ops/run', {
+    const r = await fetch('/api/ops/test-atom', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
-        type: 'nurture',
-        accounts: [localAcct.id],
-        params: { blueprint: 'douyin_daily', rounds: 1, single_op: opName },
-        wait: true
+        op: opName,
+        account: localAcct.id,
+        platform: localAcct.platform || 'douyin'
       })
     });
     const result = await r.json();
