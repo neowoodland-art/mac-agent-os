@@ -21,26 +21,16 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 # ═══════════════════════════════════════════════
-# 执行约束常量（与 99_system 协定一致）
+# 执行约束（统一来自 mc.execution_policy）
 # ═══════════════════════════════════════════════
-
-MAX_CONCURRENT = 3          # 每台机器最多3个浏览器
-LAUNCH_STAGGER = 15         # 每个浏览器启动间隔秒数
-AUTO_SHUTDOWN_MIN = 30      # 30分钟超时自动关闭
-MIN_DISK_GB = 5             # 最小磁盘空间要求
-GRACE_PERIOD_LOCAL = 5      # 本机进程启动宽限期(秒)
-GRACE_PERIOD_REMOTE = 30    # 远程进程启动宽限期(秒)
-MAX_TIMEOUT = 600           # 命令最大超时(秒)
+from mc.execution_policy import (
+    MAX_CONCURRENT, LAUNCH_STAGGER, AUTO_SHUTDOWN_MIN, MIN_DISK_GB,
+    GRACE_PERIOD_LOCAL, GRACE_PERIOD_REMOTE, MAX_TIMEOUT, SLOTS,
+    preflight, slot_for, check_running_browsers, get_policy,
+)
 
 # 需要浏览器的操作
 BROWSER_COMMANDS = {'run', 'collect', 'login', 'smart-login', 'nurture', 'publish'}
-
-# 窗口槽位（与 browser_orchestrator.py SLOTS 一致）
-SLOTS = [
-    {"id": 1, "position": (0, 0),   "size": (702, 783)},
-    {"id": 2, "position": (100, 0), "size": (702, 783)},
-    {"id": 3, "position": (200, 0), "size": (702, 783)},
-]
 
 
 class MatrixPlugin(AgentOSPlugin):
@@ -557,13 +547,14 @@ class MatrixPlugin(AgentOSPlugin):
         except: return 0
 
     def _check_concurrent(self) -> bool:
-        """并发检查（对标 browser_orchestrator.preflight）"""
-        running = self._count_browsers()
-        if running >= MAX_CONCURRENT:
-            print(f"   ❌ 已达到最大并发数: {running}/{MAX_CONCURRENT}")
-            print(f"      等待其他任务完成或手动清理: pkill -f camoufox")
+        """并发检查（统一使用 mc.execution_policy.preflight）"""
+        pf = preflight()
+        print(f"   📊 状态: 浏览器 {pf['browsers']}/{MAX_CONCURRENT}"
+              f" · 磁盘 {pf['disk_gb']}GB/{MIN_DISK_GB}GB"
+              f" · 延迟 {pf['stagger_delay']}s")
+        if not pf["ok"]:
+            print(f"   ❌ {pf['message']}")
             return False
-        print(f"   ✅ 浏览器: {running}/{MAX_CONCURRENT}")
         return True
 
     # ═══════════════════════════════════════════════

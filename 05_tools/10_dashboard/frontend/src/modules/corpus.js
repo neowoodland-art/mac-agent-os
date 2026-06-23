@@ -124,7 +124,8 @@ function _renderAccountSelector(containerId, options = {}) {
           html += '<td rowspan="'+rowspan+'" style="padding:2px 4px;font-size:9px;color:var(--text2);vertical-align:middle;border-right:1px solid var(--border);white-space:nowrap">📱'+phoneDisplay+(nickDisplay?' '+nickDisplay:'')+'</td>';
         }
         html += '<td style="padding:2px 3px;width:20px"><input type="checkbox" class="as-cb" value="'+a.id+'" data-plat="'+a.platform+'" data-bp="'+defBP+'" data-machine="'+machine+'" ' + (checkAll ? 'checked' : '') + '></td>';
-        html += '<td style="padding:2px 4px;white-space:nowrap"><strong>'+a.id+'</strong></td>';
+        const noteDisplay = a.notes ? ' <span style="font-size:8px;color:var(--text2)">' + a.notes.slice(0,15) + '</span>' : '';
+        html += '<td style="padding:2px 4px;white-space:nowrap"><strong>'+a.id+'</strong>'+noteDisplay+'</td>';
         html += '<td style="padding:2px 4px">'+plat+'</td>';
         html += '<td style="padding:2px 4px;font-size:9px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(nickname||'<span class="text-muted">-</span>')+'</td>';
         html += '<td style="padding:2px 4px;white-space:nowrap">'+statusIcon+'</td>';

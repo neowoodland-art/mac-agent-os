@@ -168,11 +168,40 @@ function _renderShell(containerId, title, status, note) {
     </div>`;
 }
 
+// ── 加载策略条 ──
+async function _loadPolicyBar(containerId) {
+  try {
+    const r = await fetch('/api/ops/policy');
+    const p = await r.json();
+    const s = p.current_status || {};
+    const browsers = s.browsers ?? '?';
+    const maxC = p.max_concurrent ?? 3;
+    const stagger = p.launch_stagger ?? 15;
+    const disk = s.disk_gb ?? '?';
+    const slots = p.slots?.length ?? 3;
+    const ok = s.ok !== false;
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = `
+      <span style="display:inline-flex;align-items:center;gap:3px">🖥️ <b>${browsers}/${maxC}</b> 浏览器</span>
+      <span style="display:inline-flex;align-items:center;gap:3px">⏱️ <b>${stagger}s</b> 启动间隔</span>
+      <span style="display:inline-flex;align-items:center;gap:3px">🪟 <b>${slots}</b> 窗口槽位</span>
+      <span style="display:inline-flex;align-items:center;gap:3px">💾 <b>${disk}GB</b> 磁盘</span>
+      <span style="display:inline-flex;align-items:center;gap:3px;margin-left:auto;color:${ok ? 'var(--green)' : 'var(--red)'}">${ok ? '✅ 预检通过' : '❌ ' + (s.message||'阻塞')}</span>`;
+  } catch(e) {
+    const el = document.getElementById(containerId);
+    if (el) el.innerHTML = '<span style="color:var(--text2)">⚠️ 策略加载失败</span>';
+  }
+}
+
 // 矩阵系列 — 养号执行（直接内联执行面板）
 async function loadMatrixNurture() {
   const el = document.getElementById('view-matrix-nurture');
   el.innerHTML = `
     <div style="padding:16px">
+      <div id="nurturePolicyBar" style="background:var(--bg3);border-radius:6px;padding:4px 8px;margin-bottom:6px;font-size:9px;color:var(--text2);display:flex;gap:12px;align-items:center">
+        <span>⏳ 加载策略...</span>
+      </div>
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:8px">🌱 养号执行 <span style="font-size:10px;color:var(--text2);font-weight:400">预检 → 窗口定位 → 执行 → 验证</span></div>
         <div id="nurtureAcctList" style="margin-bottom:6px">
@@ -205,7 +234,8 @@ async function loadMatrixNurture() {
         <div id="nurtureLog" style="font-size:10px;background:var(--bg2);border-radius:6px;padding:6px;margin-top:4px;max-height:300px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
       </div>
     </div>`;
-  // 用共享选择器加载账号列表
+  // 加载策略条 + 账号列表
+  _loadPolicyBar('nurturePolicyBar');
   const data = await _loadAccounts();
   _renderAccountSelector('nurtureAcctList', {_data: data, height: '350px'});
   document.getElementById('nurtureSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
@@ -220,6 +250,9 @@ async function loadMatrixCollect() {
   const el = document.getElementById('view-matrix-collect');
   el.innerHTML = `
     <div style="padding:16px">
+      <div id="collectPolicyBar" style="background:var(--bg3);border-radius:6px;padding:4px 8px;margin-bottom:6px;font-size:9px;color:var(--text2);display:flex;gap:12px;align-items:center">
+        <span>⏳ 加载策略...</span>
+      </div>
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:6px">📡 登录与信息采集 <span style="font-size:10px;color:var(--text2);font-weight:400">登录+采集一体化，选择账号后可仅登录或登录后采集</span></div>
         <div id="collectAccountList" style="margin-bottom:6px">
@@ -236,6 +269,7 @@ async function loadMatrixCollect() {
         <div id="collectLog" style="font-size:10px;background:var(--bg2);border-radius:6px;padding:6px;margin-top:4px;max-height:250px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
       </div>
     </div>`;
+  _loadPolicyBar('collectPolicyBar');
   const data = await _loadAccounts();
   _renderAccountSelector('collectAccountList', {_data: data, height: '350px'});
   document.getElementById('collectSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';

@@ -142,6 +142,22 @@ def api_ops_test_atom(data: dict = {}):
         raise HTTPException(500, detail=str(e))
 
 
+@router.get("/policy")
+def api_ops_policy():
+    """获取当前执行策略配置（供看板前端展示约束条）"""
+    import sys, os
+    scripts_dir = os.path.join(os.path.dirname(__file__), "..", "..", "07_matrix", "scripts")
+    sys.path.insert(0, scripts_dir)
+    try:
+        from mc.execution_policy import get_policy, preflight as _pf
+        policy = get_policy()
+        status = _pf()
+        policy["current_status"] = status
+        return policy
+    except Exception as e:
+        return {"version": "unknown", "error": str(e), "max_concurrent": 3}
+
+
 @router.post("/cancel/{run_id}")
 def api_ops_cancel(run_id: str):
     """取消命令"""

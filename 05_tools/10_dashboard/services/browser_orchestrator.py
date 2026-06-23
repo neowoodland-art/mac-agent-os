@@ -33,16 +33,31 @@ def _resolve_hostname() -> str:
 
 HOSTNAME = _resolve_hostname()
 
-MAX_CONCURRENT = 3  # 每台机器最多3个浏览器
-
-LAUNCH_STAGGER = 15  # 每个浏览器启动间隔秒数（防同时假死）
-
-# 固定槽位：y顶端对齐，x间隔100px
-SLOTS = [
-    {"id": 1, "position": (0, 0),   "size": (702, 783)},
-    {"id": 2, "position": (100, 0), "size": (702, 783)},
-    {"id": 3, "position": (200, 0), "size": (702, 783)},
-]
+# 执行策略（统一来自 mc.execution_policy）
+import sys as _sys
+_policy_loaded = False
+try:
+    _scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
+    _sys.path.insert(0, str(_scripts_dir))
+    from mc.execution_policy import MAX_CONCURRENT, LAUNCH_STAGGER, SLOTS, preflight, slot_for, check_running_browsers
+    _policy_loaded = True
+except ImportError:
+    # 兜底常量（策略层不可用时）
+    MAX_CONCURRENT = 3
+    LAUNCH_STAGGER = 15
+    SLOTS = [
+        {"id": 1, "position": (0, 0),   "size": (702, 783)},
+        {"id": 2, "position": (100, 0), "size": (702, 783)},
+        {"id": 3, "position": (200, 0), "size": (702, 783)},
+    ]
+    def preflight(local_only=True):
+        return {"ok": True, "browsers": 0, "max_concurrent": MAX_CONCURRENT,
+                "slots_available": MAX_CONCURRENT, "disk_gb": 0, "disk_ok": True,
+                "stagger_delay": 0, "message": "策略层未加载，跳过检查"}
+    def slot_for(account_id):
+        return {"id": 1, "position": [0, 0], "size": [702, 783]}
+    def check_running_browsers():
+        return 0
 
 
 # ── 核心函数 ──────────────────────────────────────────────
