@@ -11,6 +11,7 @@ execution_policy.py — 统一执行策略 v1
 """
 
 import json, logging, os, subprocess, time
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -185,3 +186,85 @@ def get_cooldown(op_type: str = "default") -> tuple:
 def get_login_timeout(timeout_type: str = "douyin_login") -> int:
     """获取登录超时时间"""
     return LOGIN_TIMEOUTS.get(timeout_type, 120)
+
+
+# ════════════════════════════════════════════════════════════
+# 五、结果文件管理
+# ════════════════════════════════════════════════════════════
+
+RESULTS_DIR = AGENT_LOCAL / "runtime" / "results"
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def write_result(run_id: str, status: str, report: dict = None,
+                 error: str = None, message: str = None):
+    """写入标准执行结果文件——MC 执行完毕统一调用
+
+    Args:
+        run_id: 命令 run_id（CommandBus 分配）
+        status: completed / failed / crashed / cancelled
+        report: BatchReport.to_dict() 的执行结果
+        error: 错误描述
+        message: 附加信息
+    """
+    result = {
+        "run_id": run_id,
+        "status": status,
+        "written_at": datetime.now().isoformat(),
+    }
+    if report:
+        result["report"] = report
+        result["steps"] = {
+            "total": report.get("total_steps", 0),
+            "success": report.get("success", 0),
+            "failed": report.get("failed", 0),
+            "skipped": report.get("skipped", 0),
+        }
+        # 汇总所有账号的步骤详情
+        step_details = []
+        for ar in (report.get("account_reports") or []):
+            for s in (ar.get("steps") or []):
+                step_details.append({
+                    "account": ar["account"],
+                    "round": ar["round"],
+                    "op": s.get("op", ""),
+                    "step_id": s.get("step_id", 0),
+                    "success": s.get("success", False),
+                    "duration": s.get("duration", 0),
+                    "error": s.get("error"),
+                })
+        result["step_details"] = step_details
+    if error:
+        result["error"] = error
+    if message:
+        result["message"] = message
+
+    filepath = RESULTS_DIR / f"{run_id}.json"
+    try:
+        filepath.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+        return str(filepath)
+    except Exception as e:
+        logger.warning(f"写入结果文件失败: {e}")
+        return None
+
+
+def read_result(run_id: str) -> Optional[dict]:
+    """读取执行结果文件"""
+    filepath = RESULTS_DIR / f"{run_id}.json"
+    if not filepath.exists():
+        return None
+    try:
+        return json.loads(filepath.read_text(encoding="utf-8"))
+    except:
+        return None
+
+
+def cleanup_old_results(max_age_hours: int = 24):
+    """清理过期结果文件"""
+    now = time.time()
+    for f in RESULTS_DIR.glob("*.json"):
+        try:
+            if now - f.stat().st_mtime > max_age_hours * 3600:
+                f.unlink()
+        except:
+            pass

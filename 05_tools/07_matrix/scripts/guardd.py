@@ -188,7 +188,7 @@ def _check_rate(action: str, max_per_hour: int = 3) -> bool:
 
 
 def recover_orphan_browsers(orphans: list[dict]) -> list[str]:
-    """杀死孤儿浏览器进程"""
+    """杀死孤儿浏览器进程，并写 crash 结果文件"""
     killed = []
     for o in orphans:
         if not _check_rate(f"kill_orphan_{o['pid']}"):
@@ -197,6 +197,18 @@ def recover_orphan_browsers(orphans: list[dict]) -> list[str]:
             subprocess.run(["kill", "-9", str(o['pid'])], capture_output=True, timeout=5)
             killed.append(f"孤儿进程 {o['pid']} ({o['cmd'][:40]})")
             log.warning(f"  🔴 已杀死孤儿: {o['pid']}")
+
+            # 尝试写 crash 结果文件（从 cmd 中提取 run_id）
+            import re
+            run_id_match = re.search(r'(run_|nurture_|collect_|login_)([a-f0-9]+)', str(o.get('cmd', '')))
+            if run_id_match:
+                full_run_id = run_id_match.group(0)
+                try:
+                    from mc.execution_policy import write_result as _wr
+                    _wr(full_run_id, "crashed", error=f"孤儿浏览器被guardd杀死 (PID {o['pid']})",
+                        message="浏览器进程失去父进程控制，被guardd清理")
+                except:
+                    pass
         except Exception as e:
             log.warning(f"  杀死孤儿 {o['pid']} 失败: {e}")
     return killed
@@ -364,7 +376,14 @@ def run_once() -> dict:
         killed = recover_excess_browsers(browsers)
         events.extend(killed)
     
-    # 5. 检测超时命令
+    # 5. 清理过期结果文件
+    try:
+        from mc.execution_policy import cleanup_old_results as _clean
+        _clean(max_age_hours=24)
+    except:
+        pass
+
+    # 6. 检测超时命令
     stale = detect_stale_commands()
     if stale:
         log.warning(f"🟡 检测到 {len(stale)} 个超时命令")

@@ -159,7 +159,8 @@ class BatchEngine:
                  corpus: List[str] = None,
                   stagger: str = "15-30",
                   keep_open: bool = False,
-                  max_browsers: int = 3):
+                  max_browsers: int = 3,
+                  run_id: str = ""):
         self.accounts = accounts
         self.blueprints = blueprints
         self.rounds_total = rounds
@@ -168,6 +169,7 @@ class BatchEngine:
         self.stagger = stagger
         self.keep_open = keep_open
         self.max_browsers = max_browsers
+        self.run_id = run_id
         self.task_params = {}
 
     def _pick_blueprint(self, round_idx: int) -> str:
@@ -411,4 +413,15 @@ class BatchEngine:
             all_reports.extend(group_reports)
 
         report.account_reports = all_reports
+
+        # 写入标准结果文件（供 CommandBus / 看板读取）
+        if self.run_id:
+            try:
+                from mc.execution_policy import write_result
+                status = "completed" if not report.error else "failed"
+                write_result(self.run_id, status, report=report.to_dict(),
+                            error=report.error)
+            except:
+                pass
+
         return report

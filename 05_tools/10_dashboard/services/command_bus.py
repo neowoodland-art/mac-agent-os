@@ -354,8 +354,38 @@ class MachineSession:
                 if self._remote_poll_result(cmd):
                     return cmd.status
 
-            # 本机命令：读本地 result 文件
+            # 本机命令：优先读统一结果文件（mc/engine.py 写入）
             if self.is_local:
+                _result_file = AGENT_LOCAL / "runtime" / "results" / f"{cmd.run_id}.json"
+                if _result_file.exists():
+                    try:
+                        _data = json.loads(_result_file.read_text())
+                        cmd.result = _data
+                        s = _data.get("status", "running")
+                        if s == "completed":
+                            cmd.status = CommandStatus.COMPLETED
+                            cmd.message = _data.get("message", "执行完成")
+                            cmd.completed_at = time.time()
+                        elif s == "failed":
+                            cmd.status = CommandStatus.FAILED
+                            cmd.message = _data.get("error", _data.get("message", "执行失败"))
+                            cmd.completed_at = time.time()
+                        elif s == "crashed":
+                            cmd.status = CommandStatus.CRASHED
+                            cmd.message = _data.get("error", "进程崩溃")
+                            cmd.completed_at = time.time()
+                        elif s == "cancelled":
+                            cmd.status = CommandStatus.CANCELLED
+                            cmd.completed_at = time.time()
+                        else:
+                            cmd.status = CommandStatus.RUNNING
+                            steps = _data.get("steps", {})
+                            cmd.message = f"运行中 (已完成 {steps.get('success', 0)}/{steps.get('total', '?')} 步)"
+                        return cmd.status
+                    except:
+                        pass
+
+                # 兼容旧路径: runtime/nurture/results/
                 if cmd.cmd_type == "nurture":
                     result_dir = AGENT_LOCAL / "runtime" / "nurture" / "results"
                     result_file = result_dir / f"{cmd.run_id}.json"
