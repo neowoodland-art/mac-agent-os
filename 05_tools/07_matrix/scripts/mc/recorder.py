@@ -28,7 +28,6 @@ from ops._base import PageState
 LOCAL_ROOT = AGENT_LOCAL / "tools" / "matrix"
 RECORDINGS_DIR = LOCAL_ROOT / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
-STOP_FLAG = AGENT_LOCAL / "runtime" / "recording.stop"
 
 
 class RecordingSession:
@@ -542,36 +541,19 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
             try:
                 key_pressed = await session.page.evaluate("""() => {
                     const buf = window.__recorded_events || [];
-                    // 调试：收集最后5个按键供日志输出
-                    let recent = [];
-                    for (let i = buf.length - 1; i >= 0 && recent.length < 5; i--) {
-                        const e = buf[i];
-                        if (e && e.t === 'key') {
-                            recent.push(e.code || e.k || '?');
-                        }
-                    }
-                    // 检测步骤标记键和退出键
                     for (let i = buf.length - 1; i >= 0; i--) {
                         const e = buf[i];
                         if (e && e.t === 'key') {
                             const code = e.code || '';
-                            if (code === 'F2' || e.k === '`' || code === 'Backquote') {
-                                window.__dbg_keys = recent;
-                                return 'step';
-                            }
-                            if (code === 'F4' || e.k === 'Escape' || code === 'Escape') {
-                                window.__dbg_keys = recent;
-                                return 'quit';
-                            }
+                            // F2 标记步骤, Esc / F4 结束
+                            if (code === 'F2') return 'step';
+                            if (code === 'F4' || e.k === 'Escape' || code === 'Escape') return 'quit';
                         }
                     }
+                    // 检测页面是否正在关闭（浏览器标签被关）
                     if (window.__recorder_closing) return 'quit';
-                    window.__dbg_keys = recent;
-                    return recent.length > 0 ? 'keys:' + recent.join(',') : '';
+                    return '';
                 }""")
-                # 调试：打印检测到的按键
-                if key_pressed and key_pressed.startswith('keys:'):
-                    print(f"  [按键日志] {key_pressed.replace('keys:','')}")
             except:
                 # page.evaluate 失败 = 页面已关闭，保存录制
                 print(f"\n  🛑 浏览器已关闭，保存录制...")
@@ -585,18 +567,10 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
                 await session.record_step(step_counter)
                 print(f"  ✅ 第{step_counter}步已记录")
 
-            # 检测 stop flag（看板停止按钮触发的优雅退出）
-            if STOP_FLAG.exists():
-                print(f"\n  🛑 检测到停止信号，保存录制...")
+            elif key_pressed == 'quit':
                 _manual_end = True
-                STOP_FLAG.unlink(missing_ok=True)
-                await session.stop(keep_open=False)
-                break
-
-            if key_pressed == 'quit':
-                _manual_end = True
-                print(f"\n  🛑 录制结束，保存中...")
-                await session.stop(keep_open=False)
+                print(f"\n  🛑 结束录制...")
+                await session.stop(keep_open=True)
                 break
 
             # 超时检查

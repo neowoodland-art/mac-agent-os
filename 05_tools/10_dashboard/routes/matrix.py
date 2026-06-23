@@ -622,28 +622,18 @@ def api_matrix_account_record(account_id: str):
 
 @router.post("/record/stop")
 def api_matrix_record_stop():
-    """优雅停止录制——写 stop flag, recorder.py 检测后自动保存退出"""
-    stop_flag = AGENT_LOCAL / "runtime" / "recording.stop"
+    """停止当前录制进程"""
+    if not _RECORDING_PID_FILE.exists():
+        return {"status": "ok", "message": "没有正在运行的录制"}
     try:
-        stop_flag.write_text("stop")
-        # 等待 3 秒让 recorder 优雅保存
-        import time as _time
-        for _ in range(6):
-            _time.sleep(0.5)
-            if not _RECORDING_PID_FILE.exists():
-                return {"status": "ok", "message": "录制已优雅停止并保存"}
-        # 超时了还没退出 → fallback 到 SIGTERM
-        if _RECORDING_PID_FILE.exists():
-            try:
-                pid = int(_RECORDING_PID_FILE.read_text().strip())
-                import os, signal
-                os.kill(pid, signal.SIGTERM)
-                _RECORDING_PID_FILE.unlink(missing_ok=True)
-                return {"status": "ok", "message": f"优雅停止超时，已强制终止 (PID {pid})"}
-            except:
-                _RECORDING_PID_FILE.unlink(missing_ok=True)
-                return {"status": "ok", "message": "录制进程已结束"}
-        return {"status": "ok", "message": "录制已停止"}
+        pid = int(_RECORDING_PID_FILE.read_text().strip())
+        import os, signal
+        os.kill(pid, signal.SIGTERM)
+        _RECORDING_PID_FILE.unlink(missing_ok=True)
+        return {"status": "ok", "message": f"已发送停止信号 (PID {pid})"}
+    except ProcessLookupError:
+        _RECORDING_PID_FILE.unlink(missing_ok=True)
+        return {"status": "ok", "message": "录制进程已结束"}
     except Exception as e:
         return {"status": "error", "message": f"停止失败: {e}"}
 
