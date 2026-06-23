@@ -109,19 +109,30 @@ async def fill_code(page, code: str):
     await asyncio.sleep(0.5)
 
 async def _click_exact_login(page) -> bool:
-    """精确匹配文本为「登录」的按钮（排除协议元素）"""
-    return await page.evaluate("""() => {
+    """精确匹配文本为「登录」的按钮（排除协议元素）——找不到时打印调试信息"""
+    result = await page.evaluate("""() => {
         var all = document.querySelectorAll('button, span, div, a');
+        var debug = [];
         for (var i = 0; i < all.length; i++) {
             if (!all[i].offsetParent) continue;
             var txt = all[i].textContent.trim();
-            // 精确匹配「登录」，排除含「协议」的元素
+            debug.push({tag: all[i].tagName, text: txt, cls: (all[i].className||'').slice(0,30)});
             if (txt === '登录' && !all[i].textContent.includes('协议')) {
-                all[i].click(); return true;
+                all[i].click(); return JSON.stringify({found: true, tag: all[i].tagName, text: txt});
             }
         }
-        return false;
+        // 没找到「登录」，返回所有可见按钮文本供调试
+        return JSON.stringify({found: false, buttons: debug.filter(function(d) { return d.text.length > 0 && d.text.length < 30; }).slice(0, 40)});
     }""")
+    import json as _json
+    data = _json.loads(result)
+    if data.get('found'):
+        return True
+    print(f"⚠️ click_confirm Phase1 未找到「登录」按钮")
+    print(f"   可见按钮列表:")
+    for b in (data.get('buttons') or []):
+        print(f"     [{b['tag']}] text='{b['text']}' cls='{b['cls']}'")
+    return False
 
 
 async def click_confirm(page):
