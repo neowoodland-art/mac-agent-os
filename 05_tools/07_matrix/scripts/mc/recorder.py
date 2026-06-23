@@ -542,19 +542,36 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
             try:
                 key_pressed = await session.page.evaluate("""() => {
                     const buf = window.__recorded_events || [];
+                    // 调试：收集最后5个按键供日志输出
+                    let recent = [];
+                    for (let i = buf.length - 1; i >= 0 && recent.length < 5; i--) {
+                        const e = buf[i];
+                        if (e && e.t === 'key') {
+                            recent.push(e.code || e.k || '?');
+                        }
+                    }
+                    // 检测步骤标记键和退出键
                     for (let i = buf.length - 1; i >= 0; i--) {
                         const e = buf[i];
                         if (e && e.t === 'key') {
                             const code = e.code || '';
-                            // 反引号 `·` 或 F2 标记步骤, Esc / F4 结束
-                            if (code === 'F2' || e.k === '`' || code === 'Backquote') return 'step';
-                            if (code === 'F4' || e.k === 'Escape' || code === 'Escape') return 'quit';
+                            if (code === 'F2' || e.k === '`' || code === 'Backquote') {
+                                window.__dbg_keys = recent;
+                                return 'step';
+                            }
+                            if (code === 'F4' || e.k === 'Escape' || code === 'Escape') {
+                                window.__dbg_keys = recent;
+                                return 'quit';
+                            }
                         }
                     }
-                    // 检测页面是否正在关闭（浏览器标签被关）
                     if (window.__recorder_closing) return 'quit';
-                    return '';
+                    window.__dbg_keys = recent;
+                    return recent.length > 0 ? 'keys:' + recent.join(',') : '';
                 }""")
+                # 调试：打印检测到的按键
+                if key_pressed and key_pressed.startswith('keys:'):
+                    print(f"  [按键日志] {key_pressed.replace('keys:','')}")
             except:
                 # page.evaluate 失败 = 页面已关闭，保存录制
                 print(f"\n  🛑 浏览器已关闭，保存录制...")
