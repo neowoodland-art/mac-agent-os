@@ -212,17 +212,6 @@ class MachineSession:
         except:
             pass
 
-        # 浏览器并发预检（统一通道，仅在需要浏览器的操作时）
-        if cmd.cmd_type in ('nurture', 'collect', 'login', 'comment', 'like'):
-            try:
-                from mc.execution_policy import preflight as _browser_preflight
-                _pf = _browser_preflight()
-                if not _pf["ok"]:
-                    logger.warning(f"浏览器预检未通过: {_pf['message']}")
-                    return {"error": _pf["message"], "policy": _pf}
-            except:
-                pass
-
         # 限制并发进程数
         active_count = len([c for c in self.commands if c.status.is_active])
         if active_count >= self.MAX_ACTIVE_PROCESSES:
@@ -543,20 +532,6 @@ class CommandBus:
             return {"status": "error", "message": "accounts 必填 (至少一个账号ID)", "errors": [{"message": "accounts 为空"}]}
         if not isinstance(accounts, list):
             accounts = [accounts]
-
-        # ── 执行策略预检（统一通道：浏览器数/磁盘/槽位）──
-        try:
-            scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
-            sys.path.insert(0, str(scripts_dir))
-            from mc.execution_policy import preflight as _policy_preflight
-            _pf = _policy_preflight()
-            if not _pf["ok"]:
-                return {"status": "error", "message": _pf["message"],
-                        "policy": _pf, "errors": [{"message": _pf["message"]}]}
-        except ImportError:
-            pass  # 策略模块不可用时不阻断
-        except Exception:
-            pass
 
         # 获取所有账号信息
         try:
