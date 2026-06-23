@@ -208,19 +208,30 @@ class RecordingSession:
             self._js_listener_ready = False
 
     async def _flush_events(self) -> list:
-        """取出并清空事件缓存"""
+        """取出并清空事件缓存——如在页面跳转后丢失JS监听器则自动重注入"""
         if not self._js_listener_ready or not self.page:
             events = list(self._event_buffer)
             self._event_buffer = []
             return events
         try:
-            events = await self.page.evaluate("""() => {
-                const buf = window.__recorded_events || [];
+            result = await self.page.evaluate("""() => {
+                // 检查JS监听器是否还在（页面可能导航过）
+                if (typeof window.__recorded_events === 'undefined' || !window.__recorder_injected) {
+                    return JSON.stringify({need_reinject: true, events: []});
+                }
+                var buf = window.__recorded_events;
                 window.__recorded_events = [];
-                return buf.slice(-200);  // 最多取200条
+                return JSON.stringify({need_reinject: false, events: buf.slice(-200)});
             }""")
-            return events or []
-        except:
+            import json as _json
+            data = _json.loads(result)
+            if data.get('need_reinject'):
+                print(f"  🔄 页面导航检测，重新注入事件监听器")
+                await self._inject_event_listener()
+                return []
+            return data.get('events', []) or []
+        except Exception as _e:
+            # page.evaluate 失败 = 页面已关闭或导航中
             return []
 
     async def _capture_page_state(self) -> dict:
@@ -536,8 +547,20 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
         print(f"⌨️  反引号 `·` 标记步骤, Esc 结束录制")
         print(f"    无操作 {timeout_minutes} 分钟自动退出\n")
 
+        # 周期性检测JS监听器是否存活（页面导航后会丢失）
+        _check_interval = 0
         while session._is_recording:
             await asyncio.sleep(1)
+            _check_interval += 1
+            if _check_interval >= 3:  # 每3秒检查一次
+                _check_interval = 0
+                try:
+                    _alive = await session.page.evaluate("typeof window.__recorder_injected === 'boolean'")
+                    if not _alive:
+                        print(f"  🔄 JS监听器已丢失，重新注入...")
+                        await session._inject_event_listener()
+                except:
+                    pass
             if loop.time() - last_activity > timeout_seconds:
                 print(f"\n⏰ 无操作超过 {timeout_minutes} 分钟，自动退出")
                 await session.stop(keep_open=False)
