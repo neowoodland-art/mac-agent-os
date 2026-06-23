@@ -3,9 +3,13 @@
 // ════════════════════════════════════════════════════════
 
 let _allAccounts = [];
+let _hpIndex = {};
+let _collectedAt = '';
 
 async function _loadAccounts() {
-  if (_allAccounts.length) return _allAccounts;
+  if (_allAccounts.length) {
+    return {accounts: _allAccounts, hpIndex: _hpIndex, collectedAt: _collectedAt};
+  }
   const [r1, r2] = await Promise.all([
     fetch('/api/matrix/accounts'),
     fetch('/api/matrix/homepage-info').catch(() => ({json: () => ({})}))
@@ -14,13 +18,14 @@ async function _loadAccounts() {
   const hpData = r2.json ? await r2.json() : {results:[]};
   _allAccounts = Array.isArray(accts) ? accts.filter(a => a.enabled !== false) : [];
 
-  const hpIndex = {};
+  _hpIndex = {};
   (hpData.results || []).forEach(r => {
-    if (r.identity_dir) hpIndex[r.identity_dir] = r;
-    if (r.phone) hpIndex[r.phone] = r;
+    if (r.identity_dir) _hpIndex[r.identity_dir] = r;
+    if (r.phone) _hpIndex[r.phone] = r;
   });
+  _collectedAt = hpData.collected_at || '';
 
-  return {accounts: _allAccounts, hpIndex, collectedAt: hpData.collected_at || ''};
+  return {accounts: _allAccounts, hpIndex: _hpIndex, collectedAt: _collectedAt};
 }
 
 function _renderAccountSelector(containerId, options = {}) {

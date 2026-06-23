@@ -721,6 +721,26 @@ def api_matrix_recordings_list():
     """兼容别名: /recordings → /record/list"""
     return api_matrix_record_list()
 
+@router.get("/recordings/stats")
+def api_matrix_recordings_stats():
+    """录制统计（按账号、平台）"""
+    rec_dir = AGENT_LOCAL / "tools" / "matrix" / "recordings"
+    stats = {"total": 0, "by_account": {}, "by_platform": {}}
+    if not rec_dir.exists():
+        return {"stats": stats}
+    for f in rec_dir.glob("recording_*.json"):
+        try:
+            name = f.stem.replace("recording_", "", 1)
+            parts = name.split("_")
+            acct = parts[0] if parts else "?"
+            plat = "douyin" if "douyin" in name else "xiaohongshu"
+            stats["total"] += 1
+            stats["by_account"][acct] = stats["by_account"].get(acct, 0) + 1
+            stats["by_platform"][plat] = stats["by_platform"].get(plat, 0) + 1
+        except:
+            pass
+    return {"stats": stats}
+
 @router.get("/recordings/status")
 def api_matrix_recordings_status():
     """兼容别名: /recordings/status → /record/status"""
