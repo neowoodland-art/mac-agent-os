@@ -108,8 +108,43 @@ async def fill_code(page, code: str):
     }}""")
     await asyncio.sleep(0.5)
 
+async def _click_exact_login(page) -> bool:
+    """精确匹配文本为「登录」的按钮（排除协议元素）"""
+    return await page.evaluate("""() => {
+        var all = document.querySelectorAll('button, span, div, a');
+        for (var i = 0; i < all.length; i++) {
+            if (!all[i].offsetParent) continue;
+            var txt = all[i].textContent.trim();
+            // 精确匹配「登录」，排除含「协议」的元素
+            if (txt === '登录' && !all[i].textContent.includes('协议')) {
+                all[i].click(); return true;
+            }
+        }
+        return false;
+    }""")
+
+
 async def click_confirm(page):
-    """点确认/提交按钮"""
+    """点确认/提交按钮——三阶段：精确匹配登录 → 模糊匹配登录 → 兜底匹配"""
+    # Phase 1: 精确匹配「登录」
+    if await _click_exact_login(page):
+        return True
+
+    # Phase 2: 模糊匹配「登录」（兼容「同意协议并登录」类按钮）
+    clicked_fuzzy = await page.evaluate("""() => {
+        var all = document.querySelectorAll('button, span, div, a');
+        for (var i = 0; i < all.length; i++) {
+            if (!all[i].offsetParent) continue;
+            if (all[i].textContent.includes('登录') && !all[i].textContent.includes('协议')) {
+                all[i].click(); return true;
+            }
+        }
+        return false;
+    }""")
+    if clicked_fuzzy:
+        return True
+
+    # Phase 3: 原逻辑兜底（兼容小红书等平台）
     return await page.evaluate(f"""() => {{
         var texts = {CONFIRM_BTN_TEXTS};
         var all = document.querySelectorAll('button, span, div, a');
