@@ -625,7 +625,7 @@ class CommandBus:
                     })
             else:
                 templates = {
-                    "collect": "mc run --accounts={ids_str} --blueprints=douyin_read_profile --rounds=1",
+                    "collect": "mc run --accounts={ids_str} --blueprints={blueprint} --rounds={rounds}",
                     "login": f"mc smart-login {all_ids} --skip-check",
                     "logout": f"mc run --accounts={all_ids} --blueprints=douyin_daily --rounds=1 --engine=auto",
                     "comment": f"mc task comment --account={all_ids} --url={params.get('url','')} -y" + (f" --direction={params.get('direction','')}" if params.get('direction') else ""),
@@ -633,7 +633,9 @@ class CommandBus:
                 }
                 cmd_line = templates.get(cmd_type, "")
                 if cmd_type == "collect":
-                    cmd_line = cmd_line.replace("{ids_str}", all_ids)
+                    bp = params.get("blueprint", "douyin_read_profile")
+                    rd = params.get("rounds", 1)
+                    cmd_line = cmd_line.format(ids_str=all_ids, blueprint=bp, rounds=rd)
                 if not cmd_line:
                     errors.append({"account": all_ids, "message": f"不支持的操作: {cmd_type}"})
                     continue
