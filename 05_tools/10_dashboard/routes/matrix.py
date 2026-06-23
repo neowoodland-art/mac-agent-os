@@ -71,22 +71,44 @@ def api_matrix_homepage_info():
         except:
             hp_data = {"results": []}
 
+    # 获取账号注册表，建立 account_id → identity_dir 映射
+    ident_map = {}  # account_id → identity_dir
+    phone_map = {}  # account_id → phone
+    try:
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        for a in mgr.list_accounts():
+            aid = a.get("id", "")
+            ident_map[aid] = a.get("identity_dir", aid).replace("identities/", "")
+            phone_map[aid] = a.get("phone", "")
+    except:
+        pass
+
     # 用 profiles.json 覆盖/补全最新数据
     if pf_path.exists():
         try:
             profiles = json.loads(pf_path.read_text())
             results = hp_data.get("results", [])
-            existing_ids = set()
 
-            # 覆盖已有 entry 的数据
+            # 1) 建立 identity_dir → profiles 映射
+            prof_by_ident = {}  # identity_dir → profile_data
+            prof_by_phone = {}
+            for acct_id, prof in profiles.items():
+                ident = ident_map.get(acct_id, acct_id)
+                phone = phone_map.get(acct_id, "")
+                prof_by_ident[ident] = prof
+                if phone:
+                    prof_by_phone[phone] = prof
+
+            tracked = set()
+
+            # 2) 覆盖已有 entry 的数据
             for entry in results:
                 ident = entry.get("identity_dir", "")
                 phone = entry.get("phone", "")
-                prof = profiles.get(ident) or profiles.get(phone) or {}
+                prof = prof_by_ident.get(ident) or prof_by_phone.get(phone) or {}
                 if ident:
-                    existing_ids.add(ident)
-                if phone:
-                    existing_ids.add(phone)
+                    tracked.add(ident)
                 if prof:
                     plat = "douyin" if prof.get("platform") == "douyin" else "xiaohongshu"
                     if plat not in entry:
@@ -98,14 +120,15 @@ def api_matrix_homepage_info():
                     p["posts"] = prof.get("posts", p.get("posts", ""))
                     p["following"] = prof.get("following", p.get("following", ""))
 
-            # 补全 profiles.json 中有但 homepage_info 中没有的条目
+            # 3) 补全 profiles.json 有但 homepage_info 中没有的条目
             for acct_id, prof in profiles.items():
-                if acct_id in existing_ids:
+                ident = ident_map.get(acct_id, acct_id)
+                if ident in tracked:
                     continue
                 plat = "douyin" if prof.get("platform") == "douyin" else "xiaohongshu"
                 results.append({
-                    "identity_dir": acct_id,
-                    "phone": "",
+                    "identity_dir": ident,
+                    "phone": phone_map.get(acct_id, ""),
                     "status": "loaded",
                     plat: {
                         "nickname": prof.get("nickname", ""),
