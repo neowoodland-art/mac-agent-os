@@ -601,6 +601,52 @@ def api_matrix_account_record(account_id: str):
     if account_id.startswith("xhs_"):
         platform = "xiaohongshu"
 
+    # ── 登录预检：录制前检查账号 cookie 是否有效 ──
+    try:
+        from pathlib import Path as _Path
+        identities_dir = AGENT_LOCAL / "tools" / "matrix" / "identities"
+        # 找账号的身份目录
+        cookie_file = None
+        for d in identities_dir.iterdir():
+            if d.is_dir() and (account_id in d.name or d.name in account_id):
+                cand = d / "user_data" / "cookies.sqlite"
+                if cand.exists():
+                    cookie_file = cand
+                    break
+        if not cookie_file:
+            # 通过 MatrixManager 找 identity_hint
+            try:
+                from matrix_mgmt import MatrixManager
+                mgr = MatrixManager()
+                for a in mgr.list_accounts():
+                    if a["id"] == account_id:
+                        hint = a.get("identity_hint", a.get("identity_dir", account_id)).replace("identities/", "")
+                        cand = identities_dir / hint / "user_data" / "cookies.sqlite"
+                        if cand.exists():
+                            cookie_file = cand
+                        break
+            except:
+                pass
+
+        if cookie_file and cookie_file.exists():
+            import sqlite3
+            try:
+                conn = sqlite3.connect(str(cookie_file), timeout=3)
+                # 检查平台对应的 session cookie
+                if platform == "douyin":
+                    cur = conn.execute("SELECT count(*) FROM moz_cookies WHERE name IN ('sessionid','sid_guard')")
+                else:
+                    cur = conn.execute("SELECT count(*) FROM moz_cookies WHERE name IN ('a1','web_session')")
+                session_count = cur.fetchone()[0]
+                conn.close()
+                if session_count == 0:
+                    return {"status": "error", "message": f"账号 {account_id} 未登录（cookie 中无 session），请先在「联邦指挥台」或「信息采集」中完成登录再录制",
+                            "need_login": True, "account": account_id, "platform": platform}
+            except:
+                pass
+    except:
+        pass
+
     try:
         import subprocess, os, signal
         recorder_py = str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "mc" / "recorder.py")

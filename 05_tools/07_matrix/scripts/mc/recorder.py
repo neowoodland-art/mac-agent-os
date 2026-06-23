@@ -578,8 +578,8 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
 
             if key_pressed == 'quit':
                 _manual_end = True
-                print(f"\n  🛑 结束录制...")
-                await session.stop(keep_open=True)
+                print(f"\n  🛑 录制结束，保存中...")
+                await session.stop(keep_open=False)
                 break
 
             # 超时检查

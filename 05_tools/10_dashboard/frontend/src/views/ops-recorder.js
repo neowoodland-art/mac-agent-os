@@ -220,9 +220,42 @@ export async function loadView(container) {
         document.getElementById(`recStatus_${u}`).textContent = `🟢 录制中 (PID ${d.pid})`;
         document.getElementById(`recStopBtn_${u}`).style.display = '';
         btn.style.display = 'none';
-      } else { alert(d.message); }
+      } else if (d.need_login) {
+        // 未登录提示——弹出引导对话框
+        showLoginGuide(acct, d.platform || 'douyin', d.message, u);
+      } else {
+        alert(d.message);
+      }
     } catch(e) { alert('启动失败: '+e.message); }
     finally { btn.textContent = '▶ 开始录制'; btn.disabled = false; }
+  }
+
+  function showLoginGuide(acct, platform, msg, u) {
+    const container = document.getElementById('recAnalysisInner_'+u) || document.body;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `<div style="background:var(--bg2);border-radius:10px;padding:20px;width:400px;max-width:90vw;border:1px solid var(--border);text-align:center">
+      <div style="font-size:32px;margin-bottom:8px">🔐</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">账号未登录</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5">${msg}</div>
+      <div style="background:rgba(99,102,241,.06);border-radius:6px;padding:10px;margin-bottom:12px;text-align:left;font-size:10px">
+        <div style="font-weight:600;margin-bottom:4px">📋 操作步骤：</div>
+        <div style="color:var(--text2);line-height:1.6">
+          1. 前往左侧导航「📡 信息采集」<br>
+          2. 选择账号 <b>${acct}</b><br>
+          3. 系统会自动检测登录状态并引导登录<br>
+          4. 登录成功后返回此页重新录制
+        </div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="window.switchView('matrix-collect');this.closest('div[style]').remove()"
+          style="flex:1;background:var(--primary);color:#fff;border:none;padding:8px;border-radius:5px;cursor:pointer;font-size:12px">→ 前往信息采集登录</button>
+        <button onclick="this.closest('div[style]').remove()"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:5px;cursor:pointer;font-size:11px">取消</button>
+      </div>
+    </div>`;
+    container.appendChild(overlay);
   }
 
   async function stopRecording(u) {
