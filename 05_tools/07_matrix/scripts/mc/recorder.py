@@ -396,6 +396,22 @@ class RecordingSession:
         """
         self._is_recording = False
 
+        # 结束前刷新未读取的事件（Esc退出前的最后一次点击等）
+        try:
+            remaining = await self._flush_events()
+            if remaining:
+                self._steps.append({
+                    "step": len(self._steps) + 1,
+                    "time": datetime.now().strftime("%H:%M:%S"),
+                    "ts_ms": int(time.time() * 1000),
+                    "elapsed": round(time.time() - self._start_time, 1),
+                    "events_since_last": len(remaining),
+                    "events": remaining,
+                    "note": "结束前的最后一次操作事件"
+                })
+        except:
+            pass
+
         package = {
             "meta": {
                 "account_id": self.account_id,
