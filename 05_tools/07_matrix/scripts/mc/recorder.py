@@ -358,6 +358,37 @@ class RecordingSession:
         except Exception as e:
             step_data["page"] = {"error": str(e)}
 
+        # 保存页面关键区域 HTML（供后续精确分析元素特征）
+        try:
+            html_snapshot = await self.page.evaluate("""() => {
+                // 优先保存登录弹层/浮标的 HTML
+                var containers = document.querySelectorAll(
+                    '#douyin_login_comp_btn_id, ' +           // 抖音登录按钮
+                    '.r7j70rK2, ' +                            // 抖音登录层
+                    '.login-container, ' +                     // 小红书登录层
+                    '[class*=\"login\"], ' +                    // 任何含login的容器
+                    '[class*=\"modal\"]'                        // 弹窗类
+                );
+                if (containers.length > 0) {
+                    var seen = new Set();
+                    var parts = [];
+                    for (var i = 0; i < containers.length && parts.length < 3; i++) {
+                        var html = containers[i].outerHTML;
+                        if (!seen.has(html) && html.length < 5000) {
+                            seen.add(html);
+                            parts.push(html);
+                        }
+                    }
+                    return parts.join('\\n---\\n');
+                }
+                // 没有登录层时保存 body 的前 3000 字符
+                return (document.body ? document.body.innerHTML.slice(0, 3000) : '');
+            }""")
+            if html_snapshot and len(html_snapshot) > 50:
+                step_data["page_html"] = html_snapshot
+        except:
+            pass
+
         # 截图
         try:
             ss_dir = RECORDINGS_DIR / "screenshots"

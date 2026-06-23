@@ -135,8 +135,21 @@ async def _click_exact_login(page) -> bool:
     return False
 
 
+async def _click_by_id(page) -> bool:
+    """Phase 0: 按唯一 ID 匹配——抖音登录按钮 #douyin_login_comp_btn_id"""
+    return await page.evaluate("""() => {
+        var btn = document.querySelector('#douyin_login_comp_btn_id');
+        if (btn && btn.offsetParent) { btn.click(); return true; }
+        return false;
+    }""")
+
+
 async def click_confirm(page):
-    """点确认/提交按钮——三阶段：精确匹配登录 → 模糊匹配登录 → 兜底匹配"""
+    """点确认/提交按钮——四阶段：ID匹配 → 精确匹配 → 模糊匹配 → 兜底"""
+    # Phase 0: 按唯一 ID 匹配（最可靠）
+    if await _click_by_id(page):
+        return True
+
     # Phase 1: 精确匹配「登录」
     if await _click_exact_login(page):
         return True
