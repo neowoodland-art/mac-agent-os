@@ -1,4 +1,4 @@
-import{n as e}from"./index-Po5HdYFC.js";async function t(t){let o=`cmd_`+Math.random().toString(36).slice(2,6);t.innerHTML=`
+import{n as e}from"./index-CpMickEq.js";async function t(t){let o=`cmd_`+Math.random().toString(36).slice(2,6);t.innerHTML=`
     <div style="padding:16px;max-width:1100px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div><span style="font-weight:600;font-size:15px">🖥️ 联邦指挥台</span>

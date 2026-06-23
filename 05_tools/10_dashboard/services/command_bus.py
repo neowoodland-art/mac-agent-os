@@ -204,7 +204,7 @@ class MachineSession:
             mc_count = int(subprocess.run(
                 ["pgrep", "-f", "python3.*-m mc"], capture_output=True, text=True, timeout=3
             ).stdout.strip() or "0") or 0
-            if mc_count > 100:  # 系统级警戒线：超过100个 mc 进程时强制清理
+            if mc_count > 600:  # 系统级警戒线：每个mc task约210子进程(浏览器引擎)
                 # 进程太多，强制清理
                 subprocess.run(["pkill", "-f", "python3.*-m mc"], capture_output=True, timeout=3)
                 time.sleep(1)
