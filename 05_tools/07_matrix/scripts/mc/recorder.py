@@ -291,6 +291,33 @@ class RecordingSession:
             "before_state": before_state,
         }
 
+        # 从点击事件中提取最佳选择器（供后续自动化回放）
+        for e in reversed(events):
+            if e.get('t') == 'click':
+                sel = None
+                eid = e.get('id', '')
+                ee2e = e.get('e2e', '')
+                etag = e.get('tag', '')
+                e_cls = e.get('cls', '').strip()
+                # 优先级: id > data-e2e > tag+cls > ancestor
+                if eid:
+                    sel = f'#{eid}'
+                elif ee2e:
+                    sel = f'[data-e2e="{ee2e}"]'
+                elif etag and e_cls:
+                    first_cls = e_cls.split()[0]
+                    sel = f'{etag}.{first_cls}'
+                elif e.get('ancestorTag') and e.get('ancestorCls'):
+                    a_cls = e['ancestorCls'].split()[0]
+                    sel = f'{e["ancestorTag"]}.{a_cls}'
+                if sel:
+                    step_data["click_selector"] = sel
+                    step_data["click_info"] = {
+                        "x": e.get('x'), "y": e.get('y'),
+                        "id": eid, "tag": etag, "cls": e_cls,
+                    }
+                break  # 只取最近一次点击
+
         # 采集页面状态
         try:
             state = await self.page.evaluate("""() => {
