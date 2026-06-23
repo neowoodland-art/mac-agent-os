@@ -100,47 +100,7 @@ class RecordingSession:
 
         print(f"🌐 打开 {target}")
         await self.page.goto(target, timeout=30000, wait_until="domcontentloaded")
-        await asyncio.sleep(3)
-
-        # ── 鼠标响应测试（确认浏览器加载完成）──
-        try:
-            await self.page.mouse.move(400, 300)
-            await asyncio.sleep(0.3)
-            await self.page.mouse.move(400, 320)
-            await asyncio.sleep(0.3)
-            await self.page.mouse.move(400, 300)
-            print(f"   ✅ 浏览器响应正常")
-        except Exception as e:
-            print(f"   ⚠️ 浏览器响应异常: {e}")
-            print(f"   可能是身份加载卡顿，继续等待...")
-            await asyncio.sleep(5)
-
-        # ── 登录态检测 ──
-        try:
-            sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-            from auth_manager import check_login_by_dom
-            logged_in = await check_login_by_dom(self.page, self.platform)
-            if not logged_in:
-                print(f"⚠️  账号 {self.account_id} 未登录")
-                print(f"   请在浏览器中扫码登录，登录后按 Enter 继续...")
-                # 等用户登录——轮询检测每 3 秒一次
-                import select, sys as _sys
-                for i in range(60):  # 最多等 3 分钟
-                    if await check_login_by_dom(self.page, self.platform):
-                        print(f" ✅ 检测到登录成功!")
-                        break
-                    # 也允许按 Enter 跳过
-                    if i % 10 == 0:  # 每 30 秒提示一次
-                        print(f"   等待登录中... (剩余 {3-i//20} 分钟)")
-                    await asyncio.sleep(3)
-                else:
-                    print(f" ⏰ 等待超时，继续以未登录状态录制")
-            else:
-                print(f" ✅ 已登录")
-        except ImportError:
-            print(f" ⚠️  登录检测模块不可用，跳过")
-        except Exception as e:
-            print(f" ⚠️  登录检测异常: {e}")
+        await asyncio.sleep(4)
 
         # 注入 JS 事件监听器（捕获键盘/鼠标事件到 window.__recorded_events）
         await self._inject_event_listener()
@@ -149,8 +109,8 @@ class RecordingSession:
         print(f" 🎬 录制就绪！")
         print(f"   账号: {self.account_id}")
         print(f"   在浏览器中操作，然后按:")
-        print(f"     F2 → 标记步骤（截图+状态指纹）")
-        print(f"     F4 → 结束录制")
+        print(f"     反引号 `·` → 标记步骤（截图+状态指纹）")
+        print(f"     Esc         → 结束录制")
         print(f"{'='*55}\n")
 
     async def _inject_event_listener(self):
@@ -166,11 +126,11 @@ class RecordingSession:
                     window.__recorded_events.push({
                         t: 'key',
                         k: e.key,
-                        code: e.code,
                         c: e.ctrlKey,
                         m: e.metaKey,
                         a: e.altKey,
                         s: e.shiftKey,
+                        code: e.code,
                         ts: Date.now()
                     });
                 }, true);
@@ -218,12 +178,6 @@ class RecordingSession:
                         ts: Date.now()
                     });
                 }, true);
-
-                // 页面关闭/离开时自动结束录制
-                window.__recorder_closing = false;
-                window.addEventListener('beforeunload', () => {
-                    window.__recorder_closing = true;
-                });
             }""")
             self._js_listener_ready = True
         except Exception as e:
@@ -231,7 +185,7 @@ class RecordingSession:
             self._js_listener_ready = False
 
     async def _flush_events(self) -> list:
-        """取出并清空事件缓存（导航后自动重注入 JS 监听器）"""
+        """取出并清空事件缓存"""
         if not self._js_listener_ready or not self.page:
             events = list(self._event_buffer)
             self._event_buffer = []
@@ -240,12 +194,8 @@ class RecordingSession:
             events = await self.page.evaluate("""() => {
                 const buf = window.__recorded_events || [];
                 window.__recorded_events = [];
-                return buf.slice(-200);
+                return buf.slice(-200);  // 最多取200条
             }""")
-            # 如果事件数组为空但页面还在，可能是导航导致注入丢失，重注入
-            if not events and self.page:
-                print(f"  🔄 页面导航检测，重注入事件监听器")
-                await self._inject_event_listener()
             return events or []
         except:
             return []
@@ -530,70 +480,82 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
     step_counter = 0
     _manual_end = False
 
-    print(f"⌨️  在浏览器中按反引号 `·` 标记步骤, Esc 结束录制")
-    print(f"    无操作 {timeout_minutes} 分钟自动退出\n")
-
     try:
-        while session._is_recording:
-            await asyncio.sleep(0.5)
+        from pynput import keyboard
 
-            # 从浏览器 JS 事件缓冲区读取按键
+        def on_release(key):
+            nonlocal last_activity, step_counter, _manual_end
             try:
-                key_pressed = await session.page.evaluate("""() => {
-                    const buf = window.__recorded_events || [];
-                    for (let i = buf.length - 1; i >= 0; i--) {
-                        const e = buf[i];
-                        if (e && e.t === 'key') {
-                            const code = e.code || '';
-                            // F2 标记步骤, Esc / F4 结束
-                            if (code === 'F2') return 'step';
-                            if (code === 'F4' || e.k === 'Escape' || code === 'Escape') return 'quit';
-                        }
-                    }
-                    // 检测页面是否正在关闭（浏览器标签被关）
-                    if (window.__recorder_closing) return 'quit';
-                    return '';
-                }""")
+                char = getattr(key, 'char', None)
+                # 反引号 `·` → 标记一步
+                if char == '`':
+                    step_counter += 1
+                    last_activity = loop.time()
+                    asyncio.run_coroutine_threadsafe(
+                        session.record_step(step_counter), loop
+                    )
+                    return True
+
+                # Esc → 结束录制
+                if key == keyboard.Key.esc:
+                    _manual_end = True
+                    asyncio.run_coroutine_threadsafe(
+                        session.stop(keep_open=True), loop
+                    )
+                    return False
+
+                return True
             except:
-                # page.evaluate 失败 = 页面已关闭，保存录制
-                print(f"\n  🛑 浏览器已关闭，保存录制...")
-                _manual_end = True
-                await session.stop(keep_open=False)
-                break
+                return True
 
-            if key_pressed == 'step':
-                step_counter += 1
-                last_activity = loop.time()
-                await session.record_step(step_counter)
-                print(f"  ✅ 第{step_counter}步已记录")
+        listener = keyboard.Listener(on_release=on_release)
+        listener.start()
+        print(f"⌨️  反引号 `·` 标记步骤, Esc 结束录制")
+        print(f"    无操作 {timeout_minutes} 分钟自动退出\n")
 
-            elif key_pressed == 'quit':
-                _manual_end = True
-                print(f"\n  🛑 结束录制...")
-                await session.stop(keep_open=True)
-                break
-
-            # 超时检查
+        while session._is_recording:
+            await asyncio.sleep(1)
             if loop.time() - last_activity > timeout_seconds:
                 print(f"\n⏰ 无操作超过 {timeout_minutes} 分钟，自动退出")
                 await session.stop(keep_open=False)
                 break
 
-        if not _manual_end and session._is_recording:
-            await session.stop()
+        listener.stop()
+        print(f"\n✅ 录制结束, 共 {step_counter} 步")
+
+    except ImportError:
+        print("⚠️ pynput 不可用，使用终端模式 (每操作一步按一次 Enter)")
+        print("   输入 q + Enter 结束录制\n")
+        try:
+            import sys, select
+            while session._is_recording:
+                # 非阻塞读 stdin
+                r, _, _ = select.select([sys.stdin], [], [], 1.0)
+                if r:
+                    line = sys.stdin.readline().strip()
+                    if line == 'q':
+                        _manual_end = True
+                        break
+                    step_counter += 1
+                    await session.record_step(step_counter)
+                    print(f"   ✅ 已记录 第{step_counter}步, 继续操作后按 Enter...")
+        except Exception:
+            pass
+        finally:
+            if not _manual_end:
+                await session.stop()
 
     except Exception as e:
         print(f"\n⚠️ 录制异常: {e}")
+        # 异常不关闭浏览器（保持打开便于排查）
         print(f"   浏览器保持打开状态, 可手动操作或关闭")
-        return
+        return  # 不调用 session.stop(), 保持浏览器
 
     finally:
         if keep_open and _manual_end:
             print(f"\n🔓 录制已完成, 浏览器保持打开 (可继续查看或手动关闭)")
         elif not keep_open:
             _cleanup_playwright_drivers()
-
-    print(f"\n✅ 录制结束, 共 {step_counter} 步")
 
 
 def _cleanup_playwright_drivers():
@@ -619,20 +581,7 @@ def _cleanup_playwright_drivers():
 
 
 if __name__ == "__main__":
-    import sys, os, atexit
+    import sys
     account = sys.argv[1] if len(sys.argv) > 1 else "douyin_01"
     platform = sys.argv[2] if len(sys.argv) > 2 else "douyin"
-
-    # 退出时清理 PID 文件
-    pid_file = RECORDINGS_DIR.parent.parent.parent / "agent-local" / "runtime" / "recording.pid"
-    def _cleanup_pid():
-        if pid_file.exists():
-            try:
-                pid = int(pid_file.read_text().strip())
-                if pid == os.getpid():
-                    pid_file.unlink(missing_ok=True)
-            except:
-                pass
-    atexit.register(_cleanup_pid)
-
     asyncio.run(_run_interactive(account, platform))
