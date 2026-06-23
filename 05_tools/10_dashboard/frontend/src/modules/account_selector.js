@@ -299,7 +299,10 @@ window.collectLogin = async function() {
   }
   // 刷新账号列表
   if (typeof window._clearAccountCache === 'function') window._clearAccountCache();
-  setTimeout(function(){ window._reloadAll(); }, 500);
+  setTimeout(async function(){
+    const data = await window._loadAccounts();
+    _renderAccountSelector('collectAccountList', {_data: data, height: '350px'});
+  }, 1000);
 };
 
 // 采集：采集选中账号
