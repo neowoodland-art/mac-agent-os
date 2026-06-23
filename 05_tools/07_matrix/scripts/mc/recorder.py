@@ -28,6 +28,7 @@ from ops._base import PageState
 LOCAL_ROOT = AGENT_LOCAL / "tools" / "matrix"
 RECORDINGS_DIR = LOCAL_ROOT / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+STOP_FLAG = AGENT_LOCAL / "runtime" / "recording.stop"
 
 
 class RecordingSession:
@@ -567,7 +568,15 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
                 await session.record_step(step_counter)
                 print(f"  ✅ 第{step_counter}步已记录")
 
-            elif key_pressed == 'quit':
+            # 检测 stop flag（看板停止按钮触发的优雅退出）
+            if STOP_FLAG.exists():
+                print(f"\n  🛑 检测到停止信号，保存录制...")
+                _manual_end = True
+                STOP_FLAG.unlink(missing_ok=True)
+                await session.stop(keep_open=False)
+                break
+
+            if key_pressed == 'quit':
                 _manual_end = True
                 print(f"\n  🛑 结束录制...")
                 await session.stop(keep_open=True)

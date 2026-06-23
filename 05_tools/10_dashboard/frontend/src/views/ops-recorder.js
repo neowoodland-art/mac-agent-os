@@ -159,6 +159,19 @@ export async function loadView(container) {
   window._recStart = function(u) { startRecording(u); };
   window._recStop = function(u) { stopRecording(u); };
   window._analyzeRec = function(name, u) { analyzeRecording(name, u); };
+  window._deleteRec = async function(name, u) {
+    if (!confirm('确定删除录制包「' + name + '」？')) return;
+    try {
+      const r = await fetch('/api/matrix/record/delete/' + encodeURIComponent(name), {method:'POST'});
+      const d = await r.json();
+      if (d.status === 'ok') {
+        document.getElementById('recStatusMsg_'+u).textContent = '✅ 已删除: ' + name;
+        loadRecList(u);
+      } else {
+        alert('删除失败: ' + (d.message || ''));
+      }
+    } catch(e) { alert('删除失败: '+e.message); }
+  };
   window._toggleSelectionMode = function(u) { toggleSelectionMode(u); };
   window._mergeSelected = function(u) { mergeSelected(u); };
   window._deleteSelected = function(u) { deleteSelected(u); };
@@ -252,6 +265,7 @@ export async function loadView(container) {
         <span style="color:var(--text2);width:30px;text-align:center">${r.steps}步</span>
         <span style="color:var(--text2);width:50px;text-align:center">${r.created||''}</span>
         <button onclick="window._analyzeRec('${r.name}','${u}')" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--primary)">📊 分析</button>
+        <button onclick="window._deleteRec('${r.name}','${u}')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ef4444">🗑️</button>
       </div>`).join('');
     } catch(e) { el.innerHTML = `<div style="color:var(--red);padding:8px">❌ ${e.message}</div>`; }
   }
@@ -260,7 +274,7 @@ export async function loadView(container) {
   // 分析录制
   // ══════════════════════════════════════════
   async function analyzeRecording(name, u) {
-    document.getElementById('recAnalysis_${u}').style.display = '';
+    document.getElementById(`recAnalysis_${u}`).style.display = '';
 
     try {
       const r = await fetch('/api/matrix/record/detail/' + encodeURIComponent(name));
