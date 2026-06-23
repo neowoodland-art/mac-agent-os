@@ -135,13 +135,44 @@ async def _click_exact_login(page) -> bool:
     return False
 
 
-async def _click_by_id(page) -> bool:
-    """Phase 0: 按唯一 ID 匹配——抖音登录按钮 #douyin_login_comp_btn_id"""
-    return await page.evaluate("""() => {
+async def _click_by_id(page, log_func=print) -> bool:
+    """Phase 0: 多层选择器匹配——优先ID,兜底class/文本"""
+    result = await page.evaluate("""() => {
+        // 1. 优先用唯一ID匹配（最快最准）
         var btn = document.querySelector('#douyin_login_comp_btn_id');
-        if (btn && btn.offsetParent) { btn.click(); return true; }
-        return false;
+        if (btn && btn.offsetParent) {
+            return JSON.stringify({ok: true, by: 'id', cls: btn.className.slice(0,30)});
+        }
+        // 2. 用录制到的class名匹配（ID被改时兜底）
+        var clsBtns = document.querySelectorAll('div.r7j70rK2');
+        for (var i = 0; i < clsBtns.length; i++) {
+            if (clsBtns[i].offsetParent && clsBtns[i].textContent.trim() === '登录') {
+                clsBtns[i].click();
+                return JSON.stringify({ok: true, by: 'class', id: (clsBtns[i].id || '')});
+            }
+        }
+        // 3. 找所有文本为"登录"的可点击元素（class也被改时兜底）
+        var all = document.querySelectorAll('div, button, span, a');
+        for (var i = 0; i < all.length; i++) {
+            if (all[i].offsetParent && all[i].textContent.trim() === '登录') {
+                all[i].click();
+                return JSON.stringify({ok: true, by: 'text', tag: all[i].tagName, id: (all[i].id || ''), cls: (all[i].className || '').slice(0,30)});
+            }
+        }
+        return JSON.stringify({ok: false});
     }""")
+    import json as _j
+    data = _j.loads(result)
+    if data.get('ok'):
+        by = data.get('by', '?')
+        if by == 'id':
+            pass  # 正常
+        elif by == 'class':
+            log_func(f"  ⚠️ 登录按钮ID已变更！改为用class匹配，新ID: {data.get('id','?')}")
+        elif by == 'text':
+            log_func(f"  ⚠️ 登录按钮ID和class均变更！改为文本匹配，新标签={data.get('tag','?')} 新ID={data.get('id','?')} 新class={data.get('cls','?')}")
+        return True
+    return False
 
 
 async def click_confirm(page):
