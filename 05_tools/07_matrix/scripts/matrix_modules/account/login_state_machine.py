@@ -810,6 +810,16 @@ class DouyinLoginRecovery(RecoveryStep):
     async def _click_confirm(self, page, log_func) -> bool:
         """点击真正的登录提交按钮"""
         log_func(f"  🔘 点击登录按钮...")
+
+        # 策略0: 按唯一 ID 匹配（最可靠，大厂改ID时通过录制更新）
+        try:
+            has_id = await page.evaluate("() => { var b = document.querySelector('#douyin_login_comp_btn_id'); return b ? b.offsetParent ? 'visible' : 'hidden' : 'none'; }")
+            if has_id == 'visible':
+                await page.evaluate("() => document.querySelector('#douyin_login_comp_btn_id').click()")
+                log_func(f"  ✅ 已点击登录按钮 (by ID)")
+                return True
+        except:
+            pass
         
         # 策略1: Playwright 选择器（文本优先）
         texts = ["确认登录", "登录"]

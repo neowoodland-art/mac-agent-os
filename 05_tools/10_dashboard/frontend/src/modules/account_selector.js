@@ -297,6 +297,9 @@ window.collectLogin = async function() {
       if (logEl) logEl.textContent += s.id + ': ' + (d.status || 'OK') + '\n';
     } catch(e) { if (logEl) logEl.textContent += s.id + ': ❌ ' + e.message + '\n'; }
   }
+  // 刷新账号列表
+  if (typeof window._clearAccountCache === 'function') window._clearAccountCache();
+  setTimeout(function(){ window._reloadAll(); }, 500);
 };
 
 // 采集：采集选中账号
@@ -313,6 +316,12 @@ window.collectExec = async function() {
       if (logEl) logEl.textContent += s.id + ': ' + (d.status || 'OK') + ' 机器:' + (d.machine||s.machine) + '\n';
     } catch(e) { if (logEl) logEl.textContent += s.id + ': ❌ ' + e.message + '\n'; }
   }
+  // 刷新账号列表（清除缓存后重新加载）
+  if (typeof window._clearAccountCache === 'function') window._clearAccountCache();
+  setTimeout(async function(){
+    const data = await window._loadAccounts();
+    _renderAccountSelector('collectAccountList', {_data: data, height: '350px'});
+  }, 1000);
 };
 
 // 采集全部

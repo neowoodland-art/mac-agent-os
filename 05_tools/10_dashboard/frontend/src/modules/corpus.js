@@ -1055,6 +1055,7 @@ window.testAccountProxy = testAccountProxy;
 window.toggleCollectHistory = toggleCollectHistory;
 window.toggleHomepageInfo = toggleHomepageInfo;
 window._loadAccounts = _loadAccounts;
+window._clearAccountCache = function() { _allAccounts = []; };
 window._renderAccountSelector = _renderAccountSelector;
 window._asToggleMachine = _asToggleMachine;
 window._asRefreshCount = _asRefreshCount;
