@@ -98,32 +98,37 @@ def api_matrix_start_collect(data: dict = {}):
     all_accts = mgr.list_accounts()
     acct_map = {a["id"]: a for a in all_accts}
 
-    # 按平台选蓝图: douyin → douyin_read_profile, xiaohongshu → xiaohongshu_read_profile
+    # 按平台分组 → 每个平台一次批量命令（让 MC engine 自己排并发）
     platform_bp = {"douyin": "douyin_read_profile", "xiaohongshu": "xiaohongshu_read_profile"}
-    results = []
+    platform_groups = {}  # {machine: {platform: [ids]}}
 
     for aid in account_ids:
         acct = acct_map.get(aid)
         if not acct:
-            results.append({"target": aid, "status": "error", "message": "账号不存在"})
             continue
+        machine = acct.get("owner_machine", "chengzigedeAir")
         platform = acct.get("platform", "douyin")
-        bp = platform_bp.get(platform, "douyin_read_profile")
+        platform_groups.setdefault(machine, {})
+        platform_groups[machine].setdefault(platform, []).append(aid)
 
-        # 使用 CommandBus 下发 — 走 mc run，自动过 guardd/资源检查/身份分组
-        from services.command_bus import CommandBus
-        cmd_result = CommandBus.dispatch("collect", [aid], {
-            "blueprint": bp,
-            "rounds": 1,
-            "dry_run": False,
-        })
-        results.append({
-            "target": aid,
-            "platform": platform,
-            "blueprint": bp,
-            "status": cmd_result.get("status", "dispatched"),
-            "commands": cmd_result.get("commands", []),
-        })
+    results = []
+    from services.command_bus import CommandBus
+
+    for machine, plat_ids in platform_groups.items():
+        for platform, ids in plat_ids.items():
+            bp = platform_bp.get(platform, "douyin_read_profile")
+            cmd_result = CommandBus.dispatch("collect", ids, {
+                "blueprint": bp,
+                "rounds": 1,
+                "dry_run": False,
+            })
+            results.append({
+                "machine": machine,
+                "platform": platform,
+                "accounts": ids,
+                "status": cmd_result.get("status", "dispatched"),
+                "commands": cmd_result.get("commands", []),
+            })
 
     return {"status": "ok", "results": results}
 

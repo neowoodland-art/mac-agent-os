@@ -3,11 +3,19 @@
 抖音原子操作库 v2.0 — PlatformOps 接口实现
 """
 import asyncio
+import json
 import random
 import time
+from pathlib import Path
 from typing import Optional
 
 from ops._base import PlatformOps, OpResult, Condition
+
+# ════════════════════════════════════════════════════════════
+# 持久化路径
+# ════════════════════════════════════════════════════════════
+_HOME = Path.home()
+PROFILES_JSON = _HOME / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
 
 # ── 抖音 Web 选择器常量 ──────────────────────────────────────────
 SELECTORS = {
@@ -104,6 +112,32 @@ class DouyinOps(PlatformOps):
 
     def set_account_id(self, aid: str):
         self._account_id = aid
+
+    def _save_profiles_json(self):
+        """保存主页信息到 profiles.json（供 Dashboard 读取）"""
+        if not self._account_id:
+            return
+        try:
+            if PROFILES_JSON.exists():
+                all_p = json.loads(PROFILES_JSON.read_text())
+            else:
+                all_p = {}
+            prof = getattr(self, '_profile', {})
+            PROFILES_JSON.parent.mkdir(parents=True, exist_ok=True)
+            all_p[self._account_id] = {
+                "nickname": prof.get("nickname", "?"),
+                "user_id": prof.get("user_id", "?"),
+                "following": prof.get("following", "?"),
+                "fans": prof.get("fans", "?"),
+                "likes": prof.get("likes", "?"),
+                "posts": prof.get("posts", "?"),
+                "bio": prof.get("bio", "?"),
+                "platform": "douyin",
+                "updated": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            }
+            PROFILES_JSON.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
+        except Exception as e:
+            print(f"[douyin_ops] _save_profiles_json 失败: {e}")
 
     def supported_ops(self) -> list:
         return ["goto_home", "goto_url", "like", "collect", "follow",
@@ -1025,6 +1059,7 @@ class DouyinOps(PlatformOps):
             };
         }""")
         self._profile = profile
+        self._save_profiles_json()  # ← 写入 profiles.json
         dur = int((time.time() - t0) * 1000)
         await self._log_op(step_id, "AO_PROFILE", "user/self", True, dur)
         return profile

@@ -401,15 +401,20 @@ class BatchEngine:
         except:
             s_min, s_max = 15, 30
 
-        # 3. 顺序启动每个身份组（错峰）
+        # 3. 并行执行身份组（Semaphore 控制并发数 = max_browsers）
+        sem = asyncio.Semaphore(self.max_browsers)
         all_reports = []
-        for i, (ident, accts) in enumerate(groups.items()):
-            if i > 0:
-                delay = random.uniform(s_min, s_max)
-                log.info(f"\n  ⏳ 等待 {delay:.0f}s 后启动下一组...")
-                await asyncio.sleep(delay)
-            log.info(f"\n  🖥️ 启动身份组 [{ident}]")
-            group_reports = await self._run_identity_group(accts)
+
+        async def _run_one_group(ident, accts):
+            async with sem:
+                log.info(f"\n  🖥️ 启动身份组 [{ident}]")
+                return await self._run_identity_group(accts)
+
+        group_list = list(groups.items())
+        tasks = [asyncio.create_task(_run_one_group(ident, accts))
+                 for ident, accts in group_list]
+        for coro in asyncio.as_completed(tasks):
+            group_reports = await coro
             all_reports.extend(group_reports)
 
         report.account_reports = all_reports
