@@ -489,20 +489,12 @@ class MatrixPlugin(AgentOSPlugin):
         needs_browser = cmd_name in BROWSER_COMMANDS
 
         if needs_browser:
-            print(f"\n🔍 预检: {cmd_name}")
-            # 1. 清理残留
+            print(f"\n🔍 预检(轻): {cmd_name}")
+            # 仅做 MC 不做的检查：清理残留 + 磁盘
             self._cleanup_stale()
-            # 2. 磁盘检查
             self._check_disk()
-            # 3. 并发检查
-            if not self._check_concurrent():
-                return 1
-            # 4. 执行前最后检查
-            running = self._count_browsers()
-            stagger = running * LAUNCH_STAGGER
-            if stagger > 0:
-                print(f"   ⏳ 错峰: 等待 {stagger}s（已有 {running} 个浏览器）")
-                time.sleep(min(stagger, 30))
+            # 注意：并发/browsers/槽位/stagger/冷却等检查不在本层做
+            # 统一由 mc engine.py 执行时自己控制
 
         return self._delegate_to_mc(cmd_name, needs_browser)
 
