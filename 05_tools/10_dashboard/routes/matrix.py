@@ -60,11 +60,65 @@ def api_matrix_account_profiles():
 
 @router.get("/homepage-info")
 def api_matrix_homepage_info():
-    """获取主页信息采集结果"""
-    path = AGENT_LOCAL / "tools" / "matrix" / "data" / "homepage_info.json"
-    if not path.exists():
-        return {"error": "尚未采集主页信息"}
-    return json.loads(path.read_text())
+    """获取主页信息采集结果（合并 profiles.json 的最新数据）"""
+    hp_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "homepage_info.json"
+    pf_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
+
+    hp_data = {"results": []}
+    if hp_path.exists():
+        try:
+            hp_data = json.loads(hp_path.read_text())
+        except:
+            hp_data = {"results": []}
+
+    # 用 profiles.json 覆盖/补全最新数据
+    if pf_path.exists():
+        try:
+            profiles = json.loads(pf_path.read_text())
+            results = hp_data.get("results", [])
+            existing_ids = set()
+
+            # 覆盖已有 entry 的数据
+            for entry in results:
+                ident = entry.get("identity_dir", "")
+                phone = entry.get("phone", "")
+                prof = profiles.get(ident) or profiles.get(phone) or {}
+                if ident:
+                    existing_ids.add(ident)
+                if phone:
+                    existing_ids.add(phone)
+                if prof:
+                    plat = "douyin" if prof.get("platform") == "douyin" else "xiaohongshu"
+                    if plat not in entry:
+                        entry[plat] = {}
+                    p = entry[plat]
+                    p["nickname"] = prof.get("nickname", p.get("nickname", ""))
+                    p["fans"] = prof.get("fans", p.get("fans", ""))
+                    p["likes"] = prof.get("likes", p.get("likes", ""))
+                    p["posts"] = prof.get("posts", p.get("posts", ""))
+                    p["following"] = prof.get("following", p.get("following", ""))
+
+            # 补全 profiles.json 中有但 homepage_info 中没有的条目
+            for acct_id, prof in profiles.items():
+                if acct_id in existing_ids:
+                    continue
+                plat = "douyin" if prof.get("platform") == "douyin" else "xiaohongshu"
+                results.append({
+                    "identity_dir": acct_id,
+                    "phone": "",
+                    "status": "loaded",
+                    plat: {
+                        "nickname": prof.get("nickname", ""),
+                        "fans": prof.get("fans", ""),
+                        "likes": prof.get("likes", ""),
+                        "posts": prof.get("posts", ""),
+                        "following": prof.get("following", ""),
+                    }
+                })
+        except:
+            pass
+
+    return hp_data
 
 
 @router.get("/homepage-history")
