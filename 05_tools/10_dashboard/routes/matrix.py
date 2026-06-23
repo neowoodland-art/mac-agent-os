@@ -90,27 +90,29 @@ def api_matrix_homepage_info():
             profiles = json.loads(pf_path.read_text())
             results = hp_data.get("results", [])
 
-            # 1) 建立 identity_dir → profiles 映射
-            prof_by_ident = {}  # identity_dir → profile_data
-            prof_by_phone = {}
+            # 1) 建立 (identity_dir → {platform → profile}) 映射（一个身份目录可能有抖音+小红书两个账号）
+            prof_by_ident_plat = {}  # identity_dir → {douyin: profile, xiaohongshu: profile}
+            prof_by_phone_plat = {}
             for acct_id, prof in profiles.items():
                 ident = ident_map.get(acct_id, acct_id)
                 phone = phone_map.get(acct_id, "")
-                prof_by_ident[ident] = prof
+                plat = prof.get("platform", "douyin")
+                prof_by_ident_plat.setdefault(ident, {})
+                prof_by_ident_plat[ident][plat] = prof
                 if phone:
-                    prof_by_phone[phone] = prof
+                    prof_by_phone_plat.setdefault(phone, {})
+                    prof_by_phone_plat[phone][plat] = prof
 
             tracked = set()
 
-            # 2) 覆盖已有 entry 的数据
+            # 2) 覆盖已有 entry 的数据（按平台分别覆盖）
             for entry in results:
                 ident = entry.get("identity_dir", "")
                 phone = entry.get("phone", "")
-                prof = prof_by_ident.get(ident) or prof_by_phone.get(phone) or {}
+                plat_profs = prof_by_ident_plat.get(ident) or prof_by_phone_plat.get(phone) or {}
                 if ident:
                     tracked.add(ident)
-                if prof:
-                    plat = "douyin" if prof.get("platform") == "douyin" else "xiaohongshu"
+                for plat, prof in plat_profs.items():
                     if plat not in entry:
                         entry[plat] = {}
                     p = entry[plat]
@@ -125,7 +127,7 @@ def api_matrix_homepage_info():
                 ident = ident_map.get(acct_id, acct_id)
                 if ident in tracked:
                     continue
-                plat = "douyin" if prof.get("platform") == "douyin" else "xiaohongshu"
+                plat = prof.get("platform", "douyin")
                 results.append({
                     "identity_dir": ident,
                     "phone": phone_map.get(acct_id, ""),
@@ -138,6 +140,7 @@ def api_matrix_homepage_info():
                         "following": prof.get("following", ""),
                     }
                 })
+                tracked.add(ident)
         except:
             pass
 
