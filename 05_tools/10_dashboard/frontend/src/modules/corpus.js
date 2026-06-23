@@ -107,6 +107,9 @@ function _renderAccountSelector(containerId, options = {}) {
         const defBP = a.platform === 'xiaohongshu' ? 'xhs_daily' : 'douyin_daily';
         const hpAcc = hp ? (a.platform === 'douyin' ? hp.douyin : hp.xiaohongshu) : null;
         const nickname = hpAcc?.nickname ? hpAcc.nickname.slice(0,12) : '';
+        const fans = hpAcc?.fans || '';
+        const likes = hpAcc?.likes || '';
+        const posts = hpAcc?.posts || hpAcc?.notes || '';
         const hpTime = hpAcc?.collected_at || '';
         const hpTimeDisplay = hpTime ? new Date(hpTime).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
 
@@ -128,6 +131,9 @@ function _renderAccountSelector(containerId, options = {}) {
         html += '<td style="padding:2px 4px;white-space:nowrap"><strong>'+a.id+'</strong>'+noteDisplay+'</td>';
         html += '<td style="padding:2px 4px">'+plat+'</td>';
         html += '<td style="padding:2px 4px;font-size:9px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(nickname||'<span class="text-muted">-</span>')+'</td>';
+        html += '<td style="padding:2px 4px;font-size:9px;color:var(--text2);white-space:nowrap">'+(fans?'👥'+fans:'')+'</td>';
+        html += '<td style="padding:2px 4px;font-size:9px;color:var(--text2);white-space:nowrap">'+(likes?'❤️'+likes:'')+'</td>';
+        html += '<td style="padding:2px 4px;font-size:9px;color:var(--text2);white-space:nowrap">'+(posts?'📝'+posts:'')+'</td>';
         html += '<td style="padding:2px 4px;white-space:nowrap">'+statusIcon+'</td>';
         html += '<td style="padding:2px 4px;font-size:9px;white-space:nowrap">'+cookieIcon+'</td>';
         html += '<td style="padding:2px 4px;font-size:9px;color:var(--text2);white-space:nowrap">采集:'+hpTimeDisplay+'</td>';
