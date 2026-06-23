@@ -546,8 +546,8 @@ async def _run_interactive(account_id: str, platform: str, timeout_minutes: int 
                         const e = buf[i];
                         if (e && e.t === 'key') {
                             const code = e.code || '';
-                            // F2 标记步骤, Esc / F4 结束
-                            if (code === 'F2') return 'step';
+                            // 反引号 `·` 或 F2 标记步骤, Esc / F4 结束
+                            if (code === 'F2' || e.k === '`' || code === 'Backquote') return 'step';
                             if (code === 'F4' || e.k === 'Escape' || code === 'Escape') return 'quit';
                         }
                     }
