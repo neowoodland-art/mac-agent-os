@@ -667,6 +667,14 @@ def api_matrix_recordings_status():
     """兼容别名: /recordings/status → /record/status"""
     return api_matrix_record_status()
 
+@router.post("/record/start")
+def api_matrix_record_start(data: dict = {}):
+    """兼容别名: /record/start → /accounts/{id}/record"""
+    account = data.get("account", "")
+    if not account:
+        return {"status": "error", "message": "account 必填"}
+    return api_matrix_account_record(account)
+
 @router.post("/recordings/start")
 def api_matrix_recordings_start(data: dict = {}):
     """兼容别名: /recordings/start → /accounts/{id}/record"""
