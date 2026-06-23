@@ -135,18 +135,41 @@ class RecordingSession:
                     });
                 }, true);
 
-                // 监听鼠标点击
+                // 监听鼠标点击——瞬间捕获完整元素特征
                 document.addEventListener('mousedown', (e) => {
-                    window.__recorded_events.push({
+                    var el = e.target;
+                    var r = el.getBoundingClientRect && el.getBoundingClientRect();
+                    var p = el.parentElement;
+                    var clickInfo = {
                         t: 'click',
-                        x: e.clientX,
-                        y: e.clientY,
+                        x: Math.round(e.clientX),
+                        y: Math.round(e.clientY),
                         btn: e.button,
-                        target: (e.target.tagName || '') +
-                                ((e.target.className && typeof e.target.className === 'string')
-                                 ? '.' + e.target.className.slice(0,30) : ''),
-                        ts: Date.now()
-                    });
+                        ts: Date.now(),
+                        tag: (el.tagName || '').toLowerCase(),
+                        cls: (typeof el.className === 'string') ? el.className.slice(0,80) : '',
+                        id: el.id || '',
+                        text: (el.textContent || '').trim().slice(0,30),
+                        e2e: el.getAttribute ? (el.getAttribute('data-e2e') || '') : '',
+                        role: el.getAttribute ? (el.getAttribute('role') || '') : '',
+                        rect: r ? Math.round(r.x)+','+Math.round(r.y)+' '+Math.round(r.w)+'x'+Math.round(r.h) : '',
+                        visible: r ? (r.width > 0 && r.height > 0) : false,
+                        parentTag: p ? p.tagName.toLowerCase() : '',
+                        parentCls: (p && typeof p.className === 'string') ? p.className.slice(0,40) : '',
+                    };
+                    // 额外捕获最近的可交互祖先
+                    var walk = el;
+                    for (var w = 0; w < 3 && walk; w++) {
+                        var wr = walk.getBoundingClientRect();
+                        if (wr.width > 0 && wr.height > 0 && (walk.tagName === 'BUTTON' || walk.tagName === 'A' || walk.getAttribute('role') === 'button')) {
+                            clickInfo['ancestorTag'] = walk.tagName.toLowerCase();
+                            clickInfo['ancestorCls'] = (typeof walk.className === 'string') ? walk.className.slice(0,40) : '';
+                            clickInfo['ancestorText'] = (walk.textContent || '').trim().slice(0,30);
+                            break;
+                        }
+                        walk = walk.parentElement;
+                    }
+                    window.__recorded_events.push(clickInfo);
                 }, true);
 
                 // 监听鼠标悬浮（元素边界变化时记录，不会产生大量事件）
