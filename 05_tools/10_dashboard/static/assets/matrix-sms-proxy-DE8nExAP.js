@@ -24,25 +24,28 @@ async function e(e){e.innerHTML=`<div class="loading">⏳ 加载中...</div>`;tr
           <div style="font-size:13px;font-weight:600;margin-bottom:8px">📱 短信接收</div>
           <div>${s}</div>
           <hr style="border-color:var(--border);margin:8px 0">
-          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">选择账号</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">搜索/选择账号</div>
           <div style="display:flex;gap:4px;flex-wrap:wrap">
-            <select id="smsAccountSelect" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px;border-radius:4px;font-size:11px">
+            <input id="smsSearch" placeholder="🔍 输入手机号/昵称过滤..." oninput="_smsFilter()"
+              style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+            <select id="smsAccountSelect" size="4" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px;border-radius:4px;font-size:11px">
               <option value="">— 选择账号 —</option>
               ${o.map(e=>`<option value="${e.id}" data-phone="${e.phone||``}">${e.platform===`xiaohongshu`?`📕`:`🎵`} ${e.nickname||e.id} ${e.owner_machine||(e.is_local?`本机`:`远程`)} (${e.phone||``})</option>`).join(``)}
             </select>
             <button onclick="window._smsQuery()" style="background:var(--primary);color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px">📥 查短信</button>
           </div>
+          <div style="font-size:10px;color:var(--text2);margin-top:2px">选中后点"查短信"查看验证码</div>
           <div id="smsResult" style="font-size:11px;margin-top:4px;max-height:250px;overflow-y:auto"></div>
         </div>
         <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
           <div style="font-size:13px;font-weight:600;margin-bottom:8px">🖥️ 代理配置</div>
           <div id="proxyList" style="max-height:400px;overflow-y:auto">${c}</div>
         </div>
-      </div>`,window._smsQuery=async()=>{let e=document.getElementById(`smsAccountSelect`),t=(e?.options[e.selectedIndex])?.dataset?.phone||e?.value||``;if(!t){alert(`请选择账号`);return}let n=document.getElementById(`smsResult`);n.innerHTML=`⏳ 查询中...`;try{let e=await(await fetch(`/api/matrix/sms/test/`+encodeURIComponent(t))).json();if(e.status!==`ok`){n.innerHTML=`❌ `+(e.error||`查询失败`);return}let r=e.messages||[];if(!r.length){n.innerHTML=`📭 无短信记录`;return}n.innerHTML=r.map(e=>`<div style="padding:3px 0;border-bottom:1px solid var(--border);font-size:11px">
+      </div>`,window._smsFilter=()=>{let e=(document.getElementById(`smsSearch`)?.value||``).toLowerCase(),t=document.getElementById(`smsAccountSelect`);if(t)for(let n=0;n<t.options.length;n++){let r=t.options[n],i=r.text.toLowerCase(),a=r.dataset?.phone||``;t.options[n].style.display=!e||i.includes(e)||a.includes(e)?``:`none`}},window._smsQuery=async()=>{let e=document.getElementById(`smsAccountSelect`);if(!e){alert(`页面未就绪`);return}let t=e.selectedIndex;if(t<1){alert(`请先选择一个账号`);return}let n=e.options[t],r=n.dataset?.phone||n.value||``;if(!r){alert(`该账号无手机号`);return}let i=document.getElementById(`smsResult`);i.innerHTML=`⏳ 查询中...`;try{let e=await(await fetch(`/api/matrix/sms/test/`+encodeURIComponent(r))).json();if(e.status!==`ok`){i.innerHTML=`❌ `+(e.error||`查询失败`);return}let t=e.messages||[];if(!t.length){i.innerHTML=`📭 无短信记录`;return}i.innerHTML=t.map(e=>`<div style="padding:3px 0;border-bottom:1px solid var(--border);font-size:11px">
             ${e.code?`<span style="color:var(--green)">✅ 验证码 `+e.code+`</span>`:`📩`}
             <span style="font-size:10px;color:var(--text2)">${(e.content||``).slice(0,60)}</span>
             <span style="color:#6366f1;font-size:9px;float:right">${e.time?new Date(e.time).toLocaleString(`zh-CN`):``}</span>
-          </div>`).join(``)}catch(e){n.innerHTML=`❌ `+e.message}},window._setProxy=async e=>{let t=document.getElementById(`proxy_`+e)?.value||``,n=document.getElementById(`proxyResult_`+e);n&&(n.innerHTML=`⏳`);try{let r=await(await fetch(`/api/matrix/proxies/`+encodeURIComponent(e),{method:`PUT`,headers:{"Content-Type":`application/json`},body:JSON.stringify({proxy:t})})).json();n&&(n.innerHTML=r.status===`ok`?`✅ 已绑定`:`❌`);let i=await fetch(`/api/matrix/proxies`).then(e=>e.ok?e.json():null),a=document.getElementById(`proxyList`);i&&a&&(a.innerHTML=i.proxies.map(e=>`<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);margin-bottom:6px;font-size:12px">
+          </div>`).join(``)}catch(e){i.innerHTML=`❌ `+e.message}},window._setProxy=async e=>{let t=document.getElementById(`proxy_`+e)?.value||``,n=document.getElementById(`proxyResult_`+e);n&&(n.innerHTML=`⏳`);try{let r=await(await fetch(`/api/matrix/proxies/`+encodeURIComponent(e),{method:`PUT`,headers:{"Content-Type":`application/json`},body:JSON.stringify({proxy:t})})).json();n&&(n.innerHTML=r.status===`ok`?`✅ 已绑定`:`❌`);let i=await fetch(`/api/matrix/proxies`).then(e=>e.ok?e.json():null),a=document.getElementById(`proxyList`);i&&a&&(a.innerHTML=i.proxies.map(e=>`<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);margin-bottom:6px;font-size:12px">
               <div style="display:flex;justify-content:space-between;align-items:center">
                 <div><strong>${e.account}</strong> <span style="color:var(--text2);font-size:10px">${e.platform}</span>
                   <span style="font-size:10px;margin-left:6px;color:${e.login_status===`logged_in`?`#22c55e`:e.login_status===`remote`?`#8b8fa3`:`#f59e0b`}">${e.login_status}</span>

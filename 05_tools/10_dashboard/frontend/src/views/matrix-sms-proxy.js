@@ -59,14 +59,17 @@ export async function loadView(container) {
           <div style="font-size:13px;font-weight:600;margin-bottom:8px">📱 短信接收</div>
           <div>${configHtml}</div>
           <hr style="border-color:var(--border);margin:8px 0">
-          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">选择账号</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">搜索/选择账号</div>
           <div style="display:flex;gap:4px;flex-wrap:wrap">
-            <select id="smsAccountSelect" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px;border-radius:4px;font-size:11px">
+            <input id="smsSearch" placeholder="🔍 输入手机号/昵称过滤..." oninput="_smsFilter()"
+              style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+            <select id="smsAccountSelect" size="4" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px;border-radius:4px;font-size:11px">
               <option value="">— 选择账号 —</option>
               ${accountOptions}
             </select>
             <button onclick="window._smsQuery()" style="background:var(--primary);color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px">📥 查短信</button>
           </div>
+          <div style="font-size:10px;color:var(--text2);margin-top:2px">选中后点"查短信"查看验证码</div>
           <div id="smsResult" style="font-size:11px;margin-top:4px;max-height:250px;overflow-y:auto"></div>
         </div>
         <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
@@ -75,12 +78,28 @@ export async function loadView(container) {
         </div>
       </div>`;
 
+    // 账号搜索过滤
+    window._smsFilter = () => {
+      const q = (document.getElementById('smsSearch')?.value || '').toLowerCase();
+      const sel = document.getElementById('smsAccountSelect');
+      if (!sel) return;
+      for (let i = 0; i < sel.options.length; i++) {
+        const opt = sel.options[i];
+        const txt = opt.text.toLowerCase();
+        const phone = opt.dataset?.phone || '';
+        sel.options[i].style.display = (!q || txt.includes(q) || phone.includes(q)) ? '' : 'none';
+      }
+    };
+
     // 查短信
     window._smsQuery = async () => {
       const sel = document.getElementById('smsAccountSelect');
-      const opt = sel?.options[sel.selectedIndex];
-      const phone = opt?.dataset?.phone || sel?.value || '';
-      if (!phone) { alert('请选择账号'); return; }
+      if (!sel) { alert('页面未就绪'); return; }
+      const idx = sel.selectedIndex;
+      if (idx < 1) { alert('请先选择一个账号'); return; }
+      const opt = sel.options[idx];
+      const phone = opt.dataset?.phone || opt.value || '';
+      if (!phone) { alert('该账号无手机号'); return; }
       const el = document.getElementById('smsResult');
       el.innerHTML = '⏳ 查询中...';
       try {
