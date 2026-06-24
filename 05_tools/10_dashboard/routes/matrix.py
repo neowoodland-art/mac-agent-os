@@ -57,7 +57,26 @@ def api_matrix_accounts():
                 acct["likes"] = profile.get("likes", acct.get("likes", ""))
                 acct["posts"] = profile.get("posts", acct.get("posts", ""))
             # 从 homepage-info 补充联邦采集数据
-            acct["_source_machine"] = acct.get("machine", "")
+            if not profile:
+                # 尝试从 fleet_collector 缓存中读取远程机器的 profiles
+                for machine_dir in sorted((AGENT_LOCAL / "runtime" / "fleet_collector").iterdir()) if (AGENT_LOCAL / "runtime" / "fleet_collector").exists() else []:
+                    pf_file = machine_dir / "profiles.json"
+                    if pf_file.exists():
+                        try:
+                            remote_pf = json.loads(pf_file.read_text())
+                            rp = remote_pf.get(aid) or remote_pf.get(pid) or {}
+                            if rp:
+                                acct["nickname"] = rp.get("nickname", "")
+                                acct["fans"] = rp.get("fans", "")
+                                acct["avatar"] = rp.get("avatar", "")
+                                acct["following"] = rp.get("following", "")
+                                acct["likes"] = rp.get("likes", "")
+                                acct["posts"] = rp.get("posts", "")
+                                acct["_source_machine"] = machine_dir.name
+                                break
+                        except Exception:
+                            pass
+            acct["_source_machine"] = acct.get("machine", acct.get("_source_machine", ""))
         return accounts
     except Exception as e:
         raise HTTPException(500, detail=str(e))
