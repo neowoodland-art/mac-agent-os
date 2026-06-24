@@ -383,33 +383,25 @@ class BatchEngine:
         finally:
             if not self.keep_open:
                 try:
-                    await asyncio.wait_for(conn.close(), timeout=10)
+                    # 先给 8 秒优雅关闭
+                    await asyncio.wait_for(conn.close(), timeout=8)
                     log.info(f"  🛑 浏览器已关闭 [身份: {identity_dir}]")
-                except asyncio.TimeoutError:
-                    log.warning(f"  ⚠️ 浏览器关闭超时，强制终止 [身份: {identity_dir}]")
-                    # 第一轮：按 identity_dir 精确杀
-                    subprocess.run(["pkill", "-f", f"camoufox.*{identity_dir}"],
-                                   capture_output=True, timeout=5)
-                    # 第二轮：广谱杀
-                    subprocess.run(["pkill", "-f", "camoufox.*--remote-debugging-port"],
-                                   capture_output=True, timeout=3)
-                    subprocess.run(["pkill", "-f", "camoufox.*user_data"],
-                                   capture_output=True, timeout=3)
-                    await asyncio.sleep(2)
-                    # 验证：确认进程已经没了，否则 SIGKILL 强杀
-                    for _ in range(3):
-                        chk = subprocess.run(["pgrep", "-f", f"camoufox.*{identity_dir}"],
-                                            capture_output=True, text=True, timeout=3)
-                        if not chk.stdout.strip():
-                            break
-                        subprocess.run(["pkill", "-9", "-f", f"camoufox.*{identity_dir}"],
-                                       capture_output=True, timeout=3)
-                        await asyncio.sleep(1)
-                except Exception as e:
-                    log.warning(f"  ⚠️ 浏览器关闭异常: {e}")
-                    for target in [identity_dir]:
-                        subprocess.run(["pkill", "-f", f"camoufox.*{target}"],
-                                       capture_output=True, timeout=5)
+                except (asyncio.TimeoutError, Exception) as e:
+                    log.warning(f"  ⚠️ 浏览器关闭超时 [{identity_dir}]: {e}")
+                # 无论 close 成不成功，强制杀本身份的浏览器进程
+                # 注意: identity_dir = 手机号/账号名, 唯一且不含空格, 不会误杀
+                subprocess.run(["pkill", "-f", identity_dir],
+                               capture_output=True, timeout=3)
+                await asyncio.sleep(2)
+                # 验证
+                for _ in range(3):
+                    chk = subprocess.run(["pgrep", "-f", identity_dir],
+                                        capture_output=True, text=True, timeout=2)
+                    if not chk.stdout.strip():
+                        break
+                    subprocess.run(["pkill", "-9", "-f", identity_dir],
+                                   capture_output=True, timeout=2)
+                    await asyncio.sleep(1)
 
         return reports
 
