@@ -28,11 +28,11 @@ MAX_TIMEOUT = 600             # 命令最大超时（秒）
 GRACE_PERIOD_LOCAL = 5        # 本机进程启动宽限期（秒）
 GRACE_PERIOD_REMOTE = 30      # 远程进程启动宽限期（秒）
 
-# 窗口槽位：固定 3 个，y 顶端对齐，x 间隔 100px
+# 窗口槽位：固定 3 个，y 顶端对齐，x 间隔 350px（参考5kechengdeAir的经验值）
 SLOTS = [
-    {"id": 1, "position": (0, 0),   "size": (702, 783)},
-    {"id": 2, "position": (100, 0), "size": (702, 783)},
-    {"id": 3, "position": (200, 0), "size": (702, 783)},
+    {"id": 1, "position": (0, 0),     "size": (702, 783)},
+    {"id": 2, "position": (350, 0),   "size": (702, 783)},
+    {"id": 3, "position": (700, 0),   "size": (702, 783)},
 ]
 
 # 操作冷却时间（秒），用 (min, max) 范围随机化
