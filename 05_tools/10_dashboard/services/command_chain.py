@@ -239,6 +239,15 @@ class CommandChain:
                     cls._save(run)
                     continue
 
+            # 跳过空账号任务
+            if not task.accounts:
+                result.status = "skipped"
+                result.error = "账号列表为空"
+                result.completed_at = datetime.now(timezone.utc).isoformat()
+                run.task_results[task.task_id] = result
+                cls._save(run)
+                continue
+
             # 执行任务（支持重试）
             success = False
             for attempt in range(1, task.max_retries + 1):

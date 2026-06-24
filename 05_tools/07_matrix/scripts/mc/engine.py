@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import random
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -339,9 +340,19 @@ class BatchEngine:
         if check_cookie(identity_dir) in ("no_cookie", "expired", "error"):
             log.info(f"  🔐 [{identity_dir}] cookie 状态需恢复，由 LoginStateMachine 处理")
 
+        # 分配窗口位置槽位
+        try:
+            from mc.execution_policy import slot_for
+            slot = slot_for(group_accts[0]["id"])
+            win_pos = tuple(slot["position"]) if slot else (0, 0)
+            win_size = tuple(slot["size"]) if slot else (802, 783)
+        except Exception:
+            win_pos, win_size = (0, 0), (802, 783)
+
         from cdp_connector import CDPConnector
         conn = CDPConnector(browser_type="camoufox", headless=False,
-                            window=(802, 783),
+                            window=win_size,
+                            window_position=win_pos,
                             identity_dir=str(IDENTITIES_ROOT / identity_dir))
         try:
             await conn.connect()
@@ -371,8 +382,17 @@ class BatchEngine:
                     reports.append(rpt)
         finally:
             if not self.keep_open:
-                await conn.close()
-                log.info(f"  🛑 浏览器已关闭 [身份: {identity_dir}]")
+                try:
+                    await asyncio.wait_for(conn.close(), timeout=10)
+                    log.info(f"  🛑 浏览器已关闭 [身份: {identity_dir}]")
+                except asyncio.TimeoutError:
+                    log.warning(f"  ⚠️ 浏览器关闭超时，强制终止 [身份: {identity_dir}]")
+                    subprocess.run(["pkill", "-f", f"camoufox.*{identity_dir}"],
+                                   capture_output=True, timeout=5)
+                except Exception as e:
+                    log.warning(f"  ⚠️ 浏览器关闭异常: {e}")
+                    subprocess.run(["pkill", "-f", f"camoufox.*{identity_dir}"],
+                                   capture_output=True, timeout=5)
 
         return reports
 
