@@ -69,15 +69,15 @@ export async function loadView(container) {
     }
 
     function render(q, machine, platform) {
-      let filtered = allAccounts;
-      if (q) { const lq = q.toLowerCase(); filtered = allAccounts.filter(a => (a.id+a.phone+(a.nickname||'')+(a.identity_dir||'')+(a.owner_machine||'')).toLowerCase().includes(lq)); }
+      const source = window._allAccounts || allAccounts;
+      let filtered = source;
+      if (q) { const lq = q.toLowerCase(); filtered = source.filter(a => (a.id+a.phone+(a.nickname||'')+(a.identity_dir||'')+(a.owner_machine||'')).toLowerCase().includes(lq)); }
       if (machine) filtered = filtered.filter(a => a.owner_machine === machine);
       if (platform) filtered = filtered.filter(a => a.platform === platform);
-      // machineList 已在外部定义
       const tableDiv = document.getElementById('acctTable');
       if (tableDiv) tableDiv.innerHTML = buildAccounts(filtered);
       const cnt = document.getElementById('acctCount');
-      if (cnt) cnt.textContent = `共 ${filtered.length}/${allAccounts.length} 个`;
+      if (cnt) cnt.textContent = `共 ${filtered.length}/${source.length} 个`;
     }
 
     const machineList = [...new Set(allAccounts.map(a => a.owner_machine).filter(Boolean))];
@@ -125,6 +125,7 @@ export async function loadView(container) {
 
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center';
+      overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
       overlay.innerHTML = `
         <div style="background:var(--bg2);border-radius:12px;padding:20px;max-width:380px;width:90%">
           <div style="font-size:15px;font-weight:600;margin-bottom:12px">+ 新建账号</div>
@@ -173,8 +174,11 @@ export async function loadView(container) {
           const d = await r.json();
           if (d.status === 'ok') {
             overlay.remove();
-            // 重新加载全部数据
-            location.reload();
+            // 重新获取数据 → 动态刷新页面内容
+            const r2 = await fetch(BASE + '/matrix/accounts');
+            const d2 = await r2.json();
+            window._allAccounts = Array.isArray(d2) ? d2 : (d2.accounts || []);
+            window._filterAcct();
           } else { alert('❌ ' + (d.detail || d.message)); btn.textContent = '✅ 创建'; btn.disabled = false; }
         } catch(e) { alert('❌ ' + e.message); btn.textContent = '✅ 创建'; btn.disabled = false; }
       };

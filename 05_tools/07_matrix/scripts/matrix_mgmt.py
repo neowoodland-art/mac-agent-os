@@ -1151,6 +1151,11 @@ class MatrixManager:
                     if cur_ts > ext_ts:
                         deduped[aid] = acct
 
+        # ── 补充: override 中有但 wpra/registry 中没有的账号（新创建）──
+        for oid, ovr_acct in override_map.items():
+            if oid not in deduped:
+                deduped[oid] = ovr_acct
+
         # 是否为当前机器:
         # 1) assigned_machine == 本机
         # 2) override 中有配置
