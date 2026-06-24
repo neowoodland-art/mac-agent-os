@@ -77,11 +77,28 @@ class MatrixManager:
         if any(a["id"] == data["id"] for a in accounts):
             raise ValueError(f"账号 {data['id']} 已存在")
 
+        # 同手机号已有身份？复用，不新建
+        phone = data.get("phone", "")
+        existing_identity = ""
+        if phone:
+            for a in accounts:
+                if a.get("phone") == phone and a.get("identity_dir"):
+                    existing_identity = a["identity_dir"]
+                    break
+            if not existing_identity:
+                # 也查 override
+                hostname, override = self._read_override()
+                for a in override:
+                    if a.get("phone") == phone and a.get("identity_dir"):
+                        existing_identity = a["identity_dir"]
+                        break
+
+        new_identity = data.get("identity_dir", existing_identity or f"identities/{data['id']}")
         new_acct = {
             "id": data["id"],
             "platform": data["platform"],
-            "phone": data.get("phone", ""),
-            "identity_dir": data.get("identity_dir", f"identities/{data['id']}"),
+            "phone": phone,
+            "identity_dir": new_identity,
             "window": [702, 783],
             "window_position": data.get("window_position", [0, 0]),
             "proxy": data.get("proxy", None),
