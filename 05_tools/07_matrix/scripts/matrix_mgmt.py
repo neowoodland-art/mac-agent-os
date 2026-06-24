@@ -1195,7 +1195,7 @@ class MatrixManager:
                 oracle = yaml.safe_load(ORACLE_PATH.read_text())
                 oracle_map = {}
                 for entry in oracle.get("accounts", []):
-                    machine = entry.get("machine", "")
+                    machine = entry.get("assigned_machine", "") or entry.get("machine", "")
                     for plat, acct_id in entry.get("platforms", {}).items():
                         oracle_map[acct_id] = machine
                 for acct in deduped.values():
