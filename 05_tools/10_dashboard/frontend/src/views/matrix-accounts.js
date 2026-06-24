@@ -45,7 +45,8 @@ export async function loadView(container) {
         + '<th style="padding:4px 6px;font-weight:400;text-align:right" title="关注">👍</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:right" title="获赞">❤️</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:right" title="作品">📝</th>'
-        + '<th style="padding:4px 6px;font-weight:400;text-align:left">状态</th></tr>';
+        + '<th style="padding:4px 6px;font-weight:400;text-align:left">状态</th>'
+        + '<th style="padding:4px 6px;font-weight:400;text-align:left">操作</th></tr>';
       machineOrder.filter(m => groups[m]).forEach(m => {
         groups[m].forEach(a => {
           const statusMap = { logged_in:'🟢已登录', remote:'🔵远程', expired:'🟡过期', no_cookie:'🔴无Cookie', disabled:'⚪禁用' };
@@ -61,7 +62,11 @@ export async function loadView(container) {
             + `<td style="padding:3px 6px;text-align:right">${a.following || '-'}</td>`
             + `<td style="padding:3px 6px;text-align:right">${a.likes || '-'}</td>`
             + `<td style="padding:3px 6px;text-align:right">${a.posts || '-'}</td>`
-            + `<td style="padding:3px 6px;font-size:10px">${s}</td></tr>`;
+            + `<td style="padding:3px 6px;font-size:10px">${s}</td>`
+            + `<td style="padding:3px 6px;white-space:nowrap">
+              <button onclick="window._actCol('${a.id.replace(/'/g,"\\'")}')" style="background:transparent;border:1px solid var(--border);padding:1px 5px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)" title="采集">📡</button>
+              <button onclick="window._actLogin('${a.id.replace(/'/g,"\\'")}')" style="background:transparent;border:1px solid var(--border);padding:1px 5px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)" title="登录">🔑</button>
+            </td></tr>`;
         });
       });
       html += '</table>';
@@ -110,6 +115,26 @@ export async function loadView(container) {
       const m = document.getElementById('acctMachineFilter')?.value || '';
       const p = document.getElementById('acctPlatformFilter')?.value || '';
       render(q, m, p);
+    };
+
+    // ── 单账号操作按钮 ──
+    window._actCol = async aid => {
+      const btn = event?.target; if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+      try {
+        const r = await fetch('/api/ops/run', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type:'collect', accounts:[aid], params:{rounds:1}}) });
+        const d = await r.json();
+        alert(d.status === 'error' ? '❌ '+(d.message||d.error||'') : '✅ 已提交采集');
+      } catch(e) { alert('❌ '+e.message); }
+      if (btn) { btn.textContent = '📡'; btn.disabled = false; }
+    };
+    window._actLogin = async aid => {
+      const btn = event?.target; if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+      try {
+        const r = await fetch('/api/ops/run', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type:'login', accounts:[aid]}) });
+        const d = await r.json();
+        alert(d.status === 'error' ? '❌ '+(d.message||d.error||'') : '✅ 已提交登录');
+      } catch(e) { alert('❌ '+e.message); }
+      if (btn) { btn.textContent = '🔑'; btn.disabled = false; }
     };
 
     // 新建账号对话框（ID 自动生成: douyin_手机号 / xhs_手机号）
