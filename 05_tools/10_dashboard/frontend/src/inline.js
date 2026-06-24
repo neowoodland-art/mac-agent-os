@@ -145,8 +145,20 @@ function switchView(view) {
     if (pv) pv.classList.remove('hidden');
   }
 
-  // 加载数据（仅保留未迁移视图：crawl-history）
+  // 加载数据（未迁移视图 → 走旧 inline.js 渲染）
   if (view === 'crawl-history') loadCrawlHistory();
+  if (view === 'matrix-record') loadRecordings();
+  if (view === 'matrix-c2') loadC2Machines();
+  if (view === 'matrix-backup') loadBackup();
+  if (view === 'matrix-export') loadExport();
+  if (view === 'matrix-run') loadBatchRun();
+  if (view === 'matrix-commands') loadCommands();
+  if (view === 'matrix-settings') loadMatrixSettings();
+  if (view === 'characters') loadCharacters();
+  if (view === 'char-gen') loadCharGen();
+  if (view === 'alerts') loadAlerts();
+  if (view === 'timeline') loadTimeline();
+  if (view === 'summary') loadSummary();
 }
 
 // ── Stats ──
