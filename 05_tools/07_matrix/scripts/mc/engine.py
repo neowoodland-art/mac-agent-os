@@ -387,22 +387,27 @@ class BatchEngine:
                     log.info(f"  🛑 浏览器已关闭 [身份: {identity_dir}]")
                 except asyncio.TimeoutError:
                     log.warning(f"  ⚠️ 浏览器关闭超时，强制终止 [身份: {identity_dir}]")
-                    # 用 profile_dir + identity_dir 双重匹配杀进程
-                    kill_targets = [identity_dir]
-                    if profile_dir and profile_dir != identity_dir:
-                        kill_targets.append(profile_dir)
-                    for target in kill_targets:
-                        subprocess.run(["pkill", "-f", f"camoufox.*{target}"],
-                                       capture_output=True, timeout=5)
+                    # 第一轮：按 identity_dir 精确杀
+                    subprocess.run(["pkill", "-f", f"camoufox.*{identity_dir}"],
+                                   capture_output=True, timeout=5)
+                    # 第二轮：广谱杀
                     subprocess.run(["pkill", "-f", "camoufox.*--remote-debugging-port"],
                                    capture_output=True, timeout=3)
-                    await asyncio.sleep(1)
+                    subprocess.run(["pkill", "-f", "camoufox.*user_data"],
+                                   capture_output=True, timeout=3)
+                    await asyncio.sleep(2)
+                    # 验证：确认进程已经没了，否则 SIGKILL 强杀
+                    for _ in range(3):
+                        chk = subprocess.run(["pgrep", "-f", f"camoufox.*{identity_dir}"],
+                                            capture_output=True, text=True, timeout=3)
+                        if not chk.stdout.strip():
+                            break
+                        subprocess.run(["pkill", "-9", "-f", f"camoufox.*{identity_dir}"],
+                                       capture_output=True, timeout=3)
+                        await asyncio.sleep(1)
                 except Exception as e:
                     log.warning(f"  ⚠️ 浏览器关闭异常: {e}")
-                    kill_targets = [identity_dir]
-                    if profile_dir and profile_dir != identity_dir:
-                        kill_targets.append(profile_dir)
-                    for target in kill_targets:
+                    for target in [identity_dir]:
                         subprocess.run(["pkill", "-f", f"camoufox.*{target}"],
                                        capture_output=True, timeout=5)
 
