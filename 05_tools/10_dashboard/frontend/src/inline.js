@@ -50,8 +50,7 @@ let searchTimer;
 loadIdentity();
 loadPlugins();
 loadStats();
-// 自动刷新（已迁移视图由新代码自行处理）
-setInterval(() => { if (currentView === 'machines') location.reload(); }, 60000);
+// 自动刷新已由各 migrated view 的 loadView 自行管理
 
 // ── Navigation ──
 function switchView(view) {

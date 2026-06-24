@@ -205,19 +205,12 @@ function _tryMigratedView(view) {
   return true;
 }
 
-// ── 暴露全局（供 onclick 使用，Vite 模块化后不再自动暴露）──
+// ── 暴露全局（供 onclick 使用）──
 window.toggleGroup = toggleGroup;
 window.collapseAllGroups = collapseAllGroups;
 window.switchView = switchView;
-
-// ── Patch switchView ──
 window.closeDetail = closeDetail;
 window.showDetail = showDetail;
-window.loadProductions = loadProductions;
-window.loadAssets = loadAssets;
-window.loadCosts = loadCosts;
-window.loadMachines = loadMachines;
-window.loadFleetReconcileView = loadFleetReconcileView;
 
 // ── 执行历史（细腻度增强版：显示完整状态机 10 种状态）──
 var STATUS_MAP = {
