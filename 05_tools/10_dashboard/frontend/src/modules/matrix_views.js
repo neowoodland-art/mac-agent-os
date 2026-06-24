@@ -178,6 +178,11 @@ function _tryMigratedView(view) {
     // ── 采集外壳 + 重定向 ──
     'crawl-tasks','crawl-sources',
     'matrix-publish','matrix-login',
+    // ── 已迁移旧代码视图（共13个已完成迁移）──
+    'matrix-record','matrix-c2','matrix-backup','matrix-export',
+    'matrix-run','matrix-commands','matrix-settings',
+    'characters','char-gen','alerts','timeline',
+    'summary','crawl-history',
   ];
   if (_migratedViews.indexOf(view) === -1) return false;
 

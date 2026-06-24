@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>系统监控面板</title>
-  <script type="module" crossorigin src="/static/assets/index-DZXC4lOk.js"></script>
+  <script type="module" crossorigin src="/static/assets/index-DuLiCw-b.js"></script>
   <link rel="stylesheet" crossorigin href="/static/assets/index-DrEIyFIL.css">
 </head>
 <body>
@@ -59,23 +59,17 @@
 </div>
 
 <!-- Timeline view -->
-<div id="view-timeline" class="hidden">
-  <h2 style="font-size:18px">📈 实时时间线</h2>
-  <div style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap" id="timelineSelector"></div>
+
   <div style="margin:12px 0;font-size:12px;color:var(--text2)" id="timelineStatus">选择机器查看 CPU/磁盘变化曲线</div>
   <canvas id="timelineChart" style="width:100%;height:300px"></canvas>
 </div>
 
 <!-- Alerts view -->
-<div id="view-alerts" class="hidden">
-  <h2 style="font-size:18px">🔔 告警中心</h2>
-  <div id="alertsList"></div>
+
 </div>
 
 <!-- Summary view -->
-<div id="view-summary" class="hidden">
-  <h2 style="font-size:18px">📊 概览</h2>
-  <div id="summaryContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px"></div>
+
 </div>
 
 <!-- Matrix cross-machine summary view -->
@@ -84,19 +78,12 @@
 </div>
 
 <!-- Batch execution view -->
-<div id="view-matrix-run" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">🚀 批量执行</h2>
-    <span id="batchRunMeta" style="font-size:12px;color:var(--text2)"></span>
-  </div>
+
   <div id="matrixRunContent"></div>
 </div>
 
 <!-- 命令与任务（TAB：批量执行 + 定向评论） -->
-<div id="view-matrix-commands" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <h2 style="font-size:18px">🎯 命令与任务</h2>
-  </div>
+
   <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid var(--border)">
       <div class="cmd-tab active" data-tab="cmd-run" onclick="switchCmdTab('cmd-run',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:var(--text);margin-bottom:-2px">🚀 批量执行</div>
     <div class="cmd-tab" data-tab="cmd-comment" onclick="switchCmdTab('cmd-comment',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">💬 定向评论</div>
@@ -205,27 +192,14 @@
 </div>
 
 <!-- 🎬 录制管理 -->
-<div id="view-matrix-record" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <h2 style="font-size:18px">🎬 录制管理</h2>
-    <div style="display:flex;gap:6px">
-      <select id="recordAccountSelect" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:11px">
-        <option value="">选择账号…</option>
-      </select>
-      <button id="recordStartBtn" onclick="recordingStart()" style="background:#6366f1;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">▶ 开始录制</button>
-      <button id="recordStopBtn" onclick="recordingStop()" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;display:none">⏹ 停止</button>
-    </div>
-  </div>
+
   <div id="recordStatus" style="font-size:12px;color:var(--text2);margin-bottom:8px"></div>
   <div id="recordList" style="font-size:12px"><div class="loading">加载录制包...</div></div>
   <div id="recordDetail" style="font-size:12px;margin-top:8px"></div>
 </div>
 
 <!-- ═══ 矩阵设置（TAB：导入导出 / 备份恢复 / 语料库）═══ -->
-<div id="view-matrix-settings" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <h2 style="font-size:18px">⚙️ 矩阵设置</h2>
-  </div>
+
   <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid var(--border)">
     <div class="set-tab active" data-tab="set-export" onclick="switchSetTab('set-export',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:var(--text);margin-bottom:-2px">📦 导入导出</div>
     <div class="set-tab" data-tab="set-backup" onclick="switchSetTab('set-backup',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">💾 备份恢复</div>
@@ -360,11 +334,7 @@
 </div>
 
 <!-- Matrix C2 remote control view -->
-<div id="view-matrix-c2" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">🎮 远程控制</h2>
-    <button class="btn btn-outline btn-sm" onclick="loadC2Machines()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer">⟳ 刷新</button>
-  </div>
+
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
     <div style="background:var(--bg2);border-radius:10px;padding:20px;border:1px solid var(--border)">
       <div style="font-size:14px;font-weight:600;margin-bottom:12px">🎮 发送命令</div>
@@ -408,38 +378,20 @@
 </div>
 
 <!-- Matrix backup view -->
-<div id="view-matrix-backup" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">💾 备份恢复</h2>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="backupLabelHeader" placeholder="标签" style="width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px" value="manual">
-      <button class="btn btn-primary btn-sm" onclick="createBackup()">+ 创建备份</button>
-    </div>
-  </div>
+
   <div id="backupResultHeader" style="margin-bottom:10px;font-size:13px"></div>
   <div id="matrixBackupContent"><div class="loading">加载中...</div></div>
 </div>
 
 <!-- Matrix export view -->
-<div id="view-matrix-export" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">📦 导入导出</h2>
-  </div>
+
   <div id="matrixExportContent"><div class="loading">加载中...</div></div>
-<div id="view-characters" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">🧑 角色管理</h2>
-    <span id="charCount" style="font-size:13px;color:var(--text2)"></span>
-  </div>
+
   <div id="characterGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px"></div>
 </div>
 
 <!-- Character Generation view -->
-<div id="view-char-gen" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">🎭 角色生成 — 模块化定妆照工作室</h2>
-    <span style="font-size:13px;color:var(--text2)">10层模块 · 分步构建 · 1键生成</span>
-  </div>
+
   
   <!-- Step 1: 方向输入 → AI自动填充 -->
   <div id="charGenStep1" style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid var(--border);margin-bottom:16px">
@@ -587,7 +539,7 @@
 </div>
 
 <!-- 内容采集系列：采集历史 -->
-<div id="view-crawl-history" class="hidden"><div class="loading">⏳ 加载采集历史...</div></div>
+</div>
 
 <!-- 联邦系列：一键同步 -->
 </div>
