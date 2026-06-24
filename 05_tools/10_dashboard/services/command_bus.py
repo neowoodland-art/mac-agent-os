@@ -196,35 +196,14 @@ class MachineSession:
                     return {"ok": False, "message": f"机器 {self.machine} 连接失败: {e}", "running": len(active)}
             return {"ok": True, "message": "就绪", "running": len(active)}
 
-    def send(self, cmd: Command, blocking: bool = False) -> dict:
+    def send(self, cmd: Command) -> dict:
         with self._lock:
             if self.is_local:
-                return self._send_local(cmd, blocking=blocking)
+                return self._send_local(cmd)
             else:
-                return self._send_remote(cmd, blocking=blocking)
+                return self._send_remote(cmd)
 
-    def _send_local(self, cmd: Command, blocking: bool = False) -> dict:
-        if blocking:
-            # 阻塞模式：直接等待执行完成（用于登录等交互命令）
-            scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
-            python_path = f"{Path.home()}/.workbuddy/binaries/python/envs/agent-os/bin/python3"
-            full_cmd = f"cd {scripts_dir} && PYTHONPATH='{scripts_dir}' {python_path} -m {cmd.command_line}"
-            try:
-                r = subprocess.run(full_cmd, shell=True, capture_output=True, text=True, timeout=600)
-                cmd.status = CommandStatus.COMPLETED if r.returncode == 0 else CommandStatus.FAILED
-                cmd.message = r.stderr[:200] if r.stderr else "执行完成"
-                cmd.completed_at = time.time()
-            except subprocess.TimeoutExpired:
-                cmd.status = CommandStatus.FAILED
-                cmd.message = "命令超时 (600s)"
-            except Exception as e:
-                cmd.status = CommandStatus.FAILED
-                cmd.message = str(e)
-            cmd.started_at = time.time()
-            self.commands.insert(0, cmd)
-            self._trim_history()
-            return {"status": cmd.status.value, "message": cmd.message}
-
+    def _send_local(self, cmd: Command) -> dict:
         # 系统级安全检查（仅保留警戒线，杀掉异常过多的 mc 进程）
         try:
             mc_count = int(subprocess.run(
@@ -271,7 +250,7 @@ class MachineSession:
         self._trim_history()
         return {"pid": cmd.pid, "log_path": str(log_path)}
 
-    def _send_remote(self, cmd: Command, blocking: bool = False) -> dict:
+    def _send_remote(self, cmd: Command) -> dict:
         if not self.ssh_target:
             cmd.status = CommandStatus.PREFLIGHT_FAILED
             cmd.message = f"机器 {self.machine} 连接信息不存在"
@@ -286,18 +265,13 @@ class MachineSession:
             wrapper_cmd = f"bash $AGENT_SYNC/05_tools/10_dashboard/services/nurture_runner.sh {accts} {cmd.params.get('blueprint','douyin_daily')} {cmd.params.get('rounds',10)} {cmd.run_id}"
             full_cmd = f"{py_discover} {env_setup} nohup {wrapper_cmd} > /tmp/nurture_{cmd.run_id}.log 2>&1 &"
         else:
-            if blocking:
-                # 阻塞模式：等待远程执行完（用于登录等交互式命令）
-                full_cmd = f"{py_discover} {env_setup} cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m {cmd.command_line}"
-            else:
-                full_cmd = f"{py_discover} {env_setup} nohup cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m {cmd.command_line} > /tmp/ops_{cmd.run_id}.log 2>&1 &"
+            full_cmd = f"{py_discover} {env_setup} nohup cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m {cmd.command_line} > /tmp/ops_{cmd.run_id}.log 2>&1 &"
 
         try:
-            ssh_timeout = 600 if blocking else 15
             subprocess.run(
                 ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
                  self.ssh_target, full_cmd],
-                capture_output=True, text=True, timeout=ssh_timeout
+                capture_output=True, text=True, timeout=15
             )
             cmd.status = CommandStatus.DISPATCHING
             cmd.started_at = time.time()
@@ -305,10 +279,6 @@ class MachineSession:
             self.commands.insert(0, cmd)
             self._trim_history()
             return {"status": "sent"}
-        except subprocess.TimeoutExpired:
-            cmd.status = CommandStatus.FAILED
-            cmd.message = f"远程命令超时 ({ssh_timeout}s)"
-            return {"error": cmd.message}
         except Exception as e:
             cmd.status = CommandStatus.FAILED
             cmd.message = f"远程发送失败: {e}"
@@ -782,12 +752,12 @@ class CommandBus:
         for a in acct_ids:
             session.graceful_exit(a)
 
-        # 登录类命令加机器级互斥锁 + 阻塞模式（同机器串行登录）
+        # 登录类命令加机器级互斥锁（同机器只允许一个登录）
         if cmd_type == "login":
             lock = _get_login_lock(machine)
             with lock:
                 logger.info(f"  🔐 获取登录锁 [{machine}], 开始登录 {ids_str}")
-                session.send(cmd, blocking=True)
+                session.send(cmd)
         else:
             session.send(cmd)
         results.append(cmd.to_dict())
