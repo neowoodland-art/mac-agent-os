@@ -50,9 +50,8 @@ let searchTimer;
 loadIdentity();
 loadPlugins();
 loadStats();
-// 自动刷新: 10秒轮询机器状态, 30秒轮询摘要
-setInterval(() => { if (currentView === 'machines') loadMachines(); }, 10000);
-setInterval(() => { if (currentView === 'summary') loadSummary(); }, 30000);
+// 自动刷新（已迁移视图由新代码自行处理）
+setInterval(() => { if (currentView === 'machines') location.reload(); }, 60000);
 
 // ── Navigation ──
 function switchView(view) {
@@ -146,37 +145,8 @@ function switchView(view) {
     if (pv) pv.classList.remove('hidden');
   }
 
-  // 加载数据
-  if (view === 'productions') loadProductions();
-  if (view === 'assets') loadAssets();
-  if (view === 'costs') loadCosts();
-  if (view === 'capabilities') loadCapabilities();
-  if (view === 'workflow') loadWorkflow();
-  if (view === 'machines') loadMachines();
-  if (view === 'matrix-sms-proxy') loadSmsProxy();
-  if (view === 'matrix-nurture') loadMatrixNurture();
-  if (view === 'matrix-collect') loadMatrixCollect();
-  if (view === 'matrix-publish') loadMatrixPublish();
-  if (view === 'matrix-blueprints') loadMatrixBlueprints();
-  if (view === 'matrix-comment') loadMatrixComment();
-  if (view === 'matrix-schedule') loadMatrixSchedule();
-  if (view === 'matrix-corpus') loadCorpus();
-  if (view === 'ave-render') loadAveRender();
-  if (view === 'ave-script') loadAveScript();
-  if (view === 'ave-materials') loadAveMaterials();
-  if (view === 'ave-templates') loadAveTemplates();
-  if (view === 'crawl-tasks') loadCrawlTasks();
-  if (view === 'crawl-sources') loadCrawlSources();
+  // 加载数据（仅保留未迁移视图：crawl-history）
   if (view === 'crawl-history') loadCrawlHistory();
-  if (view === 'fleet-sync') loadFleetSync();
-  if (view === 'fleet-reconcile') loadFleetReconcile();
-  if (view === 'fleet-exec') loadFleetExec();
-  if (view === 'matrix-like') loadMatrixLike();
-  if (view === 'matrix-login') loadMatrixLogin();
-  if (view === 'ops-command') loadOpsCommand();
-  if (view === 'serve-mcp') loadServeMCP();
-  if (view === 'serve-dashboard') loadServeDashboard();
-  if (view === 'serve-schedule') loadServeSchedule();
 }
 
 // ── Stats ──
@@ -6829,7 +6799,8 @@ window._filterAccountSelector = _filterAccountSelector;
 window.opsRun = opsRun;
 window.opsBatchExec = opsBatchExec;
 window.loadCrawlHistory = loadCrawlHistory;
-window.loadFleetReconcile = loadFleetReconcile;
+// 已迁移，由 views/fleet-reconcile.js 接管
+// window.loadFleetReconcile = loadFleetReconcile;
 window.fmtSmsTime = fmtSmsTime;
 window.smsUpdateAndTest = smsUpdateAndTest;
 window.toggleProxyPanel = toggleProxyPanel;
