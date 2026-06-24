@@ -102,7 +102,7 @@ function switchView(view) {
     // Hide ALL other views first
     ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus',
      'ave-render','ave-script','ave-materials','ave-templates',
-     'crawl-tasks','crawl-sources','crawl-history',
+     'crawl-tasks','crawl-sources',
      'machines','fleet-sync','fleet-reconcile','fleet-exec',
      'serve-mcp','serve-dashboard','serve-schedule',
      'productions','assets','costs','capabilities','workflow','kb'].forEach(v => {
@@ -131,7 +131,7 @@ function switchView(view) {
                    'matrix-accounts','matrix-atom-ops','matrix-settings','matrix-run','matrix-commands','matrix-summary',
                    'matrix-c2','matrix-backup','matrix-export',
                    'ave-render','ave-script','ave-materials','ave-templates',
-                   'crawl-tasks','crawl-sources','crawl-history',
+                   'crawl-tasks','crawl-sources',
                    'machines','fleet-sync','fleet-reconcile','fleet-exec',
                    'serve-mcp','serve-dashboard','serve-schedule',
                    'productions','assets','costs','capabilities','workflow','kb',
@@ -173,7 +173,6 @@ function switchView(view) {
   try { if (view === 'ave-templates') window.loadAveTemplates(); } catch(e) {}
   try { if (view === 'crawl-tasks') window.loadCrawlTasks(); } catch(e) {}
   try { if (view === 'crawl-sources') window.loadCrawlSources(); } catch(e) {}
-  try { if (view === 'crawl-history') window.loadCrawlHistory(); } catch(e) {}
   try { if (view === 'fleet-sync') window.loadFleetSync(); } catch(e) {}
   try { if (view === 'fleet-exec') window.loadFleetExec(); } catch(e) {}
   try { if (view === 'matrix-like') window.loadMatrixLike(); } catch(e) {}
@@ -210,7 +209,7 @@ function _tryMigratedView(view) {
     // ── 视频工厂外壳 ──
     'ave-render','ave-script','ave-materials','ave-templates','workflow','capabilities',
     // ── 采集外壳 + 重定向 ──
-    'crawl-tasks','crawl-sources','crawl-history',
+    'crawl-tasks','crawl-sources',
     'matrix-publish',
   ];
   if (_migratedViews.indexOf(view) === -1) return false;
@@ -711,7 +710,6 @@ async function loadPlugins() {
       '内容采集': { icon: '📡', items: [
         {view:'crawl-tasks', label:'采集任务'},
         {view:'crawl-sources', label:'源管理'},
-        {view:'crawl-history', label:'采集历史'},
       ]},
       '联邦': { icon: '🖥️', items: [
         {view:'machines', label:'机器状态'},
