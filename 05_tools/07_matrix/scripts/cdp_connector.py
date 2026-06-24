@@ -526,12 +526,24 @@ class CDPConnector:
     # ─── 清理 ───────────────────────────────────────────────────
 
     async def close(self):
-        # 优先通过 AsyncCamoufox 实例优雅关闭（会依次关浏览器+Playwright驱动）
+        """关闭浏览器，确保进程完全退出
+
+        3 重保障：
+        1. 优雅关闭：AsyncCamoufox.stop()（可能卡住）
+        2. pgrep 验证 + pkill 兜底（3种匹配模式）
+        3. 等待进程消退
+        """
+        profile_name = None
+        if self.profile_dir:
+            profile_name = Path(self.profile_dir).name
+        elif self.identity_dir:
+            profile_name = Path(self.identity_dir).name
+
+        # 第一重：优雅关闭
         if hasattr(self, '_camoufox') and self._camoufox:
             try:
                 await self._camoufox.stop()
             except (AttributeError, Exception):
-                # camoufox 部分版本没有 stop() 方法, 用 close() 或 kill() 兜底
                 try:
                     await self._camoufox.close()
                 except (AttributeError, Exception):
@@ -543,6 +555,38 @@ class CDPConnector:
             await self._camoufox_browser.close()
         if self._playwright:
             await self._playwright.stop()
+
+        # 第二重：等待进程退出 + 强杀
+        await asyncio.sleep(2)
+        try:
+            r = subprocess.run(
+                ["pgrep", "-f", "camoufox"],
+                capture_output=True, text=True, timeout=3
+            )
+            if r.stdout.strip():
+                import logging
+                logger = logging.getLogger("cdp_connector.close")
+                remaining = r.stdout.strip().split("\n")
+                logger.warning(f"  ⚠️ 关闭后仍有 {len(remaining)} 个 Camoufox 进程，强制终止")
+
+                # 按 profile_dir 精确杀
+                if profile_name:
+                    subprocess.run(
+                        ["pkill", "-f", f"camoufox.*{profile_name}"],
+                        capture_output=True, timeout=3
+                    )
+                # 按浏览器类型广谱杀
+                subprocess.run(
+                    ["pkill", "-f", "camoufox.*--remote-debugging-port"],
+                    capture_output=True, timeout=3
+                )
+                subprocess.run(
+                    ["pkill", "-f", "camoufox.*user_data_dir"],
+                    capture_output=True, timeout=3
+                )
+                await asyncio.sleep(1)
+        except Exception:
+            pass
 
 
 # ─── 快速测试 ────────────────────────────────────────────────────

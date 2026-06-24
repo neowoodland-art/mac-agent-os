@@ -387,12 +387,24 @@ class BatchEngine:
                     log.info(f"  🛑 浏览器已关闭 [身份: {identity_dir}]")
                 except asyncio.TimeoutError:
                     log.warning(f"  ⚠️ 浏览器关闭超时，强制终止 [身份: {identity_dir}]")
-                    subprocess.run(["pkill", "-f", f"camoufox.*{identity_dir}"],
-                                   capture_output=True, timeout=5)
+                    # 用 profile_dir + identity_dir 双重匹配杀进程
+                    kill_targets = [identity_dir]
+                    if profile_dir and profile_dir != identity_dir:
+                        kill_targets.append(profile_dir)
+                    for target in kill_targets:
+                        subprocess.run(["pkill", "-f", f"camoufox.*{target}"],
+                                       capture_output=True, timeout=5)
+                    subprocess.run(["pkill", "-f", "camoufox.*--remote-debugging-port"],
+                                   capture_output=True, timeout=3)
+                    await asyncio.sleep(1)
                 except Exception as e:
                     log.warning(f"  ⚠️ 浏览器关闭异常: {e}")
-                    subprocess.run(["pkill", "-f", f"camoufox.*{identity_dir}"],
-                                   capture_output=True, timeout=5)
+                    kill_targets = [identity_dir]
+                    if profile_dir and profile_dir != identity_dir:
+                        kill_targets.append(profile_dir)
+                    for target in kill_targets:
+                        subprocess.run(["pkill", "-f", f"camoufox.*{target}"],
+                                       capture_output=True, timeout=5)
 
         return reports
 

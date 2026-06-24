@@ -384,6 +384,15 @@ class CommandChain:
         cls._save(run)
         cls._running.pop(chain_id, None)
 
+        # 链完成后自动触发联邦采集器拉取最新数据
+        if run.status == "completed":
+            try:
+                from services.fleet_collector import collect_all
+                logger.info(f"  [{chain_id}] 链完成，自动触发联邦采集...")
+                collect_all()
+            except Exception as e:
+                logger.warning(f"  [{chain_id}] 联邦采集自动触发失败: {e}")
+
     @classmethod
     def _save(cls, run: ChainRun):
         """持久化接力链状态"""
