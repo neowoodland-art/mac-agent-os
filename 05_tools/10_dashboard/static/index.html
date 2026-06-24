@@ -3,11 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>系统监控面板</title>
+<title>AgentOS Dashboard</title>
   <script type="module" crossorigin src="/static/assets/index-DuLiCw-b.js"></script>
   <link rel="stylesheet" crossorigin href="/static/assets/index-DrEIyFIL.css">
-</head>
-<body>
 </head>
 <body>
 <nav class="sidebar" id="sidebar">
@@ -31,186 +29,12 @@
 
 <!-- Stats bar -->
 <div class="stats" id="statsBar"></div>
-
-<!-- Machine status bar (全局) -->
+<!-- Machine status bar -->
 <div id="machineBar" class="machines-bar"><span style="font-size:11px;color:var(--text2)">⏳ 加载机器状态...</span></div>
-
-<!-- Production list view -->
-
+<!-- Execution history -->
 <div id="execHistory" style="margin:8px 16px;background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);font-size:12px"><div class="loading">⏳ 加载执行历史...</div></div>
 
-  <div id="productionList"></div>
-  <div class="pagination" id="pagination"></div>
-</div>
-
-<!-- Asset view -->
-
-  <div id="assetList"></div>
-</div>
-
-<!-- Cost view -->
-
-  <div id="costBreakdown"></div>
-</div>
-
-<!-- Machine status view -->
-
-  <div id="machineGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px"></div>
-</div>
-
-<!-- Timeline view -->
-
-  <div style="margin:12px 0;font-size:12px;color:var(--text2)" id="timelineStatus">选择机器查看 CPU/磁盘变化曲线</div>
-  <canvas id="timelineChart" style="width:100%;height:300px"></canvas>
-</div>
-
-<!-- Alerts view -->
-
-</div>
-
-<!-- Summary view -->
-
-</div>
-
-<!-- Matrix cross-machine summary view -->
-
-  <div id="matrixSummaryContent"></div>
-</div>
-
-<!-- Batch execution view -->
-
-  <div id="matrixRunContent"></div>
-</div>
-
-<!-- 命令与任务（TAB：批量执行 + 定向评论） -->
-
-  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid var(--border)">
-      <div class="cmd-tab active" data-tab="cmd-run" onclick="switchCmdTab('cmd-run',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:var(--text);margin-bottom:-2px">🚀 批量执行</div>
-    <div class="cmd-tab" data-tab="cmd-comment" onclick="switchCmdTab('cmd-comment',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">💬 定向评论</div>
-    <div class="cmd-tab" data-tab="cmd-schedule" onclick="switchCmdTab('cmd-schedule',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">⏰ 定时任务</div>
-    <div class="cmd-tab" data-tab="cmd-collect" onclick="switchCmdTab('cmd-collect',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">👤 信息采集</div>
-    <div class="cmd-tab" data-tab="cmd-corpus" onclick="switchCmdTab('cmd-corpus',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">📚 语料库</div>
-    <div class="cmd-tab" data-tab="cmd-nurture" onclick="switchCmdTab('cmd-nurture',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">🌱 全部养号</div>
-  </div>
-  <div id="cmd-run-content" style="display:block">
-    <div id="matrixRunContent2"></div>
-  </div>
-  <div id="cmd-schedule-content" style="display:none">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-      <input id="schedId" placeholder="任务ID" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100px">
-      <select id="schedAccount" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:120px"><option value="">选账号</option></select>
-      <select id="schedBlueprint" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:120px">
-        <option value="douyin_daily">douyin_daily</option>
-        <option value="douyin_search">douyin_search</option>
-        <option value="douyin_comment">douyin_comment</option>
-        <option value="xhs_daily">xhs_daily</option>
-      </select>
-      <input id="schedTime" placeholder="09:00" value="09:00" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:60px">
-      <input id="schedDays" placeholder="1-7" value="1,2,3,4,5,6,7" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:90px" title="运行日 1=周一..7=周日">
-      <input id="schedRounds" placeholder="轮数" value="3" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:45px">
-      <button onclick="scheduleAdd()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">➕ 添加</button>
-    </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:8px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:6px">📋 任务列表 <span style="font-size:11px;color:var(--text2);font-weight:400">（点击🟢⚪切换启用/禁用）</span></div>
-      <div id="scheduleList" style="font-size:12px">加载中...</div>
-    </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:8px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:6px">📊 执行历史 <span style="font-size:11px;color:var(--text2);font-weight:400">最近10条</span></div>
-      <div id="scheduleHistory" style="font-size:11px">加载中...</div>
-    </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:8px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:6px">🤖 WorkBuddy 自动化任务 <span style="font-size:11px;color:var(--text2);font-weight:400">（跨机器智能体任务）</span></div>
-      <div id="autoTasksSummary" style="font-size:12px">加载中...</div>
-    </div>
-    <div style="display:flex;gap:6px;font-size:11px;color:var(--text2)">
-      <span>调度器状态：<span id="scheduleStatus">检查中...</span></span>
-      <button onclick="refreshScheduleList()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新</button>
-    </div>
-  </div>
-  <div id="cmd-collect-content" style="display:none">
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">👤 信息采集</div>
-      <div id="collectList" style="font-size:12px;margin-bottom:8px;background:var(--bg3);border-radius:6px;padding:6px">加载账号列表...</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <button onclick="cmdCollectSelected()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">👤 执行选中</button>
-        <button onclick="cmdCollectAll()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📋 全部采集</button>
-        <span id="collectSelCount2" style="font-size:10px;color:var(--text2)">已选 0 个</span>
-      </div>
-      <div id="collectStatus" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
-      <div id="collectLog" style="font-size:11px;background:var(--bg2);border-radius:6px;padding:8px;margin-top:4px;max-height:300px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
-    </div>
-  </div>
-  <div id="cmd-corpus-content" style="display:none"><div id="corpusContent3"></div></div>
-  <div id="cmd-nurture-content" style="display:none">
-    <div style="padding:40px;text-align:center">
-      <p style="font-size:14px;color:var(--text2);margin-bottom:16px">🌱 养号执行已移至独立页面，功能更完善</p>
-      <button onclick="switchView('matrix-nurture')" style="background:var(--primary);color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:13px">→ 前往养号执行</button>
-    </div>
-  </div>
-  <div id="cmd-comment-content" style="display:none">
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">💬 定向评论</div>
-      <div id="commentTaskAccountList" style="margin-bottom:8px;background:var(--bg3);border-radius:6px;padding:6px">加载账号列表...</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="cmdTaskUrl" placeholder="视频链接" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;flex:1;min-width:200px">
-        <select id="cmdTaskDirection" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
-          <option value="">自动选方向</option>
-          <option value="称赞">👍 称赞</option>
-          <option value="提问">🤔 提问</option>
-          <option value="共鸣">💗 共鸣</option>
-          <option value="感慨">😌 感慨</option>
-          <option value="客观">📊 客观</option>
-        </select>
-        <button onclick="cmdRunCommentTask()" style="background:#6366f1;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🚀 执行评论</button>
-        <span id="commentTaskSelCount" style="font-size:10px;color:var(--text2)">已选 0 个</span>
-      </div>
-      <div id="cmdTaskResult" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
-    </div>
-  </div>
-</div>
-
-<!-- Matrix account management view -->
-
-  <div style="display:flex;gap:4px;margin-bottom:12px">
-    <div class="acct-tab active" onclick="acctSwitchTab('list',this)">📋 账号列表</div>
-    <div class="acct-tab" onclick="acctSwitchTab('identity',this)">🔑 身份管理</div>
-  </div>
-  <div id="acct-tab-list"><div id="matrixAccountsContent"><div class="loading">加载中...</div></div></div>
-  <div id="acct-tab-identity" style="display:none"><div id="matrixIdentityContent"><div class="loading">加载中...</div></div></div>
-</div>
-
-<!-- Matrix blueprints view -->
-
-</div>
-
-<!-- Matrix registration view -->
-<!-- [登记注册已合并到「短信与管理」页面] -->
-
-<!-- Matrix atom ops view -->
-
-  <div id="matrixAtomOpsContent"><div class="loading">加载中...</div></div>
-</div>
-
-<!-- 🎬 录制管理 -->
-
-  <div id="recordStatus" style="font-size:12px;color:var(--text2);margin-bottom:8px"></div>
-  <div id="recordList" style="font-size:12px"><div class="loading">加载录制包...</div></div>
-  <div id="recordDetail" style="font-size:12px;margin-top:8px"></div>
-</div>
-
-<!-- ═══ 矩阵设置（TAB：导入导出 / 备份恢复 / 语料库）═══ -->
-
-  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid var(--border)">
-    <div class="set-tab active" data-tab="set-export" onclick="switchSetTab('set-export',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid #6366f1;color:var(--text);margin-bottom:-2px">📦 导入导出</div>
-    <div class="set-tab" data-tab="set-backup" onclick="switchSetTab('set-backup',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">💾 备份恢复</div>
-    <div class="set-tab" data-tab="set-corpus" onclick="switchSetTab('set-corpus',this)" style="padding:8px 16px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px">📚 语料库</div>
-  </div>
-  <div id="set-export-content" style="display:block"><div id="matrixExportContent2"></div></div>
-  <div id="set-backup-content" style="display:none"><div id="matrixBackupContent2"></div></div>
-  <div id="set-corpus-content" style="display:none"><div id="corpusContent2"></div></div>
-</div>
-
-<!-- ═══════════════════ System Knowledge Center ═══════════════════ -->
+<!-- ═══ 系统知识中心 ═══ -->
 <div id="view-kb" class="hidden">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h2 style="font-size:18px">📚 系统知识中心</h2>
@@ -219,16 +43,12 @@
       <button onclick="kbLoadLogs()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">📋 日志</button>
     </div>
   </div>
-
-  <!-- Tabs -->
   <div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
     <div class="kb-tab active" data-tab="kb-knowledge" onclick="kbSwitchTab('kb-knowledge',this)">📖 知识库</div>
     <div class="kb-tab" data-tab="kb-memory" onclick="kbSwitchTab('kb-memory',this)">🧠 记忆库</div>
     <div class="kb-tab" data-tab="kb-system" onclick="kbSwitchTab('kb-system',this)">🤖 联邦系统说明</div>
     <div class="kb-tab" data-tab="kb-skills" onclick="kbSwitchTab('kb-skills',this)">🧩 技能与工具</div>
   </div>
-
-  <!-- Tab 1: 知识库 -->
   <div id="kb-tab-knowledge" class="kb-tab-body">
     <div id="kbStats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:12px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -250,8 +70,6 @@
     </div>
     <div id="kbLogs" style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)"></div>
   </div>
-
-  <!-- Tab 2: 记忆库 -->
   <div id="kb-tab-memory" class="kb-tab-body" style="display:none">
     <div id="memStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -264,308 +82,28 @@
         </div>
         <div id="memContent" style="font-size:12px;color:var(--text2)">点击按钮查看各层详情</div>
       </div>
-      <div id="memDetailPanel" style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);overflow-y:auto;max-height:400px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 详情</div>
-        <div id="memDetailContent" style="font-size:12px;color:var(--text2)">选择左侧查看</div>
-      </div>
+      <div id="memDetailPanel" style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);overflow-y:auto;max-height:400px"><div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 详情</div><div id="memDetailContent" style="font-size:12px;color:var(--text2)">选择左侧查看</div></div>
     </div>
   </div>
-
-  <!-- Tab 3: 联邦系统 -->
   <div id="kb-tab-system" class="kb-tab-body" style="display:none">
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:12px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">🤖 联邦系统文档</div>
-      <div id="sysDocsList" style="font-size:12px;color:var(--text2)">加载中...</div>
-    </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 文档内容预览</div>
-      <div id="sysDocPreview" style="font-size:12px;color:var(--text2);max-height:400px;overflow-y:auto;white-space:pre-wrap;font-family:monospace">选择左侧文档查看</div>
-    </div>
+    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:12px"><div style="font-size:13px;font-weight:600;margin-bottom:8px">🤖 联邦系统文档</div><div id="sysDocsList" style="font-size:12px;color:var(--text2)">加载中...</div></div>
+    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 文档内容预览</div><div id="sysDocPreview" style="font-size:12px;color:var(--text2);max-height:400px;overflow-y:auto;white-space:pre-wrap;font-family:monospace">选择左侧文档查看</div></div>
   </div>
-
-  <!-- Tab 4: 技能与工具 -->
   <div id="kb-tab-skills" class="kb-tab-body" style="display:none">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">🧩 已安装技能</div>
-        <div id="skillsList" style="font-size:12px">加载中...</div>
-      </div>
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔧 工具目录</div>
-        <div id="toolsList" style="font-size:12px">加载中...</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Tab 5: Automation -->
-  <div id="kb-tab-automation" class="kb-tab-body" style="display:none">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">⏰ 跨机自动化任务</div>
-        <div id="autoTaskList" style="font-size:12px">加载中...</div>
-      </div>
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">➕ 新建任务</div>
-        <div style="margin-bottom:6px">
-          <select id="autoTarget" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
-            <option value="">目标机器...</option>
-          </select>
-          <select id="autoType" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
-            <option value="nurture_run">启动养号</option>
-            <option value="check_environment">环境检查</option>
-            <option value="refresh_profiles">刷新资料</option>
-            <option value="sync_only">Git同步</option>
-            <option value="run_script">执行脚本</option>
-          </select>
-          <input id="autoParams" placeholder='参数JSON (可选)' style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
-          <input id="autoSchedule" type="datetime-local" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px;margin-bottom:4px">
-          <div style="display:flex;gap:6px">
-            <button onclick="autoCreateTask()" style="flex:1;background:#6366f1;color:#fff;border:none;padding:6px;border-radius:6px;cursor:pointer;font-size:12px">➕ 创建</button>
-            <button onclick="autoCreateLocal()" style="flex:1;background:#22c55e;color:#fff;border:none;padding:6px;border-radius:6px;cursor:pointer;font-size:12px">📝 创建本地自动化</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 执行历史</div>
-      <div id="autoHistory" style="font-size:12px">加载中...</div>
+      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px">🧩 已安装技能</div><div id="skillsList" style="font-size:12px">加载中...</div></div>
+      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px">🔧 工具目录</div><div id="toolsList" style="font-size:12px">加载中...</div></div>
     </div>
   </div>
 </div>
 
-<!-- Matrix C2 remote control view -->
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-    <div style="background:var(--bg2);border-radius:10px;padding:20px;border:1px solid var(--border)">
-      <div style="font-size:14px;font-weight:600;margin-bottom:12px">🎮 发送命令</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-        <div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">目标机器</label>
-          <select id="c2Target" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100%"><option>加载中...</option></select></div>
-        <div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">命令类型</label>
-          <select id="c2Type" onchange="toggleC2Params()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100%">
-            <option value="check_environment">环境检查</option>
-            <option value="nurture_run">启动养号</option>
-            <option value="nurture_stop">停止养号</option>
-            <option value="refresh_profiles">刷新资料</option>
-            <option value="sync_only">Git同步</option>
-          </select></div>
-        <div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">定时</label>
-          <input id="c2Schedule" type="datetime-local" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
-      </div>
-      <div id="c2NurtureParams" class="hidden">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-          <div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">账号 (逗号分隔)</label>
-            <input id="c2Accounts" placeholder="douyin_01,xhs_01" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
-          <div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">轮次</label>
-            <input id="c2Rounds" type="number" value="10" min="1" max="50" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;width:100%"></div>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button onclick="sendC2Command()" style="background:#6366f1;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">➡ 发送</button>
-        <button onclick="loadC2Machines()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">⟳ 刷新状态</button>
-      </div>
-      <div id="c2Result" class="mt-4"></div>
-    </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:20px;border:1px solid var(--border)">
-      <div style="font-size:14px;font-weight:600;margin-bottom:12px">💻 机器状态</div>
-      <div id="c2MachineStatus"><div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">加载中...</div></div>
-    </div>
-  </div>
-  <div style="background:var(--bg2);border-radius:10px;padding:20px;border:1px solid var(--border)">
-    <div style="font-size:14px;font-weight:600;margin-bottom:12px">📋 命令执行历史</div>
-    <div id="c2CommandHistory"><div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">暂无历史</div></div>
-  </div>
-</div>
-
-<!-- Matrix backup view -->
-
-  <div id="backupResultHeader" style="margin-bottom:10px;font-size:13px"></div>
-  <div id="matrixBackupContent"><div class="loading">加载中...</div></div>
-</div>
-
-<!-- Matrix export view -->
-
-  <div id="matrixExportContent"><div class="loading">加载中...</div></div>
-
-  <div id="characterGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px"></div>
-</div>
-
-<!-- Character Generation view -->
-
-  
-  <!-- Step 1: 方向输入 → AI自动填充 -->
-  <div id="charGenStep1" style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid var(--border);margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <span style="background:var(--primary);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">1</span>
-      <span style="font-weight:600">输入角色方向 · 一键填充所有模块</span>
-    </div>
-    <div style="margin-bottom:10px">
-      <textarea id="charGenDirection" rows="2" placeholder="例如：一个运动型中年男性，喜欢户外跑步和健身" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="charGenAutoFill()" style="background:var(--primary);border:none;color:#fff;padding:7px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🤖 自动填充所有模块</button>
-      <span style="font-size:11px;color:var(--text2)">AI 根据方向自动填写下方7个模块的每一字段，然后可手动微调</span>
-    </div>
-    <div id="charGenStep1Result" style="margin-top:8px;font-size:12px;color:var(--text2)"></div>
-  </div>
-  
-  <!-- Step 2: 模块化编辑面板（7个可折叠章节） -->
-  <div id="charGenStep2" class="hidden" style="margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <span style="background:var(--green);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">2</span>
-      <span style="font-weight:600">精细调整各模块</span>
-      <span style="font-size:11px;color:var(--text2)">展开每个模块，从下拉选项中选择或输入自定义描述</span>
-    </div>
-    
-    <!-- 模块切换标签 -->
-    <div id="charGenTabs" style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap"></div>
-    
-    <!-- 模块内容容器 -->
-    <div id="charGenPanelContent"></div>
-    
-    <!-- 底部汇总参数 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin:12px 0;padding:12px;background:var(--bg3);border-radius:6px">
-      <div>
-        <div style="font-size:10px;color:var(--text2);margin-bottom:2px">角色名</div>
-        <input id="charGenName" placeholder="自动生成" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:12px">
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--text2);margin-bottom:2px">种子 (seed)</div>
-        <input id="charGenSeed" type="number" value="42" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:12px">
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--text2);margin-bottom:2px">网格模式</div>
-        <select id="charGenGridMode" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:12px">
-          <option value="standard">标准 2×3</option>
-          <option value="sport">运动 4×2</option>
-        </select>
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--text2);margin-bottom:2px">生成变体图像</div>
-        <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;margin-top:4px">
-          <input type="checkbox" id="charGenGenImages" checked> 是
-        </label>
-      </div>
-    </div>
-    
-    <!-- 实时提示词预览 -->
-    <div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-size:11px;color:var(--text2);font-weight:600">📝 实时提示词预览</span>
-        <span style="font-size:10px;color:var(--text2)">每次选择后自动更新</span>
-      </div>
-      <textarea id="charGenPromptPreview" rows="4" readonly style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:11px;font-family:monospace;resize:none;opacity:0.8"></textarea>
-    </div>
-    
-    <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="charGenRun()" style="background:var(--green);border:none;color:#fff;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🎬 生成角色</button>
-      <span style="font-size:11px;color:var(--text2)">生成后将自动注册到角色库 + 知识库回写</span>
-    </div>
-    <div id="charGenStep2Result" style="margin-top:8px;font-size:12px"></div>
-  </div>
-  
-  <!-- Step 3: 生成结果预览 -->
-  <div id="charGenStep3" class="hidden" style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid var(--border);margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <span style="background:var(--amber);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">3</span>
-      <span id="charGenResultTitle" style="font-weight:600">生成结果</span>
-    </div>
-    <div id="charGenResultBody"></div>
-  </div>
-</div>
-  
-  <!-- Step 3: 生成结果预览（初始隐藏） -->
-  <div id="charGenStep3" class="hidden card" style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid var(--border);margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <span style="background:var(--amber);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">3</span>
-      <span id="charGenResultTitle" style="font-weight:600">生成结果</span>
-    </div>
-    <div id="charGenResultBody"></div>
-  </div>
-</div>
-
-<!-- Capabilities view -->
-
-  <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap" id="capGroupTabs"></div>
-  <div id="capabilityContent"></div>
-</div>
-
-<!-- Workflow view -->
-
-</div>
-
-<!-- ═══ 计划对齐导航视图（Shell占位 + 重定向）═══ -->
-
-<!-- 矩阵系列：养号执行（重定向到 matrix-commands 的养号tab） -->
-</div>
-
-<!-- 矩阵系列：信息采集 -->
-</div>
-
-<!-- 矩阵系列：内容发布 -->
-</div>
-
-<!-- 矩阵系列：定向评论 -->
-</div>
-
-<!-- 矩阵系列：定时任务 -->
-</div>
-
-<!-- 视频工厂系列：渲染任务 -->
-</div>
-
-<!-- 视频工厂系列：脚本生成 -->
-</div>
-
-<!-- 视频工厂系列：素材库 -->
-</div>
-
-<!-- 视频工厂系列：模板 -->
-</div>
-
-<!-- 矩阵系列：收藏点赞（新建） -->
-</div>
-
-<!-- 矩阵系列：登录管理（新建） -->
+<!-- ═══ 登录管理（新建）═══ -->
 <div id="view-matrix-login" class="hidden"><div class="loading">⏳ 加载登录管理...</div></div>
 
-<!-- 联邦指挥台（新建） -->
-</div>
-
-<!-- 内容采集系列：采集任务（重定向到 plugin-collector） -->
-</div>
-
-<!-- 内容采集系列：源管理 -->
-</div>
-
-<!-- 内容采集系列：采集历史 -->
-</div>
-
-<!-- 联邦系列：一键同步 -->
-</div>
-
-<!-- 联邦系列：对账检查 -->
-</div>
-
-<!-- 联邦系列：远程Shell -->
-</div>
-
-<!-- 服务系列：MCP状态 -->
-</div>
-
-<!-- 服务系列：Dashboard日志 -->
-</div>
-
-<!-- 服务系列：全局定时任务 -->
-</div>
-
-<!-- Production detail modal -->
-<div id="detailModal" class="hidden"></div>
-
-<!-- ═══ 动态视图容器（供已迁移视图用）═══ -->
+<!-- ═══ 动态视图容器（供46个已迁移视图用）═══ -->
 <div id="view-dynamic" class="hidden"></div>
 
-<!-- Blueprint Execute Modal -->
+<!-- ═══ 蓝图执行弹窗 ═══ -->
 <div id="bpExecModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.7);align-items:center;justify-content:center" onclick="if(event.target===this)closeBpModal()">
   <div style="background:var(--bg2);border-radius:12px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto" id="bpExecContent" onclick="event.stopPropagation()"></div>
 </div>
