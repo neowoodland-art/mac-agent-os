@@ -458,7 +458,7 @@ class DouyinOps(PlatformOps):
         self._last_comments = []
 
     def set_account_id(self, aid: str):
-        self.account_id = aid
+        self._account_id = aid
 
     # ── 内部工具 ──────────────────────────────────────────────
 
