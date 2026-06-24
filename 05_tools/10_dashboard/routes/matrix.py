@@ -1148,6 +1148,117 @@ def api_matrix_cross_machines():
     return {"machines": [{"hostname": HOSTNAME, "accounts": [], "status": "online"}]}
 
 
+@router.get("/diag/accounts")
+def api_matrix_diag_accounts():
+    """诊断：追踪单个账号的完整数据链"""
+    result = {
+        "steps": {},
+        "error": None,
+    }
+    try:
+        # Step 1: ORACLE.yaml 中的账号声明
+        oracle_path = AGENT_SYNC / "ORACLE.yaml"
+        if oracle_path.exists():
+            import yaml
+            oracle = yaml.safe_load(oracle_path.read_text())
+            result["steps"]["oracle_accounts"] = len(oracle.get("accounts", []))
+
+        # Step 2: accounts.yaml 配置
+        mgr = _get_matrix_mgr()
+        accounts = mgr.list_accounts()
+        result["steps"]["yaml_accounts"] = len(accounts)
+        # 只看第一个远程账号的完整数据
+        sample = None
+        for a in accounts:
+            if a.get("owner_machine") and a.get("owner_machine") != HOSTNAME:
+                sample = {k: v for k, v in a.items() if not k.startswith("_")}
+                sample["_status"] = a.get("_status")
+                sample["owner_machine"] = a.get("owner_machine")
+                break
+        result["steps"]["sample_account"] = sample
+
+        # Step 3: 本地 profiles.json
+        pf_local = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
+        if pf_local.exists():
+            pf_data = json.loads(pf_local.read_text())
+            result["steps"]["local_profiles_count"] = len(pf_data)
+            if sample:
+                aid = sample.get("id", "")
+                pid = sample.get("identity_dir", "").replace("identities/", "")
+                result["steps"]["local_profiles_by_aid"] = pf_data.get(aid, "NOT FOUND")
+                result["steps"]["local_profiles_by_pid"] = pf_data.get(pid, "NOT FOUND")
+        else:
+            result["steps"]["local_profiles_count"] = "FILE NOT FOUND"
+
+        # Step 4: fleet_collector 缓存
+        fleet_dir = AGENT_LOCAL / "runtime" / "fleet_collector"
+        result["steps"]["fleet_cache"] = {}
+        if fleet_dir.exists():
+            for md in sorted(fleet_dir.iterdir()):
+                cache_entry = {"has_homepage": False, "has_profiles": False, "collected_at": ""}
+                hp_file = md / "homepage_info.json"
+                if hp_file.exists():
+                    cache_entry["has_homepage"] = True
+                    hp_data = json.loads(hp_file.read_text())
+                    cache_entry["homepage_count"] = len(hp_data.get("results", []))
+                    # 找 sample 账号
+                    if sample:
+                        pid = sample.get("identity_dir", "").replace("identities/", "")
+                        for entry in hp_data.get("results", []):
+                            if entry.get("identity_dir", "").replace("identities/", "") == pid:
+                                cache_entry["homepage_match"] = entry
+                                break
+                pf_file = md / "profiles.json"
+                if pf_file.exists():
+                    cache_entry["has_profiles"] = True
+                    pf_data = json.loads(pf_file.read_text())
+                    cache_entry["profiles_count"] = len(pf_data)
+                    if sample:
+                        aid = sample.get("id", "")
+                        cache_entry["profiles_by_aid"] = pf_data.get(aid, "NOT FOUND")
+                ca_file = md / "collected_at.txt"
+                if ca_file.exists():
+                    cache_entry["collected_at"] = ca_file.read_text().strip()[:19]
+                result["steps"]["fleet_cache"][md.name] = cache_entry
+        else:
+            result["steps"]["fleet_cache"]["status"] = "NOT CREATED"
+
+        # Step 5: API 最终返回
+        final = {}
+        if sample:
+            aid = sample.get("id", "")
+            pid = sample.get("identity_dir", "").replace("identities/", "")
+            # 模拟 API 合并逻辑
+            pf_local_data = json.loads(pf_local.read_text()) if pf_local.exists() else {}
+            profile = pf_local_data.get(aid) or pf_local_data.get(pid) or {}
+            final["from_local_profiles"] = profile.get("nickname", "-") if profile else "NOT FOUND"
+            if not profile:
+                # fleet collector fallback
+                for md in sorted(fleet_dir.iterdir()):
+                    hp_file = md / "homepage_info.json"
+                    if hp_file.exists():
+                        hp_data = json.loads(hp_file.read_text())
+                        for entry in hp_data.get("results", []):
+                            if entry.get("identity_dir", "").replace("identities/", "") == pid:
+                                for pk in ("douyin", "xiaohongshu"):
+                                    pd = entry.get(pk, {}) or {}
+                                    if pd.get("nickname"):
+                                        final["from_fleet_homepage"] = pd["nickname"]
+                                        final["from_fleet_machine"] = md.name
+                                        break
+                            if final.get("from_fleet_homepage"):
+                                break
+                    if final.get("from_fleet_homepage"):
+                        break
+        result["steps"]["final_api_nickname"] = final.get("from_fleet_homepage") or final.get("from_local_profiles") or "EMPTY!"
+        result["steps"]["final_source"] = "fleet" if "from_fleet_homepage" in final else ("local" if "from_local_profiles" in final else "NONE")
+
+    except Exception as e:
+        import traceback
+        result["error"] = f"{e}\n{traceback.format_exc()}"
+    return result
+
+
 @router.get("/corpus")
 def api_matrix_corpus():
     """获取语料库"""

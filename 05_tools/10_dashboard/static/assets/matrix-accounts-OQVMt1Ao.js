@@ -1,4 +1,4 @@
-import{t as e}from"./index-BhsSOQ_S.js";import{t}from"./account-selector-DBZWFo9Z.js";async function n(n){n.innerHTML=`
+import{t as e}from"./index-Do7HkwhE.js";import{t}from"./account-selector-DVsh4R5m.js";async function n(n){n.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="font-size:18px">👤 账号管理</h2>
       <button onclick="window.showCreateAccount()" class="btn btn-primary btn-sm" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">+ 新建账号</button>

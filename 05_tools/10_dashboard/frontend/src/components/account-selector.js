@@ -1,31 +1,19 @@
 /**
- * 统一账号选择器
+ * 统一账号选择器（v2 — 全字段版）
  * 
- * 所有视图共用的账号选择组件。
- * 支持三级分组（机器→身份→账号）、搜索、筛选、多选。
- * 每个视图只需传账号数据 + 配置选项，返回选择结果。
+ * 显示字段: 身份目录 | 账号ID | 昵称 | 粉丝 | 关注 | 获赞 | 作品 | 平台 | 状态 | 蓝图 | 采集时间
+ * 
+ * @param {object} opts.accounts - [{id, platform, owner_machine, identity_dir, phone, 
+ *   _status, nickname, fans, following, likes, posts, enabled}]
+ * @param {object} [opts.hpIndex] - 采集信息索引 {identity_dir: {douyin: {}, xiaohongshu: {}}}
+ * @param {boolean} [opts.checkAll=true] - 默认全选
+ * @param {string} [opts.height='350px'] - 最大高度
+ * @param {boolean} [opts.compact=false] - 紧凑模式
+ * @param {function} [opts.onSelect] - 选择变更回调
  */
 
 let _uidCounter = 0;
 
-/**
- * 创建账号选择器
- * @param {HTMLElement|string} container - 容器元素或ID
- * @param {object} opts
- * @param {Array} opts.accounts - 账号数组 [{id, platform, owner_machine, identity_dir, phone, _status, enabled}]
- * @param {object} [opts.hpIndex] - 采集信息索引 {identity_dir: {douyin: {}, xiaohongshu: {nickname, collected_at} }}
- * @param {boolean} [opts.checkAll=true] - 默认全选
- * @param {string} [opts.height='350px'] - 最大高度
- * @param {boolean} [opts.compact=false] - 紧凑模式（无搜索、无统计、无采集时间列）
- * @param {string} [opts.filterMachine=''] - 只显示某台机器
- * @param {string} [opts.filterPlatform=''] - 只显示某平台
- * @param {boolean} [opts.showPlatform=true] - 显示平台图标列
- * @param {boolean} [opts.showStatus=true] - 显示登录状态列
- * @param {boolean} [opts.showBlueprint=true] - 显示蓝图列
- * @param {boolean} [opts.showCollectTime=true] - 显示采集时间列
- * @param {function} [opts.onSelect] - 选择变更回调 (selected) => void
- * @returns {object} { el, getSelected(), getCount(), uid }
- */
 export function createAccountSelector(container, opts = {}) {
   const el = typeof container === 'string' ? document.getElementById(container) : container;
   if (!el) return null;
@@ -35,10 +23,6 @@ export function createAccountSelector(container, opts = {}) {
   const hpIndex = opts.hpIndex || {};
   const checkAll = opts.checkAll !== false;
   const compact = !!opts.compact;
-  const showPlat = opts.showPlatform !== false;
-  const showStatus = opts.showStatus !== false;
-  const showBP = opts.showBlueprint !== false;
-  const showCol = opts.showCollectTime !== false && !compact;
 
   // 机器→身份分组
   const tree = {};
@@ -60,7 +44,7 @@ export function createAccountSelector(container, opts = {}) {
 
   let html = '';
 
-  // 搜索框（非紧凑模式）
+  // 搜索框
   if (!compact) {
     html += `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
       <input class="as-filter-${uid}" placeholder="🔍 搜索账号ID/手机号/昵称..."
@@ -88,43 +72,78 @@ export function createAccountSelector(container, opts = {}) {
     html += `<span id="${grpId}_arrow" style="font-size:9px;opacity:.6">▼</span>`;
     html += `<input type="checkbox" onclick="event.stopPropagation();_toggleMachineCB(this,'${uid}')" data-machine="${machine}" ${checkAll ? 'checked' : ''}>`;
     html += `<strong>${machineLabel}</strong>`;
-    html += `<span style="font-size:9px;color:var(--text2)">${identCount} 身份 ${acctCount} 账号 | ${loggedIn} 已登录</span>`;
+    html += `<span style="font-size:9px;color:var(--text2)">${identCount}身份 ${acctCount}账号 | ${loggedIn}已登录</span>`;
     html += '</div>';
     html += `<div id="${grpId}" style="overflow-x:auto">`;
     html += '<table style="width:100%;font-size:10px;border-collapse:collapse"><tbody>';
 
+    // 表头
+    html += '<tr style="font-size:9px;color:var(--text2);border-bottom:1px solid var(--border)">';
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:left">身份/手机</th>';
+    html += '<th style="padding:2px 4px;font-weight:400;width:20px"></th>'; // checkbox col header
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:left">账号ID</th>';
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:left">昵称</th>';
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:right" title="粉丝">👥</th>';
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:right" title="关注">👍</th>';
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:right" title="获赞">❤️</th>';
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:right" title="作品">📝</th>';
+    html += '<th style="padding:2px 4px;font-weight:400"></th>'; // platform
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:left">状态</th>';
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:left">蓝图</th>';
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:left">采集</th>';
+    html += '</tr>';
+
     Object.keys(idents).sort().forEach(ident => {
       const identity = idents[ident];
       const hp = hpIndex[ident] || hpIndex[identity.phone];
-      const phoneDisplay = identity.phone ? identity.phone.slice(0, 11) : ident.replace('phone_', '');
-      const nickDisplay = hp?.display_name ? hp.display_name.slice(0, 10) : '';
+      const phoneDisplay = identity.phone ? identity.phone.slice(0, 11) : '';
+      // 身份路径简称：identities/xxx → xxx
+      const identShort = ident.replace('identities/', '');
       const rowspan = identity.accounts.length;
 
       identity.accounts.forEach((a, idx) => {
         const plat = a.platform === 'douyin' ? '🎵' : '📕';
         const defBP = a.platform === 'xiaohongshu' ? 'xhs_daily' : 'douyin_daily';
         const hpAcc = hp ? (a.platform === 'douyin' ? hp.douyin : hp.xiaohongshu) : null;
-        const nickname = hpAcc?.nickname ? hpAcc.nickname.slice(0, 12) : '';
+        const nickname = hpAcc?.nickname || a.nickname || '';
+        const fans = hpAcc?.fans || a.fans || '';
+        const following = hpAcc?.following || a.following || '';
+        const likes = hpAcc?.likes || a.likes || '';
+        const posts = hpAcc?.posts || a.posts || '';
         const hpTime = hpAcc?.collected_at || '';
         const hpTimeDisplay = hpTime ? new Date(hpTime).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
 
-        let statusIcon = '';
-        if (showStatus) {
-          statusIcon = a._status === 'logged_in'
-            ? '<span class="badge badge-green" style="font-size:9px">已登录</span>'
-            : `<span class="badge badge-amber" style="font-size:9px">${a._status || '未知'}</span>`;
-        }
+        // 状态图标
+        const statusMap = {
+          'logged_in':     '<span style="color:#22c55e;font-size:9px">🟢 已登录</span>',
+          'remote':        '<span style="color:#6366f1;font-size:9px">🔵 远程</span>',
+          'expired':       '<span style="color:#f59e0b;font-size:9px">🟡 过期</span>',
+          'no_cookie':     '<span style="color:#ef4444;font-size:9px">🔴 无Cookie</span>',
+          'disabled':      '<span style="color:#9ca3af;font-size:9px">⚪ 禁用</span>',
+          'error':         '<span style="color:#ef4444;font-size:9px">❌ 错误</span>',
+        };
+        const statusIcon = statusMap[a._status] || `<span style="color:var(--text2);font-size:9px">${a._status || '未知'}</span>`;
 
         html += `<tr class="as-row-${uid}" data-account="${a.id}" data-machine="${machine}" data-platform="${a.platform}" data-bp="${defBP}">`;
         if (idx === 0) {
-          html += `<td rowspan="${rowspan}" style="padding:2px 4px;font-size:9px;color:var(--text2);vertical-align:middle;border-right:1px solid var(--border);white-space:nowrap">📱${phoneDisplay}${nickDisplay ? ' ' + nickDisplay : ''}</td>`;
+          // 身份行（合并单元格）
+          const dirDisplay = identShort.length > 20 ? identShort.slice(0, 18) + '…' : identShort;
+          html += `<td rowspan="${rowspan}" style="padding:2px 4px;font-size:9px;color:var(--text2);vertical-align:middle;border-right:1px solid var(--border);white-space:nowrap" title="身份: ${identShort}">`;
+          html += `📁${dirDisplay}`;
+          if (phoneDisplay) html += `<br><span style="opacity:.6">📱${phoneDisplay}</span>`;
+          html += '</td>';
         }
         html += `<td style="padding:2px 3px;width:20px"><input type="checkbox" class="as-cb-${uid}" value="${a.id}" data-plat="${a.platform}" data-bp="${defBP}" data-machine="${machine}" ${checkAll ? 'checked' : ''} onchange="_onASChange('${uid}')"></td>`;
         html += `<td style="padding:2px 4px;white-space:nowrap"><strong>${a.id}</strong></td>`;
-        if (showPlat) html += `<td style="padding:2px 4px">${plat}</td>`;
-        if (showStatus) html += `<td style="padding:2px 4px;white-space:nowrap">${statusIcon}</td>`;
-        if (showBP) html += `<td style="padding:2px 4px;font-size:9px;color:var(--text2);white-space:nowrap">📋${defBP}</td>`;
-        if (showCol) html += `<td style="padding:2px 4px;font-size:9px;color:var(--text2);white-space:nowrap">采集:${hpTimeDisplay}</td>`;
+        html += `<td style="padding:2px 4px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nickname || '-'}</td>`;
+        html += `<td style="padding:2px 4px;text-align:right;white-space:nowrap">${fans || '-'}</td>`;
+        html += `<td style="padding:2px 4px;text-align:right;white-space:nowrap">${following || '-'}</td>`;
+        html += `<td style="padding:2px 4px;text-align:right;white-space:nowrap">${likes || '-'}</td>`;
+        html += `<td style="padding:2px 4px;text-align:right;white-space:nowrap">${posts || '-'}</td>`;
+        html += `<td style="padding:2px 4px">${plat}</td>`;
+        html += `<td style="padding:2px 4px;white-space:nowrap">${statusIcon}</td>`;
+        html += `<td style="padding:2px 4px;font-size:9px;color:var(--text2);white-space:nowrap">📋${defBP}</td>`;
+        html += `<td style="padding:2px 4px;font-size:9px;color:var(--text2);white-space:nowrap">${hpTimeDisplay || '-'}</td>`;
         html += '</tr>';
       });
     });
@@ -133,7 +152,7 @@ export function createAccountSelector(container, opts = {}) {
   });
   html += '</div>';
 
-  // 统计行（非紧凑模式）
+  // 统计行
   if (!compact) {
     html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 4px;font-size:10px;color:var(--text2)">
       <span>共 ${allAccts.length} 个账号</span>
@@ -143,15 +162,11 @@ export function createAccountSelector(container, opts = {}) {
 
   el.innerHTML = html;
   _refreshCount(uid);
-
-  // 注册全局辅助函数
   _registerGlobals();
 
-  const api = {
+  return {
     uid,
     el,
-
-    /** 获取选中账号列表 */
     getSelected() {
       return Array.from(document.querySelectorAll(`.as-cb-${uid}:checked`)).map(cb => ({
         id: cb.value,
@@ -160,29 +175,19 @@ export function createAccountSelector(container, opts = {}) {
         machine: cb.dataset.machine,
       }));
     },
-
-    /** 获取选中数量 */
     getCount() {
       return document.querySelectorAll(`.as-cb-${uid}:checked`).length;
     },
-
-    /** 全选/取消全选 */
     selectAll(checked) {
       document.querySelectorAll(`.as-cb-${uid}`).forEach(cb => cb.checked = !!checked);
       _refreshCount(uid);
-      if (opts.onSelect) opts.onSelect(api.getSelected());
+      if (opts.onSelect) opts.onSelect(this.getSelected());
     },
-
-    /** 销毁 */
     destroy() {
       el.innerHTML = '';
     },
   };
-
-  return api;
 }
-
-// ── 内部辅助 ──
 
 function _refreshCount(uid) {
   const checked = document.querySelectorAll(`.as-cb-${uid}:checked`).length;
@@ -203,25 +208,25 @@ function _registerGlobals() {
     if (arrow) arrow.textContent = hidden ? '▼' : '▶';
   };
 
-  window._toggleMachineCB = function (master, uid) {
-    const machine = master.dataset.machine;
-    document.querySelectorAll(`.as-cb-${uid}[data-machine="${machine}"]`).forEach(cb => cb.checked = master.checked);
-    _refreshCount(uid);
-  };
-
-  window._filterAS = function (uid) {
-    const q = (document.querySelector(`.as-filter-${uid}`)?.value || '').toLowerCase();
-    document.querySelectorAll(`.as-row-${uid}`).forEach(row => {
-      const acct = row.dataset.account || '';
-      const phone = row.querySelector('td:first-child')?.textContent?.replace('📱', '') || '';
-      const nick = row.querySelectorAll('td')[4]?.textContent || '';
-      const match = !q || acct.includes(q) || phone.includes(q) || nick.includes(q);
-      row.style.display = match ? '' : 'none';
-    });
+  window._toggleMachineCB = function (cb, uid) {
+    const machine = cb.dataset.machine;
+    const checked = cb.checked;
+    document.querySelectorAll(`.as-cb-${uid}[data-machine="${machine}"]`).forEach(c => c.checked = checked);
     _refreshCount(uid);
   };
 
   window._onASChange = function (uid) {
     _refreshCount(uid);
+    // 触发自定义事件供外部监听
+    const evt = new CustomEvent('acct-selector-change', { detail: { uid } });
+    document.dispatchEvent(evt);
+  };
+
+  window._filterAS = function (uid) {
+    const q = document.querySelector(`.as-filter-${uid}`)?.value?.toLowerCase() || '';
+    document.querySelectorAll(`.as-row-${uid}`).forEach(row => {
+      const txt = (row.textContent || '').toLowerCase();
+      row.style.display = txt.includes(q) ? '' : 'none';
+    });
   };
 }
