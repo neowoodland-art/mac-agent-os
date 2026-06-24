@@ -70,13 +70,14 @@ export async function loadView(container) {
       let filtered = allAccounts;
       if (q) { const lq = q.toLowerCase(); filtered = allAccounts.filter(a => (a.id+a.phone+(a.nickname||'')+(a.identity_dir||'')+(a.owner_machine||'')).toLowerCase().includes(lq)); }
       if (machine) filtered = filtered.filter(a => a.owner_machine === machine);
-      const machineList = [...new Set(allAccounts.map(a => a.owner_machine).filter(Boolean))];
+      // machineList 已在外部定义
       const tableDiv = document.getElementById('acctTable');
       if (tableDiv) tableDiv.innerHTML = buildAccounts(filtered);
       const cnt = document.getElementById('acctCount');
       if (cnt) cnt.textContent = `共 ${filtered.length}/${allAccounts.length} 个`;
     }
 
+    const machineList = [...new Set(allAccounts.map(a => a.owner_machine).filter(Boolean))];
     container.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <h2 style="font-size:18px;margin:0">👤 账号管理</h2>
