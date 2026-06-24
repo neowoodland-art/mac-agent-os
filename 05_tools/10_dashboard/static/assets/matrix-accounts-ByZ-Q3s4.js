@@ -1,9 +1,0 @@
-import{t as e}from"./index-DBYwbIf1.js";import{t}from"./account-selector-DVsh4R5m.js";async function n(n){n.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <h2 style="font-size:18px">👤 账号管理</h2>
-      <div style="display:flex;gap:6px">
-        <button onclick="window.showCreateAccount()" class="btn btn-primary btn-sm" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">+ 新建账号</button>
-        <button onclick="window._goSmsProxy()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📡 短信与代理</button>
-      </div>
-    </div>
-    <div id="matrixAccountsContent"><div class="loading">⏳ 加载账号数据...</div></div>`,window._goSmsProxy=()=>{try{window.switchView(`matrix-sms-proxy`)}catch{}};try{let n=(e,t)=>new Promise((n,r)=>setTimeout(()=>r(Error(t)),e)),[r,i]=await Promise.all([Promise.race([e(`/matrix/accounts`),n(1e4,`/matrix/accounts 超时`)]),Promise.race([e(`/matrix/homepage-info`).catch(()=>({results:[]})),n(1e4,`/matrix/homepage-info 超时`)])]),a=Array.isArray(r)?r:r.accounts||[],o=document.getElementById(`matrixAccountsContent`);if(!o)return;if(!a.length){o.innerHTML=`<div class="error">暂无账号</div>`;return}let s={};(i.results||[]).forEach(e=>{e.identity_dir&&(s[e.identity_dir]=e),e.phone&&(s[e.phone]=e)});let c=document.createElement(`div`);o.innerHTML=``,o.appendChild(c),t(c,{accounts:a,hpIndex:s,checkAll:!1,height:`500px`,showBlueprint:!0})}catch(e){let t=document.getElementById(`matrixAccountsContent`);t&&(t.innerHTML=`<div class="error">❌ 加载失败: ${e.message}</div>`)}}export{n as loadView};
