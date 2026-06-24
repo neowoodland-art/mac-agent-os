@@ -1,93 +1,76 @@
 /**
- * 短信与代理管理视图（已迁移）
- * 自包含数据加载 + 委托 inline.js 函数处理交互
+ * 短信与代理管理（v2 自包含版 — 不依赖外部组件）
  */
-
-import { apiRequest } from '../router.js';
-
 export async function loadView(container) {
-  container.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <h2 style="font-size:18px">📡 短信与代理</h2>
-      <button onclick="window._migratedSmsReload()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">📱 短信接收</div>
-        <div id="smsConfigPanel" style="font-size:12px">加载中...</div>
-        <hr style="border-color:var(--border);margin:8px 0">
-        <div style="font-size:11px;color:var(--text2);margin-bottom:4px">选择账号 <span style="font-size:10px;color:#6366f1">(输入手机号快速匹配)</span></div>
-        <div style="display:flex;gap:4px;margin-bottom:4px">
-          <div style="flex:1;position:relative">
-            <input id="smsAccountSearch" placeholder="输入手机号/昵称搜索..." autocomplete="off"
-              oninput="smsFilterAccounts()" onfocus="smsFilterAccounts()"
-              style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px">
-            <select id="smsAccountSelect" onchange="smsSelectAccount()" size="4"
-              style="display:none;position:absolute;top:100%;left:0;right:0;z-index:10;background:var(--bg2);border:1px solid var(--primary);color:var(--text);padding:2px;border-radius:5px;font-size:11px;max-height:150px">
-              <option value="">— 选择账号 —</option>
-            </select>
-          </div>
-          <button onclick="smsCheckSelected()" style="background:var(--primary);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px">📥 查短信</button>
-        </div>
-        <div id="smsSelectedAccount" style="font-size:11px;margin-top:2px;color:var(--green)"></div>
-        <div id="smsMessages" style="font-size:11px;margin-top:4px;max-height:200px;overflow-y:auto"></div>
-        <div id="collectProfileStatus" style="font-size:11px;margin-top:2px"></div>
-      </div>
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">🖥️ 代理配置</div>
-        <div id="proxyList" style="font-size:12px">加载中...</div>
-        <hr style="border-color:var(--border);margin:8px 0">
-        <div style="font-size:11px;color:var(--text2);margin-bottom:4px">账号概览</div>
-        <div id="smsAccountsOverview" style="font-size:12px">加载中...</div>
-      </div>
-    </div>
-    <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔧 API 配置</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input id="smsNewPhone" placeholder="新手机号" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px;width:140px">
-        <input id="smsApiKey" placeholder="API Key" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px;width:200px">
-        <button onclick="smsUpdateAndTest()" style="background:#22c55e;color:#000;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px">💾 保存并测试</button>
-      </div>
-      <div id="smsQueryPanel" style="font-size:11px;margin-top:4px"></div>
-    </div>`;
-
-  // 加载数据
-  await loadSmsData();
-
-  // 注册刷新函数
-  window._migratedSmsReload = loadSmsData;
-}
-
-async function loadSmsData() {
+  container.innerHTML = '<div class="loading">⏳ 加载中...</div>';
   try {
-    const [configR, proxyR, phoneR, acctsR, personaR, recR] = await Promise.all([
-      fetch('/api/matrix/sms/config').catch(() => null),
-      fetch('/api/matrix/proxy/list').catch(() => null),
-      fetch('/api/matrix/sms/phones').catch(() => null),
-      fetch('/api/matrix/sms/accounts').catch(() => null),
-      fetch('/api/matrix/personas').catch(() => null),
-      fetch('/api/matrix/recordings/stats').catch(() => null),
+    const BASE = '/api';
+    // 并行加载所有数据
+    const [configD, proxyD] = await Promise.all([
+      fetch(BASE + '/matrix/sms/config').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(BASE + '/matrix/proxy/list').then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
 
-    // SMS 配置
-    if (configR?.ok) {
-      const config = await configR.json();
-      const panel = document.getElementById('smsConfigPanel');
-      if (panel) panel.innerHTML = `<pre style="margin:0;font-size:11px">${JSON.stringify(config, null, 2)}</pre>`;
-    }
+    function fmt(v) { return v != null && v !== '' ? v : '-'; }
 
-    // 代理列表
-    if (proxyR?.ok) {
-      const proxies = await proxyR.json();
-      const list = document.getElementById('proxyList');
-      if (list) {
-        const items = Array.isArray(proxies) ? proxies : (proxies.proxies || []);
-        list.innerHTML = items.length
-          ? items.map(p => `<div style="padding:3px 0;font-size:11px">🔌 ${p.name || p.host || p}</div>`).join('')
-          : '<span style="color:var(--text2);font-size:11px">无代理配置</span>';
-      }
-    }
-  } catch(e) {
-    console.error('loadSmsData error:', e);
+    const configHtml = configD
+      ? `<div style="font-size:11px;line-height:1.6">
+          <div>📱 短信平台: <strong>${fmt(configD.provider || configD.platform)}</strong></div>
+          <div>📊 余额: <strong>${fmt(configD.balance)}</strong></div>
+          <div>📡 API: <span style="font-size:10px;color:var(--text2)">${fmt(configD.api_url || configD.endpoint)}</span></div>
+         </div>`
+      : '<span style="color:var(--text2);font-size:11px">⚠️ 未配置短信平台</span>';
+
+    const proxyArr = proxyD ? (Array.isArray(proxyD) ? proxyD : (proxyD.proxies || [])) : [];
+    const proxyHtml = proxyArr.length
+      ? proxyArr.map(p => `<div style="padding:3px 0;font-size:11px">🔌 ${p.name || p.host || p}${p.location ? ' ('+p.location+')' : ''}</div>`).join('')
+      : '<span style="color:var(--text2);font-size:11px">无代理配置</span>';
+
+    container.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 style="font-size:18px;margin:0">📡 短信与代理</h2>
+        <button onclick="location.reload()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">📱 短信接收</div>
+          <div id="smsConfigPanel">${configHtml}</div>
+          <hr style="border-color:var(--border);margin:8px 0">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:4px">选择账号</div>
+          <div style="display:flex;gap:4px">
+            <input id="smsPhone" placeholder="输入手机号" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:5px;font-size:12px">
+            <button onclick="window._smsCheck()" style="background:var(--primary);color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px">📥 查短信</button>
+          </div>
+          <div id="smsResult" style="font-size:11px;margin-top:4px"></div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">🖥️ 代理配置</div>
+          <div id="proxyList">${proxyHtml}</div>
+        </div>
+      </div>`;
+
+    // 查短信功能
+    window._smsCheck = async () => {
+      const phone = document.getElementById('smsPhone')?.value?.trim();
+      if (!phone) { alert('请输入手机号'); return; }
+      const el = document.getElementById('smsResult');
+      el.innerHTML = '⏳ 查询中...';
+      try {
+        const r = await fetch(BASE + '/matrix/sms/messages?phone=' + encodeURIComponent(phone));
+        if (!r.ok) { el.innerHTML = '❌ 查询失败'; return; }
+        const d = await r.json();
+        const msgs = d.messages || d.data || [];
+        if (!msgs.length) { el.innerHTML = '📭 无短信记录'; return; }
+        el.innerHTML = msgs.slice(0, 10).map(m =>
+          `<div style="padding:2px 0;border-bottom:1px solid var(--border);font-size:10px">
+            ${m.time || m.created_at ? new Date(m.time || m.created_at).toLocaleString('zh-CN') : ''}
+            <strong>${m.code || m.content || '-'}</strong>
+          </div>`
+        ).join('');
+      } catch(e) { el.innerHTML = '❌ ' + e.message; }
+    };
+
+  } catch (e) {
+    container.innerHTML = `<div class="error">❌ ${e.message || e}</div>`;
   }
 }
