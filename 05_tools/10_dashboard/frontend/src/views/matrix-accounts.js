@@ -22,10 +22,11 @@ export async function loadView(container) {
   window._goSmsProxy = () => { try { window.switchView('matrix-sms-proxy'); } catch(e) { /* ignore */ } };
 
   try {
-    // 并行拉取账号数据 + 采集数据
+    // 并行拉取账号数据 + 采集数据（带10秒超时）
+    const timeout = (ms, msg) => new Promise((_, rej) => setTimeout(() => rej(Error(msg)), ms));
     const [ar, hr] = await Promise.all([
-      apiRequest('/matrix/accounts'),
-      apiRequest('/matrix/homepage-info').catch(() => ({ results: [] })),
+      Promise.race([apiRequest('/matrix/accounts'), timeout(10000, '/matrix/accounts 超时')]),
+      Promise.race([apiRequest('/matrix/homepage-info').catch(() => ({ results: [] })), timeout(10000, '/matrix/homepage-info 超时')]),
     ]);
 
     const accounts = Array.isArray(ar) ? ar : (ar.accounts || []);
