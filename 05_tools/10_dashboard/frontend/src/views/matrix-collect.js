@@ -73,13 +73,24 @@ function registerGlobals(uid) {
     if (!selected.length) { alert('请先选择要登录的账号'); return; }
     const logEl = document.getElementById(`log_${uid}`);
     if (logEl) logEl.textContent = '🔑 登录 ' + selected.length + ' 个账号...\n';
-    for (const s of selected) {
+
+    // 按机器分组，一次API调用发送同机器的所有账号
+    const byMachine = {};
+    selected.forEach(s => {
+      const m = s.machine || 'unknown';
+      if (!byMachine[m]) byMachine[m] = [];
+      byMachine[m].push(s.id);
+    });
+    for (const [machine, ids] of Object.entries(byMachine)) {
       try {
         const r = await apiRequest('/ops/run', {
-          method: 'POST', body: JSON.stringify({ type: 'login', accounts: [s.id] }),
+          method: 'POST',
+          body: JSON.stringify({ type: 'login', accounts: ids }),
         });
-        if (logEl) logEl.textContent += s.id + ': ' + (r.status || 'OK') + '\n';
-      } catch (e) { if (logEl) logEl.textContent += s.id + ': ❌ ' + e.message + '\n'; }
+        if (logEl) logEl.textContent += `🔑 [${machine}] ${ids.join(',')}: ${r.status || 'OK'}\n`;
+      } catch (e) {
+        if (logEl) logEl.textContent += `❌ [${machine}] ${ids.join(',')}: ${e.message}\n`;
+      }
     }
   };
 
@@ -89,14 +100,28 @@ function registerGlobals(uid) {
     const logEl = document.getElementById(`log_${uid}`);
     const statusEl = document.getElementById(`status_${uid}`);
     if (logEl) logEl.textContent = '📥 采集 ' + selected.length + ' 个账号...\n';
-    for (const s of selected) {
+
+    // 按机器分组，一次API调用发送同机器的所有账号
+    const byMachine = {};
+    selected.forEach(s => {
+      const m = s.machine || 'unknown';
+      if (!byMachine[m]) byMachine[m] = [];
+      byMachine[m].push(s.id);
+    });
+    const totalCmds = Object.keys(byMachine).length;
+    let done = 0;
+    for (const [machine, ids] of Object.entries(byMachine)) {
       try {
         const d = await apiRequest('/matrix/collect-homepage', {
-          method: 'POST', body: JSON.stringify({ account_id: s.id }),
+          method: 'POST',
+          body: JSON.stringify({ account_ids: ids }),
         });
+        done++;
         if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">🟢 采集中</span>';
-        if (logEl) logEl.textContent += s.id + ': ' + (d.status || 'OK') + ' 机器:' + (d.machine || s.machine) + '\n';
-      } catch (e) { if (logEl) logEl.textContent += s.id + ': ❌ ' + e.message + '\n'; }
+        if (logEl) logEl.textContent += `📦 [${machine}] ${ids.join(',')}: ${d.status || 'OK'} (${done}/${totalCmds})\n`;
+      } catch (e) {
+        if (logEl) logEl.textContent += `❌ [${machine}] ${ids.join(',')}: ${e.message}\n`;
+      }
     }
   };
 
