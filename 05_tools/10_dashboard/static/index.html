@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>系统监控面板</title>
-  <script type="module" crossorigin src="/static/assets/index-BjW_wmRv.js"></script>
+  <script type="module" crossorigin src="/static/assets/index-DofDHU9U.js"></script>
   <link rel="stylesheet" crossorigin href="/static/assets/index-DrEIyFIL.css">
 </head>
 <body>
@@ -38,45 +38,23 @@
 <!-- Production list view -->
 
 <div id="execHistory" style="margin:8px 16px;background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);font-size:12px"><div class="loading">⏳ 加载执行历史...</div></div>
-<div id="view-productions">
-  <div class="filter-bar">
-    <select id="filterStrategy"><option value="">全部策略</option>
-      <option>口播</option><option>卡点</option><option>数字人</option><option>test</option>
-    </select>
-    <select id="filterStatus"><option value="">全部状态</option>
-      <option value="completed">已完成</option><option value="failed">失败</option><option value="running">运行中</option>
-    </select>
-    <input id="searchInput" placeholder="搜索脚本名称..." oninput="debounceSearch()">
-    <button onclick="loadProductions()">查询</button>
-  </div>
+
   <div id="productionList"></div>
   <div class="pagination" id="pagination"></div>
 </div>
 
 <!-- Asset view -->
-<div id="view-assets" class="hidden">
-  <div class="filter-bar">
-    <select id="assetTypeFilter"><option value="">全部类型</option>
-      <option value="generated_clip">视频片段</option><option value="character_sheet">定妆照</option><option value="bgm">背景音乐</option><option value="script">脚本</option>
-    </select>
-    <input id="assetSearch" placeholder="搜索标签..." oninput="debounceAssetSearch()">
-    <button onclick="loadAssets()">查询</button>
-  </div>
+
   <div id="assetList"></div>
 </div>
 
 <!-- Cost view -->
-<div id="view-costs" class="hidden">
-  <div id="costSummary"></div>
+
   <div id="costBreakdown"></div>
 </div>
 
 <!-- Machine status view -->
-<div id="view-machines" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">🖥 机器状态</h2>
-    <span id="machineCount" style="font-size:13px;color:var(--text2)"></span>
-  </div>
+
   <div id="machineGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px"></div>
 </div>
 
@@ -101,11 +79,7 @@
 </div>
 
 <!-- Matrix cross-machine summary view -->
-<div id="view-matrix-summary" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">📊 矩阵总览</h2>
-    <span id="matrixSummaryMeta" style="font-size:13px;color:var(--text2)"></span>
-  </div>
+
   <div id="matrixSummaryContent"></div>
 </div>
 
@@ -209,11 +183,7 @@
 </div>
 
 <!-- Matrix account management view -->
-<div id="view-matrix-accounts" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <h2 style="font-size:18px">👤 账号管理</h2>
-    <button class="btn btn-primary btn-sm" onclick="showCreateAccount()">+ 新建账号</button>
-  </div>
+
   <div style="display:flex;gap:4px;margin-bottom:12px">
     <div class="acct-tab active" onclick="acctSwitchTab('list',this)">📋 账号列表</div>
     <div class="acct-tab" onclick="acctSwitchTab('identity',this)">🔑 身份管理</div>
@@ -223,19 +193,14 @@
 </div>
 
 <!-- Matrix blueprints view -->
-<div id="view-matrix-blueprints" class="hidden">
-  <div id="matrixBlueprintsContent"><div class="loading">加载中...</div></div>
+
 </div>
 
 <!-- Matrix registration view -->
 <!-- [登记注册已合并到「短信与管理」页面] -->
 
 <!-- Matrix atom ops view -->
-<div id="view-matrix-atom-ops" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">⚡ 原子操作库</h2>
-    <span id="matrixAtomOpCount" style="font-size:13px;color:var(--text2)"></span>
-  </div>
+
   <div id="matrixAtomOpsContent"><div class="loading">加载中...</div></div>
 </div>
 
@@ -464,20 +429,11 @@
 </div>
 
 <!-- Corpus management view -->
-<div id="view-matrix-corpus" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <h2 style="font-size:18px">📚 语料库管理</h2>
-    <span id="corpusMeta" style="font-size:12px;color:var(--text2)"></span>
-  </div>
+
   <div id="corpusContent"><div class="loading">加载语料库...</div></div>
 </div>
 
 <!-- SMS & Proxy view -->
-<div id="view-matrix-sms-proxy" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <h2 style="font-size:18px">📡 短信与代理</h2>
-    <button onclick="loadSmsProxy()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
-  </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
     <!-- 📱 SMS -->
@@ -680,84 +636,79 @@
 </div>
 
 <!-- Capabilities view -->
-<div id="view-capabilities" class="hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="font-size:18px">⚡ 原子能力</h2>
-    <span id="capCount" style="font-size:13px;color:var(--text2)"></span>
-  </div>
+
   <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap" id="capGroupTabs"></div>
   <div id="capabilityContent"></div>
 </div>
 
 <!-- Workflow view -->
-<div id="view-workflow" class="hidden">
-  <div id="workflowContent" style="min-height:400px">⏳ 加载中...</div>
+
 </div>
 
 <!-- ═══ 计划对齐导航视图（Shell占位 + 重定向）═══ -->
 
 <!-- 矩阵系列：养号执行（重定向到 matrix-commands 的养号tab） -->
-<div id="view-matrix-nurture" class="hidden"><div class="loading">⏳ 加载养号执行...</div></div>
+</div>
 
 <!-- 矩阵系列：信息采集 -->
-<div id="view-matrix-collect" class="hidden"><div class="loading">⏳ 加载信息采集...</div></div>
+</div>
 
 <!-- 矩阵系列：内容发布 -->
-<div id="view-matrix-publish" class="hidden"><div class="loading">⏳ 加载内容发布...</div></div>
+</div>
 
 <!-- 矩阵系列：定向评论 -->
-<div id="view-matrix-comment" class="hidden"><div class="loading">⏳ 加载定向评论...</div></div>
+</div>
 
 <!-- 矩阵系列：定时任务 -->
-<div id="view-matrix-schedule" class="hidden"><div class="loading">⏳ 加载定时任务...</div></div>
+</div>
 
 <!-- 视频工厂系列：渲染任务 -->
-<div id="view-ave-render" class="hidden"><div class="loading">⏳ 加载渲染任务...</div></div>
+</div>
 
 <!-- 视频工厂系列：脚本生成 -->
-<div id="view-ave-script" class="hidden"><div class="loading">⏳ 加载脚本生成...</div></div>
+</div>
 
 <!-- 视频工厂系列：素材库 -->
-<div id="view-ave-materials" class="hidden"><div class="loading">⏳ 加载素材库...</div></div>
+</div>
 
 <!-- 视频工厂系列：模板 -->
-<div id="view-ave-templates" class="hidden"><div class="loading">⏳ 加载模板...</div></div>
+</div>
 
 <!-- 矩阵系列：收藏点赞（新建） -->
-<div id="view-matrix-like" class="hidden"><div class="loading">⏳ 加载收藏点赞...</div></div>
+</div>
 
 <!-- 矩阵系列：登录管理（新建） -->
 <div id="view-matrix-login" class="hidden"><div class="loading">⏳ 加载登录管理...</div></div>
 
 <!-- 联邦指挥台（新建） -->
-<div id="view-ops-command" class="hidden"><div class="loading">⏳ 加载联邦指挥台...</div></div>
+</div>
 
 <!-- 内容采集系列：采集任务（重定向到 plugin-collector） -->
-<div id="view-crawl-tasks" class="hidden"><div class="loading">⏳ 加载采集任务...</div></div>
+</div>
 
 <!-- 内容采集系列：源管理 -->
-<div id="view-crawl-sources" class="hidden"><div class="loading">⏳ 加载源管理...</div></div>
+</div>
 
 <!-- 内容采集系列：采集历史 -->
 <div id="view-crawl-history" class="hidden"><div class="loading">⏳ 加载采集历史...</div></div>
 
 <!-- 联邦系列：一键同步 -->
-<div id="view-fleet-sync" class="hidden"><div class="loading">⏳ 加载同步工具...</div></div>
+</div>
 
 <!-- 联邦系列：对账检查 -->
-<div id="view-fleet-reconcile" class="hidden"><div class="loading">⏳ 加载对账工具...</div></div>
+</div>
 
 <!-- 联邦系列：远程Shell -->
-<div id="view-fleet-exec" class="hidden"><div class="loading">⏳ 加载远程Shell...</div></div>
+</div>
 
 <!-- 服务系列：MCP状态 -->
-<div id="view-serve-mcp" class="hidden"><div class="loading">⏳ 加载MCP状态...</div></div>
+</div>
 
 <!-- 服务系列：Dashboard日志 -->
-<div id="view-serve-dashboard" class="hidden"><div class="loading">⏳ 加载Dashboard日志...</div></div>
+</div>
 
 <!-- 服务系列：全局定时任务 -->
-<div id="view-serve-schedule" class="hidden"><div class="loading">⏳ 加载全局定时任务...</div></div>
+</div>
 
 <!-- Production detail modal -->
 <div id="detailModal" class="hidden"></div>

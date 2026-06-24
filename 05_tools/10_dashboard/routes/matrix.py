@@ -540,10 +540,74 @@ def api_matrix_account(account_id: str):
 
 @router.post("/accounts")
 async def api_matrix_create_account(data: dict):
-    """创建新账号"""
+    """创建新账号（支持写入远程机器）"""
+    import subprocess
+    import yaml
     try:
         mgr = _get_matrix_mgr()
         mgr.create_account(data)
+
+        # 更新 ORACLE 机器归属
+        owner_machine = data.get("owner_machine", "")
+        aid = data.get("id", "")
+        if owner_machine and aid:
+            try:
+                oracle_path = AGENT_SYNC / "ORACLE.yaml"
+                if oracle_path.exists():
+                    oracle = yaml.safe_load(oracle_path.read_text())
+                    changed = False
+                    for entry in oracle.get("accounts", []):
+                        if aid in entry.get("platforms", {}).values():
+                            entry["assigned_machine"] = owner_machine
+                            changed = True
+                            break
+                    if not changed:
+                        # 新账号添加到 ORACLE
+                        plat = data.get("platform", "")
+                        oracle.setdefault("accounts", []).append({
+                            "phone": data.get("phone", ""),
+                            "assigned_machine": owner_machine,
+                            "platforms": {plat: aid},
+                        })
+                    oracle_path.write_text(yaml.dump(oracle, default_flow_style=False, allow_unicode=True, sort_keys=False))
+            except Exception:
+                pass
+
+        # 如果指定了远程机器，通过 SSH 写入该机器的 accounts.yaml
+        if owner_machine and owner_machine != HOSTNAME:
+            # 读取 ORACLE.yaml 获取机器 IP
+            oracle_path = AGENT_SYNC / "ORACLE.yaml"
+            if oracle_path.exists():
+                oracle = yaml.safe_load(oracle_path.read_text())
+                machine_cfg = oracle.get("machines", {}).get(owner_machine, {})
+                remote_ip = machine_cfg.get("tailscale_ip", "")
+                remote_user = machine_cfg.get("ssh_user", owner_machine)
+                if remote_ip:
+                    aid = data.get("id", "")
+                    plat = data.get("platform", "")
+                    phone = data.get("phone", "")
+                    identity_dir = data.get("identity_dir", f"identities/{aid}")
+                    # SSH 到远程机器创建账号
+                    remote_cmd = (
+                        f"cd {AGENT_SYNC}/05_tools/07_matrix/scripts && "
+                        f"PYTHONPATH='{AGENT_SYNC}/05_tools/07_matrix/scripts' "
+                        f"{PYTHON} -c "
+                        f"\"from matrix_mgmt import MatrixManager; "
+                        f"mgr = MatrixManager(); "
+                        f"mgr.create_account({{'id':'{aid}','platform':'{plat}',"
+                        f"'phone':'{phone}','identity_dir':'{identity_dir}','enabled':True}})\""
+                    )
+                    try:
+                        subprocess.run(
+                            ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
+                             f"{remote_user}@{remote_ip}", remote_cmd],
+                            capture_output=True, text=True, timeout=30
+                        )
+                    except subprocess.TimeoutExpired:
+                        pass  # 远程创建超时不阻断主流程
+                    except Exception:
+                        pass
+
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(500, detail=str(e))
