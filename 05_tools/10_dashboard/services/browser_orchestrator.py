@@ -24,8 +24,14 @@ logger = logging.getLogger("dashboard.orchestrator")
 AGENT_SYNC = Path.home() / "workbuddy-agent-os" / "agent-sync"
 AGENT_LOCAL = Path.home() / "workbuddy-agent-os" / "agent-local"
 
-from utils.identity import resolve_hostname
-HOSTNAME = resolve_hostname()
+def _resolve_hostname() -> str:
+    """优先从 cached_hostname 读取，兜底 os.uname"""
+    cached = AGENT_LOCAL / "identity" / "cached_hostname"
+    if cached.exists():
+        return cached.read_text().strip()
+    return os.uname().nodename
+
+HOSTNAME = _resolve_hostname()
 
 # 执行策略（统一来自 mc.execution_policy）
 import sys as _sys

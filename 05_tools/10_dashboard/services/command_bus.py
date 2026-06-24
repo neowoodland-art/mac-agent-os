@@ -395,26 +395,6 @@ class MachineSession:
                         except:
                             pass
 
-            # 兜底: 检测日志文件中的执行完成标记（当 result JSON 不存在时）
-            if cmd.log_path and cmd.log_path.exists():
-                try:
-                    log_text = cmd.log_path.read_text(encoding="utf-8", errors="replace")
-                    if "📊 执行完成" in log_text or "✅ 全部" in log_text:
-                        cmd.status = CommandStatus.COMPLETED
-                        cmd.message = "执行完成"
-                        cmd.completed_at = time.time()
-                        return cmd.status
-                    if "❌ " in log_text and "Traceback" in log_text:
-                        # 检查日志末尾是否有严重错误
-                        tail = log_text[-2000:]
-                        if "Traceback" in tail or "异常" in tail:
-                            cmd.status = CommandStatus.FAILED
-                            cmd.message = "引擎异常，请查看日志"
-                            cmd.completed_at = time.time()
-                            return cmd.status
-                except:
-                    pass
-
             alive = self._is_alive(cmd)
             if alive:
                 cmd.status = CommandStatus.RUNNING
@@ -586,7 +566,7 @@ class CommandBus:
                 import yaml
                 oracle = yaml.safe_load(oracle_path.read_text())
                 for entry in oracle.get("accounts", []):
-                    machine = entry.get("assigned_machine", "") or entry.get("machine", "")
+                    machine = entry.get("machine", "")
                     for plat, acct_id in entry.get("platforms", {}).items():
                         oracle_map[acct_id] = machine
         except:
