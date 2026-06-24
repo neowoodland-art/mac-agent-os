@@ -393,11 +393,23 @@ class CommandChain:
             except Exception as e:
                 logger.warning(f"  [{chain_id}] 联邦采集自动触发失败: {e}")
 
+    _save_locks: dict = {}
+
+    @classmethod
+    def _get_save_lock(cls, chain_id: str) -> threading.Lock:
+        """按 chain_id 获取锁，确保同一链的写入串行化"""
+        if chain_id not in cls._save_locks:
+            cls._save_locks[chain_id] = threading.Lock()
+        return cls._save_locks[chain_id]
+
     @classmethod
     def _save(cls, run: ChainRun):
-        """持久化接力链状态"""
-        path = CHAINS_DIR / f"{run.chain_id}.json"
-        path.write_text(json.dumps(run.to_dict(), indent=2, ensure_ascii=False))
+        """持久化接力链状态（按chain_id加锁，原子写入）"""
+        with cls._get_save_lock(run.chain_id):
+            path = CHAINS_DIR / f"{run.chain_id}.json"
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(run.to_dict(), indent=2, ensure_ascii=False))
+            tmp.replace(path)
 
     @classmethod
     def _load(cls, chain_id: str) -> Optional[ChainRun]:
@@ -425,5 +437,20 @@ class CommandChain:
             run.created_at = data.get("created_at", "")
             run.completed_at = data.get("completed_at")
             return run
-        except Exception:
+        except Exception as e:
+            logger.warning(f"  ⚠️ 接力链加载失败 [{chain_id}]: {e}")
+            # 尝试修复：删除最后一行非JSON内容
+            try:
+                path = CHAINS_DIR / f"{chain_id}.json"
+                raw = path.read_text()
+                # 找到第一个完整的 JSON 对象
+                import re as _re
+                m = _re.search(r'^(\{[^{}]*(\{[^{}]*\})*[^{}]*\})', raw, _re.DOTALL)
+                if m:
+                    data = json.loads(m.group(1))
+                    path.write_text(m.group(1))
+                    logger.info(f"  ✅ 接力链文件已修复 [{chain_id}]")
+                    return cls._load(chain_id)
+            except Exception:
+                pass
             return None
