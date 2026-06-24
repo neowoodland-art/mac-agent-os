@@ -116,6 +116,7 @@ class DouyinOps(PlatformOps):
     def _save_profiles_json(self):
         """保存主页信息到 profiles.json（供 Dashboard 读取）"""
         if not self._account_id:
+            print(f"[douyin_ops] _save_profiles_json: _account_id 为空，跳过")
             return
         try:
             if PROFILES_JSON.exists():
