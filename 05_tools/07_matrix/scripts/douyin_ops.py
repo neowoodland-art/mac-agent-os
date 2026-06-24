@@ -447,6 +447,7 @@ class DouyinOps(PlatformOps):
             val = await self.read_profile_field(field, step_id=step_id)
             # dy_read_bio 是最后一步，读完后保存 profiles.json
             if op == "dy_read_bio":
+                print(f"[dy_read_bio] _account_id={self._account_id}, _profile keys={list((self._profile or {}).keys())}")
                 self._save_profiles_json()
             return OpResult(op, step_id, True, f"{field}={val}", time.time()-t0)
 

@@ -257,6 +257,7 @@ class BatchEngine:
         else:
             from douyin_ops import DouyinOps
             ops = DouyinOps(conn.page)
+        print(f"[engine] set_account_id({account_id}) for platform={platform}")
         ops.set_account_id(account_id)
 
         # 抖音：进入视频播放
