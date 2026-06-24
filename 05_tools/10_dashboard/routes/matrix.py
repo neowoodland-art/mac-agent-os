@@ -58,22 +58,43 @@ def api_matrix_accounts():
                 acct["posts"] = profile.get("posts", acct.get("posts", ""))
             # 从 homepage-info 补充联邦采集数据
             if not profile:
-                # 尝试从 fleet_collector 缓存中读取远程机器的 profiles
-                for machine_dir in sorted((AGENT_LOCAL / "runtime" / "fleet_collector").iterdir()) if (AGENT_LOCAL / "runtime" / "fleet_collector").exists() else []:
-                    pf_file = machine_dir / "profiles.json"
-                    if pf_file.exists():
+                fleet_dir = AGENT_LOCAL / "runtime" / "fleet_collector"
+                if fleet_dir.exists():
+                    for machine_dir in sorted(fleet_dir.iterdir()):
                         try:
-                            remote_pf = json.loads(pf_file.read_text())
-                            rp = remote_pf.get(aid) or remote_pf.get(pid) or {}
-                            if rp:
-                                acct["nickname"] = rp.get("nickname", "")
-                                acct["fans"] = rp.get("fans", "")
-                                acct["avatar"] = rp.get("avatar", "")
-                                acct["following"] = rp.get("following", "")
-                                acct["likes"] = rp.get("likes", "")
-                                acct["posts"] = rp.get("posts", "")
-                                acct["_source_machine"] = machine_dir.name
-                                break
+                            # 1. 按 identity_dir 查 homepage_info
+                            hp_file = machine_dir / "homepage_info.json"
+                            if hp_file.exists():
+                                hp_data = json.loads(hp_file.read_text())
+                                for entry in hp_data.get("results", []):
+                                    if entry.get("identity_dir", "").replace("identities/", "") == pid:
+                                        for plat_key in ("douyin", "xiaohongshu"):
+                                            plat_data = entry.get(plat_key, {}) or {}
+                                            if plat_data.get("nickname"):
+                                                acct.setdefault("nickname", plat_data["nickname"])
+                                                acct.setdefault("fans", str(plat_data.get("fans", "")))
+                                                acct.setdefault("avatar", plat_data.get("avatar", ""))
+                                                acct.setdefault("following", str(plat_data.get("following", "")))
+                                                acct.setdefault("likes", str(plat_data.get("likes", "")))
+                                                acct.setdefault("posts", str(plat_data.get("posts", "")))
+                                                acct["_source_machine"] = machine_dir.name
+                                                break
+                                        if acct.get("nickname"):
+                                            break
+                            # 2. 按 account_id 查 profiles.json
+                            if not acct.get("nickname"):
+                                pf_file = machine_dir / "profiles.json"
+                                if pf_file.exists():
+                                    remote_pf = json.loads(pf_file.read_text())
+                                    rp = remote_pf.get(aid) or remote_pf.get(pid) or {}
+                                    if rp:
+                                        acct["nickname"] = rp.get("nickname", acct.get("nickname", ""))
+                                        acct["fans"] = str(rp.get("fans", acct.get("fans", "")))
+                                        acct["avatar"] = rp.get("avatar", acct.get("avatar", ""))
+                                        acct["following"] = str(rp.get("following", acct.get("following", "")))
+                                        acct["likes"] = str(rp.get("likes", acct.get("likes", "")))
+                                        acct["posts"] = str(rp.get("posts", acct.get("posts", "")))
+                                        acct["_source_machine"] = machine_dir.name
                         except Exception:
                             pass
             acct["_source_machine"] = acct.get("machine", acct.get("_source_machine", ""))
