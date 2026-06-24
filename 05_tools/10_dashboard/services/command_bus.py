@@ -14,6 +14,17 @@ from typing import Optional
 
 logger = logging.getLogger("dashboard.command_bus")
 
+# 机器级互斥锁：同一机器同一时刻只允许一个登录/交互命令
+_login_locks: dict = {}
+_login_locks_lock = threading.Lock()
+
+def _get_login_lock(machine: str) -> threading.Lock:
+    """获取指定机器的登录互斥锁"""
+    with _login_locks_lock:
+        if machine not in _login_locks:
+            _login_locks[machine] = threading.Lock()
+        return _login_locks[machine]
+
 _THIS_DIR = Path(__file__).resolve().parent.parent
 AGENT_SYNC = Path(os.environ.get("AGENT_SYNC", str(Path.home() / "workbuddy-agent-os" / "agent-sync")))
 AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(Path.home() / "workbuddy-agent-os" / "agent-local")))
@@ -741,7 +752,14 @@ class CommandBus:
         for a in acct_ids:
             session.graceful_exit(a)
 
-        session.send(cmd)
+        # 登录类命令加机器级互斥锁（同机器只允许一个登录）
+        if cmd_type == "login":
+            lock = _get_login_lock(machine)
+            with lock:
+                logger.info(f"  🔐 获取登录锁 [{machine}], 开始登录 {ids_str}")
+                session.send(cmd)
+        else:
+            session.send(cmd)
         results.append(cmd.to_dict())
         return cmd
 

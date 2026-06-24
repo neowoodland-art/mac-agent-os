@@ -85,8 +85,12 @@ async def login_identity(identity_name: str, platform: str = "auto"):
     print(f"{'='*55}")
     print(f"   持久化目录: {identity_dir}/user_data/")
 
+    # 从账号信息读取端口
+    port = acct_info.get("port", 9222)
+    
     # 通过 cdp_connector 启动持久化 Camoufox
     conn = CDPConnector(
+        port=port,
         identity_dir=identity_dir,
         headless=False,
         window=(702, 783),
