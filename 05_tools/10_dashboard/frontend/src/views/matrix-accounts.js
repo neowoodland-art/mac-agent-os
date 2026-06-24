@@ -36,6 +36,7 @@ export async function loadView(container) {
       let html = '<table style="width:100%;font-size:11px;border-collapse:collapse">';
       html += '<tr style="font-size:9px;color:var(--text2);border-bottom:1px solid var(--border)">'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">机器</th>'
+        + '<th style="padding:4px 6px;font-weight:400;text-align:left">📱手机号</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">身份</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">账号ID</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">平台</th>'
@@ -51,6 +52,7 @@ export async function loadView(container) {
           const s = statusMap[a.status] || a.status;
           html += `<tr style="border-bottom:1px solid var(--border)" data-filter="${(a.id+a.phone+a.nickname+a.identity_dir+m).toLowerCase()}">`
             + `<td style="padding:3px 6px">${m === 'chengzigedeAir' ? '🖥️' : '☁️'}${m}</td>`
+            + `<td style="padding:3px 6px;font-size:10px;color:var(--text2)">${a.phone || '-'}</td>`
             + `<td style="padding:3px 6px;font-size:10px;color:var(--text2)">📁${a.identity_dir}</td>`
             + `<td style="padding:3px 6px"><strong>${a.id}</strong></td>`
             + `<td style="padding:3px 6px">${a.platform === 'douyin' ? '🎵' : '📕'}</td>`
@@ -66,10 +68,11 @@ export async function loadView(container) {
       return html;
     }
 
-    function render(q, machine) {
+    function render(q, machine, platform) {
       let filtered = allAccounts;
       if (q) { const lq = q.toLowerCase(); filtered = allAccounts.filter(a => (a.id+a.phone+(a.nickname||'')+(a.identity_dir||'')+(a.owner_machine||'')).toLowerCase().includes(lq)); }
       if (machine) filtered = filtered.filter(a => a.owner_machine === machine);
+      if (platform) filtered = filtered.filter(a => a.platform === platform);
       // machineList 已在外部定义
       const tableDiv = document.getElementById('acctTable');
       if (tableDiv) tableDiv.innerHTML = buildAccounts(filtered);
@@ -93,6 +96,11 @@ export async function loadView(container) {
           <option value="">全部机器</option>
           ${machineList.map(m => `<option value="${m}">${m}</option>`).join('')}
         </select>
+        <select id="acctPlatformFilter" onchange="_filterAcct()" style="padding:4px 8px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
+          <option value="">全部平台</option>
+          <option value="douyin">🎵 抖音</option>
+          <option value="xiaohongshu">📕 小红书</option>
+        </select>
         <span id="acctCount" style="font-size:10px;color:var(--text2);white-space:nowrap">共 ${allAccounts.length} 个</span>
       </div>
       <div id="acctTable" style="overflow-x:auto">${buildAccounts(allAccounts)}</div>`;
@@ -100,7 +108,8 @@ export async function loadView(container) {
     window._filterAcct = () => {
       const q = document.getElementById('acctSearch')?.value || '';
       const m = document.getElementById('acctMachineFilter')?.value || '';
-      render(q, m);
+      const p = document.getElementById('acctPlatformFilter')?.value || '';
+      render(q, m, p);
     };
 
     // 新建账号对话框（ID 自动生成: douyin_手机号 / xhs_手机号）
