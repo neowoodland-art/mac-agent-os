@@ -33,10 +33,32 @@ def _get_matrix_mgr():
 
 @router.get("/accounts")
 def api_matrix_accounts():
-    """获取所有账号列表"""
+    """获取所有账号列表（含 profiles 昵称/粉丝数据）"""
     try:
         mgr = _get_matrix_mgr()
-        return mgr.list_accounts()
+        accounts = mgr.list_accounts()
+        # 合并 profiles.json 数据（昵称/粉丝/头像）
+        profiles_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
+        profiles = {}
+        if profiles_path.exists():
+            try:
+                profiles = json.loads(profiles_path.read_text())
+            except Exception:
+                pass
+        for acct in accounts:
+            aid = acct.get("id", "")
+            pid = acct.get("identity_dir", "").replace("identities/", "")
+            profile = profiles.get(aid) or profiles.get(pid) or {}
+            if profile:
+                acct["nickname"] = profile.get("nickname", acct.get("nickname", ""))
+                acct["fans"] = profile.get("fans", acct.get("fans", ""))
+                acct["avatar"] = profile.get("avatar", acct.get("avatar", ""))
+                acct["following"] = profile.get("following", acct.get("following", ""))
+                acct["likes"] = profile.get("likes", acct.get("likes", ""))
+                acct["posts"] = profile.get("posts", acct.get("posts", ""))
+            # 从 homepage-info 补充联邦采集数据
+            acct["_source_machine"] = acct.get("machine", "")
+        return accounts
     except Exception as e:
         raise HTTPException(500, detail=str(e))
 
