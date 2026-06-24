@@ -482,18 +482,24 @@ async def _get_login_buttons(page) -> list:
 # ═══════════════════════════════════════════════
 
 async def _lookup_phone(account_name: str) -> str:
-    """从 accounts.yaml 查找手机号"""
-    try:
-        import yaml, os
-        cfg_path = os.path.expanduser(
-            '~/workbuddy-agent-os/agent-local/tools/matrix/config/accounts.yaml')
-        with open(cfg_path) as f:
-            data = yaml.safe_load(f)
-        for a in data.get('accounts', []):
-            if a.get('id') == account_name:
-                return a.get('phone', '')
-    except Exception:
-        pass
+    """从 accounts.override.yaml 查找手机号"""
+    import yaml, os
+    home = os.path.expanduser('~')
+    base = home + '/workbuddy-agent-os/agent-local/tools/matrix/config'
+    for name in ['accounts.override.yaml', 'accounts.yaml']:
+        path = base + '/' + name
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path) as f:
+                data = yaml.safe_load(f) or {}
+            for a in data.get('accounts', []):
+                if a.get('id') == account_name:
+                    phone = a.get('phone', '')
+                    if phone:
+                        return phone
+        except Exception:
+            pass
     return ''
 
 
