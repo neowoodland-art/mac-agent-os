@@ -281,7 +281,7 @@ class MachineSession:
             if cmd.cmd_type == "nurture":
                 check = f"cat $AGENT_LOCAL/runtime/nurture/results/{cmd.run_id}.json 2>/dev/null"
             else:
-                check = f"cat $AGENT_LOCAL/runtime/commands/{cmd.run_id}.json 2>/dev/null; cat /tmp/ops_{cmd.run_id}.log 2>/dev/null"
+                check = f"cat $AGENT_LOCAL/runtime/results/{cmd.run_id}.json 2>/dev/null; cat /tmp/ops_{cmd.run_id}.log 2>/dev/null"
             r = subprocess.run(
                 ["ssh", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no",
                  self.ssh_target,
