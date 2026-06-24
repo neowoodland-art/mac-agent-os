@@ -1,13 +1,15 @@
 /**
- * matrix-sms-proxy.js — 短信与代理管理（壳层）
- * 
- * 创建 inline 函数需要的 DOM 结构，委托 inline.js 渲染
+ * 短信与代理管理视图（已迁移）
+ * 自包含数据加载 + 委托 inline.js 函数处理交互
  */
+
+import { apiRequest } from '../router.js';
+
 export async function loadView(container) {
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="font-size:18px">📡 短信与代理</h2>
-      <button onclick="loadSmsProxy()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
+      <button onclick="window._migratedSmsReload()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
@@ -47,16 +49,45 @@ export async function loadView(container) {
         <button onclick="smsUpdateAndTest()" style="background:#22c55e;color:#000;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px">💾 保存并测试</button>
       </div>
       <div id="smsQueryPanel" style="font-size:11px;margin-top:4px"></div>
-    </div>
-  `;
-  // 先预加载账号列表到缓存，确保输入框匹配立即可用
-  fetch('/api/matrix/sms/accounts').then(function(r) { return r.json(); }).then(function(d) {
-    var accts = d.accounts || [];
-    if (!window._smsFetchedOnce) {
-      window._smsAccountOptions = accts;
-      window._smsFetchedOnce = true;
-    }
-  }).catch(function() { /* 静默失败，loadSmsProxy 会重试 */ });
+    </div>`;
 
-  window.loadSmsProxy();
+  // 加载数据
+  await loadSmsData();
+
+  // 注册刷新函数
+  window._migratedSmsReload = loadSmsData;
+}
+
+async function loadSmsData() {
+  try {
+    const [configR, proxyR, phoneR, acctsR, personaR, recR] = await Promise.all([
+      fetch('/api/matrix/sms/config').catch(() => null),
+      fetch('/api/matrix/proxy/list').catch(() => null),
+      fetch('/api/matrix/sms/phones').catch(() => null),
+      fetch('/api/matrix/sms/accounts').catch(() => null),
+      fetch('/api/matrix/personas').catch(() => null),
+      fetch('/api/matrix/recordings/stats').catch(() => null),
+    ]);
+
+    // SMS 配置
+    if (configR?.ok) {
+      const config = await configR.json();
+      const panel = document.getElementById('smsConfigPanel');
+      if (panel) panel.innerHTML = `<pre style="margin:0;font-size:11px">${JSON.stringify(config, null, 2)}</pre>`;
+    }
+
+    // 代理列表
+    if (proxyR?.ok) {
+      const proxies = await proxyR.json();
+      const list = document.getElementById('proxyList');
+      if (list) {
+        const items = Array.isArray(proxies) ? proxies : (proxies.proxies || []);
+        list.innerHTML = items.length
+          ? items.map(p => `<div style="padding:3px 0;font-size:11px">🔌 ${p.name || p.host || p}</div>`).join('')
+          : '<span style="color:var(--text2);font-size:11px">无代理配置</span>';
+      }
+    }
+  } catch(e) {
+    console.error('loadSmsData error:', e);
+  }
 }

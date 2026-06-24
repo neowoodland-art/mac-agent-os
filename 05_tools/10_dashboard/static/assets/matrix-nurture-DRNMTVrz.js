@@ -1,1 +1,0 @@
-async function e(e){e.innerHTML=`<div id="view-matrix-nurture-slot"><div class="loading">⏳ 加载养号执行...</div></div>`,window.loadMatrixNurture()}export{e as loadView};

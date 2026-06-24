@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.0",
+  "file_schema": "heartbeat-v2",
+  "file_version": 89,
+  "machine_uid": "f13b03d1-7310-433c-ba35-368c51edb1d0",
+  "machine_name": "5kechengdeAir",
+  "updated_at": "2026-06-14T15:08:06.690157+00:00",
+  "status": "online",
+  "guardd_version": "2.3.0",
+  "cpu_load": 1.42,
+  "memory_pct": 0,
+  "disk_avail_gb": 152.7,
+  "uptime_sec": 0,
+  "current_task": null
+}

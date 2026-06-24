@@ -32,9 +32,9 @@ from datetime import datetime, timezone
 logger = logging.getLogger("dashboard")
 
 # ── 联邦身份 ───────────────────────────────────────────────
-_AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(Path.home() / "workbuddy-agent-os" / "agent-local")))
-_HOSTNAME_CACHED = _AGENT_LOCAL / "identity" / "cached_hostname"
-HOSTNAME = _HOSTNAME_CACHED.read_text().strip() if _HOSTNAME_CACHED.exists() else os.uname().nodename
+from utils.identity import resolve_hostname
+
+HOSTNAME = resolve_hostname()
 
 # ── 添加 AVE scripts 目录到 sys.path ──────────────────────
 _AVE_SCRIPTS = Path(__file__).resolve().parent.parent / "09_ave" / "scripts"
@@ -1504,6 +1504,80 @@ def api_fleet_sync():
         return {"success": False, "output": "⏰ 同步超时(120s)"}
     except Exception as e:
         return {"success": False, "output": f"❌ {str(e)}"}
+
+
+# ── 接力执行链 API ──
+
+
+@app.post("/api/ops/chain")
+def api_chain_create(data: dict = {}):
+    """创建并启动接力执行链"""
+    name = data.get("name", "untitled")
+    tasks = data.get("tasks", [])
+    if not tasks:
+        return {"error": "tasks 必填"}
+    from services.command_chain import CommandChain
+    run = CommandChain.create(name, tasks)
+    return {"status": "ok", "chain_id": run.chain_id, "name": run.name, "total_tasks": len(tasks)}
+
+
+@app.get("/api/ops/chain/{chain_id}")
+def api_chain_status(chain_id: str):
+    """查询接力链状态"""
+    from services.command_chain import CommandChain
+    status = CommandChain.get_status(chain_id)
+    if not status:
+        from fastapi import HTTPException
+        raise HTTPException(404, detail=f"接力链不存在: {chain_id}")
+    return status
+
+
+@app.post("/api/ops/chain/{chain_id}/cancel")
+def api_chain_cancel(chain_id: str):
+    """取消接力链"""
+    from services.command_chain import CommandChain
+    return CommandChain.cancel(chain_id)
+
+
+@app.get("/api/ops/chains")
+def api_chain_list(limit: int = 20):
+    """列出接力链"""
+    from services.command_chain import CommandChain
+    return {"chains": CommandChain.list_chains(limit)}
+
+
+@app.post("/api/fleet/collect")
+def api_fleet_collect():
+    """触发联邦信息采集聚合：SSH 拉取所有工作机的采集数据"""
+    from services.fleet_collector import collect_all
+    results = collect_all()
+    return {"status": "ok", "results": results}
+
+
+@app.get("/api/fleet/collect/status")
+def api_fleet_collect_status():
+    """查询联邦信息采集缓存状态"""
+    import json
+    from services.fleet_collector import CACHE_DIR, get_merged_homepage
+    machines = {}
+    if CACHE_DIR.exists():
+        for machine_dir in sorted(CACHE_DIR.iterdir()):
+            if not machine_dir.is_dir():
+                continue
+            hp_file = machine_dir / "homepage_info.json"
+            pf_file = machine_dir / "profiles.json"
+            ts_file = machine_dir / "collected_at.txt"
+            machines[machine_dir.name] = {
+                "has_homepage": hp_file.exists(),
+                "has_profiles": pf_file.exists(),
+                "collected_at": ts_file.read_text().strip() if ts_file.exists() else None,
+            }
+    merged = get_merged_homepage()
+    return {
+        "machines": machines,
+        "total_identities": merged["total_identities"],
+        "collected_at": merged["collected_at"],
+    }
 
 
 @app.post("/api/fleet/reconcile")

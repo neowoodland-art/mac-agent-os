@@ -19,13 +19,9 @@ AGENT_SYNC = Path(os.environ.get("AGENT_SYNC", str(Path.home() / "workbuddy-agen
 AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(Path.home() / "workbuddy-agent-os" / "agent-local")))
 ORACLE_PATH = AGENT_SYNC / "ORACLE.yaml"
 
-def _resolve_hostname() -> str:
-    cached = AGENT_LOCAL / "identity" / "cached_hostname"
-    if cached.exists():
-        return cached.read_text().strip()
-    return os.uname().nodename
+from utils.identity import resolve_hostname
 
-HOSTNAME = _resolve_hostname()
+HOSTNAME = resolve_hostname()
 
 class CommandStatus(str, Enum):
     QUEUED = "queued"

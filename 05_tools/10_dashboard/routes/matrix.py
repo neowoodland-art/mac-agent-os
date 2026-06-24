@@ -16,14 +16,9 @@ FILE_DIR = Path(__file__).resolve().parent.parent
 AGENT_SYNC = Path(os.environ.get("AGENT_SYNC", str(Path.home() / "workbuddy-agent-os" / "agent-sync")))
 AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(Path.home() / "workbuddy-agent-os" / "agent-local")))
 
-def _resolve_hostname() -> str:
-    """优先从 cached_hostname 读取，兜底 os.uname"""
-    cached = AGENT_LOCAL / "identity" / "cached_hostname"
-    if cached.exists():
-        return cached.read_text().strip()
-    return os.uname().nodename
+from utils.identity import resolve_hostname
 
-HOSTNAME = _resolve_hostname()
+HOSTNAME = resolve_hostname()
 
 router = APIRouter(prefix="/api/matrix", tags=["matrix"])
 
@@ -60,16 +55,31 @@ def api_matrix_account_profiles():
 
 @router.get("/homepage-info")
 def api_matrix_homepage_info():
-    """获取主页信息采集结果（合并 profiles.json 的最新数据）"""
-    hp_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "homepage_info.json"
-    pf_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
+    """获取主页信息采集结果（聚合联邦数据 + 合并 profiles.json）
 
-    hp_data = {"results": []}
-    if hp_path.exists():
-        try:
-            hp_data = json.loads(hp_path.read_text())
-        except:
-            hp_data = {"results": []}
+    数据来源（按优先级）：
+      1. fleet_collector 缓存（其他机器数据）
+      2. 本机 homepage_info.json
+      3. profiles.json 覆盖补全
+    """
+    # 优先使用联邦采集聚合数据
+    try:
+        from services.fleet_collector import get_merged_homepage
+        hp_data = get_merged_homepage()
+    except Exception:
+        hp_data = {"results": []}
+
+    # 若联邦聚合无数据，降级到本机文件
+    if not hp_data.get("results"):
+        hp_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "homepage_info.json"
+        hp_data = {"results": []}
+        if hp_path.exists():
+            try:
+                hp_data = json.loads(hp_path.read_text())
+            except:
+                hp_data = {"results": []}
+
+    pf_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
 
     # 获取账号注册表，建立 account_id → identity_dir 映射
     ident_map = {}  # account_id → identity_dir

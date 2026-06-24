@@ -1,0 +1,11 @@
+import{t as e}from"./index-BhsSOQ_S.js";import{t}from"./account-selector-DBZWFo9Z.js";async function n(n){n.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="font-size:18px">👤 账号管理</h2>
+      <button onclick="window.showCreateAccount()" class="btn btn-primary btn-sm" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">+ 新建账号</button>
+    </div>
+    <div style="display:flex;gap:4px;margin-bottom:12px">
+      <div class="acct-tab active" onclick="window.acctSwitchTab('list',this)" style="padding:6px 12px;cursor:pointer;font-size:12px;border-bottom:2px solid #6366f1;font-weight:600">📋 账号列表</div>
+      <div class="acct-tab" onclick="window.acctSwitchTab('identity',this)" style="padding:6px 12px;cursor:pointer;font-size:12px;color:var(--text2)">🔑 身份管理</div>
+    </div>
+    <div id="acct-tab-list"><div id="matrixAccountsContent"><div class="loading">加载中...</div></div></div>
+    <div id="acct-tab-identity" style="display:none"><div id="matrixIdentityContent"><div class="loading">加载中...</div></div></div>`;try{let n=``;try{let t=await e(`/matrix/cross-machines`);t.total_machines&&(n=`<div style="display:flex;gap:12px;margin-bottom:12px;font-size:12px;color:var(--text2);background:var(--bg2);border-radius:var(--radius);padding:8px 12px;border:1px solid var(--border)"><span>🖥️ 机器: <strong>`+t.total_machines+`</strong></span><span>👤 账号: <strong>`+t.total_accounts+`</strong></span><span>📡 在线: <strong style="color:var(--green)">`+t.online_machines+`</strong></span></div>`)}catch{}let r=await e(`/matrix/accounts`),i=Array.isArray(r)?r:r.accounts||[],a=document.getElementById(`matrixAccountsContent`);if(!a)return;if(!i.length){a.innerHTML=n+`<div class="error">暂无账号</div>`;return}let o=document.createElement(`div`);a.innerHTML=n,a.appendChild(o),t(o,{accounts:i,checkAll:!1,height:`400px`,showBlueprint:!0})}catch(e){let t=document.getElementById(`matrixAccountsContent`);t&&(t.innerHTML=`<span style="color:var(--red)">`+e.message+`</span>`)}}export{n as loadView};

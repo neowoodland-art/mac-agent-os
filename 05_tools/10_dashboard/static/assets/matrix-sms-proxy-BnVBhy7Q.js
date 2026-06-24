@@ -1,7 +1,7 @@
 async function e(e){e.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="font-size:18px">📡 短信与代理</h2>
-      <button onclick="loadSmsProxy()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
+      <button onclick="window._migratedSmsReload()" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
@@ -41,5 +41,4 @@ async function e(e){e.innerHTML=`
         <button onclick="smsUpdateAndTest()" style="background:#22c55e;color:#000;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px">💾 保存并测试</button>
       </div>
       <div id="smsQueryPanel" style="font-size:11px;margin-top:4px"></div>
-    </div>
-  `,fetch(`/api/matrix/sms/accounts`).then(function(e){return e.json()}).then(function(e){var t=e.accounts||[];window._smsFetchedOnce||(window._smsAccountOptions=t,window._smsFetchedOnce=!0)}).catch(function(){}),window.loadSmsProxy()}export{e as loadView};
+    </div>`,await t(),window._migratedSmsReload=t}async function t(){try{let[e,t,n,r,i,a]=await Promise.all([fetch(`/api/matrix/sms/config`).catch(()=>null),fetch(`/api/matrix/proxy/list`).catch(()=>null),fetch(`/api/matrix/sms/phones`).catch(()=>null),fetch(`/api/matrix/sms/accounts`).catch(()=>null),fetch(`/api/matrix/personas`).catch(()=>null),fetch(`/api/matrix/recordings/stats`).catch(()=>null)]);if(e?.ok){let t=await e.json(),n=document.getElementById(`smsConfigPanel`);n&&(n.innerHTML=`<pre style="margin:0;font-size:11px">${JSON.stringify(t,null,2)}</pre>`)}if(t?.ok){let e=await t.json(),n=document.getElementById(`proxyList`);if(n){let t=Array.isArray(e)?e:e.proxies||[];n.innerHTML=t.length?t.map(e=>`<div style="padding:3px 0;font-size:11px">🔌 ${e.name||e.host||e}</div>`).join(``):`<span style="color:var(--text2);font-size:11px">无代理配置</span>`}}}catch(e){console.error(`loadSmsData error:`,e)}}export{e as loadView};

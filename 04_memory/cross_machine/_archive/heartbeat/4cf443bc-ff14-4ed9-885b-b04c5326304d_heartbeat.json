@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.0",
+  "file_schema": "heartbeat-v2",
+  "file_version": 725,
+  "machine_uid": "4cf443bc-ff14-4ed9-885b-b04c5326304d",
+  "machine_name": "chengzigedeAir",
+  "updated_at": "2026-06-21T06:55:05.986737+00:00",
+  "status": "online",
+  "guardd_version": "2.3.0",
+  "cpu_load": 1.21,
+  "memory_pct": 0,
+  "disk_avail_gb": 135.7,
+  "uptime_sec": 0,
+  "current_task": null
+}

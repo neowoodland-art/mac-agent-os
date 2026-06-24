@@ -25,6 +25,7 @@ except Exception:
 
 import json
 import logging
+import logging.handlers
 import os
 import re
 import shutil
@@ -118,12 +119,15 @@ LAST_RUN_FILE = DIR_GUARDD_LOG / "last_run.json"
 ERROR_LOG_FILE = DIR_GUARDD_LOG / "errors.log"
 VERSIONS_FILE = DIR_KNOWLEDGE / "versions.json"
 
-# ── 日志配置 ──────────────────────────────────────────────
+# ── 日志配置（带轮转：单文件最大 10MB，保留 3 个备份）────
+_log_handler = logging.handlers.RotatingFileHandler(
+    str(LOG_FILE), maxBytes=10 * 1024 * 1024, backupCount=3, encoding="utf-8"
+)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler(str(LOG_FILE)),
+        _log_handler,
         logging.StreamHandler(sys.stdout),
     ],
 )
