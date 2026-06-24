@@ -103,7 +103,7 @@ export async function loadView(container) {
       render(q, m);
     };
 
-    // 新建账号对话框
+    // 新建账号对话框（ID 自动生成: douyin_手机号 / xhs_手机号）
     window._showCreateAcct = () => {
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center';
@@ -111,10 +111,10 @@ export async function loadView(container) {
         <div style="background:var(--bg2);border-radius:12px;padding:20px;max-width:360px;width:90%">
           <div style="font-size:15px;font-weight:600;margin-bottom:12px">+ 新建账号</div>
           <div style="display:grid;gap:6px;font-size:12px">
-            <label>账号ID <input id="newAcctId" placeholder="如 douyin_99" style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px"></label>
-            <label>平台 <select id="newAcctPlat" style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
+            <label>平台 <select id="newAcctPlat" onchange="_updateAcctId()" style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
               <option value="douyin">🎵 抖音</option><option value="xiaohongshu">📕 小红书</option></select></label>
-            <label>手机号 <input id="newAcctPhone" placeholder="手机号" style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px"></label>
+            <label>手机号 <input id="newAcctPhone" oninput="_updateAcctId()" placeholder="手机号" style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px"></label>
+            <label>账号ID <input id="newAcctId" readonly style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:4px;font-size:10px"></label>
           </div>
           <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:12px">
             <button onclick="this.closest('div[style]').parentElement.remove()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 16px;font-size:12px;cursor:pointer">取消</button>
@@ -122,11 +122,18 @@ export async function loadView(container) {
           </div>
         </div>`;
       document.body.appendChild(overlay);
+      window._updateAcctId = () => {
+        const plat = document.getElementById('newAcctPlat')?.value || 'douyin';
+        const phone = document.getElementById('newAcctPhone')?.value?.trim() || '';
+        const prefix = plat === 'douyin' ? 'douyin_' : 'xhs_';
+        document.getElementById('newAcctId').value = phone ? prefix + phone : '';
+      };
+      window._updateAcctId();
       document.getElementById('newAcctOk').onclick = async () => {
         const id = document.getElementById('newAcctId').value.trim();
         const plat = document.getElementById('newAcctPlat').value;
         const phone = document.getElementById('newAcctPhone').value.trim();
-        if (!id) { alert('请输入账号ID'); return; }
+        if (!id) { alert('请先输入手机号'); return; }
         try {
           const r = await fetch(BASE + '/matrix/accounts', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
