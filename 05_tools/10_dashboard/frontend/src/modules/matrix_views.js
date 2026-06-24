@@ -688,7 +688,8 @@ async function loadPlugins() {
     const S = (label, status) => `<span style="font-size:9px;margin-left:4px;padding:1px 5px;border-radius:3px;background:rgba(217,119,6,.12);color:#d97706;font-weight:500">${status}</span>`;
     const groups = {
       '矩阵': { icon: '📱', items: [
-        {view:'matrix-sms-proxy', label:'🪪 账号管理'},
+        {view:'matrix-accounts', label:'👤 账号管理'},
+        {view:'matrix-sms-proxy', label:'🪪 短信与代理'},
         {view:'matrix-nurture', label:'🏃 养号执行'},
         {view:'matrix-collect', label:'📡 信息采集'},
         {view:'matrix-publish', label:'📤 内容发布'},

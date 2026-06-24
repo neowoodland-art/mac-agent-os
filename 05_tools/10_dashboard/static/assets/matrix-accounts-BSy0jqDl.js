@@ -1,4 +1,4 @@
-import{t as e}from"./index-4Xq0kHsO.js";import{t}from"./account-selector-DVsh4R5m.js";async function n(n){n.innerHTML=`
+import{t as e}from"./index-D_EddaiW.js";import{t}from"./account-selector-DVsh4R5m.js";async function n(n){n.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="font-size:18px">👤 账号管理</h2>
       <div style="display:flex;gap:6px">
