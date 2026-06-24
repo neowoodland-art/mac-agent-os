@@ -881,6 +881,9 @@ class RecoveryChain:
                   log_func) -> bool:
         """执行恢复链, 任一成功返回 True"""
         for step in self.steps:
+            # 小红书跳过抖音专用步骤
+            if platform == "xiaohongshu" and isinstance(step, DouyinLoginRecovery):
+                continue
             log_func(f"  ⏳ [{account_id}] → {step.name}")
             try:
                 ok = await asyncio.wait_for(
