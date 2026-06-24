@@ -64,8 +64,8 @@ export async function loadView(container) {
             + `<td style="padding:3px 6px;text-align:right">${a.posts || '-'}</td>`
             + `<td style="padding:3px 6px;font-size:10px">${s}</td>`
             + `<td style="padding:3px 6px;white-space:nowrap">
-              <button onclick="window._actCol('${a.id.replace(/'/g,"\\'")}')" style="background:transparent;border:1px solid var(--border);padding:1px 5px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)" title="采集">📡</button>
-              <button onclick="window._actLogin('${a.id.replace(/'/g,"\\'")}')" style="background:transparent;border:1px solid var(--border);padding:1px 5px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)" title="登录">🔑</button>
+              <button onclick="window._actCol('${a.id.replace(/'/g,"\\'")}','${a.platform}')" style="background:transparent;border:1px solid var(--border);padding:1px 5px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)" title="采集">📡</button>
+              <button onclick="window._actLogin('${a.id.replace(/'/g,"\\'")}','${a.platform}')" style="background:transparent;border:1px solid var(--border);padding:1px 5px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)" title="登录">🔑</button>
             </td></tr>`;
         });
       });
@@ -117,11 +117,12 @@ export async function loadView(container) {
       render(q, m, p);
     };
 
-    // ── 单账号操作按钮 ──
-    window._actCol = async aid => {
+    // ── 单账号操作按钮（按平台匹配蓝图） ──
+    window._actCol = async (aid, platform) => {
+      const bp = platform === 'xiaohongshu' ? 'xiaohongshu_read_profile' : 'douyin_read_profile';
       const btn = event?.target; if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
       try {
-        const r = await fetch('/api/ops/run', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type:'collect', accounts:[aid], params:{rounds:1}}) });
+        const r = await fetch('/api/ops/run', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type:'collect', accounts:[aid], params:{blueprint:bp, rounds:1}}) });
         const d = await r.json();
         alert(d.status === 'error' ? '❌ '+(d.message||d.error||'') : '✅ 已提交采集');
       } catch(e) { alert('❌ '+e.message); }
@@ -130,7 +131,7 @@ export async function loadView(container) {
     window._actLogin = async aid => {
       const btn = event?.target; if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
       try {
-        const r = await fetch('/api/ops/run', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type:'login', accounts:[aid]}) });
+        const r = await fetch('/api/ops/run', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type:'login', accounts:[aid], params:{machine: (document.getElementById('acctMachineFilter')?.value||'')} }) });
         const d = await r.json();
         alert(d.status === 'error' ? '❌ '+(d.message||d.error||'') : '✅ 已提交登录');
       } catch(e) { alert('❌ '+e.message); }

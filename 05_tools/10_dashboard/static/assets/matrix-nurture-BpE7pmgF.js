@@ -1,4 +1,4 @@
-import{n as e,t}from"./index-D2BM6RP_.js";import{t as n}from"./account-selector-DVsh4R5m.js";var r=null;async function i(i){let a=i.id||`nurture`,o=await t(`/matrix/accounts`),s=Array.isArray(o)?o:o.accounts||[];i.innerHTML=`
+import{n as e,t}from"./index-BPJ4EysA.js";import{t as n}from"./account-selector-DVsh4R5m.js";var r=null;async function i(i){let a=i.id||`nurture`,o=await t(`/matrix/accounts`),s=Array.isArray(o)?o:o.accounts||[];i.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:8px">🌱 养号执行 <span style="font-size:10px;color:var(--text2);font-weight:400">预检 → 窗口定位 → 执行 → 验证</span></div>
