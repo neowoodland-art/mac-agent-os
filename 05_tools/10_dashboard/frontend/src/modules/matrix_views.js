@@ -152,40 +152,7 @@ function switchView(view) {
   if (_tryMigratedView(view)) return;
 
   // 加载数据（回退：未迁移视图走旧 inline 函数）
-  try { if (view === 'productions') window.loadProductions(); } catch(e) {}
-  try { if (view === 'assets') window.loadAssets(); } catch(e) {}
-  try { if (view === 'costs') window.loadCosts(); } catch(e) {}
-  try { if (view === 'capabilities') window.loadCapabilities(); } catch(e) {}
-  try { if (view === 'workflow') window.loadWorkflow(); } catch(e) {}
-  try { if (view === 'machines') window.loadMachines(); } catch(e) {}
-  try { if (view === 'matrix-sms-proxy') window.loadSmsProxy(); } catch(e) {}
-  try { if (view === 'matrix-nurture') window.loadMatrixNurture(); } catch(e) {}
-  try { if (view === 'matrix-collect') window.loadMatrixCollect(); } catch(e) {}
-  try { if (view === 'matrix-publish') window.loadMatrixPublish(); } catch(e) {}
-  try { if (view === 'matrix-blueprints') window.loadMatrixBlueprints(); } catch(e) {}
-  try { if (view === 'matrix-comment') window.loadMatrixComment(); } catch(e) {}
-  try { if (view === 'ops-recorder') {} /* no fallback needed */ } catch(e) {}
-  try { if (view === 'matrix-schedule') window.loadMatrixSchedule(); } catch(e) {}
-  try { if (view === 'matrix-corpus') window.loadCorpus(); } catch(e) {}
-  try { if (view === 'ave-render') window.loadAveRender(); } catch(e) {}
-  try { if (view === 'ave-script') window.loadAveScript(); } catch(e) {}
-  try { if (view === 'ave-materials') window.loadAveMaterials(); } catch(e) {}
-  try { if (view === 'ave-templates') window.loadAveTemplates(); } catch(e) {}
-  try { if (view === 'crawl-tasks') window.loadCrawlTasks(); } catch(e) {}
-  try { if (view === 'crawl-sources') window.loadCrawlSources(); } catch(e) {}
-  try { if (view === 'fleet-sync') window.loadFleetSync(); } catch(e) {}
-  try { if (view === 'fleet-exec') window.loadFleetExec(); } catch(e) {}
-  try { if (view === 'matrix-like') window.loadMatrixLike(); } catch(e) {}
-  try { if (view === 'matrix-login') window.loadMatrixLogin(); } catch(e) {}
-  try { if (view === 'serve-mcp') window.loadServeMCP(); } catch(e) {}
-  try { if (view === 'serve-dashboard') window.loadServeDashboard(); } catch(e) {}
-  try { if (view === 'serve-schedule') window.loadServeSchedule(); } catch(e) {}
-
-  // ── 对账检查 ──
-  if (view === 'fleet-reconcile') {
-    var _fre = document.getElementById('view-fleet-reconcile');
-    if (_fre) { try { loadFleetReconcileView(_fre); } catch(e) { _fre.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; } }
-  }
+  // ── 所有视图已迁移，无 inline.js fallback ──
 }
 
 // ── 迁移视图辅助函数（全部33个已迁移视图）──
@@ -210,7 +177,7 @@ function _tryMigratedView(view) {
     'ave-render','ave-script','ave-materials','ave-templates','workflow','capabilities',
     // ── 采集外壳 + 重定向 ──
     'crawl-tasks','crawl-sources',
-    'matrix-publish',
+    'matrix-publish','matrix-login',
   ];
   if (_migratedViews.indexOf(view) === -1) return false;
 
