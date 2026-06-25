@@ -131,6 +131,7 @@ export function createAccountSelector(container, opts = {}) {
         const statusIcon = statusMap[a._status] || `<span style="color:var(--text2);font-size:9px">${a._status || '未知'}</span>`;
 
         html += `<tr class="as-row-${uid}" data-account="${a.id}" data-machine="${machine}" data-platform="${a.platform}" data-bp="${defBP}">`;
+        html += `<td style="padding:2px 3px;width:20px"><input type="checkbox" class="as-cb-${uid}" value="${a.id}" data-plat="${a.platform}" data-bp="${defBP}" data-machine="${machine}" ${checkAll ? 'checked' : ''} onchange="_onASChange('${uid}')"></td>`;
         if (idx === 0) {
           // 身份行（合并单元格）
           const dirDisplay = identShort.length > 20 ? identShort.slice(0, 18) + '…' : identShort;
@@ -138,8 +139,9 @@ export function createAccountSelector(container, opts = {}) {
           html += `📁${dirDisplay}`;
           if (phoneDisplay) html += `<br><span style="opacity:.6">📱${phoneDisplay}</span>`;
           html += '</td>';
+        } else {
+          html += `<td style="padding:2px 4px;border-right:1px solid var(--border)"></td>`; // 对齐身份列
         }
-        html += `<td style="padding:2px 3px;width:20px"><input type="checkbox" class="as-cb-${uid}" value="${a.id}" data-plat="${a.platform}" data-bp="${defBP}" data-machine="${machine}" ${checkAll ? 'checked' : ''} onchange="_onASChange('${uid}')"></td>`;
         html += `<td style="padding:2px 4px;white-space:nowrap"><strong>${a.id}</strong></td>`;
         html += `<td style="padding:2px 4px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nickname || '-'}</td>`;
         html += `<td style="padding:2px 4px;text-align:right;white-space:nowrap">${fans || '-'}</td>`;
