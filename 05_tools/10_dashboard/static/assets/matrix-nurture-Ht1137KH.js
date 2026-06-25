@@ -1,4 +1,4 @@
-import{n as e,t}from"./index-DrLBkXLq.js";import{t as n}from"./account-selector-DVsh4R5m.js";var r=null;async function i(i){let a=i.id||`nurture`,o=await t(`/matrix/accounts`),s=Array.isArray(o)?o:o.accounts||[];i.innerHTML=`
+import{n as e,t}from"./index-CchsLbSl.js";import{t as n}from"./account-selector-DVsh4R5m.js";var r=null;async function i(i){let a=i.id||`nurture`,o=await t(`/matrix/accounts`),s=Array.isArray(o)?o:o.accounts||[];i.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:8px">🌱 养号执行 <span style="font-size:10px;color:var(--text2);font-weight:400">预检 → 窗口定位 → 执行 → 验证</span></div>
@@ -30,7 +30,6 @@ import{n as e,t}from"./index-DrLBkXLq.js";import{t as n}from"./account-selector-
       </div>
     </div>`,r=n(document.getElementById(`acctList_${a}`),{accounts:s,checkAll:!1,height:`350px`}),document.getElementById(`selCount_${a}`).textContent=`已选 `+(r?.getCount()||0)+` 个`,window._nurtureRegistered||(window._nurtureRegistered=!0,window._nurturePreflight=async function(e){let n=document.getElementById(`log_${e}`),r=document.getElementById(`preflightInfo_${e}`);n&&(n.textContent=`🔍 预检中...
 `),r&&(r.textContent=``);try{let e=await t(`/matrix/nurture/preflight`);r&&(r.textContent=e.info||JSON.stringify(e,null,2))}catch(e){n&&(n.textContent+=`❌ `+e.message+`
-`)}},window._nurtureExec=async function(n){let i=r?.getSelected()||[];if(!i.length){alert(`请先选择要执行的账号`);return}let a=document.getElementById(`log_${n}`),o=document.getElementById(`ndRounds`)?.value||`10`,s=document.getElementById(`ndBlueprint`)?.value||``;if(await e(`养号执行 ${i.length} 个账号？`,`轮数: ${o}\n蓝图: ${s||`自动匹配`}`)){a&&(a.textContent=`🚀 执行中...
-`);for(let e of i)try{let n=await t(`/ops/run`,{method:`POST`,body:JSON.stringify({type:`nurture`,accounts:[e.id],params:{blueprint:s,rounds:parseInt(o)}})});a&&(a.textContent+=e.id+`: `+(n.status||`OK`)+`
-`)}catch(t){a&&(a.textContent+=e.id+`: ❌ `+t.message+`
+`)}},window._nurtureExec=async function(n){let i=r?.getSelected()||[];if(!i.length){alert(`请先选择要执行的账号`);return}let a=document.getElementById(`log_${n}`),o=document.getElementById(`ndRounds`)?.value||`10`,s=document.getElementById(`ndBlueprint`)?.value||``;if(await e(`养号执行 ${i.length} 个账号？`,`轮数: ${o}\n蓝图: ${s||`自动匹配`}`)){a&&(a.textContent=`🚀 提交 `+i.length+` 个账号到执行队列...
+`);try{let e=await t(`/ops/run`,{method:`POST`,body:JSON.stringify({type:`nurture`,accounts:i.map(e=>e.id),params:{blueprint:s,rounds:parseInt(o)}})});a&&(a.textContent+=`✅ 状态: ${e.status}\n`,e.commands&&e.commands.forEach(e=>{a.textContent+=`  ${e.machine}: ${e.accounts.join(`,`)} → ${e.status}\n`}),e.errors&&(a.textContent+=`⚠️ 错误: ${JSON.stringify(e.errors)}\n`),e.warnings&&(a.textContent+=`⚠️ 警告: ${JSON.stringify(e.warnings)}\n`))}catch(e){a&&(a.textContent+=`❌ `+e.message+`
 `)}}},window._nurtureAll=async function(e){r?.selectAll(!0),await window._nurtureExec(e)})}export{i as loadView};

@@ -250,8 +250,8 @@ class MachineSession:
         if cmd.cmd_type == "nurture":
             wrapper = str(AGENT_SYNC / "05_tools" / "10_dashboard" / "services" / "nurture_runner.sh")
             accts = ",".join(cmd.accounts)
-            bp = cmd.params.get("blueprint", "douyin_daily")
-            rounds = cmd.params.get("rounds", 10)
+            bp = cmd.params.get("blueprint") or "douyin_daily"
+            rounds = cmd.params.get("rounds") or 10
             p = subprocess.Popen(
                 ["bash", wrapper, accts, bp, str(rounds), cmd.run_id],
                 stdout=log_fh, stderr=subprocess.STDOUT
@@ -283,7 +283,9 @@ class MachineSession:
 
         if cmd.cmd_type == "nurture":
             accts = ",".join(cmd.accounts)
-            wrapper_cmd = f"bash $AGENT_SYNC/05_tools/10_dashboard/services/nurture_runner.sh {accts} {cmd.params.get('blueprint','douyin_daily')} {cmd.params.get('rounds',10)} {cmd.run_id}"
+            _bp = cmd.params.get("blueprint") or "douyin_daily"
+            _rd = cmd.params.get("rounds") or 10
+            wrapper_cmd = f"bash $AGENT_SYNC/05_tools/10_dashboard/services/nurture_runner.sh {accts} {_bp} {_rd} {cmd.run_id}"
             full_cmd = f"{py_discover} {env_setup} nohup {wrapper_cmd} > /tmp/nurture_{cmd.run_id}.log 2>&1 &"
         else:
             full_cmd = f"{py_discover} {env_setup} nohup cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m {cmd.command_line} > /tmp/ops_{cmd.run_id}.log 2>&1 &"

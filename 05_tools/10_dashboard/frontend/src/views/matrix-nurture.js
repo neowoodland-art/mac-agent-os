@@ -78,21 +78,29 @@ export async function loadView(container) {
       const rounds = document.getElementById('ndRounds')?.value || '10';
       const blueprint = document.getElementById('ndBlueprint')?.value || '';
       if (!await confirmExecute(`养号执行 ${selected.length} 个账号？`, `轮数: ${rounds}\n蓝图: ${blueprint || '自动匹配'}`)) return;
-      if (log) log.textContent = '🚀 执行中...\n';
-      for (const s of selected) {
-        try {
-          const d = await apiRequest('/ops/run', {
-            method: 'POST',
-            body: JSON.stringify({
-              type: 'nurture',
-              accounts: [s.id],
-              params: { blueprint, rounds: parseInt(rounds) },
-            }),
-          });
-          if (log) log.textContent += s.id + ': ' + (d.status || 'OK') + '\n';
-        } catch(e) {
-          if (log) log.textContent += s.id + ': ❌ ' + e.message + '\n';
+      if (log) log.textContent = '🚀 提交 ' + selected.length + ' 个账号到执行队列...\n';
+      try {
+        // 一次性提交所有账号，CommandBus 自动按机器分组和排队
+        const d = await apiRequest('/ops/run', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'nurture',
+            accounts: selected.map(s => s.id),
+            params: { blueprint, rounds: parseInt(rounds) },
+          }),
+        });
+        if (log) {
+          log.textContent += `✅ 状态: ${d.status}\n`;
+          if (d.commands) {
+            d.commands.forEach(c => {
+              log.textContent += `  ${c.machine}: ${c.accounts.join(',')} → ${c.status}\n`;
+            });
+          }
+          if (d.errors) log.textContent += `⚠️ 错误: ${JSON.stringify(d.errors)}\n`;
+          if (d.warnings) log.textContent += `⚠️ 警告: ${JSON.stringify(d.warnings)}\n`;
         }
+      } catch(e) {
+        if (log) log.textContent += '❌ ' + e.message + '\n';
       }
     };
 
