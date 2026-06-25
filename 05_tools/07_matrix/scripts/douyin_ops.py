@@ -128,6 +128,7 @@ class DouyinOps(PlatformOps):
                 all_p = json.loads(PROFILES_JSON.read_text())
             else:
                 all_p = {}
+            ban_status = prof.get("_status", "normal")
             all_p[self._account_id] = {
                 "nickname": prof.get("nickname", "?"),
                 "user_id": prof.get("user_id", "?"),
@@ -136,6 +137,7 @@ class DouyinOps(PlatformOps):
                 "likes": prof.get("likes", "?"),
                 "posts": prof.get("posts", "?"),
                 "bio": prof.get("bio", "?"),
+                "status": ban_status,
                 "platform": "douyin",
                 "updated": time.strftime("%Y-%m-%dT%H:%M:%S"),
             }
@@ -171,6 +173,7 @@ class DouyinOps(PlatformOps):
                 "likes": prof.get("likes", "0"),
                 "posts": prof.get("posts", "0"),
                 "bio": prof.get("bio", ""),
+                "status": ban_status,
                 "updated": time.strftime("%Y-%m-%dT%H:%M:%S"),
             })
             hp_path.write_text(json.dumps(hp_data, ensure_ascii=False, indent=2))
@@ -1102,10 +1105,41 @@ class DouyinOps(PlatformOps):
             };
         }""")
         self._profile = profile
+
+        # 抖音封号检测
+        ban_status = await self._check_douyin_banned()
+        profile["_status"] = ban_status
+        if ban_status == "banned":
+            print(f"[douyin_ops] ⚠️ 账号被封禁")
+
         self._save_profiles_json()  # ← 写入 profiles.json
         dur = int((time.time() - t0) * 1000)
         await self._log_op(step_id, "AO_PROFILE", "user/self", True, dur)
         return profile
+
+    async def _check_douyin_banned(self) -> str:
+        """检测抖音账号是否被封禁
+        Returns: "normal" / "banned" / "unknown"
+        """
+        try:
+            text = (await self.page.evaluate("document.body.innerText")) or ""
+            # 封号关键词
+            ban_keywords = ["账号已重置", "因违规", "已被封禁", "账号存在风险",
+                            "已被限制", "账号异常", "违规封禁", "处罚通知"]
+            for kw in ban_keywords:
+                if kw in text:
+                    print(f"[douyin_ops] ⚠️ 检测到封号关键词: {kw}")
+                    return "banned"
+            # DOM 检测：特定封号提示元素
+            try:
+                ban_el = self.page.locator('[class*="ban"],[class*="punish"],[class*="forbid"]')
+                if await ban_el.count() > 0 and await ban_el.first.is_visible():
+                    return "banned"
+            except:
+                pass
+        except:
+            pass
+        return "normal"
 
     async def read_profile_field(self, field: str, step_id: int = 0) -> str:
         """AO_PROFILE: 从已缓存的 profile 读取单个字段"""

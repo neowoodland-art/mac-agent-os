@@ -56,6 +56,11 @@ def api_matrix_accounts():
                 acct["following"] = profile.get("following", acct.get("following", ""))
                 acct["likes"] = profile.get("likes", acct.get("likes", ""))
                 acct["posts"] = profile.get("posts", acct.get("posts", ""))
+                # 合并封号状态：profiles.json 中的 status 覆盖通用状态
+                pstatus = profile.get("status", "")
+                if pstatus == "banned":
+                    acct["_status"] = "banned"
+                    acct["_banned"] = True
             # 从 homepage-info 补充联邦采集数据
             if not profile:
                 fleet_dir = AGENT_LOCAL / "runtime" / "fleet_collector"

@@ -49,7 +49,7 @@ export async function loadView(container) {
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">操作</th></tr>';
       machineOrder.filter(m => groups[m]).forEach(m => {
         groups[m].forEach(a => {
-          const statusMap = { logged_in:'🟢已登录', remote:'🔵远程', expired:'🟡过期', no_cookie:'🔴无Cookie', disabled:'⚪禁用' };
+          const statusMap = { logged_in:'🟢已登录', remote:'🔵远程', expired:'🟡过期', no_cookie:'🔴无Cookie', disabled:'⚪禁用', banned:'🚫已封号' };
           const s = statusMap[a.status] || a.status;
           html += `<tr style="border-bottom:1px solid var(--border)" data-filter="${(a.id+a.phone+a.nickname+a.identity_dir+m).toLowerCase()}">`
             + `<td style="padding:3px 6px">${m === 'chengzigedeAir' ? '🖥️' : '☁️'}${m}</td>`
