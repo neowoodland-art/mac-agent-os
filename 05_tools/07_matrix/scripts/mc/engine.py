@@ -250,6 +250,14 @@ class BatchEngine:
                 rt = self.task_params.get("reply_text", "")
                 if rt:
                     resolved[k] = v.replace("@reply_text", rt)
+            if "@my_code" in v:
+                mc = self.task_params.get("my_code", "")
+                if mc:
+                    resolved[k] = v.replace("@my_code", mc)
+            if "@target_code" in v:
+                tc = self.task_params.get("target_code", "")
+                if tc:
+                    resolved[k] = v.replace("@target_code", tc)
             if "@scene" in v:
                 scene = self.task_params.get("scene", "first_comment")
                 from mc.corpus import CorpusManager

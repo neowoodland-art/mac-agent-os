@@ -905,6 +905,42 @@ def cmd_distill(args):
 
 
 # ════════════════════════════════════════════════════════════
+# 互动命令
+# ════════════════════════════════════════════════════════════
+
+def cmd_interact(args):
+    """mc interact — 评论互动编排"""
+    from mc.interact import InteractOrchestrator
+
+    accounts = [a.strip() for a in args.accounts.split(",") if a.strip()]
+    interval_parts = args.interval.split("-")
+    interval = {"min": int(interval_parts[0]), "max": int(interval_parts[1])}
+
+    orchestrator = InteractOrchestrator(
+        accounts=[{"id": a, "platform": "douyin", "machine": ""} for a in accounts],
+        params={
+            "url": args.url,
+            "strategy": args.strategy,
+            "direction": args.direction,
+            "corpus": args.corpus,
+            "blueprint": args.blueprint,
+            "rounds": 1,
+            "interval": interval,
+            "dry_run": args.dry_run,
+        },
+    )
+
+    if args.dry_run:
+        plan = orchestrator.plan()
+        print(json.dumps(plan, indent=2, ensure_ascii=False))
+        return
+
+    import asyncio
+    result = asyncio.run(orchestrator.run())
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+
+
+# ════════════════════════════════════════════════════════════
 # 登录命令
 # ════════════════════════════════════════════════════════════
 
@@ -1610,6 +1646,19 @@ def build_parser(subparsers=None, plugin_name="mc"):
     p_distill.add_argument("--batch-size", type=int, default=10, help="每批篇数（llm模式）")
     p_distill.set_defaults(func=cmd_distill)
 
+    # ── interact — 评论互动 ──
+    p_interact = sub.add_parser("interact", help="评论互动：定向评论/三级接力/点赞/热评")
+    p_interact.add_argument("--url", required=True, help="目标视频链接")
+    p_interact.add_argument("--accounts", required=True, help="账号ID，逗号分隔")
+    p_interact.add_argument("--strategy", choices=["comment","chain","like","hot"], default="comment",
+                          help="互动策略（默认定向评论）")
+    p_interact.add_argument("--direction", default="", help="评论方向：称赞/提问/共鸣/感慨")
+    p_interact.add_argument("--corpus", default="", help="语料分类")
+    p_interact.add_argument("--blueprint", default="", help="蓝图名（覆盖自动选择）")
+    p_interact.add_argument("--interval", default="300-600", help="步间间隔秒数（默认300-600）")
+    p_interact.add_argument("--dry-run", action="store_true", help="仅预览不执行")
+    p_interact.set_defaults(func=cmd_interact)
+
     # ── login — 账号登录 ──
     p_login = sub.add_parser("login", help="打开浏览器登录账号")
     p_login.add_argument("--phone", default="", help="按手机号登录")
@@ -1724,6 +1773,7 @@ _AGENTOS_DOMAIN_MAP = {
     'login': 'matrix', 'smart-login': 'matrix',
     'publish': 'matrix', 'task': 'matrix', 'op': 'matrix', 'record': 'matrix',
     'distill': 'knowledge',
+    'interact': 'matrix',
     'status': 'fleet', 'remote': 'fleet',
     'schedule': 'serve', 'proxy': 'serve', 'sms': 'serve',
 }

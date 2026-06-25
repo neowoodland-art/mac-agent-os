@@ -466,6 +466,22 @@ class DouyinOps(PlatformOps):
             ok = await self.scroll_to_hot_comment(step_id=step_id)
             return OpResult(op, step_id, ok, "scrolled", time.time()-t0)
 
+        if op == "find_comment_by_code":
+            code = args.get("code", "")
+            ok = await self.find_comment_by_code(code, step_id=step_id)
+            return OpResult(op, step_id, ok, f"found:{code}" if ok else f"not_found:{code}", time.time()-t0)
+
+        if op == "reply_with_text":
+            text = args.get("text", "")
+            ok = await self.reply_with_text(text, step_id=step_id)
+            return OpResult(op, step_id, ok, "replied" if ok else "failed", time.time()-t0)
+
+        if op == "post_comment_with_code":
+            text = args.get("text", "")
+            code = args.get("code", "")
+            r = await self.post_comment_with_code(text, code, step_id=step_id)
+            return OpResult(op, step_id, r == "ok", r, time.time()-t0)
+
         if op == "search_browse":
             kw = args.get("keyword", "热门推荐")
             await self.search(kw, step_id=step_id)
@@ -1271,6 +1287,25 @@ class DouyinOps(PlatformOps):
         except Exception as e:
             await self._log_op(step_id, "AO_SCROLL_HOT", "comment-list", False, int((time.time()-t0)*1000), str(e))
             return False
+
+    # ── 占位: 三级接力原子操作（等你录制后替换）──
+
+    async def find_comment_by_code(self, code: str, step_id: int = 0) -> bool:
+        """【占位】在评论区搜索包含识别码的评论。需录制"""
+        log.info(f"  🔍 [占位] find_comment_by_code(code={code}) — 需要录制")
+        log.info(f"    流程: 打开评论 → 搜 \"{code}\" → 找到匹配 → 聚焦")
+        return False
+
+    async def reply_with_text(self, text: str, step_id: int = 0) -> bool:
+        """【占位】回复当前聚焦的评论。需录制"""
+        log.info(f"  💬 [占位] reply_with_text(text=\"{text[:20]}...\") — 需要录制")
+        log.info(f"    流程: 点击回复按钮 → 输入文本 → 发送")
+        return False
+
+    async def post_comment_with_code(self, text: str, code: str, step_id: int = 0) -> str:
+        """发评+识别码。复用 post_comment，末尾追加 code"""
+        full_text = f"{text} {code}" if code else text
+        return await self.post_comment(full_text, step_id=step_id)
 
     async def sms_login(self, phone: str = "", step_id: int = 0) -> bool:
         """抖音 SMS 验证码登录（处理 passport iframe 登录页）
