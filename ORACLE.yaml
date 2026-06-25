@@ -180,11 +180,6 @@ tasks:
   action: collect
   params:
     accounts: all
-- name: git_sync
-  schedule: '*/15 * * * *'
-  on_machines: '*'
-  action: git pull
-  params: {}
 - name: vector_rebuild
   schedule: 30 3 * * *
   on_machines:
@@ -219,6 +214,11 @@ tasks:
     source_dir: "01_submissions"
     output_dir: "03_knowledge/00_stream"
     batch_size: 10
+- name: git_sync
+  schedule: '*/15 * * * *'
+  on_machines: '*'
+  action: git pull
+  params: {}
 global:
   timezone: Asia/Shanghai
   git_sync_interval_minutes: 15
