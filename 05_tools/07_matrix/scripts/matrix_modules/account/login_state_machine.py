@@ -93,12 +93,8 @@ class DouyinDetector(PlatformDetector):
             # 未登录信号：页面包含"未登录"或"登录后"
             if "未登录" in text or "登录后" in text:
                 return "not_logged"
-            # 已登录信号：页面包含"粉丝"和"关注"（登录后导航特有）
+            # 已登录信号：页面包含"我的喜欢"和"粉丝"（登录后导航特有）
             if "粉丝" in text and "关注" in text:
-                return "logged_in"
-            # 兜底：body.textContent 可能包含更多文本（innerText 忽略隐藏元素）
-            text2 = (await page.evaluate("document.body.textContent")) or ""
-            if "粉丝" in text2 and "关注" in text2:
                 return "logged_in"
         except Exception:
             pass
@@ -113,20 +109,7 @@ class DouyinDetector(PlatformDetector):
         except Exception:
             pass
 
-        # 4) 封号检测（在返回 unknown 前检查）
-        try:
-            text = (await page.evaluate("document.body.innerText")) or ""
-            ban_kw = ["账号已重置", "因违规", "已被封禁", "账号存在风险",
-                      "已被限制", "账号异常", "违规封禁", "处罚通知",
-                      "违反", "社区规范"]
-            for kw in ban_kw:
-                if kw in text:
-                    print(f"  [banned] 检测到封号关键词: {kw}")
-                    return "banned"
-        except:
-            pass
-
-        # 5) Cookie 仅日志（不用于决策）
+        # 4) Cookie 仅日志（不用于决策）
         try:
             cookies = await page.context.cookies()
             for c in cookies:
@@ -150,16 +133,13 @@ class DouyinDetector(PlatformDetector):
             pass
         return "none"
 
-    async def _check_dom_anchors(self, page, anchors: list, lazy: bool = False) -> bool:
+    async def _check_dom_anchors(self, page, anchors: list) -> bool:
         for sel in anchors:
             try:
                 cnt = await page.locator(sel).count()
                 if cnt > 0:
                     vis = await page.locator(sel).first.is_visible()
                     if vis:
-                        return True
-                    if lazy:
-                        # lazy 模式：即使不可见也算命中（React懒加载可能没渲染完）
                         return True
             except Exception:
                 continue
@@ -218,23 +198,10 @@ class XhsDetector(PlatformDetector):
                 return "not_logged"
             if "粉丝" in text and "关注" in text:
                 return "logged_in"
-            # 兜底：body.textContent（innerText 忽略隐藏元素）
-            text2 = (await page.evaluate("document.body.textContent")) or ""
-            if "粉丝" in text2 and "关注" in text2:
-                return "logged_in"
         except Exception:
             pass
 
-        # ④ 封号检测
-        try:
-            text = (await page.evaluate("document.body.innerText")) or ""
-            if "违反" in text and "社区规范" in text:
-                print(f"  [banned] 小红书检测到封号: 违反社区规范")
-                return "banned"
-        except:
-            pass
-
-        # ⑤ 页面标题检测
+        # ④ 页面标题检测
         try:
             title = await page.title()
             if "小红书" in title and "登录" not in title:
@@ -254,16 +221,13 @@ class XhsDetector(PlatformDetector):
             pass
         return "none"
 
-    async def _check_dom_anchors(self, page, anchors: list, lazy: bool = False) -> bool:
+    async def _check_dom_anchors(self, page, anchors: list) -> bool:
         for sel in anchors:
             try:
                 cnt = await page.locator(sel).count()
                 if cnt > 0:
                     vis = await page.locator(sel).first.is_visible()
                     if vis:
-                        return True
-                    if lazy:
-                        # lazy 模式：即使不可见也算命中（React懒加载可能没渲染完）
                         return True
             except Exception:
                 continue
@@ -330,23 +294,12 @@ class CookieRecovery(RecoveryStep):
                 target = "https://www.xiaohongshu.com/explore"
 
             await page.goto(target, timeout=25000, wait_until="domcontentloaded")
-            # 渐进确认: 先等 3 秒让 React 渲染, 再 detect
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
 
             detector = DETECTORS.get(platform, DETECTORS["douyin"])
             status = await detector.detect(page, account_id)
-            log_func(f"  📍 [{account_id}] Cookie恢复 detect={status}")
             if status == "logged_in":
                 log_func(f"  ✅ [{account_id}] Cookie恢复成功")
-                return True
-
-            # 再试一次：lazy检测（React懒加载可能还没渲染完可见区）
-            log_func(f"  🔄 [{account_id}] Cookie恢复重试 (lazy)...")
-            await asyncio.sleep(4)
-            status = await detector.detect(page, account_id)
-            log_func(f"  📍 重试 detect={status}")
-            if status == "logged_in":
-                log_func(f"  ✅ [{account_id}] Cookie恢复成功 (延迟后)")
                 return True
         except Exception as e:
             log_func(f"  ⚠️ Cookie恢复异常: {e}")
@@ -400,26 +353,13 @@ class VisualRecovery(RecoveryStep):
             await page.screenshot(path=p)
             log_func(f"  📸 截图保存: {p}")
 
-            # 先做基础页面分析（不依赖外部视觉服务）
-            try:
-                title = await page.title()
-                url = page.url
-                text = (await page.evaluate("document.body.innerText")) or ""
-                text_snippet = text[:300].replace("\n", " ")[:200]
-                log_func(f"  📄 页面: {title}")
-                log_func(f"  🔗 URL: {url}")
-                log_func(f"  📝 文本: {text_snippet}")
-            except Exception:
-                pass
-
-            # 尝试视觉分析（oMLX → DashScope 自动 fallback）
             try:
                 from vision_bridge import analyze_screenshot
                 result = await analyze_screenshot(p,
                     "What is on this page? Why can't the system log in?")
                 log_func(f"  👁️ 视觉分析: {result[:200]}")
             except Exception:
-                log_func(f"  ⚠️ 视觉分析服务不可用 (跳过)")
+                pass
         except Exception as e:
             log_func(f"  ⚠️ 截图失败: {e}")
 
@@ -445,7 +385,7 @@ class DouyinLoginRecovery(RecoveryStep):
     SMS_INPUT = "input[placeholder*='验证码']"  # 标准 input
     PHONE_PLACEHOLDER = "请输入手机号"           # 视觉确认的 placeholder
     SMS_PLACEHOLDER = "请输入验证码"             # 视觉确认的 placeholder
-    PHONE_LOGIN_TEXTS = ["手机号登录", "手机登录", "短信登录", "验证码登录", "其他手机号码", "手机号"]  # 切换到手机号登录（多备选）
+    PHONE_LOGIN_TEXT = "手机号登录"              # 切换到手机号登录
     GET_CODE_TEXT = "获取验证码"
     CONFIRM_TEXTS = ["确认登录", "登录", "确认", "提交", "验证", "立即登录", "下一步"]
 
@@ -481,35 +421,11 @@ class DouyinLoginRecovery(RecoveryStep):
             log_func(f"  ✅ [{account_id}] 点击登录后已自动登录（一键登录）")
             return True
 
-        # 2. 检查是否需要切换到手机号登录（二维码默认可见，多备选文本）
-        switched = False
-        for phone_text in self.PHONE_LOGIN_TEXTS:
-            if await self._has_text(page, phone_text):
-                print(f"  [DouyinLoginRecovery] 切换到手机号登录 (找到「{phone_text}」)...")
-                await self._click_by_text(page, phone_text, log_func)
-                await asyncio.sleep(2)
-                switched = True
-                break
-        if not switched:
-            log_func(f"  ⚠️ 未找到手机号登录切换按钮, 尝试JS查找tab...")
-            # JS 兜底：找 tab/button 包含"手机"或"短信"的
-            try:
-                clicked = await page.evaluate("""() => {
-                    const tabs = document.querySelectorAll('[class*="tab"], [class*="Tab"], button, [role="tab"]');
-                    for (const el of tabs) {
-                        if (!el.offsetParent) continue;
-                        const t = (el.textContent || '').trim();
-                        if (t.includes('手机') || t.includes('短信') || t.includes('验证码')) {
-                            el.click(); return true;
-                        }
-                    }
-                    return false;
-                }""")
-                if clicked:
-                    print(f"  [DouyinLoginRecovery] JS切换到手机号登录成功")
-                    await asyncio.sleep(2)
-            except:
-                pass
+        # 2. 检查是否需要切换到手机号登录（二维码默认可见）
+        if await self._has_text(page, self.PHONE_LOGIN_TEXT):
+            print(f"  [DouyinLoginRecovery] 切换到手机号登录...")
+            await self._click_by_text(page, self.PHONE_LOGIN_TEXT, log_func)
+            await asyncio.sleep(2)
 
         # 3. 判断场景：有一键登录 → 短期过期；否则全新登录
         has_onekey = await self._has_onekey(page)
@@ -1036,12 +952,6 @@ class LoginStateMachine:
         if status == "logged_in":
             self._last_status = "logged_in"
             return True
-
-        # 封号检测：直接跳过恢复链，标记为 banned
-        if status == "banned":
-            self._last_status = "banned"
-            log.warning(f"  🚫 [{account_id}] 检测到封号，跳过执行")
-            return False
 
         log.warning(f"  🔐 [{account_id}] 未登录 (status={status}), 恢复中...")
 
