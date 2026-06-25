@@ -198,6 +198,27 @@ tasks:
   - chengzigedeAir
   action: inbox_refine
   params: {}
+- name: submission_metadata
+  description: "提取 01_submissions 元数据和关键词索引（纯文本处理，<10秒）"
+  schedule: 0 5 * * *
+  on_machines:
+  - chengzigedeAir
+  action: distill
+  params:
+    mode: extract
+    source_dir: "01_submissions"
+    output_dir: "04_memory/long_term"
+- name: submission_abstract
+  description: "提交物 AI 摘要生成（每批10篇，~2分钟，每周跑）"
+  schedule: 0 6 * * 1
+  on_machines:
+  - chengzigedeAir
+  action: distill
+  params:
+    mode: llm
+    source_dir: "01_submissions"
+    output_dir: "03_knowledge/00_stream"
+    batch_size: 10
 global:
   timezone: Asia/Shanghai
   git_sync_interval_minutes: 15
