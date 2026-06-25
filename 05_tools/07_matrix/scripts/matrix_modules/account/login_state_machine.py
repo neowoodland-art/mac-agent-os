@@ -93,8 +93,12 @@ class DouyinDetector(PlatformDetector):
             # 未登录信号：页面包含"未登录"或"登录后"
             if "未登录" in text or "登录后" in text:
                 return "not_logged"
-            # 已登录信号：页面包含"我的喜欢"和"粉丝"（登录后导航特有）
+            # 已登录信号：页面包含"粉丝"和"关注"（登录后导航特有）
             if "粉丝" in text and "关注" in text:
+                return "logged_in"
+            # 兜底：body.textContent 可能包含更多文本（innerText 忽略隐藏元素）
+            text2 = (await page.evaluate("document.body.textContent")) or ""
+            if "粉丝" in text2 and "关注" in text2:
                 return "logged_in"
         except Exception:
             pass
@@ -146,13 +150,16 @@ class DouyinDetector(PlatformDetector):
             pass
         return "none"
 
-    async def _check_dom_anchors(self, page, anchors: list) -> bool:
+    async def _check_dom_anchors(self, page, anchors: list, lazy: bool = False) -> bool:
         for sel in anchors:
             try:
                 cnt = await page.locator(sel).count()
                 if cnt > 0:
                     vis = await page.locator(sel).first.is_visible()
                     if vis:
+                        return True
+                    if lazy:
+                        # lazy 模式：即使不可见也算命中（React懒加载可能没渲染完）
                         return True
             except Exception:
                 continue
@@ -211,6 +218,10 @@ class XhsDetector(PlatformDetector):
                 return "not_logged"
             if "粉丝" in text and "关注" in text:
                 return "logged_in"
+            # 兜底：body.textContent（innerText 忽略隐藏元素）
+            text2 = (await page.evaluate("document.body.textContent")) or ""
+            if "粉丝" in text2 and "关注" in text2:
+                return "logged_in"
         except Exception:
             pass
 
@@ -243,13 +254,16 @@ class XhsDetector(PlatformDetector):
             pass
         return "none"
 
-    async def _check_dom_anchors(self, page, anchors: list) -> bool:
+    async def _check_dom_anchors(self, page, anchors: list, lazy: bool = False) -> bool:
         for sel in anchors:
             try:
                 cnt = await page.locator(sel).count()
                 if cnt > 0:
                     vis = await page.locator(sel).first.is_visible()
                     if vis:
+                        return True
+                    if lazy:
+                        # lazy 模式：即使不可见也算命中（React懒加载可能没渲染完）
                         return True
             except Exception:
                 continue
@@ -315,13 +329,24 @@ class CookieRecovery(RecoveryStep):
             if platform == "xiaohongshu":
                 target = "https://www.xiaohongshu.com/explore"
 
-            await page.goto(target, timeout=25000, wait_until="domcontentloaded")
-            await asyncio.sleep(5)
+            # 先 wait_until=load 再用 3 秒渐进确认（vs domcontentloaded 可能漏掉React渲染）
+            await page.goto(target, timeout=30000, wait_until="load")
+            await asyncio.sleep(3)
 
             detector = DETECTORS.get(platform, DETECTORS["douyin"])
             status = await detector.detect(page, account_id)
+            log_func(f"  📍 [{account_id}] Cookie恢复 detect={status}")
             if status == "logged_in":
                 log_func(f"  ✅ [{account_id}] Cookie恢复成功")
+                return True
+
+            # 再试一次：lazy检测（React懒加载可能还没渲染完可见区）
+            log_func(f"  🔄 [{account_id}] Cookie恢复重试 (lazy)...")
+            await asyncio.sleep(4)
+            status = await detector.detect(page, account_id)
+            log_func(f"  📍 重试 detect={status}")
+            if status == "logged_in":
+                log_func(f"  ✅ [{account_id}] Cookie恢复成功 (延迟后)")
                 return True
         except Exception as e:
             log_func(f"  ⚠️ Cookie恢复异常: {e}")
