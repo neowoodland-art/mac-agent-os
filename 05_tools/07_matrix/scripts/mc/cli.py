@@ -695,6 +695,213 @@ def cmd_collect(args):
 
 
 # ════════════════════════════════════════════════════════════
+# 蒸馏命令
+# ════════════════════════════════════════════════════════════
+
+def cmd_distill(args):
+    """mc distill — 内容蒸馏（元数据提取 + 关键词索引）"""
+    import json
+    from pathlib import Path
+    from datetime import datetime
+
+    # 解析路径
+    source_dir = Path(args.source)
+    if not source_dir.is_absolute():
+        source_dir = AGENT_SYNC / source_dir
+    if not source_dir.exists():
+        print(f"❌ 源目录不存在: {source_dir}")
+        return
+
+    output_dir = Path(args.output) if args.output else AGENT_LOCAL / "memory" / "long_term"
+    if not output_dir.is_absolute():
+        output_dir = AGENT_LOCAL / output_dir
+
+    mode = args.mode
+    batch_size = args.batch_size
+
+    print(f"📋 蒸馏模式: {mode}")
+    print(f"📂 源目录: {source_dir}")
+    print(f"📂 输出目录: {output_dir}")
+
+    # 扫描所有 .md 文件
+    files = sorted(source_dir.glob("*.md"))
+    print(f"📄 找到 {len(files)} 篇投稿")
+
+    if mode == "extract":
+        # ── extract 模式：提取元数据 + 关键词索引 ──
+        entries = []
+        for f in files:
+            name = f.stem  # e.g. 20260518_yuan_benchu_经济分析_008
+            parts = name.split("_")
+            date_str = parts[0] if len(parts) > 0 else ""
+            author = parts[1] if len(parts) > 1 else "unknown"
+            category = parts[-2] if len(parts) >= 4 else "unknown"
+            seq = parts[-1] if len(parts) >= 4 else ""
+
+            # 格式化日期
+            try:
+                dt = datetime.strptime(date_str, "%Y%m%d")
+                formatted_date = dt.strftime("%Y-%m-%d")
+            except:
+                formatted_date = date_str
+
+            # 读取 front matter 和正文
+            content = f.read_text(encoding="utf-8")
+            lines = content.split("\n")
+
+            # 提取 front matter 中的标签
+            keywords = []
+            in_front = False
+            for line in lines:
+                if line.startswith("---"):
+                    in_front = not in_front
+                    continue
+                if in_front:
+                    if "tag" in line.lower() or "标签" in line:
+                        val = line.split(":", 1)[-1].strip().strip('"').strip("'")
+                        for kw in val.replace("#", "").replace("，", ",").split(","):
+                            kw = kw.strip()
+                            if kw:
+                                keywords.append(kw)
+                elif line.strip().startswith("> **标签**"):
+                    # Markdown 正文标签行：> **标签**: #tag1 #tag2
+                    tag_line = line.split("**:", 1)[-1] if "**: " in line else line.split("**:", 1)[-1]
+                    for tag in tag_line.replace("#", "").split():
+                        tag = tag.strip()
+                        if tag and tag not in keywords:
+                            keywords.append(tag)
+
+            # 计算字数（不含 front matter）
+            body_start = 0
+            fm_count = 0
+            for line in lines:
+                if line.startswith("---"):
+                    fm_count += 1
+                    if fm_count == 2:
+                        body_start = lines.index(line) + 1
+                        break
+            body = "\n".join(lines[body_start:])
+            char_count = len(body.strip())
+            word_count = len(body.strip().replace(" ", ""))
+
+            entry = {
+                "file": f.name,
+                "date": formatted_date,
+                "author": author,
+                "category": category,
+                "seq": seq,
+                "keywords": keywords,
+                "char_count": char_count,
+                "line_count": len(lines),
+                "summary": body[:80].strip().replace("\n", " ") + "..." if len(body) > 80 else body.strip(),
+            }
+            entries.append(entry)
+
+        # 按分类统计
+        categories = {}
+        for e in entries:
+            cat = e["category"]
+            if cat not in categories:
+                categories[cat] = {"count": 0, "total_chars": 0, "tags": set()}
+            categories[cat]["count"] += 1
+            categories[cat]["total_chars"] += e["char_count"]
+            for kw in e["keywords"]:
+                categories[cat]["tags"].add(kw)
+
+        # 输出 JSON
+        result = {
+            "version": "1.0.0",
+            "last_updated": datetime.now().isoformat(),
+            "source_dir": str(source_dir),
+            "total_files": len(files),
+            "total_chars": sum(e["char_count"] for e in entries),
+            "categories": {k: {
+                "count": v["count"],
+                "total_chars": v["total_chars"],
+                "tags": sorted(v["tags"]),
+            } for k, v in sorted(categories.items())},
+            "entries": entries,
+        }
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / f"keyword_index_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            print(f"✅ 提取完成: {len(entries)} 篇, {len(categories)} 分类")
+            for cat, info in sorted(categories.items()):
+                print(f"   {cat}: {info['count']}篇, {info['total_chars']}字符, {len(info['tags'])}个标签")
+            print(f"📄 输出: {output_path}")
+
+    elif mode == "llm":
+        # ── llm 模式：按分类生成摘要报告 ──
+        # 先提取元数据
+        categories = {}
+        for f in files:
+            name = f.stem
+            parts = name.split("_")
+            category = parts[-2] if len(parts) >= 4 else "unknown"
+            if category not in categories:
+                categories[category] = []
+            categories[category].append(f)
+
+        print(f"\n📊 分类分布（共 {len(categories)} 类）:")
+        for cat, cat_files in sorted(categories.items()):
+            print(f"   {cat}: {len(cat_files)}篇")
+            if args.json:
+                for f in cat_files[:10]:
+                    print(f"     - {f.name}")
+
+        total_batches = (len(files) + batch_size - 1) // batch_size
+        print(f"\n📦 批次数: {total_batches}（batch_size={batch_size}）")
+
+        # 分组输出（每批一个 JSON）
+        batches = []
+        for i in range(0, len(files), batch_size):
+            batch_files = files[i:i + batch_size]
+            batch = []
+            for f in batch_files:
+                content = f.read_text(encoding="utf-8")
+                name = f.stem
+                parts = name.split("_")
+                batch.append({
+                    "file": f.name,
+                    "date": parts[0] if len(parts) > 0 else "",
+                    "category": parts[-2] if len(parts) >= 4 else "",
+                    "char_count": len(content),
+                    "preview": content[:200],
+                })
+            batches.append(batch)
+
+        # 输出摘要报告
+        report = {
+            "version": "1.0.0",
+            "generated": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "source_dir": str(source_dir),
+            "mode": "llm",
+            "total_files": len(files),
+            "total_batches": total_batches,
+            "categories": {cat: len(cat_files) for cat, cat_files in sorted(categories.items())},
+            "batches": batches,
+            "note": "AI 摘要生成需要 LLM 集成，当前为元数据聚合版本。",
+        }
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / f"submission_report_{datetime.now().strftime('%Y%m%d')}.json"
+        output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        else:
+            print(f"\n📄 报告输出: {output_path}")
+            print("⚠️  注意: AI 摘要生成需要 LLM 集成。当前为元数据聚合版本。")
+
+    print("✅ 蒸馏完成")
+
+
+# ════════════════════════════════════════════════════════════
 # 登录命令
 # ════════════════════════════════════════════════════════════
 
@@ -1388,6 +1595,15 @@ def build_parser(subparsers=None, plugin_name="mc"):
     p_collect.add_argument("--status", action="store_true", help="查看采集进度")
     p_collect.set_defaults(func=cmd_collect)
 
+    # ── distill — 内容蒸馏 ──
+    p_distill = sub.add_parser("distill", help="蒸馏 01_submissions 为结构化报告")
+    p_distill.add_argument("--mode", choices=["extract", "llm"], default="extract",
+                          help="extract=元数据提取 llm=AI摘要生成")
+    p_distill.add_argument("--source", default="01_submissions", help="源目录")
+    p_distill.add_argument("--output", default="", help="输出目录")
+    p_distill.add_argument("--batch-size", type=int, default=10, help="每批篇数（llm模式）")
+    p_distill.set_defaults(func=cmd_distill)
+
     # ── login — 账号登录 ──
     p_login = sub.add_parser("login", help="打开浏览器登录账号")
     p_login.add_argument("--phone", default="", help="按手机号登录")
@@ -1501,6 +1717,7 @@ _AGENTOS_DOMAIN_MAP = {
     'blueprint': 'matrix', 'corpus': 'matrix',
     'login': 'matrix', 'smart-login': 'matrix',
     'publish': 'matrix', 'task': 'matrix', 'op': 'matrix', 'record': 'matrix',
+    'distill': 'knowledge',
     'status': 'fleet', 'remote': 'fleet',
     'schedule': 'serve', 'proxy': 'serve', 'sms': 'serve',
 }
