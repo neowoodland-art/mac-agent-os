@@ -184,6 +184,30 @@ class BatchEngine:
         self.run_id = run_id
         self.task_params = {}
 
+    def _mark_banned(self, account_id: str, platform: str):
+        """将账号标记为封号状态，写入 profiles.json"""
+        try:
+            from pathlib import Path
+            home = Path.home()
+            profiles_path = home / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+            if profiles_path.exists():
+                import json
+                all_p = json.loads(profiles_path.read_text())
+            else:
+                all_p = {}
+            all_p[account_id] = {
+                "nickname": all_p.get(account_id, {}).get("nickname", "?"),
+                "fans": "0", "following": "0", "likes": "0", "posts": "0", "bio": "",
+                "status": "banned",
+                "platform": platform,
+                "updated": __import__("time").strftime("%Y-%m-%dT%H:%M:%S"),
+            }
+            profiles_path.parent.mkdir(parents=True, exist_ok=True)
+            profiles_path.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
+            log.warning(f"  🚫 [{account_id}] 已写入封号标记到 profiles.json")
+        except Exception as e:
+            log.warning(f"  ❌ [{account_id}] 写入封号标记失败: {e}")
+
     def _pick_blueprint(self, round_idx: int) -> str:
         if not self.blueprints:
             return ""  # 由 _run_acct_on_conn 按平台自动匹配
@@ -263,7 +287,12 @@ class BatchEngine:
         lsm = LoginStateMachine()
         login_ok = await lsm.ensure_login(conn.page, account_id, platform)
         if not login_ok:
-            log.warning(f"  ❌ [{account_id}] 登录检测不通过，跳过本轮")
+            # 检测是否被封号
+            if hasattr(lsm, 'last_status') and lsm.last_status == 'banned':
+                log.warning(f"  🚫 [{account_id}] 账号被封禁，写入标记")
+                self._mark_banned(account_id, platform)
+            else:
+                log.warning(f"  ❌ [{account_id}] 登录检测不通过，跳过本轮")
             report.skipped = True
             return report
 

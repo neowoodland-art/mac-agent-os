@@ -109,7 +109,20 @@ class DouyinDetector(PlatformDetector):
         except Exception:
             pass
 
-        # 4) Cookie 仅日志（不用于决策）
+        # 4) 封号检测（在返回 unknown 前检查）
+        try:
+            text = (await page.evaluate("document.body.innerText")) or ""
+            ban_kw = ["账号已重置", "因违规", "已被封禁", "账号存在风险",
+                      "已被限制", "账号异常", "违规封禁", "处罚通知",
+                      "违反", "社区规范"]
+            for kw in ban_kw:
+                if kw in text:
+                    print(f"  [banned] 检测到封号关键词: {kw}")
+                    return "banned"
+        except:
+            pass
+
+        # 5) Cookie 仅日志（不用于决策）
         try:
             cookies = await page.context.cookies()
             for c in cookies:
@@ -201,7 +214,16 @@ class XhsDetector(PlatformDetector):
         except Exception:
             pass
 
-        # ④ 页面标题检测
+        # ④ 封号检测
+        try:
+            text = (await page.evaluate("document.body.innerText")) or ""
+            if "违反" in text and "社区规范" in text:
+                print(f"  [banned] 小红书检测到封号: 违反社区规范")
+                return "banned"
+        except:
+            pass
+
+        # ⑤ 页面标题检测
         try:
             title = await page.title()
             if "小红书" in title and "登录" not in title:
@@ -952,6 +974,12 @@ class LoginStateMachine:
         if status == "logged_in":
             self._last_status = "logged_in"
             return True
+
+        # 封号检测：直接跳过恢复链，标记为 banned
+        if status == "banned":
+            self._last_status = "banned"
+            log.warning(f"  🚫 [{account_id}] 检测到封号，跳过执行")
+            return False
 
         log.warning(f"  🔐 [{account_id}] 未登录 (status={status}), 恢复中...")
 
