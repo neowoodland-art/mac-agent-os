@@ -106,34 +106,39 @@ async function cmdCollectSelected() {
   if (statusEl) statusEl.innerHTML = '⏳ 启动批量采集（所有身份，取选中结果）...';
 
   try {
-    const r = await fetch('/api/matrix/collect-homepage', { method: 'POST' });
+    const r = await fetch('/api/ops/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({type:'collect', accounts:ids, params:{rounds:1}})});
     const data = await r.json();
-    if (data.status === 'already_running') {
-      if (statusEl) statusEl.innerHTML = '⏳ 已有任务在运行，等待完成...';
-    } else if (data.status !== 'started') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 启动失败: ' + (data.error||data.message) + '</span>';
+    if (data.status !== 'accepted') {
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 启动失败: ' + (data.error||data.message||data.status) + '</span>';
       return;
     }
-    if (logEl) logEl.textContent += '🚀 采集任务已启动\n';
+    const runId = data.commands?.[0]?.run_id;
+    if (logEl) logEl.textContent += '🚀 采集任务已启动 (runId=' + (runId||'?') + ')\n';
 
-    // 轮询进度
+    if (!runId) { if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 已提交</span>'; return; }
+
     const poll = setInterval(async () => {
       try {
-        const pr = await fetch('/api/matrix/collect-homepage/status');
+        const pr = await fetch('/api/ops/status');
         const ps = await pr.json();
-        if (ps.status === 'running') {
-          if (statusEl) statusEl.innerHTML = '⏳ 采集中... ' + (ps.completed||0) + '/' + (ps.total_identities||'?') + ' 身份';
+        const cmds = Array.isArray(ps) ? ps : (ps.commands || []);
+        const cmd = cmds.find(c => c.run_id === runId);
+        if (!cmd) return;
+        if (cmd.status === 'running' || cmd.status === 'dispatching' || cmd.status === 'queued') {
+          if (statusEl) statusEl.innerHTML = '⏳ ' + cmd.status + '... ' + (cmd.elapsed_sec>0 ? Math.round(cmd.elapsed_sec)+'s' : '');
           if (logEl) {
-            const line = '  ⏳ 进度: ' + (ps.completed||0) + '/' + (ps.total_identities||'?') + ' (成功' + (ps.success||0) + ', 失败' + (ps.failed||0) + ')\n';
+            const line = '  ⏳ ' + cmd.status + ' (' + ((cmd.elapsed_sec>0) ? Math.round(cmd.elapsed_sec)+'s' : '') + ')\n';
             if (!logEl.textContent.includes(line.trim())) logEl.textContent += line;
           }
-        } else if (ps.status === 'completed') {
+        } else if (['completed','failed','crashed','cancelled','timed_out'].includes(cmd.status)) {
           clearInterval(poll);
+          if (cmd.status === 'completed') {
+            if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 采集完成</span>';
+          } else {
+            if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + cmd.status + '</span>';
+          }
+          if (logEl) logEl.textContent += '🏁 状态: ' + cmd.status + ' - ' + (cmd.message||'') + '\n';
           await showCollectReport(ids, statusEl, logEl);
-        } else {
-          clearInterval(poll);
-          if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 采集异常</span>';
-          if (logEl) logEl.textContent += '❌ 状态: ' + ps.status + ' - ' + (ps.message||'') + '\n';
         }
       } catch(e) { /* silent */ }
     }, 5000);
@@ -150,33 +155,35 @@ async function cmdCollectAll() {
   if (statusEl) statusEl.innerHTML = '⏳ 启动批量采集...';
 
   try {
-    const r = await fetch('/api/matrix/collect-homepage', { method: 'POST' });
+    const r = await fetch('/api/ops/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({type:'collect', params:{rounds:1}})});
     const data = await r.json();
-    if (data.status === 'already_running') {
-      if (statusEl) statusEl.innerHTML = '⏳ 已有任务在运行，等待完成...';
-    } else if (data.status !== 'started') {
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 启动失败: ' + (data.error||data.message) + '</span>';
+    if (data.status !== 'accepted') {
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 启动失败: ' + (data.error||data.message||data.status) + '</span>';
       return;
     }
-    if (logEl) logEl.textContent += '🚀 批量采集已启动 (批次并行，最多3个浏览器)\n';
+    const runId = data.commands?.[0]?.run_id;
+    if (logEl) logEl.textContent += '🚀 批量采集已启动 (runId=' + (runId||'?') + ')\n';
+
+    if (!runId) { if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 已提交</span>'; return; }
 
     const poll = setInterval(async () => {
       try {
-        const pr = await fetch('/api/matrix/collect-homepage/status');
+        const pr = await fetch('/api/ops/status');
         const ps = await pr.json();
-        if (ps.status === 'running') {
-          if (statusEl) statusEl.innerHTML = '⏳ 采集中... ' + (ps.completed||0) + '/' + (ps.total_identities||'?') + ' 身份';
-          if (logEl) {
-            const line = '  ⏳ ' + (ps.completed||0) + '/' + (ps.total_identities||'?') + ' | 成功' + (ps.success||0) + ' 失败' + (ps.failed||0) + '\n';
-            if (!logEl.textContent.includes(line.trim())) logEl.textContent += line;
+        const cmds = Array.isArray(ps) ? ps : (ps.commands || []);
+        const cmd = cmds.find(c => c.run_id === runId);
+        if (!cmd) return;
+        if (cmd.status === 'running' || cmd.status === 'dispatching' || cmd.status === 'queued') {
+          if (statusEl) statusEl.innerHTML = '⏳ ' + cmd.status + '... ' + (cmd.elapsed_sec>0 ? Math.round(cmd.elapsed_sec)+'s' : '');
+        } else if (['completed','failed','crashed','cancelled','timed_out'].includes(cmd.status)) {
+          clearInterval(poll);
+          if (cmd.status === 'completed') {
+            if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 采集完成</span>';
+          } else {
+            if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + cmd.status + '</span>';
           }
-        } else if (ps.status === 'completed') {
-          clearInterval(poll);
+          if (logEl) logEl.textContent += '🏁 状态: ' + cmd.status + ' - ' + (cmd.message||'') + '\n';
           await showCollectReport(null, statusEl, logEl);
-        } else {
-          clearInterval(poll);
-          if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ 采集异常</span>';
-          if (logEl) logEl.textContent += '❌ 状态: ' + ps.status + ' - ' + (ps.message||'') + '\n';
         }
       } catch(e) { /* silent */ }
     }, 5000);

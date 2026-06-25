@@ -252,113 +252,16 @@ def api_matrix_nurture_preview(mins: int = 10, concur: int = 3, stagger: int = 1
 
 @router.post("/nurture/start")
 def api_matrix_nurture_start(data: dict = {}):
-    """
-    启动账号养号（预检 + 槽位分配 + 错峰启动）
-
-    请求体:
-      accounts: [str]    — 账号ID列表（必填）
-      blueprint: str     — 蓝图名（可选）
-      rounds: int        — 轮数（默认 10）
-      machine: str       — 目标机器（可选）
-      dry_run: bool      — 仅返回执行计划
-    """
-    try:
-        accounts = data.get("accounts", [])
-        if not accounts:
-            return {"status": "error", "message": "accounts 必填"}
-
-        custom_blueprint = data.get("blueprint", "")
-        rounds = data.get("rounds", 10)
-        force_machine = data.get("machine", "")
-        dry_run = data.get("dry_run", False)
-
-        mgr = _get_matrix_mgr()
-        all_accts = mgr.list_accounts()
-        acct_map = {a["id"]: a for a in all_accts}
-
-        PLATFORM_MAP = {"douyin": "douyin_daily", "xiaohongshu": "xhs_daily"}
-
-        plan = []
-        for aid in accounts:
-            acct = acct_map.get(aid)
-            if not acct:
-                plan.append({"account": aid, "error": "账号不存在", "ok": False})
-                continue
-            platform = acct.get("platform", "")
-            owner = acct.get("owner_machine", HOSTNAME)
-            target_machine = force_machine or owner
-            bp = custom_blueprint or PLATFORM_MAP.get(platform, "douyin_daily")
-            plan.append({
-                "account": aid, "platform": platform, "blueprint": bp,
-                "machine": target_machine, "is_local": (target_machine == HOSTNAME),
-                "rounds": rounds, "owner": owner, "ok": True,
-            })
-
-        if dry_run:
-            return {"status": "plan", "plan": plan}
-
-        # 执行 — 按机器分组，每台机器手动分配槽位+错峰
-        from services.browser_orchestrator import SLOTS, LAUNCH_STAGGER, verify_started
-        from services.remote_exec import exec_remote
-
-        results = []
-
-        # 按机器分组
-        machine_groups = {}
-        for item in plan:
-            if not item["ok"]:
-                results.append(item)
-                continue
-            m = item["machine"]
-            if m not in machine_groups:
-                machine_groups[m] = []
-            machine_groups[m].append(item)
-
-        for machine, items in machine_groups.items():
-            is_local = (machine == HOSTNAME)
-            slot_idx = 0
-            for item in items:
-                slot = SLOTS[slot_idx % len(SLOTS)]
-                slot_idx += 1
-                stagger = (slot_idx - 1) * LAUNCH_STAGGER
-
-                run_id = f"nurture_{int(time.time())}_{item['account']}"
-                wrapper = str(AGENT_SYNC / "05_tools" / "10_dashboard" / "services" / "nurture_runner.sh")
-                pos_x, pos_y = slot["position"]
-                wrapper_cmd = f"bash {wrapper} {item['account']} {item['blueprint']} {item['rounds']} {run_id} {slot['id']} {pos_x} {pos_y}"
-
-                if stagger > 0:
-                    logger.info(f"⏳ 养号错峰等待 {stagger}s → {item['account']} (槽位{slot['id']})")
-                    time.sleep(stagger)
-
-                if is_local:
-                    p = subprocess.Popen(
-                        ["bash", wrapper, item["account"], item["blueprint"],
-                         str(item["rounds"]), run_id, str(slot["id"]), str(pos_x), str(pos_y)],
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                    )
-                    time.sleep(3)
-                    verified = verify_started(HOSTNAME, item["account"], timeout=10)
-                    results.append({
-                        "account": item["account"], "status": "started" if verified["running"] else "verify_failed",
-                        "run_id": run_id, "pid": p.pid, "verified_pid": verified["pid"],
-                        "slot": slot["id"], "position": f"{pos_x},{pos_y}",
-                    })
-                else:
-                    r = exec_remote(machine, wrapper_cmd, timeout=15, fire_and_forget=True)
-                    time.sleep(5)
-                    verified = verify_started(machine, item["account"], timeout=10)
-                    results.append({
-                        "account": item["account"], "status": "started" if verified["running"] else "dispatch_only",
-                        "run_id": run_id, "slot": slot["id"], "position": f"{pos_x},{pos_y}",
-                        "dispatched": r.get("status"), "verified": verified["running"],
-                    })
-
-        return {"status": "started", "plan": plan, "results": results}
-
-    except Exception as e:
-        logger.exception("nurture/start 执行异常")
-        raise HTTPException(500, detail=str(e))
+    """(已废弃) 改用 POST /api/ops/run {type:'nurture', accounts, params}"""
+    accounts = data.get("accounts", [])
+    if not accounts:
+        return {"status": "error", "message": "accounts 必填"}
+    from services.command_bus import CommandBus
+    result = CommandBus.dispatch("nurture", accounts, {
+        "blueprint": data.get("blueprint", "douyin_daily"),
+        "rounds": data.get("rounds", 10),
+    })
+    return {"status": "started", "deprecated": True, "commands": result.get("commands", [])}
 
 
 @router.get("/nurture/status")
@@ -653,50 +556,18 @@ def api_matrix_atom_ops():
 
 @router.post("/task/run")
 def api_matrix_task_run(data: dict = {}):
-    """统一执行评论/点赞等任务 — 通过 CommandBus 走 mc run
-
-    请求体:
-      type: str       — comment / like
-      account: str    — 账号ID
-      url: str        — 视频链接
-      direction: str  — 评论方向（可选）
-      corpus: str     — 语料库分类（可选）
-    """
+    """(已废弃) 改用 POST /api/ops/run {type, accounts, params}"""
     task_type = data.get("type", "")
     account = data.get("account", "")
-    url = data.get("url", "")
-
     if not task_type or not account:
         return {"error": "type 和 account 必填"}
-    if not url:
-        return {"error": "url 必填"}
-
-    # 通过 CommandBus 分发 — 走 mc run 蓝图
     from services.command_bus import CommandBus
-
-    if task_type == "comment":
-        blueprint = "douyin_comment"
-        params = {"blueprint": blueprint, "rounds": 1, "url": url}
-        direction = data.get("direction")
-        corpus = data.get("corpus")
-        if direction:
-            params["direction"] = direction
-        if corpus:
-            params["corpus"] = corpus
-    elif task_type == "like":
-        blueprint = "douyin_daily"
-        params = {"blueprint": blueprint, "rounds": 1, "url": url}
-    else:
-        return {"error": f"不支持的任务类型: {task_type}"}
-
+    params = {"rounds": 1}
+    if data.get("url"): params["url"] = data["url"]
+    if data.get("direction"): params["direction"] = data["direction"]
+    if data.get("corpus"): params["corpus"] = data["corpus"]
     result = CommandBus.dispatch(task_type, [account], params)
-    return {
-        "task_id": result.get("status", "dispatched"),
-        "account": account,
-        "url": url,
-        "status": result.get("status", "ok"),
-        "commands": result.get("commands", []),
-    }
+    return {"deprecated": True, "status": result.get("status", "ok"), "commands": result.get("commands", [])}
 
 _RECORDING_PID_FILE = AGENT_LOCAL / "runtime" / "recording.pid"
 

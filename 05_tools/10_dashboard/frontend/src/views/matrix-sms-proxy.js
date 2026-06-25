@@ -157,12 +157,11 @@ export async function loadView(container) {
       if (!sel) return;
       const opt = sel.options[sel.selectedIndex];
       if (!opt || !opt.value) { alert('请先选一个账号'); return; }
-      alert('⏳ 采集 ' + opt.value + '... 请稍后查看账号管理');
-      // 简单采集
+      alert('⏳ 采集 ' + opt.value + '... 请稍后查看命令');
       try {
-        await fetch(BASE + '/matrix/collect-homepage', {
+        await fetch('/api/ops/run', {
           method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({account_ids: [opt.value]})
+          body: JSON.stringify({type:'collect', accounts:[opt.value], params:{rounds:1}})
         });
       } catch(e) { console.error(e); }
     };

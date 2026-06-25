@@ -134,29 +134,41 @@ async function collectAllPlatforms(phone) {
   if (statusEl) statusEl.innerHTML = '⏳ 启动采集（仅该身份，不分批）...';
   
   try {
-    const r = await fetch('/api/matrix/collect-homepage/phone', {
+    // 按手机号采集已迁移到统一入口，通过 /api/matrix/accounts 获取 account_id 后调 /api/ops/run
+    const accts = await (await fetch('/api/matrix/accounts')).json();
+    const accountList = Array.isArray(accts) ? accts : (accts.accounts || []);
+    const targetIds = accountList.filter(a => a.phone === phone).map(a => a.id);
+    if (!targetIds.length) { if (statusEl) statusEl.innerHTML = '❌ 未找到手机号对应的账号'; return; }
+    const r = await fetch('/api/ops/run', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({phone: phone})
+      body: JSON.stringify({type:'collect', accounts:targetIds, params:{rounds:1}})
     });
     const data = await r.json();
-    if (data.status === 'already_running') {
-      if (statusEl) statusEl.innerHTML = '⏳ 已有采集任务在运行...';
-    } else if (data.status === 'started') {
-      if (statusEl) statusEl.innerHTML = '⏳ 采集中（仅 ' + phone + '）...';
-      const poll = setInterval(async () => {
-        try {
-          const pr = await fetch('/api/matrix/collect-homepage/status');
-          const ps = await pr.json();
-          if (ps.status === 'running') {
-            if (statusEl) statusEl.innerHTML = '⏳ 采集中... ' + (ps.completed||0) + '/' + (ps.total_identities||'?');
-          } else {
-            clearInterval(poll);
-            if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 采集完成</span>';
-            loadSmsAccounts();
-          }
-        } catch(e) { /* silent */ }
-      }, 5000);
+    if (data.status === 'accepted') {
+      if (statusEl) statusEl.innerHTML = '⏳ 采集任务已提交（' + targetIds.join(',') + '）...';
+      const runId = data.commands?.[0]?.run_id;
+      if (runId) {
+        const poll = setInterval(async () => {
+          try {
+            const pr = await fetch('/api/ops/status');
+            const ps = await pr.json();
+            const cmds = Array.isArray(ps) ? ps : (ps.commands || []);
+            const cmd = cmds.find(c => c.run_id === runId);
+            if (cmd && ['completed','failed','crashed','cancelled','timed_out'].includes(cmd.status)) {
+              clearInterval(poll);
+              if (statusEl) statusEl.innerHTML = cmd.status === 'completed'
+                ? '<span style="color:var(--green)">✅ 采集完成</span>'
+                : '<span style="color:var(--red)">❌ ' + cmd.status + '</span>';
+              loadSmsAccounts();
+            } else if (cmd) {
+              if (statusEl) statusEl.innerHTML = '⏳ ' + (cmd.status||'running') + '...';
+            }
+          } catch(e) { /* silent */ }
+        }, 5000);
+      } else {
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✅ 已提交</span>';
+      }
     } else {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">❌ ' + (data.error||data.message) + '</span>';
     }

@@ -821,14 +821,11 @@ class CommandBus:
                 merged = dict(defaults)
                 merged.update(params)
 
-                # Auto-blueprint: 根据账号平台自动选择采集蓝图
+                # Auto-blueprint: 根据账号平台自动选择采集蓝图（多平台用逗号分隔）
                 if auto_bp and not merged.get("blueprint"):
                     platforms = set(a.get("platform", "douyin") for a in accts)
-                    for p in sorted(platforms):
-                        if p == "xiaohongshu":
-                            merged["blueprint"] = bp_map.get("xiaohongshu", "xiaohongshu_read_profile")
-                        else:
-                            merged["blueprint"] = bp_map.get("douyin", "douyin_read_profile")
+                    bp_list = [bp_map.get(p, "douyin_read_profile") for p in sorted(platforms)]
+                    merged["blueprint"] = ",".join(bp_list)
 
                 # 模板渲染：安全处理，缺失的模板变量用空字符串代替
                 try:

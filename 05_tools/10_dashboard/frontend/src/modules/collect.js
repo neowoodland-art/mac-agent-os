@@ -89,9 +89,9 @@ async function cmdRunCommentTask() {
   const resultEl = document.getElementById('cmdTaskResult');
   if (resultEl) resultEl.innerHTML = '⏳ 执行中...';
   try {
-    const r = await fetch('/api/matrix/task/run', {
+    const r = await fetch('/api/ops/run', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({type:'comment', url, direction, account})
+      body:JSON.stringify({type:'comment', accounts:[account], params:{url, direction}})
     });
     const d = await r.json();
     if (resultEl) {
