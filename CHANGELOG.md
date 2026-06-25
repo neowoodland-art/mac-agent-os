@@ -1,5 +1,23 @@
 # AgentOS 项目变更日志
 
+## [4.2.1] - 2026-06-25
+
+### 命令传导统一治理
+- **新建 `PLANS/COMMAND_UNIFICATION_PLAN.md`** — 命令传导统一治理方案 v1.0
+- **CommandBus 新增 CMD_REGISTRY 注册表** — 统一 cmd_type → 命令模板映射，collect 自动按账号平台选择采集蓝图
+- **前端统一调用路径** — matrix-collect.js 改走 POST /api/ops/run，参数格式统一为 {type, accounts, params}
+- **删除废弃路由** — routes/matrix.py 中 /collect-homepage、/collect-homepage/phone、/collect-homepage/cancel、/collect-homepage/status 已删除
+- **platforms/ 标记 deprecated** — collect() 方法中的存档脚本引用已替换，添加废弃标记
+- **CLI mc collect --all 修复** — 支持 --all 参数采集所有账号
+- **AUDIT_5LAYER_REPORT.md 更新** — 信息采集路径审计状态更新
+
+### 验证
+- [x] Phase 1: CommandBus CMD_REGISTRY 注册表已添加，collect 默认带 --blueprints
+- [x] Phase 2: matrix-collect.js 已改走 /api/ops/run，/collect-homepage 路由已删除
+- [x] Phase 3: CLI mc collect --all/--phone/--account/--status 全部修复
+- [x] Phase 4: platforms/*/plugin.py collect() 已改走 CommandBus，标记 deprecated
+- [x] Phase 5: AUDIT_5LAYER_REPORT.md 信息采集审计已更新
+
 ## [4.2.0] - 2026-06-21
 
 ### 文档体系重构

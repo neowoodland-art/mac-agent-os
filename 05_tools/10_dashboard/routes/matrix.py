@@ -228,102 +228,9 @@ def api_matrix_homepage_history():
     return json.loads(history_path.read_text())
 
 
-@router.post("/collect-homepage")
-def api_matrix_start_collect(data: dict = {}):
-    """
-    启动主页信息采集 — 改为通过 CommandBus 走 mc run 蓝图
-
-    请求体:
-      account_ids: [str]  — 要采集的账号ID列表
-      account_id: str     — 单账号（兼容旧调用）
-    """
-    account_ids = data.get("account_ids", [])
-    account_id = data.get("account_id", "")
-    if account_id and account_id not in account_ids:
-        account_ids = [account_id]
-
-    if not account_ids:
-        return {"status": "error", "message": "请指定账号"}
-
-    # 通过 CommandBus 分发 mc run 采集蓝图
-    mgr = _get_matrix_mgr()
-    all_accts = mgr.list_accounts()
-    acct_map = {a["id"]: a for a in all_accts}
-
-    # 按平台分组 → 每个平台一次批量命令（让 MC engine 自己排并发）
-    platform_bp = {"douyin": "douyin_read_profile", "xiaohongshu": "xiaohongshu_read_profile"}
-    platform_groups = {}  # {machine: {platform: [ids]}}
-
-    for aid in account_ids:
-        acct = acct_map.get(aid)
-        if not acct:
-            continue
-        machine = acct.get("owner_machine", "chengzigedeAir")
-        platform = acct.get("platform", "douyin")
-        platform_groups.setdefault(machine, {})
-        platform_groups[machine].setdefault(platform, []).append(aid)
-
-    results = []
-    from services.command_bus import CommandBus
-
-    for machine, plat_ids in platform_groups.items():
-        for platform, ids in plat_ids.items():
-            bp = platform_bp.get(platform, "douyin_read_profile")
-            cmd_result = CommandBus.dispatch("collect", ids, {
-                "blueprint": bp,
-                "rounds": 1,
-                "dry_run": False,
-            })
-            results.append({
-                "machine": machine,
-                "platform": platform,
-                "accounts": ids,
-                "status": cmd_result.get("status", "dispatched"),
-                "commands": cmd_result.get("commands", []),
-            })
-
-    return {"status": "ok", "results": results}
-
-
-@router.post("/collect-homepage/phone")
-def api_matrix_start_collect_phone(data: dict):
-    """按手机号采集"""
-    phone = data.get("phone", "")
-    script = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "collect_batch_runner.py"
-    if not script.exists():
-        return {"error": f"采集脚本不存在: {script}"}
-    progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
-    progress_path.parent.mkdir(parents=True, exist_ok=True)
-    p = subprocess.Popen([sys.executable, str(script), "--phone", phone], cwd=str(script.parent))
-    with open(progress_path, "w") as f:
-        json.dump({"status": "running", "pid": p.pid, "started_at": datetime.now().isoformat()}, f)
-    return {"status": "started", "pid": p.pid}
-
-
-@router.get("/collect-homepage/status")
-def api_matrix_collect_status():
-    """获取采集进度"""
-    progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
-    if not progress_path.exists():
-        return {"status": "idle"}
-    return json.loads(progress_path.read_text())
-
-
-@router.post("/collect-homepage/cancel")
-def api_matrix_cancel_collect():
-    """取消采集"""
-    progress_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
-    if progress_path.exists():
-        try:
-            progress = json.loads(progress_path.read_text())
-            pid = progress.get("pid")
-            if pid:
-                subprocess.run(["kill", str(pid)], capture_output=True)
-        except:
-            pass
-        progress_path.unlink(missing_ok=True)
-    return {"status": "cancelled"}
-
+# ── 废弃：采集入口已统一到 POST /api/ops/run {type:'collect', accounts, params} ──
+# 前端 matrix-collect.js 已改走统一入口，CommandBus 注册表自动按账号平台选择蓝图
+# collect-homepage/phone、collect-homepage/status、collect-homepage/cancel 一并废弃
 
 @router.get("/nurture/preview")
 def api_matrix_nurture_preview(mins: int = 10, concur: int = 3, stagger: int = 15):
@@ -453,8 +360,30 @@ def api_matrix_nurture_start(data: dict = {}):
 def api_matrix_nurture_status():
     """返回当前运行状态（含浏览器检测）"""
     try:
-        from services.browser_orchestrator import check_running_browsers, get_machine_status
-        local_browsers = check_running_browsers()
+        # 用 pgrep 直接查本机 Camoufox 进程（不依赖 browser_orchestrator 避免循环导入/挂起）
+        local_browsers = []
+        try:
+            r = subprocess.run(
+                ["pgrep", "-f", "camoufox.*--remote-debugging-port|HeadlessShell"],
+                capture_output=True, text=True, timeout=5
+            )
+            if r.stdout.strip():
+                for pid in r.stdout.strip().split("\n"):
+                    pid = pid.strip()
+                    if not pid:
+                        continue
+                    try:
+                        cmd_r = subprocess.run(
+                            ["ps", "-p", pid, "-o", "command="],
+                            capture_output=True, text=True, timeout=3
+                        )
+                        local_browsers.append({"pid": int(pid), "cmd": (cmd_r.stdout or "").strip()[:80]})
+                    except:
+                        pass
+        except:
+            pass
+
+        # 远程机器
         ORACLE_PATH = AGENT_SYNC / "ORACLE.yaml"
         remote_machines = []
         if ORACLE_PATH.exists():
@@ -463,9 +392,15 @@ def api_matrix_nurture_status():
             for name in oracle.get("machines", {}):
                 if name != HOSTNAME:
                     try:
-                        remote_machines.append(get_machine_status(name))
+                        # 简单 ping + pgrep 检查
+                        import subprocess as _sp
+                        pr = _sp.run(["ping", "-c", "1", "-W", "2", name],
+                                     capture_output=True, timeout=5)
+                        alive = pr.returncode == 0
+                        remote_machines.append({"machine": name, "alive": alive})
                     except:
                         remote_machines.append({"machine": name, "error": "不可达"})
+
         return {
             "status": "running" if local_browsers else "idle",
             "running_count": len(local_browsers),
@@ -824,15 +759,25 @@ def api_matrix_account_record(account_id: str):
 
     try:
         import subprocess, os, signal
+        scripts_dir = str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts")
         recorder_py = str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts" / "mc" / "recorder.py")
         log_dir = AGENT_LOCAL / "runtime" / "commands"
         log_dir.mkdir(parents=True, exist_ok=True)
-        log_file = open(log_dir / f"recorder_{account_id}_{int(time.time())}.log", "w")
+        log_path = log_dir / f"recorder_{account_id}_{int(time.time())}.log"
+        log_file = open(log_path, "w")
+        # 设置环境变量：PYTHONPATH + AGENT_SYNC/AGENT_LOCAL
+        rec_env = os.environ.copy()
+        rec_env["PYTHONPATH"] = f"{scripts_dir}:{rec_env.get('PYTHONPATH', '')}"
+        rec_env["AGENT_SYNC"] = str(AGENT_SYNC)
+        rec_env["AGENT_LOCAL"] = str(AGENT_LOCAL)
         proc = subprocess.Popen(
             [sys.executable, recorder_py, account_id, platform],
             stdout=log_file, stderr=subprocess.STDOUT,
             start_new_session=True,
+            env=rec_env,
         )
+        log_file.write(f"recorder启动: account={account_id} platform={platform} pid={proc.pid}\nenv PYTHONPATH={scripts_dir}\n")
+        log_file.flush()
         _RECORDING_PID_FILE.write_text(str(proc.pid))
         return {"status": "ok", "account": account_id, "platform": platform,
                 "pid": proc.pid,
@@ -1387,9 +1332,38 @@ async def api_matrix_corpus_delete(data: dict):
 
 @router.post("/accounts/{account_id}/login")
 def api_matrix_account_login(account_id: str):
-    """打开浏览器登录指定账号 — 走 CommandBus 五层分发"""
-    from services.command_bus import CommandBus
-    result = CommandBus.dispatch("login", [account_id], {})
-    if result.get("status") == "accepted":
-        return {"status": "ok", "account": account_id, "message": f"登录命令已发送"}
-    return {"status": "error", "message": result.get("message", "调度失败")}
+    """打开浏览器登录指定账号 — 小红书走全自动 SMS，抖音走 CommandBus"""
+    # 判断平台
+    platform = "douyin"
+    try:
+        from matrix_mgmt import MatrixManager
+        for a in MatrixManager().list_accounts():
+            if a["id"] == account_id:
+                p = a.get("platform", "")
+                if p == "xiaohongshu":
+                    platform = "xiaohongshu"
+                break
+    except Exception:
+        pass
+
+    if platform == "xiaohongshu":
+        # 小红书：直接启动全自动 SMS 登录
+        import subprocess
+        scripts_dir = str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts")
+        login_script = scripts_dir + "/matrix_modules/account/xiaohongshu_login.py"
+        env = {**os.environ, "PYTHONPATH": scripts_dir, "AGENT_SYNC": str(AGENT_SYNC), "AGENT_LOCAL": str(AGENT_LOCAL)}
+        try:
+            proc = subprocess.Popen(
+                [sys.executable, login_script, account_id, "--force"],
+                env=env, start_new_session=True,
+            )
+            return {"status": "ok", "account": account_id, "message": f"小红书登录已启动 (PID {proc.pid})，浏览器自动处理验证码"}
+        except Exception as e:
+            return {"status": "error", "message": f"启动失败: {e}"}
+    else:
+        # 抖音：走现有 CommandBus
+        from services.command_bus import CommandBus
+        result = CommandBus.dispatch("login", [account_id], {})
+        if result.get("status") == "accepted":
+            return {"status": "ok", "account": account_id, "message": f"登录命令已发送"}
+        return {"status": "error", "message": result.get("message", "调度失败")}

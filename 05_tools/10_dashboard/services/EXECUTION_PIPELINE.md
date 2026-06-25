@@ -162,7 +162,46 @@ export async function executeCommand(options) {
 
 ---
 
-## 六、实施步骤
+## 六、v6 队列与强制停止（2026-06-25 新增）
+
+### 6.1 每台机器一个队列
+
+```
+CommandBus 收到新命令
+  ↓
+MachineSession.is_busy?
+  ├── 否 → 立即执行（send_local / send_remote）
+  └── 是 → status=queued，加入 queued_cmds 排队
+              ↓
+        当前命令完成 → poll() 检测到 terminal
+              ↓
+        _start_next() → 出队 → send() → 执行
+```
+
+### 6.2 强制停止
+
+```
+用户点击"停止"
+  ↓
+POST /api/ops/cancel/{run_id}
+  ↓
+session.cancel(cmd)
+  ├── kill(cmd.pid)                    ← 杀 mc run 进程
+  ├── pkill -f {account_id}            ← 清 Camoufox 浏览器
+  └── _start_next()                    ← 启动队列下一条
+```
+
+### 6.3 已实现状态
+
+| 组件 | 状态 |
+|:-----|:----:|
+| MachineSession.queue | ✅ v6 已实现 |
+| cancel() 杀进程+清浏览器 | ✅ v6 已实现 |
+| poll() 完成自动调度下一条 | ✅ v6 已实现 |
+| get_queue_info() API | ✅ v6 已实现 |
+| 前端显示队列/停止按钮 | ⬜ 待实现 |
+
+## 七、实施步骤
 
 | 步骤 | 内容 | 文件 |
 |:-----|:-----|:------|

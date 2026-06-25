@@ -108,6 +108,23 @@ launchctl reload ...        # 重启 Dashboard
 
 **后端**：FastAPI (Python)，端口 9988，app.py 注册所有 API 路由。
 
+### 3.2.5 CommandBus — 统一命令传输层
+
+**位置**：`05_tools/10_dashboard/services/command_bus.py`
+
+**职责**：接收看板命令 → ORACLE 对账 → 按机器分组 → 队列发送 → 状态回传
+
+**v6 队列机制**：
+- 每台机器一个 `MachineSession`，含队列（`current_cmd` + `queued_cmds`）
+- `is_busy` 判断机器是否在执行，新命令来则排队（status=queued）
+- 当前命令完成后，`poll()` 自动调 `_start_next()` 启动下一条
+- 不同机器之间并行执行，互不影响
+- 不拆解命令（路由传什么就发什么），MC 引擎处理 identity 分组和并发
+
+**停止机制**：`POST /api/ops/cancel/{run_id}` → 杀 `mc run` 进程 → `pkill Camoufox` → 启动下一条
+
+**状态查询**：`GET /api/ops/machines` → 返回每台机器的队列信息（当前任务、排队数）
+
 ### 3.2 guardd — 系统守护进程
 
 **作用**：每 300 秒执行一轮健康检查 + 自动恢复。

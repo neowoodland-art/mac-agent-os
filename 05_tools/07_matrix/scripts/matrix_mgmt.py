@@ -115,10 +115,13 @@ class MatrixManager:
         identity_dir_name = new_acct["identity_dir"].replace("identities/", "")
         identity_path = MATRIX_IDENTITIES / identity_dir_name
         identity_path.mkdir(parents=True, exist_ok=True)
-        (identity_path / "config.yaml").write_text(
-            yaml.dump({"window": [702, 783], "screen": {"width": 702, "height": 783}}, default_flow_style=False),
-            encoding="utf-8",
-        )
+        # 只有当 config.yaml 不存在时才创建（避免覆盖已有的 identity/指纹配置）
+        config_file = identity_path / "config.yaml"
+        if not config_file.exists():
+            config_file.write_text(
+                yaml.dump({"window": [702, 783], "screen": {"width": 702, "height": 783}}, default_flow_style=False),
+                encoding="utf-8",
+            )
 
         return {"status": "ok", "account": new_acct}
 
@@ -1328,13 +1331,31 @@ class MatrixManager:
     # ── 向后兼容（保留对旧 accounts.yaml 的支持）──
 
     def _read_accounts_yaml(self) -> list:
-        """向后兼容: 读取旧版 accounts.yaml"""
+        """向后兼容: 合并 override + 旧版 accounts.yaml（override 优先）"""
+        # 先读 override（最完整，包含本机所有账号）
+        try:
+            if self.OVERRIDE_PATH.exists():
+                data = yaml.safe_load(self.OVERRIDE_PATH.read_text()) or {}
+                override_accounts = data.get("accounts", [])
+                override_ids = {a["id"] for a in override_accounts if "id" in a}
+            else:
+                override_accounts, override_ids = [], set()
+        except:
+            override_accounts, override_ids = [], set()
+
+        # 再读 legacy，补上没有的
         if self.LEGACY_PATH.exists():
             try:
-                data = yaml.safe_load(self.LEGACY_PATH.read_text()) or {}
-                return data.get("accounts", [])
+                legacy_data = yaml.safe_load(self.LEGACY_PATH.read_text()) or {}
+                for acct in legacy_data.get("accounts", []):
+                    if acct.get("id") and acct["id"] not in override_ids:
+                        override_accounts.append(acct)
+                        override_ids.add(acct["id"])
             except:
                 pass
+
+        if override_accounts:
+            return override_accounts
         # fallback: registry + override 合成
         return self.list_accounts()
 

@@ -27,11 +27,12 @@ Layer 1: 浏览器 (Camoufox)                   → 执行操作
 |:-----|:------|:---------|:---------|
 | **养号执行** | 启动养号 | `POST /api/ops/run` | → CommandBus → `mc run` |
 | **联邦指挥台** | 执行操作 | `POST /api/ops/run` | → CommandBus → `mc run` |
-| **信息采集** | 采集主页 | `POST /matrix/collect-homepage` | → CommandBus → `mc run` |
-| **定向评论** | 执行评论 | `POST /matrix/task/run` | → CommandBus → `mc task comment` |
-| **收藏点赞** | 执行点赞 | `POST /matrix/task/run` | → CommandBus → `mc run` |
-| **登录** (账号管理/各视图🔑) | 打开浏览器 | `POST /api/matrix/accounts/{id}/login` | → CommandBus → `mc smart-login` |
-| **command_bus templates** | login/logout/collect/comment/like | 模板映射 | → CommandBus 分发 |
+| **信息采集** | 批量采集 | `POST /api/ops/run {type:'collect'}` | → CommandBus `CMD_REGISTRY` → `mc run --blueprints=auto` |
+| **信息采集** | 单账号采集 | `POST /api/ops/run {type:'collect'}` | → CommandBus `CMD_REGISTRY` → `mc run --blueprints=auto` |
+| **定向评论** | 执行评论 | `POST /api/ops/run {type:'comment'}` | → CommandBus `CMD_REGISTRY` → `mc task comment` |
+| **收藏点赞** | 执行点赞 | `POST /api/ops/run {type:'like'}` | → CommandBus `CMD_REGISTRY` → `mc run --blueprints=douyin_daily` |
+| **登录** (账号管理/各视图🔑) | 打开浏览器 | `POST /api/ops/run {type:'login'}` | → CommandBus `CMD_REGISTRY` → `mc smart-login` |
+| **CMD_REGISTRY 注册表** | 统一 cmd_type → 命令模板 | 在 command_bus.py 定义 | 新增操作只需加一行，不需改 dispatch |
 
 ### ℹ️ 系统运维操作 (不走 CommandBus 是合理的)
 

@@ -115,17 +115,19 @@ class DouyinOps(PlatformOps):
         self._account_id = aid
 
     def _save_profiles_json(self):
-        """保存主页信息到 profiles.json（供 Dashboard 读取）"""
+        """保存主页信息到 profiles.json + homepage_info.json（两个 Dashboard 数据源）"""
         if not self._account_id:
             print(f"[douyin_ops] _save_profiles_json: _account_id 为空，跳过")
             return
         try:
+            prof = getattr(self, '_profile', {})
+            PROFILES_JSON.parent.mkdir(parents=True, exist_ok=True)
+
+            # ── 写 profiles.json（供账号管理页面读取）──
             if PROFILES_JSON.exists():
                 all_p = json.loads(PROFILES_JSON.read_text())
             else:
                 all_p = {}
-            prof = getattr(self, '_profile', {})
-            PROFILES_JSON.parent.mkdir(parents=True, exist_ok=True)
             all_p[self._account_id] = {
                 "nickname": prof.get("nickname", "?"),
                 "user_id": prof.get("user_id", "?"),
@@ -138,6 +140,41 @@ class DouyinOps(PlatformOps):
                 "updated": time.strftime("%Y-%m-%dT%H:%M:%S"),
             }
             PROFILES_JSON.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
+
+            # ── 同步写 homepage_info.json（供信息采集页面读取）──
+            hp_path = PROFILES_JSON.parent / "homepage_info.json"
+            hp_data = {"collected_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "results": []}
+            if hp_path.exists():
+                try:
+                    hp_data = json.loads(hp_path.read_text())
+                except Exception:
+                    hp_data = {"collected_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "results": []}
+            entry = None
+            for r in hp_data.get("results", []):
+                rid = r.get("identity_dir", "").replace("identities/", "")
+                if rid == self._account_id:
+                    entry = r
+                    break
+            if not entry:
+                hp_data.setdefault("results", []).append({
+                    "identity_dir": f"identities/{self._account_id}",
+                    "phone": self._account_id.split("_")[-1] if "_" in self._account_id else self._account_id,
+                    "douyin": {}, "xiaohongshu": None
+                })
+                entry = hp_data["results"][-1]
+            if entry.get("douyin") is None:
+                entry["douyin"] = {}
+            entry["douyin"].update({
+                "nickname": prof.get("nickname", ""),
+                "fans": prof.get("fans", "0"),
+                "following": prof.get("following", "0"),
+                "likes": prof.get("likes", "0"),
+                "posts": prof.get("posts", "0"),
+                "bio": prof.get("bio", ""),
+                "updated": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            })
+            hp_path.write_text(json.dumps(hp_data, ensure_ascii=False, indent=2))
+
         except Exception as e:
             print(f"[douyin_ops] _save_profiles_json 失败: {e}")
 

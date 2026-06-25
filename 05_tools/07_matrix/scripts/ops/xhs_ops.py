@@ -38,6 +38,7 @@ class XhsOps(PlatformOps):
     def supported_ops(self) -> list[str]:
         return [
             "xhs_goto_home", "xhs_browse", "xhs_scroll_feed", "xhs_click_note",
+            "xhs_click_next_image", "xhs_click_prev_image",
             "xhs_like", "xhs_collect", "xhs_comment", "xhs_follow", "xhs_search",
             "xhs_post_comment",
             "xhs_goto_profile",
@@ -53,11 +54,24 @@ class XhsOps(PlatformOps):
     # ── 三段式操作模型 v2.0 ──────────────────────────────────
 
     STATE_SELECTORS = [
-        'section.note-item',
-        '[class*="like"]',
-        '[class*="collect"]',
-        '[class*="follow"]',
-        'input[placeholder*="搜索"]',
+        'section.note-item',                 # feed 中的笔记
+        'span.like-lottie',                  # 点赞按钮
+        '[class*="collect"]',                # 收藏
+        '[class*="follow"]',                 # 关注
+        'input[placeholder*="搜索"]',        # 搜索框
+        'textarea.textarea',                 # 小红书搜索输入框
+        'p#content-textarea',                # 评论输入框（有ID，稳定）
+        'button.btn.submit',                 # 发评论按钮
+        'img.preview-interactive',           # 图片翻页
+        'img.avatar-item',                   # 头像
+        'a.cover.mask',                      # 笔记封面链接
+        'div.continue',                      # 登录继续按钮
+        'input#verificationCodeInput',       # 验证码输入框（有ID）
+        'span.login-text',                   # 登录按钮
+        'div.foot-btn',                      # 同意并登录
+        '.reds-count',                       # 登录态指示器
+        '.login-container',                  # 登录面板
+        'a.bottom-channel',                  # 底栏导航
     ]
 
     def _get_pre_conditions(self, op: str) -> list[Condition]:
@@ -83,6 +97,15 @@ class XhsOps(PlatformOps):
             "xhs_search": [
                 Condition("selector", 'input[placeholder*="搜索"]', True,
                           message="需要搜索框可见"),
+            ],
+            "xhs_click_next_image": [
+                Condition("page_mode", "page_mode", "player", message="需要在笔记详情页"),
+            ],
+            "xhs_click_prev_image": [
+                Condition("page_mode", "page_mode", "player", message="需要在笔记详情页"),
+            ],
+            "xhs_post_comment": [
+                Condition("page_mode", "page_mode", "player", message="需要在笔记详情页"),
             ],
             "xhs_goto_home": [],
             "xhs_browse": [],
@@ -139,12 +162,22 @@ class XhsOps(PlatformOps):
         return OpResult("xhs_scroll_feed", step_id, True, "scrolled")
 
     async def xhs_click_note(self, args: dict, step_id: int) -> OpResult:
+        # 策略1: a.cover 点击（录制确认最稳定）
+        try:
+            cover = self.page.locator('a.cover.mask, a.cover')
+            if await cover.count() > 0:
+                await cover.first.click()
+                await asyncio.sleep(4)
+                return OpResult("xhs_click_note", step_id, True, "note_opened")
+        except:
+            pass
+        # 策略2: 通用选择器（原有）
         note = self.page.locator('section.note-item, a[href*="/explore/"], [class*="note-item"]').first
         if await note.count() > 0:
             await note.click()
             await asyncio.sleep(4)
             return OpResult("xhs_click_note", step_id, True, "note_opened")
-        # 找不到笔记 → 回首页重试
+        # 回到首页重试
         await self.page.goto("https://www.xiaohongshu.com/explore", timeout=15000, wait_until="domcontentloaded")
         await asyncio.sleep(3)
         note2 = self.page.locator('section.note-item, a[href*="/explore/"], [class*="note-item"]').first
@@ -153,6 +186,44 @@ class XhsOps(PlatformOps):
             await asyncio.sleep(4)
             return OpResult("xhs_click_note", step_id, True, "note_opened_retry")
         return OpResult("xhs_click_note", step_id, False, "no_note")
+
+    async def xhs_click_next_image(self, args: dict, step_id: int) -> OpResult:
+        """图片笔记向右翻页 — 点击右侧SVG区域（两次录制确认 (677,268)）"""
+        # 策略1: 坐标点击（录制确认右侧 ~(677,268)）
+        try:
+            await self.page.mouse.click(677, 268)
+            await asyncio.sleep(1.5)
+            return OpResult("xhs_click_next_image", step_id, True, "next")
+        except:
+            pass
+        # 策略2: img.preview-interactive 点击（在预览模式中翻页）
+        try:
+            pi = self.page.locator('img.preview-interactive')
+            if await pi.count() > 0:
+                await pi.first.click()
+                await asyncio.sleep(1.5)
+                return OpResult("xhs_click_next_image", step_id, True, "next")
+        except:
+            pass
+        return OpResult("xhs_click_next_image", step_id, False, "no_next_btn")
+
+    async def xhs_click_prev_image(self, args: dict, step_id: int) -> OpResult:
+        """图片笔记向左翻页 — 点击左侧SVG区域（录制确认 (28,274)）"""
+        # 策略1: 坐标点击（录制确认左侧 ~(28,274)）
+        try:
+            await self.page.mouse.click(28, 274)
+            await asyncio.sleep(1.5)
+            return OpResult("xhs_click_prev_image", step_id, True, "prev")
+        except:
+            pass
+        # 策略2: 备用坐标（略右移）
+        try:
+            await self.page.mouse.click(70, 274)
+            await asyncio.sleep(1.5)
+            return OpResult("xhs_click_prev_image", step_id, True, "prev")
+        except:
+            pass
+        return OpResult("xhs_click_prev_image", step_id, False, "no_prev_btn")
 
     # ═══════════════════════════════════════════════════════
     # 互动类
@@ -184,20 +255,30 @@ class XhsOps(PlatformOps):
         return OpResult("xhs_like", step_id, r == "👍", r)
 
     async def xhs_collect(self, args: dict, step_id: int) -> OpResult:
-        """收藏 — 找收藏 SVG 按钮（在点赞按钮右侧）"""
+        """收藏 — 底栏第二位（点赞在左，收藏在点赞+45px处）"""
+        # 策略1: 找点赞按钮位置，点击右侧45px（两次录制确认）
         try:
-            # 先找点赞按钮位置，再找旁边的收藏
             like = self.page.locator('span.like-lottie')
             if await like.count() > 0:
                 box = await like.first.bounding_box()
                 if box:
-                    # 收藏通常在点赞右边60-80px
-                    await self.page.mouse.click(box['x'] + 70, box['y'])
+                    await self.page.mouse.click(box['x'] + 45, box['y'])
                     await asyncio.sleep(1)
                     return OpResult("xhs_collect", step_id, True, "⭐")
         except:
             pass
-        # 兜底：找收藏相关元素
+        # 策略2: SVG 兜底（录制显示收藏是 svg 标签）
+        try:
+            likes = self.page.locator('span.like-lottie')
+            if await likes.count() > 0:
+                svgs = self.page.locator('span.like-lottie ~ svg, span.like-lottie + svg')
+                if await svgs.count() > 0:
+                    await svgs.first.click(force=True)
+                    await asyncio.sleep(1)
+                    return OpResult("xhs_collect", step_id, True, "⭐svg")
+        except:
+            pass
+        # 策略3: JS查找收藏class
         r = await self.page.evaluate("""() => {
             const btns = document.querySelectorAll('[class*="collect"],[class*="save"]');
             for (const b of btns) {
@@ -236,7 +317,7 @@ class XhsOps(PlatformOps):
         return OpResult("xhs_follow", step_id, r == "✅", r)
 
     async def xhs_post_comment(self, args: dict, step_id: int) -> OpResult:
-        """小红书发评论 — JS找输入框+按钮，不依赖CSS类名（CSS modules不可靠）"""
+        """小红书发评论 — 优先用ID选择器 p#content-textarea，再 fallback"""
         text = args.get("text", "")
         if not text or text == "@corpus":
             try:
@@ -254,29 +335,45 @@ class XhsOps(PlatformOps):
             await self.page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(2)
             
-            # Step 2: JS找输入框并填字（不限类名，找任何可见的textarea/input/editable）
-            filled = await self.page.evaluate(f"""() => {{
-                const all = document.querySelectorAll(
-                    'textarea, input[type="text"], [contenteditable="true"], ' +
-                    '[class*="input"], [class*="editor"], [class*="textarea"]'
-                );
-                for (const el of all) {{
-                    if (el.offsetParent !== null) {{
-                        el.focus();
-                        el.click();
-                        // 尝试 execCommand 写入
-                        const sel = window.getSelection();
-                        const range = document.createRange();
-                        range.selectNodeContents(el);
-                        sel.removeAllRanges();
-                        sel.addRange(range);
-                        document.execCommand('insertText', false, '{text}');
-                        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                        return true;
+            # Step 2: 优先用 ID 选择器 p#content-textarea（录制确认稳定）
+            filled = False
+            try:
+                inp = self.page.locator('p#content-textarea')
+                if await inp.count() > 0 and await inp.first.is_visible():
+                    await inp.first.click()
+                    await asyncio.sleep(0.5)
+                    proc = await asyncio.create_subprocess_exec("pbcopy", stdin=asyncio.subprocess.PIPE)
+                    await proc.communicate(input=text.encode())
+                    await asyncio.sleep(0.5)
+                    await self.page.keyboard.press("Meta+V")
+                    await asyncio.sleep(1.5)
+                    filled = True
+            except:
+                pass
+            
+            # Fallback: JS 填字（原有的）
+            if not filled:
+                filled = await self.page.evaluate(f"""() => {{
+                    const all = document.querySelectorAll(
+                        'textarea, input[type="text"], [contenteditable="true"], ' +
+                        '[class*="input"], [class*="editor"], [class*="textarea"]'
+                    );
+                    for (const el of all) {{
+                        if (el.offsetParent !== null) {{
+                            el.focus();
+                            el.click();
+                            const sel = window.getSelection();
+                            const range = document.createRange();
+                            range.selectNodeContents(el);
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                            document.execCommand('insertText', false, '{text}');
+                            el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            return true;
+                        }}
                     }}
-                }}
-                return false;
-            }}""")
+                    return false;
+                }}""")
             await asyncio.sleep(1)
             
             # Step 3: 如果JS填字失败，pbcopy 兜底
@@ -386,6 +483,9 @@ class XhsOps(PlatformOps):
 
         self._profile_cache = profile
 
+        # 2.5 检测封禁状态
+        ban_status = await self.check_banned_status()
+        profile["_status"] = ban_status
         log.info(
             f"      📊 小红书主页: {profile.get('nickname','?')}"
             f" ID={profile.get('user_id','?')}"
@@ -393,6 +493,7 @@ class XhsOps(PlatformOps):
             f" 粉丝={profile.get('fans','?')}"
             f" 获赞={profile.get('likes','?')}"
             f" 笔记={profile.get('posts','?')}"
+            f" 状态={ban_status}"
         )
 
         # 3. 保存到 profiles.json
@@ -464,26 +565,91 @@ class XhsOps(PlatformOps):
         except Exception as e:
             return OpResult("goto_url", step_id, False, "goto_fail", error=str(e))
 
+    async def check_banned_status(self) -> str:
+        """检测小红书账号是否被封禁
+        Returns: "normal" / "banned" / "unknown"
+        """
+        try:
+            text = (await self.page.evaluate("document.body.innerText")) or ""
+            # 个人主页：含有"违反"+"社区规范"关键词
+            if "违反" in text and "社区规范" in text:
+                return "banned"
+            # 操作弹窗：div.banned-title 可见
+            try:
+                bt = self.page.locator('div.banned-title')
+                if await bt.count() > 0 and await bt.first.is_visible():
+                    return "banned"
+            except:
+                pass
+        except:
+            pass
+        return "normal"
+
     def _save_profiles_json(self):
-        """保存主页信息到 profiles.json（供 Dashboard 读取）"""
+        """保存主页信息到 profiles.json + homepage_info.json（两个 Dashboard 数据源）"""
         if not self._account_id:
             return
         try:
+            cache = self._profile_cache
+            status = cache.get("_status", "normal")
+
+            # ── 写 profiles.json（供账号管理页面读取）──
             if PROFILES_JSON.exists():
                 all_p = json.loads(PROFILES_JSON.read_text())
             else:
                 all_p = {}
             PROFILES_JSON.parent.mkdir(parents=True, exist_ok=True)
             all_p[self._account_id] = {
-                "nickname": self._profile_cache.get("nickname", "?"),
-                "user_id": self._profile_cache.get("user_id", "?"),
-                "following": self._profile_cache.get("following", "?"),
-                "fans": self._profile_cache.get("fans", "?"),
-                "likes": self._profile_cache.get("likes", "?"),
-                "posts": self._profile_cache.get("posts", "?"),
+                "nickname": cache.get("nickname", "?"),
+                "user_id": cache.get("user_id", "?"),
+                "following": cache.get("following", "?"),
+                "fans": cache.get("fans", "?"),
+                "likes": cache.get("likes", "?"),
+                "posts": cache.get("posts", "?"),
+                "bio": cache.get("bio", "?"),
+                "status": status,
                 "platform": "xiaohongshu",
                 "updated": datetime.now().isoformat(),
             }
             PROFILES_JSON.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
-        except Exception:
-            pass
+
+            # ── 同步写 homepage_info.json（供信息采集页面读取）──
+            hp_path = PROFILES_JSON.parent / "homepage_info.json"
+            hp_data = {"collected_at": datetime.now().isoformat(), "results": []}
+            if hp_path.exists():
+                try:
+                    hp_data = json.loads(hp_path.read_text())
+                except Exception:
+                    hp_data = {"collected_at": datetime.now().isoformat(), "results": []}
+            # 查找或创建当前账号的记录
+            entry = None
+            for r in hp_data.get("results", []):
+                rid = r.get("identity_dir", "").replace("identities/", "")
+                if rid == self._account_id or r.get("phone") == cache.get("phone", self._account_id):
+                    entry = r
+                    break
+            if not entry:
+                hp_data.setdefault("results", []).append({
+                    "identity_dir": f"identities/{self._account_id}",
+                    "phone": cache.get("phone", self._account_id),
+                    "douyin": None, "xiaohongshu": {}
+                })
+                entry = hp_data["results"][-1]
+            # 确保 xiaohongshu 字段存在
+            if entry.get("xiaohongshu") is None:
+                entry["xiaohongshu"] = {}
+            entry["xiaohongshu"].update({
+                "nickname": cache.get("nickname", ""),
+                "fans": cache.get("fans", "0"),
+                "following": cache.get("following", "0"),
+                "likes": cache.get("likes", "0"),
+                "notes": cache.get("posts", "0"),
+                "bio": cache.get("bio", ""),
+                "status": status,
+                "updated": datetime.now().isoformat(),
+            })
+            hp_path.write_text(json.dumps(hp_data, ensure_ascii=False, indent=2))
+
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"_save_profiles_json 失败: {e}")

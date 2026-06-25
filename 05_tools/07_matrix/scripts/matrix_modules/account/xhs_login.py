@@ -538,6 +538,14 @@ async def xhs_login(page, phone: str = '', account_name: str = '',
         await fill_phone(page, phone)
         await asyncio.sleep(1.5)
 
+    # ── 创建 SMS handler + 记录当前时间（点继续之前，用于时间过滤）──
+    import time
+    from matrix_modules.account.sms.api import ApiSMSHandler
+    handler = ApiSMSHandler(phone=phone) if phone and phone.strip() else ApiSMSHandler()
+    handler.poll_interval = 5
+    sms_after_time = time.time()
+    log_func(f'  📡 记录时间戳 {time.strftime("%H:%M:%S")}，只接受之后的验证码')
+
     # ── Step 3: 点继续（触发 SMS）──
     log_func('👉 Step 3: 点继续')
     if not await click_continue(page):
@@ -556,16 +564,9 @@ async def xhs_login(page, phone: str = '', account_name: str = '',
         return False
     log_func('✅ 验证码框已出现')
 
-    # ── Step 5: 轮询验证码 ──
-    log_func('📡 Step 5: 获取短信验证码')
-    from matrix_modules.account.sms.api import ApiSMSHandler
-
-    handler = ApiSMSHandler(phone=phone) if phone and phone.strip() else ApiSMSHandler()
-    handler.poll_interval = 5
-
     code = ''
     for attempt in range(2):  # 最多2次（第3次封禁3分钟）
-        code = await handler.wait(f'小红书 {account_name}', timeout=180)
+        code = await handler.wait(f'小红书 {account_name}', timeout=180, after_time=sms_after_time)
         if code and len(code) in (4, 5, 6):
             log_func(f'✅ 验证码: {code}')
             break

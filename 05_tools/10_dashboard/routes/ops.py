@@ -1,8 +1,25 @@
 """
-routes/ops.py — 统一操作执行路由 v4
+routes/ops.py — 统一操作执行路由 v5
 
-基于 command_bus 的完整命令生命周期管理。
-所有操作类型通过同一个入口调度。
+⚠️ 本文件是 Dashboard 通往执行层的唯一入口。
+   所有操作（养号/采集/登录/评论/点赞）都经过这里。
+
+调用规范：
+   前端统一发 POST /api/ops/run {type, accounts, params}
+   → CommandBus.dispatch() → CMD_REGISTRY 模板映射 → mc 引擎
+
+禁止：
+   - 在前端直接调用 routes/matrix.py 的 POST 路由
+   - 在 routes/matrix.py 中新增 POST 写操作
+   - 绕过 CommandBus 直接 subprocess
+
+操作类型（定义在 CMD_REGISTRY 中）：
+   - nurture: 养号执行，走 nurture_runner.sh 包装器
+   - collect: 主页采集，auto_blueprint 自动按账号平台选蓝图
+   - login:   智能登录，走 mc smart-login
+   - logout:  登出
+   - comment: 定向评论
+   - like:    点赞
 """
 
 import logging
@@ -162,3 +179,23 @@ def api_ops_policy():
 def api_ops_cancel(run_id: str):
     """取消命令"""
     return CommandBus.cancel(run_id)
+
+
+@router.post("/cleanup-stale")
+def api_ops_cleanup_stale():
+    """清理僵尸命令：进程已死但状态为 running 的标记为 CRASHED，并释放队列"""
+    from services.command_bus import cleanup_stale_commands
+    count = cleanup_stale_commands()
+    return {"status": "ok", "cleaned": count}
+
+
+@router.get("/log/{run_id}")
+def api_ops_log(run_id: str):
+    """查看命令日志"""
+    from pathlib import Path
+    log_dir = Path.home() / "workbuddy-agent-os" / "agent-local" / "runtime" / "commands"
+    for f in sorted(log_dir.glob(f"{run_id}*"), key=lambda x: x.stat().st_mtime, reverse=True):
+        if f.exists():
+            tail = f.read_text(encoding="utf-8", errors="replace")[-5000:]
+            return {"run_id": run_id, "log": tail, "path": str(f)}
+    return {"run_id": run_id, "log": "", "path": ""}

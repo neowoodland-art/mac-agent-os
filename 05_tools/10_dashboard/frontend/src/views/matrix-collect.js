@@ -1,6 +1,13 @@
 /**
  * 信息采集视图（已迁移）
  * 使用共享账号选择器 + 登录/采集一体化
+ *
+ * 调用规范：
+ *   所有操作通过 POST /api/ops/run 统一入口
+ *   {type:'collect', accounts:[...], params:{rounds:N}}
+ *   → CommandBus CMD_REGISTRY 自动按账号平台选择蓝图
+ *
+ *   不再使用已删除的 /api/matrix/collect-homepage 路由
  */
 
 import { apiRequest } from '../router.js';
@@ -102,6 +109,7 @@ function registerGlobals(uid) {
     if (logEl) logEl.textContent = '📥 采集 ' + selected.length + ' 个账号...\n';
 
     // 按机器分组，一次API调用发送同机器的所有账号
+    // 利用 CommandBus 注册表自动按账号平台选择采集蓝图
     const byMachine = {};
     selected.forEach(s => {
       const m = s.machine || 'unknown';
@@ -112,9 +120,13 @@ function registerGlobals(uid) {
     let done = 0;
     for (const [machine, ids] of Object.entries(byMachine)) {
       try {
-        const d = await apiRequest('/matrix/collect-homepage', {
+        const d = await apiRequest('/ops/run', {
           method: 'POST',
-          body: JSON.stringify({ account_ids: ids }),
+          body: JSON.stringify({
+            type: 'collect',
+            accounts: ids,
+            params: { rounds: 1 },
+          }),
         });
         done++;
         if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">🟢 采集中</span>';
@@ -134,10 +146,11 @@ function registerGlobals(uid) {
 
   window._cancelCollect = async function () {
     const logEl = document.getElementById(`log_${uid}`);
-    if (logEl) logEl.textContent += '⏹ 发送停止请求...\n';
+    if (logEl) logEl.textContent += '⏹ 查看执行状态...\n';
     try {
-      await apiRequest('/matrix/collect-homepage/cancel', { method: 'POST' });
-      if (logEl) logEl.textContent += '✅ 已发送停止命令\n';
+      const r = await apiRequest('/ops/status');
+      const active = (r.commands || []).filter(c => c.status === 'running' || c.status === 'dispatching');
+      if (logEl) logEl.textContent += active.length ? `⏳ 有 ${active.length} 个任务运行中，可在执行历史页取消\n` : '⏸️ 当前无活跃采集任务\n';
     } catch (e) { if (logEl) logEl.textContent += '❌ ' + e.message + '\n'; }
   };
 }

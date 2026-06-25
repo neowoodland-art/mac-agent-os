@@ -93,12 +93,14 @@ class ApiSMSHandler(SMSHandler):
                     return n
         return None
 
-    async def wait(self, platform: str = "", timeout: int = 120) -> str:
+    async def wait(self, platform: str = "", timeout: int = 120,
+                   after_time: float = None) -> str:
         """轮询 API 直到获取验证码或超时
 
         Args:
             platform: 平台名称（仅日志）
             timeout: 超时秒数
+            after_time: 只接受该时间戳之后到达的短信（time.time() 格式）
 
         Returns:
             验证码字符串，超时返回空字符串
@@ -107,15 +109,9 @@ class ApiSMSHandler(SMSHandler):
         print(f"    手机号: {self.phone}")
         print(f"    轮询间隔: {self.poll_interval}秒  超时: {timeout}秒")
 
+        if after_time:
+            print(f"    ⏱️  只接受 {datetime.fromtimestamp(after_time).strftime('%H:%M:%S')} 之后的短信")
         self._cancel_flag = False
-        self._last_id = None
-
-        # 先获取当前最新消息 ID-1，避免错过最新一条
-        msgs = self._fetch_messages()
-        if msgs:
-            max_id = max(m.get("id", 0) for m in msgs)
-            self._last_id = max_id - 1  # 减 1 确保最新一条也被检查
-            print(f"    当前最新消息ID: {max_id} (last_id={self._last_id})")
 
         start = time.time()
         while not self._cancel_flag and (time.time() - start) < timeout:
@@ -125,21 +121,24 @@ class ApiSMSHandler(SMSHandler):
             if not msgs:
                 continue
 
-            # 只检查比 last_id 新的消息
             for msg in msgs:
-                msg_id = msg.get("id", 0)
-                if self._last_id and msg_id <= self._last_id:
-                    continue
+                # 用时间过滤：只接受 after_time 之后到达的消息
+                if after_time:
+                    msg_time_str = msg.get("created_at") or msg.get("time") or msg.get("send_time") or ""
+                    if msg_time_str:
+                        try:
+                            from datetime import datetime
+                            msg_ts = datetime.fromisoformat(msg_time_str.replace("Z", "+00:00")).timestamp()
+                            if msg_ts <= after_time:
+                                continue
+                        except Exception:
+                            pass  # 时间解析失败，不过滤
 
                 content = msg.get("content", "")
                 code = self._extract_code(content)
                 if code:
                     print(f"    ✅ 获取到验证码: {code}")
-                    self._last_id = msg_id
                     return code
-
-                # 没有验证码但也更新 last_id（避免重复处理）
-                self._last_id = max(self._last_id or 0, msg_id)
 
             elapsed = int(time.time() - start)
             if elapsed % 15 < 3:  # 每 15 秒打印一次状态

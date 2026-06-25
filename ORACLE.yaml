@@ -131,6 +131,10 @@ accounts:
   assigned_machine: chengzigedeAir
   platforms:
     xiaohongshu: xhs_15370103682
+- phone: '13382501975'
+  assigned_machine: chengzigedeAir
+  platforms:
+    xiaohongshu: xhs_13382501975
 tasks:
 - name: nurture_morning
   schedule: 30 9 * * *

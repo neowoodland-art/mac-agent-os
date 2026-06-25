@@ -479,6 +479,7 @@ async function loadPlugins() {
         {view:'fleet-sync', label:'一键同步'},
         {view:'fleet-reconcile', label:'对账检查'},
         {view:'fleet-exec', label:'远程Shell'},
+        {view:'matrix-commands', label:'🎯 命令与任务'},
       ]},
       '服务': { icon: '⚙️', items: [
         {view:'serve-mcp', label:'MCP状态'},
@@ -1398,9 +1399,10 @@ window.delBp = async function(name) {
 };
 
 // Blueprint execute modal
-let _bpExecName = '';
 function bpExecute(name) {
-  _bpExecName = name;
+  // 存到 DOM 上而不是全局变量（避免 Vite 编译后的变量切分问题）
+  const modal = document.getElementById('bpExecModal');
+  if (modal) modal.dataset.bpName = name;
   fetch('/api/matrix/accounts').then(r=>r.json()).then(d => {
     const accts = (d.accounts||[]).filter(a => a.is_local && a._status === 'logged_in');
     const modal = document.getElementById('bpExecModal');
@@ -1433,10 +1435,13 @@ async function bpDoExec() {
   const sel = document.getElementById('bpExecIdentity');
   const proxy = document.getElementById('bpExecProxy')?.checked;
   const resultEl = document.getElementById('bpExecResult');
+  const modal = document.getElementById('bpExecModal');
+  const bpName = modal ? (modal.dataset.bpName || '') : '';
   if (!sel || !sel.value) { resultEl.innerHTML = '<span style="color:var(--red)">请选择身份</span>'; return; }
+  if (!bpName) { resultEl.innerHTML = '<span style="color:var(--red)">❌ 蓝图名称未设置</span>'; return; }
   resultEl.innerHTML = '<span style="color:var(--text2)">⏳ 执行中...</span>';
   try {
-    const r = await fetch('/api/matrix/blueprints/'+encodeURIComponent(_bpExecName)+'/execute', {
+    const r = await fetch('/api/matrix/blueprints/'+encodeURIComponent(bpName)+'/execute', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({account: sel.value, use_proxy: proxy})
     });
@@ -1642,15 +1647,32 @@ async function loadMatrixNurture() {
               <option value="20">20</option><option value="30">30</option>
             </select>
           </label>
-          <label style="font-size:11px;color:var(--text2)">蓝图:
-            <select id="ndBlueprint" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:11px">
-              <option value="">自动匹配</option>
-              <option value="douyin_daily">🎵 douyin_daily</option>
-              <option value="xhs_daily">📕 xhs_daily</option>
-              <option value="douyin_active_v1">🎵 douyin_active_v1</option>
-              <option value="xhs_active_v1">📕 xhs_active_v1</option>
-            </select>
-          </label>
+           <label style="font-size:11px;color:var(--text2)">蓝图:
+             <select id="ndBlueprint" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:11px">
+               <option value="">自动匹配</option>
+             </select>
+           </label>
+           <script>
+             (async function() {
+               try {
+                 const r = await fetch('/api/matrix/blueprints');
+                 const d = await r.json();
+                 const bps = d.blueprints || d || [];
+                 const sel = document.getElementById('ndBlueprint');
+                 if (!sel) return;
+                 bps.forEach(bp => {
+                   const name = bp.name || bp.file.replace(/\.json$/, '');
+                   const file = bp.file.replace(/\.json$/, '');
+                   const plat = (bp.platform || '').toLowerCase();
+                   const emoji = plat === 'xiaohongshu' ? '📕' : '🎵';
+                   const opt = document.createElement('option');
+                   opt.value = file;
+                   opt.textContent = emoji + ' ' + name;
+                   sel.appendChild(opt);
+                 });
+               } catch(e) { console.warn('蓝图加载失败', e); }
+             })();
+           </script>
           <button onclick="nurturePreflight()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔍 预检</button>
           <button onclick="nurtureExec()" style="background:#22c55e;color:#000;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">🚀 执行选中</button>
           <button onclick="nurtureExecAll()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 全部启用</button>

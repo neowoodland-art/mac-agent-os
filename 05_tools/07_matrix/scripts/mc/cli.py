@@ -640,30 +640,58 @@ def _cmd_op_list(args):
 
 def cmd_collect(args):
     """mc collect — 主页信息采集（通过 mc run + 蓝图）"""
-    accounts = []
-    if args.phone:
-        accounts = [args.phone]
+    import asyncio
+
+    # 解析账号
+    account_ids = []
+    if args.all:
+        # 采集所有启用的账号
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        for a in mgr.list_accounts():
+            if a.get("enabled") != False:
+                account_ids.append(a["id"])
+        if not account_ids:
+            print("⚠️ 没有找到启用的账号")
+            return
+        log(f"📋 采集所有 {len(account_ids)} 个账号")
+    elif args.phone:
+        # 按手机号查找账号ID
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        for a in mgr.list_accounts():
+            if a.get("phone") == args.phone and a.get("platform") == "douyin":
+                account_ids.append(a["id"])
+        if not account_ids:
+            print(f"⚠️ 手机号 {args.phone} 未找到对应账号")
+            return
     elif args.account:
-        accounts = [args.account]
-    
-    if not accounts:
-        print("⚠️ mc collect 已迁移为 mc run --blueprints=douyin_read_profile")
-        print("   请使用: mc run --accounts=A,B --blueprints=douyin_read_profile --rounds=1")
+        account_ids = [args.account]
+    elif args.status:
+        # 查看采集状态
+        status_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "collect_progress.json"
+        if status_path.exists():
+            print(json.dumps(json.loads(status_path.read_text()), indent=2, ensure_ascii=False))
+        else:
+            print("⏸️ 当前无采集任务")
+        return
+    else:
+        print("⚠️ 请指定 --all（全部）/ --phone（手机号）/ --account（账号ID）")
+        print("   或使用: mc run --accounts=A,B --blueprints=douyin_read_profile --rounds=1")
         return
     
     from mc.run import BatchRunner
-    import asyncio
     runner = BatchRunner(
-        accounts=accounts,
+        accounts=account_ids,
         blueprints=["douyin_read_profile"],
         rounds=1,
         interval_range=(5, 10),
     )
-    report = asyncio.run(runner.run())
+    report_dict = asyncio.run(runner.run())
     if args.json:
-        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+        print(json.dumps(report_dict, ensure_ascii=False, indent=2))
     else:
-        print(f"✅ 采集完成: 成功{report.success} 失败{report.failed} 耗时{report.duration:.0f}s")
+        print(f"✅ 采集完成: 成功{report_dict.get('success',0)} 失败{report_dict.get('failed',0)} 耗时{report_dict.get('duration',0):.0f}s")
 
 
 # ════════════════════════════════════════════════════════════
@@ -774,15 +802,28 @@ def cmd_smart_login(args):
         except Exception:
             pass
     
-    # ── 都用 login_identity.py 开浏览器手动登录 ──
-    login_script = SCRIPTS_DIR / "login_identity.py"
-    if not login_script.exists():
-        print(f"❌ 登录脚本不存在: {login_script}")
-        return
-    
-    print(f"\n🚀 打开浏览器: {account_id}")
-    import subprocess
-    subprocess.run([sys.executable, str(login_script), account_id], cwd=str(SCRIPTS_DIR))
+    # ── 根据平台选择登录方式 ──
+    if platform == "xiaohongshu":
+        # 小红书：全自动 SMS 登录
+        xhs_script = SCRIPTS_DIR / "matrix_modules" / "account" / "xiaohongshu_login.py"
+        if not xhs_script.exists():
+            print(f"❌ 小红书登录脚本不存在: {xhs_script}")
+            return
+        print(f"\n📕 小红书全自动登录: {account_id}")
+        import subprocess
+        xhs_args = [sys.executable, str(xhs_script), account_id, "--force"]
+        if phone:
+            xhs_args.extend(["--phone", phone])
+        subprocess.run(xhs_args, cwd=str(SCRIPTS_DIR))
+    else:
+        # 抖音：login_identity.py 开浏览器手动登录
+        login_script = SCRIPTS_DIR / "login_identity.py"
+        if not login_script.exists():
+            print(f"❌ 登录脚本不存在: {login_script}")
+            return
+        print(f"\n🚀 打开浏览器: {account_id}")
+        import subprocess
+        subprocess.run([sys.executable, str(login_script), account_id], cwd=str(SCRIPTS_DIR))
 
 
 # ════════════════════════════════════════════════════════════
@@ -1456,7 +1497,7 @@ def main():
 
 # mc 子命令 → agentos domain 映射表
 _AGENTOS_DOMAIN_MAP = {
-    'run': 'matrix', 'collect': 'matrix', 'account': 'matrix',
+    'run': 'matrix', 'account': 'matrix',
     'blueprint': 'matrix', 'corpus': 'matrix',
     'login': 'matrix', 'smart-login': 'matrix',
     'publish': 'matrix', 'task': 'matrix', 'op': 'matrix', 'record': 'matrix',

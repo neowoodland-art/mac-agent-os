@@ -26,6 +26,7 @@ const MIGRATED_VIEWS = [
   'matrix-atom-ops',
 
   // ── 命令与任务 ──
+  'matrix-commands',
   'ops-command',
 
   // ── 录制标注 ──

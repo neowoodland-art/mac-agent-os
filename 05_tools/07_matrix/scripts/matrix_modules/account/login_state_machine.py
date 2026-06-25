@@ -159,7 +159,7 @@ class DouyinDetector(PlatformDetector):
 
 
 class XhsDetector(PlatformDetector):
-    """小红书登录检测 + 验证弹窗检测"""
+    """小红书登录检测 + 验证弹窗检测（v2.0 四重检测）"""
 
     LOGGED_IN_ANCHORS = [
         ".user-avatar",
@@ -173,22 +173,39 @@ class XhsDetector(PlatformDetector):
     ]
 
     async def detect(self, page, account_id: str) -> str:
+        # ① Cookie 检测（主方案 — 最可靠）
+        try:
+            cookies = await page.context.cookies()
+            from auth_manager import check_login_by_cookie_sync
+            if check_login_by_cookie_sync(cookies, "xiaohongshu"):
+                log.info(f"  🍪 [{account_id}] Cookie 检测: ✅ a1/web_session 存在")
+                return "logged_in"
+        except Exception:
+            pass
+
+        # ② DOM 锚点检测
         logged_in = await self._check_dom_anchors(page, self.LOGGED_IN_ANCHORS)
         if logged_in:
             return "logged_in"
 
-        # 登录面板可见 → 肯定没登录
         if await self._check_dom_anchors(page, self.NOT_LOGGED_ANCHORS):
             return "not_logged"
 
-        # Cookie 仅日志（不用于决策！过期 cookie 会误导）
+        # ③ 页面文本检测
         try:
-            cookies = await page.context.cookies()
-            for c in cookies:
-                name = c.get("name", "").lower()
-                if any(k in name for k in ["session", "token", "sid"]):
-                    log.info(f"  🍪 [{account_id}] cookie '{c['name']}' 存在但无法判断有效性, 继续走恢复链")
-                    break
+            text = (await page.evaluate("document.body.innerText")) or ""
+            if "登录后" in text or "未登录" in text:
+                return "not_logged"
+            if "粉丝" in text and "关注" in text:
+                return "logged_in"
+        except Exception:
+            pass
+
+        # ④ 页面标题检测
+        try:
+            title = await page.title()
+            if "小红书" in title and "登录" not in title:
+                return "logged_in"
         except Exception:
             pass
 

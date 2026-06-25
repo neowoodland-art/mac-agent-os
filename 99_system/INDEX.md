@@ -37,6 +37,14 @@
 | sync_manager | 1.1.0 | 同步备份 | ✅ |
 | peekaboo_controller | 1.0.0 | macOS GUI 自动化（MCP） | ✅ |
 
+## Dashboard 看板
+
+| 文档 | 路径 | 说明 |
+|:-----|:------|:------|
+| Dashboard README | `05_tools/10_dashboard/README.md` | **看板架构、API、CMD_REGISTRY、前端调用规范（必读）** |
+| 五层架构审计 | `PLANS/AUDIT_5LAYER_REPORT.md` | 所有视图的合规状态 |
+| 命令传导统一治理 | `PLANS/COMMAND_UNIFICATION_PLAN.md` | 2026-06-25 治理方案 |
+
 ## 工具（05_tools/）
 
 | 工具 | 说明 | 调用方式 |

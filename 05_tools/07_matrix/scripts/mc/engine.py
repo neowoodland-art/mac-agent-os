@@ -154,8 +154,19 @@ class BatchReport:
 # 核心引擎
 # ════════════════════════════════════════════════════════════
 
+# 平台→默认蓝图映射（当不传蓝图时自动匹配）
+PLATFORM_BLUEPRINTS = {
+    "douyin": "douyin_read_profile",
+    "xiaohongshu": "xiaohongshu_read_profile",
+}
+PLATFORM_DAILY_BLUEPRINTS = {
+    "douyin": "douyin_daily",
+    "xiaohongshu": "xhs_daily",
+}
+
+
 class BatchEngine:
-    def __init__(self, accounts: List[str], blueprints: List[str],
+    def __init__(self, accounts: List[str], blueprints: List[str] = None,
                  rounds: int = 10, mix: bool = False,
                  corpus: List[str] = None,
                   stagger: str = "15-30",
@@ -163,7 +174,7 @@ class BatchEngine:
                   max_browsers: int = 3,
                   run_id: str = ""):
         self.accounts = accounts
-        self.blueprints = blueprints
+        self.blueprints = blueprints or []
         self.rounds_total = rounds
         self.mix = mix
         self.corpus = corpus or []
@@ -174,6 +185,8 @@ class BatchEngine:
         self.task_params = {}
 
     def _pick_blueprint(self, round_idx: int) -> str:
+        if not self.blueprints:
+            return ""  # 由 _run_acct_on_conn 按平台自动匹配
         if self.mix:
             return random.choice(self.blueprints)
         return self.blueprints[(round_idx - 1) % len(self.blueprints)]
@@ -222,8 +235,12 @@ class BatchEngine:
                                  round_idx: int, conn) -> AccountRunReport:
         """在已有浏览器连接上执行单个账号的单个轮次"""
         account_id = account_info["id"]
-        report = AccountRunReport(account_id, blueprint_name, round_idx)
         platform = account_info.get("platform", "douyin")
+
+        # 没传蓝图时按平台自动匹配（支持不同平台账号同一次批量执行）
+        if not blueprint_name:
+            blueprint_name = PLATFORM_BLUEPRINTS.get(platform, "douyin_read_profile")
+        report = AccountRunReport(account_id, blueprint_name, round_idx)
 
         bp = resolve_blueprint(blueprint_name)
         if not bp:

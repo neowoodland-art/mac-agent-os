@@ -31,6 +31,7 @@ from cdp_connector import CDPConnector
 from browser_utils import GracefulBrowser
 
 HOME = Path.home()
+from matrix_mgmt import AGENT_LOCAL, AGENT_SYNC
 
 IDENTITIES_ROOT = AGENT_LOCAL / "tools" / "matrix" / "identities"
 LOG_FILE = AGENT_LOCAL / "runtime" / "login_log.jsonl"
@@ -48,11 +49,12 @@ def write_op_log(account_id: str, platform: str, status: str, detail: str = ""):
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-async def xiaohongshu_login(account_id: str, phone: str = "", timeout_minutes: int = 30):
+async def xiaohongshu_login(account_id: str, phone: str = "", timeout_minutes: int = 30, force: bool = False):
     """小红书全自动登录"""
     # ── 确认账号平台是小程序 ──
     # 从矩阵管理获取账号信息
     platform = "xiaohongshu"
+    acct_identity = account_id
     try:
         from matrix_mgmt import MatrixManager
         mgr = MatrixManager()
@@ -60,11 +62,13 @@ async def xiaohongshu_login(account_id: str, phone: str = "", timeout_minutes: i
             if a["id"] == account_id:
                 if not phone:
                     phone = a.get("phone", "")
+                id_dir = a.get("identity_dir", "") or a.get("identity_hint", "")
+                if id_dir:
+                    acct_identity = id_dir.replace("identities/", "")
                 break
     except Exception:
         pass
-
-    identity_dir = str(IDENTITIES_ROOT / account_id)
+    identity_dir = str(IDENTITIES_ROOT / acct_identity)
     Path(identity_dir).mkdir(parents=True, exist_ok=True)
     log(f"📁 身份目录: {identity_dir}")
 
@@ -94,21 +98,30 @@ async def xiaohongshu_login(account_id: str, phone: str = "", timeout_minutes: i
                          timeout=30000, wait_until="domcontentloaded")
     await asyncio.sleep(6)
 
-    # ── 检测登录状态 ──
+    # ── 检测登录状态（主方案：Cookie 检测，DOM 仅辅助）──
     log("🔍 检测登录状态...")
-    try:
-        # 小红书登录态 DOM 检测
-        logged_in = await conn.page.evaluate(
-            '() => !!document.querySelector(".user-avatar, .reds-count, [class*=avatar]")'
-        )
-        if logged_in:
-            log("✅ 已登录，跳过登录流程")
-            write_op_log(account_id, platform, "already_logged_in")
-            log("\n💡 浏览器保持打开，超时自动关闭")
-            gb.start_auto_shutdown_timer()
-            return True
-    except Exception:
-        pass
+    logged_in = False
+    if force:
+        log("  🔄 --force 模式：跳过已登录检测，强制重新登录")
+    else:
+        try:
+            # Cookie 检测（最可靠）
+            cookies = await conn.page.context.cookies()
+            from auth_manager import check_login_by_cookie_sync
+            logged_in = check_login_by_cookie_sync(cookies, "xiaohongshu")
+            if logged_in:
+                log(f"  ✅ Cookie 检测: 已登录 (a1/web_session)")
+            else:
+                log(f"  ⚠️ Cookie 检测: 未检测到小红书 session cookie")
+        except Exception as e:
+            log(f"  ⚠️ Cookie 检测异常: {e}")
+
+    if logged_in:
+        log("✅ 已登录，跳过登录流程")
+        write_op_log(account_id, platform, "already_logged_in")
+        log("\n💡 浏览器保持打开，超时自动关闭")
+        gb.start_auto_shutdown_timer()
+        return True
 
     # ── 检测登录面板（小红书无cookie时自动弹出登录弹窗）──
     log("📱 检测登录面板...")
@@ -177,123 +190,28 @@ async def xiaohongshu_login(account_id: str, phone: str = "", timeout_minutes: i
             log("❌ 登录面板未出现，请手动完成登录")
             return False
 
-    # ── 执行 SMS 验证码登录 ──
+    # ── 执行 SMS 验证码登录（委托 xhs_login.py 完整流程）──
     log("📱 执行短信验证码登录...")
+    from matrix_modules.account.xhs_login import xhs_login, wait_login_panel
     
-    # 检测是否有手机号输入框，填入手机号
-    has_phone_input = await conn.page.evaluate(
-        '() => !!document.querySelector("input[placeholder*=\"手机\"], input[type=\"tel\"]")'
-    )
-    if has_phone_input and phone:
-        log(f"  📞 填入手机号: {phone}")
-        await conn.page.evaluate(f"""() => {{
-            var inp = document.querySelector('input[placeholder*=\"手机\"], input[type=\"tel\"]');
-            if (inp) {{ 
-                inp.value = '{phone}';
-                inp.dispatchEvent(new Event('input', {{bubbles: true}}));
-            }}
-        }}""")
-        await asyncio.sleep(1)
-        
-        # 点击"获取验证码"按钮
-        log("  📬 点击获取验证码...")
+    # 确保登录面板已弹出
+    await asyncio.sleep(1)
+    if not await wait_login_panel(conn.page):
+        log("  ⚠️ 登录面板未弹出，尝试点击登录按钮...")
         await conn.page.evaluate("""() => {
-            var all = document.querySelectorAll('button, span, div, a');
+            var all = document.querySelectorAll('span, div, a, button');
             for (var i = 0; i < all.length; i++) {
-                var t = all[i].textContent.trim();
-                if ((t.includes('验证码') || t.includes('发送') || t.includes('获取')) && all[i].offsetParent) {
-                    all[i].click();
-                    return true;
-                }
-            }
-            return false;
-        }""")
-        await asyncio.sleep(2)
-    
-    # 等待验证码输入框
-    has_code_input = await conn.page.evaluate(
-        '() => !!document.querySelector("input[placeholder*=\"验证码\"], input[placeholder*=\"code\"]")'
-    )
-    
-    if not has_code_input:
-        log("  ⏳ 等待验证码输入框...")
-        for _ in range(10):
-            await asyncio.sleep(2)
-            has_code_input = await conn.page.evaluate(
-                '() => !!document.querySelector("input[placeholder*=\"验证码\"], input[placeholder*=\"code\"]")'
-            )
-            if has_code_input:
-                break
-    
-    if not has_code_input:
-        log("❌ 未检测到验证码输入框")
-        return False
-    
-    log("  ✅ 验证码输入框已出现")
-    
-    # 轮询获取验证码
-    log("  📡 等待验证码...")
-    from matrix_modules.account.sms import ApiSMSHandler
-    handler = ApiSMSHandler(phone=phone) if phone and phone.strip() else ApiSMSHandler()
-    
-    code = ''
-    for attempt in range(3):
-        code = await handler.wait(f"小红书登录 {account_id}", timeout=60)
-        if code and len(code) in (4, 5, 6):
-            log(f"  ✅ 获取到验证码: {code}")
-            break
-        log(f"  ⏰ 第{attempt+1}次超时，尝试重新发送...")
-        # 重新发送
-        await conn.page.evaluate("""() => {
-            var all = document.querySelectorAll('button, span, div, a');
-            for (var i = 0; i < all.length; i++) {
-                var t = all[i].textContent.trim();
-                if ((t.includes('重新') || t.includes('重发')) && all[i].offsetParent) {
+                if (all[i].textContent.trim() === '登录' && all[i].offsetParent) {
                     all[i].click(); return true;
                 }
             }
             return false;
         }""")
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
     
-    if not code or len(code) not in (4, 5, 6):
-        log("❌ 获取验证码失败")
-        return False
+    ok = await xhs_login(conn.page, phone=phone, account_name=account_id, log_func=log)
     
-    # 填入验证码
-    log(f"  📝 填入验证码 {code}")
-    await conn.page.evaluate(f"""() => {{
-        var inp = document.querySelector('input[placeholder*=\"验证码\"], input[placeholder*=\"code\"]');
-        if (inp) {{
-            inp.value = '{code}';
-            inp.dispatchEvent(new Event('input', {{bubbles: true}}));
-        }}
-    }}""")
-    await asyncio.sleep(0.5)
-    
-    # 点确认/登录按钮
-    log("  🔘 点击确认...")
-    confirm_ok = await conn.page.evaluate("""() => {
-        var texts = ['确认', '提交', '验证', '登录', '确定', '下一步', '立即登录'];
-        var all = document.querySelectorAll('button, span, div, a');
-        for (var i = 0; i < all.length; i++) {
-            if (!all[i].offsetParent) continue;
-            for (var t = 0; t < texts.length; t++) {
-                if (all[i].textContent.includes(texts[t])) {
-                    all[i].click(); return true;
-                }
-            }
-        }
-        return false;
-    }""")
-    await asyncio.sleep(3)
-    
-    # ── 验证登录 ──
-    logged_in = await conn.page.evaluate(
-        '() => !!document.querySelector(".user-avatar, .reds-count, [class*=avatar]")'
-    )
-    
-    if logged_in:
+    if ok:
         log("🎉 小红书登录成功！")
         write_op_log(account_id, platform, "success")
     else:
@@ -317,9 +235,11 @@ def main():
     parser.add_argument("--phone", "-p", default="", help="手机号（选填）")
     parser.add_argument("--timeout", "-t", type=int, default=30,
                         help="超时自动关闭分钟数（默认 30）")
+    parser.add_argument("--force", "-f", action="store_true",
+                        help="强制重新登录（跳过已登录检测）")
     args = parser.parse_args()
-    print(f"\n{'='*55}\n 📕 小红书登录接入: {args.account_id}\n{'='*55}\n")
-    asyncio.run(xiaohongshu_login(args.account_id, args.phone, args.timeout))
+    print(f"\n{'='*55}\n {'📕 小红书强制登录' if args.force else '📕 小红书登录接入'}: {args.account_id}\n{'='*55}\n")
+    asyncio.run(xiaohongshu_login(args.account_id, args.phone, args.timeout, force=args.force))
 
 
 if __name__ == "__main__":

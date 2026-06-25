@@ -1,4 +1,11 @@
-"""抖音插件实现 — 当前包装现有脚本"""
+"""抖音插件实现 — 当前包装现有脚本
+
+⚠️ DEPRECATED: 本插件层的功能已被 CommandBus + mc 引擎取代。
+   所有执行操作请走：
+     - 看板: POST /api/ops/run {type:'collect'|'nurture'|'login'|'comment', accounts, params}
+     - CLI:  mc run / mc collect / mc smart-login
+   platforms/ 层将在后续清理中移除。
+"""
 
 import json
 import subprocess
@@ -31,17 +38,17 @@ class DouyinPlatform(BasePlatform):
         return account_name
 
     def collect(self, account_name: str) -> dict:
-        """采集主页信息"""
-        runner = SCRIPTS_DIR / "collect_homepage_info.py"
-        identity = self._resolve_account(account_name)
-        cmd = [sys.executable, str(runner), "--single", identity]
+        """采集主页信息（建议通过 mc run --blueprints=douyin_read_profile 执行）"""
+        # 旧路径：引用已归档的 collect_homepage_info.py（不存在）
+        # 改为通过 CommandBus 分发 mc run 采集蓝图
         try:
-            p = subprocess.run(cmd, cwd=str(SCRIPTS_DIR), capture_output=True, text=True, timeout=180)
-            return {"status": "ok" if p.returncode == 0 else "error", "output": p.stdout[-500:]}
-        except subprocess.TimeoutExpired:
-            return {"status": "error", "message": "采集超时"}
+            sys.path.insert(0, str(SCRIPTS_DIR.parent.parent / "10_dashboard"))
+            from services.command_bus import CommandBus
+            result = CommandBus.dispatch("collect", [account_name], {"rounds": 1})
+            status = "ok" if result.get("status") in ("accepted", "completed") else "error"
+            return {"status": status, "message": f"已通过 CommandBus 分发: {result.get('status', '?')}"}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": f"CommandBus 分发失败: {e}"}
 
     def login(self, account_name: str, headless: bool = False) -> dict:
         """打开浏览器登录"""

@@ -1,9 +1,21 @@
 """
-command_bus.py — 统一命令传输层 v5
+command_bus.py — 统一命令传输层 v6
 
-核心变更 v5: 按机器分组，每台机器只发一条命令（含多个账号）
-  之前: 每个账号一条命令
-  现在: 每台机器一条命令，accounts=["a","b","c"] 批量参数
+设计原则:
+  v5 (2026-06-23): 按机器分组，每台机器只发一条命令（含多个账号）
+  v6 (2026-06-25): 每台机器一个执行队列，串行执行
+
+核心机制:
+  1. 路由层不拆解命令 — 传全部账号，由 MC 引擎按 identity 分组
+  2. 每台机器一个队列 — MachineSession.is_busy 判断是否可发新命令
+  3. 新命令 → 机器忙 → 排队等待（status=queued）
+  4. 当前命令完成 → 自动启动下一条
+  5. 强制停止 → cancel() 杀进程+清浏览器+启动下一条
+  6. MC 引擎内部 Semaphore(3) + identity 分组控制并发
+  7. 不同机器之间并行执行（互不影响）
+
+架构:
+  Dashboard → API → CommandBus → MachineSession(队列) → mc run → 引擎 → Camoufox
 """
 
 import asyncio, json, logging, os, subprocess, sys, time, threading
@@ -119,14 +131,16 @@ def _get_machine_info(machine_name: str) -> dict:
 
 
 class MachineSession:
-    """单台机器的命令执行会话"""
+    """单台机器的命令执行会话（v6: 每台机器一个队列）"""
 
     _sessions = {}
 
     def __init__(self, machine: str):
         self.machine = machine
         self.is_local = (machine == HOSTNAME)
-        self.commands: list[Command] = []
+        self.commands: list[Command] = []     # 全部命令（含历史）
+        self.current_cmd: Optional[Command] = None  # 正在执行的命令
+        self.queued_cmds: list[Command] = []  # 排队等待的命令
         self.max_history = 50
         self._lock = threading.Lock()
         self.machine_info = _get_machine_info(machine) if not self.is_local else {}
@@ -134,6 +148,11 @@ class MachineSession:
         if not self.is_local and self.machine_info.get("ip"):
             u = self.machine_info.get("user", "")
             self.ssh_target = f"{u}@{self.machine_info['ip']}" if u else self.machine_info["ip"]
+
+    @property
+    def is_busy(self) -> bool:
+        """机器是否正在执行命令"""
+        return self.current_cmd is not None and self.current_cmd.status.is_active
 
     @classmethod
     def get(cls, machine: str) -> "MachineSession":
@@ -187,10 +206,23 @@ class MachineSession:
 
     def send(self, cmd: Command) -> dict:
         with self._lock:
+            # 机器已经在执行命令 → 排队
+            if self.is_busy:
+                cmd.status = CommandStatus.QUEUED
+                cmd.message = f"排队中（当前有任务在执行: {self.current_cmd.run_id}）"
+                self.queued_cmds.append(cmd)
+                self.commands.insert(0, cmd)
+                self._trim_history()
+                return {"status": "queued", "message": cmd.message, "run_id": cmd.run_id}
+
+            # 机器空闲 → 立即执行
             if self.is_local:
-                return self._send_local(cmd)
+                result = self._send_local(cmd)
             else:
-                return self._send_remote(cmd)
+                result = self._send_remote(cmd)
+            if "error" not in result:
+                self.current_cmd = cmd
+            return result
 
     def _send_local(self, cmd: Command) -> dict:
         # 系统级安全检查（仅保留警戒线，杀掉异常过多的 mc 进程）
@@ -205,8 +237,8 @@ class MachineSession:
         except:
             pass
 
-        # ⚠️ 并发限制已移除 — 由 MC engine 内部 Semaphore 控制
-        # CommandBus 只负责转发，不限制并发
+        # ⚠️ 并发控制：CommandBus 只转发，由 MC engine 内部 Semaphore 控制
+        # 同一台机器只会发一条命令（路由层已合并），引擎内按 identity 分组 + Semaphore(3)
 
         scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
         log_dir = AGENT_LOCAL / "runtime" / "commands"
@@ -336,6 +368,13 @@ class MachineSession:
                 return cmd.status
             cmd.last_poll_at = time.time()
 
+            # 按 cmd_type 获取轮询策略
+            strategy = CMD_POLL_STRATEGY.get(cmd.cmd_type, DEFAULT_POLL_STRATEGY)
+            grace_period = strategy.get("grace_period", 30)
+            max_timeout = cmd.params.get("timeout", strategy.get("timeout", 600))
+            check_process = strategy.get("check_process", True)
+            check_log_completed = strategy.get("check_log_completed", [])
+
             # 远程命令：通过 SSH 读取结果
             if not self.is_local and self.ssh_target:
                 if self._remote_poll_result(cmd):
@@ -395,21 +434,32 @@ class MachineSession:
                         except:
                             pass
 
-            alive = self._is_alive(cmd)
-            if alive:
-                cmd.status = CommandStatus.RUNNING
-                cmd.message = "进程运行中"
-                return cmd.status
+            # 根据策略决定是否检测进程存活
+            alive = False
+            if check_process:
+                alive = self._is_alive(cmd)
+                if alive:
+                    cmd.status = CommandStatus.RUNNING
+                    cmd.message = "进程运行中"
+                    return cmd.status
+            else:
+                # check_process=False：不依赖进程存活判断（login/logout 快速命令）
+                # 检查日志中是否有完成标记
+                if check_log_completed and cmd.log_path and cmd.log_path.exists():
+                    log_text = cmd.log_path.read_text(encoding="utf-8", errors="replace")
+                    for marker in check_log_completed:
+                        if marker in log_text:
+                            cmd.status = CommandStatus.COMPLETED
+                            cmd.message = f"检测到完成标记: {marker}"
+                            cmd.completed_at = time.time()
+                            return cmd.status
 
             elapsed = cmd.elapsed_sec
-            # 远程命令需要更长等待时间（SSH + 进程启动开销）
-            grace_period = 30 if not self.is_local else 5
             if elapsed < grace_period:
                 cmd.status = CommandStatus.RUNNING
                 cmd.message = f"{'远程' if not self.is_local else ''}进程启动中 ({int(elapsed)}s/{grace_period}s)"
                 return cmd.status
 
-            max_timeout = cmd.params.get("timeout", 600)
             if elapsed > max_timeout:
                 cmd.status = CommandStatus.TIMED_OUT
                 cmd.message = f"执行超时 ({int(elapsed)}s > {max_timeout}s)"
@@ -483,6 +533,8 @@ class MachineSession:
         with self._lock:
             if cmd.status.is_terminal:
                 return {"error": "命令已结束"}
+
+            # 杀掉进程 + 清理浏览器
             if self.is_local and cmd.pid:
                 try:
                     os.kill(cmd.pid, 15)
@@ -490,6 +542,12 @@ class MachineSession:
                     os.kill(cmd.pid, 9)
                 except:
                     pass
+                # 清理残留 Camoufox 进程（所有账号）
+                for aid in cmd.accounts:
+                    try:
+                        subprocess.run(["pkill", "-f", aid], capture_output=True, timeout=3)
+                    except:
+                        pass
             elif not self.is_local and self.ssh_target:
                 try:
                     subprocess.run(
@@ -498,9 +556,15 @@ class MachineSession:
                     )
                 except:
                     pass
+
             cmd.status = CommandStatus.CANCELLED
             cmd.message = "用户取消"
             cmd.completed_at = time.time()
+
+            # 如果是当前正在执行的命令 → 启动下一条
+            if self.current_cmd is cmd:
+                self._start_next()
+
             return {"ok": True}
 
     def _cleanup_zombies(self):
@@ -516,6 +580,23 @@ class MachineSession:
                         cmd.message = "进程已消失"
                     cmd.completed_at = time.time()
 
+        # 命令刚完成 → 启动队列下一条
+        if cmd.status.is_terminal and self.current_cmd is cmd:
+            self._start_next()
+
+    def _start_next(self):
+        """当前命令完成后，启动队列中的下一条"""
+        self.current_cmd = None
+        if self.queued_cmds:
+            next_cmd = self.queued_cmds.pop(0)
+            logger.info(f"  ⏩ 启动队列下一条: {next_cmd.run_id} ({next_cmd.cmd_type})")
+            if self.is_local:
+                r = self._send_local(next_cmd)
+            else:
+                r = self._send_remote(next_cmd)
+            if "error" not in r:
+                self.current_cmd = next_cmd
+
     def _trim_history(self):
         while len(self.commands) > self.max_history:
             self.commands.pop()
@@ -523,8 +604,111 @@ class MachineSession:
     def get_active_commands(self) -> list[Command]:
         return [c for c in self.commands if c.status.is_active]
 
+    def get_queue_info(self) -> dict:
+        """返回队列状态"""
+        return {
+            "busy": self.is_busy,
+            "current_run_id": self.current_cmd.run_id if self.current_cmd else None,
+            "current_type": self.current_cmd.cmd_type if self.current_cmd else None,
+            "current_status": self.current_cmd.status.value if self.current_cmd else None,
+            "queued_count": len(self.queued_cmds),
+            "queued": [{"run_id": c.run_id, "type": c.cmd_type, "accounts": c.accounts}
+                       for c in self.queued_cmds],
+        }
+
     def get_recent_commands(self, limit: int = 20) -> list[dict]:
         return [c.to_dict() for c in self.commands[:limit]]
+
+
+# ── 操作注册表（统一 cmd_type → 命令模板映射）───────────────
+# 本注册表是整个系统通往执行层的唯一映射表。
+# 新增操作类型只需在这里加一行，不需要改 dispatch 逻辑。
+#
+# 注册表字段说明:
+#   template        — 命令模板，用 {ids} {blueprint} {rounds} 等变量渲染
+#   defaults        — 参数默认值（前端不传 params 时使用）
+#   auto_blueprint  — 是否根据账号 platform 字段自动选择采集蓝图
+#   blueprint_map   — platform → blueprint 映射表
+#   runner          — shell 包装器路径（nurture 专用）
+#   single_account  — 是否一次只处理一个账号
+#   required_params — 必填参数列表（缺失则报错）
+#
+# 前端调用示例:
+#   POST /api/ops/run {type:'collect', accounts:['douyin_01'], params:{rounds:1}}
+#   → CMD_REGISTRY["collect"] → "mc run --accounts=douyin_01 --blueprints=douyin_read_profile --rounds=1"
+CMD_REGISTRY = {
+    "nurture": {
+        "runner": "nurture_runner.sh",            # shell 包装器
+        "defaults": {"blueprint": "douyin_daily", "rounds": 10},
+        "auto_blueprint": False,
+    },
+    "collect": {
+        "template": "mc run --accounts={ids} --blueprints={blueprint} --rounds={rounds}",
+        "defaults": {"rounds": 1},
+        "auto_blueprint": True,
+        "blueprint_map": {
+            "douyin": "douyin_read_profile",
+            "xiaohongshu": "xiaohongshu_read_profile",
+        },
+    },
+    "login": {
+        "template": "mc smart-login {ids}",
+        "single_account": True,
+    },
+    "logout": {
+        "template": "mc run --accounts={ids} --blueprints=douyin_daily --rounds=1 --engine=auto",
+    },
+    "comment": {
+        "template": "mc task comment --account={ids} --url={url} --direction={direction}",
+        "required_params": ["url"],
+    },
+    "like": {
+        "template": "mc run --accounts={ids} --blueprints=douyin_daily --rounds=1",
+    },
+}
+
+
+# ── 命令轮询策略（按 cmd_type 设定不同的超时/检测方式）────────
+# 解决：登录进程退出后 poll 不知道它已完成的问题
+CMD_POLL_STRATEGY = {
+    "login": {
+        "grace_period": 15,       # 登录通常15秒内完成启动
+        "timeout": 120,            # 登录超时2分钟
+        "check_process": False,    # smart-login 启动浏览器后进程退出
+        "check_log_completed": ["登录成功", "SMS验证码已发送", "浏览器已打开"],
+    },
+    "collect": {
+        "grace_period": 30,
+        "timeout": 600,
+        "check_process": True,
+        "check_log_completed": ["📊 执行完成", "✅ 采集完成"],
+    },
+    "nurture": {
+        "grace_period": 60,
+        "timeout": 1800,
+        "check_process": True,
+        "check_log_completed": ["📊 执行完成", "✅ 全部"],
+    },
+    "comment": {
+        "grace_period": 20,
+        "timeout": 300,
+        "check_process": True,
+        "check_log_completed": ["评论已发送", "✅ 完成"],
+    },
+    "like": {
+        "grace_period": 20,
+        "timeout": 300,
+        "check_process": True,
+        "check_log_completed": ["✅ 执行完成"],
+    },
+    "logout": {
+        "grace_period": 15,
+        "timeout": 120,
+        "check_process": False,
+        "check_log_completed": ["已退出"],
+    },
+}
+DEFAULT_POLL_STRATEGY = {"grace_period": 30, "timeout": 600, "check_process": True, "check_log_completed": []}
 
 
 # ── 命令总线 ────────────────────────────────────────────────
@@ -620,18 +804,39 @@ class CommandBus:
                         "run_id": f"{cmd_type}_{now_ts}_{machine}_{platform}",
                     })
             else:
-                templates = {
-                    "collect": "mc run --accounts={ids_str} --blueprints={blueprint} --rounds={rounds}",
-                    "login": f"mc smart-login {all_ids} --skip-check",
-                    "logout": f"mc run --accounts={all_ids} --blueprints=douyin_daily --rounds=1 --engine=auto",
-                    "comment": f"mc task comment --account={all_ids} --url={params.get('url','')} -y" + (f" --direction={params.get('direction','')}" if params.get('direction') else ""),
-                    "like": f"mc run --accounts={all_ids} --blueprints=douyin_daily --rounds=1",
-                }
-                cmd_line = templates.get(cmd_type, "")
-                if cmd_type == "collect":
-                    bp = params.get("blueprint", "douyin_read_profile")
-                    rd = params.get("rounds", 1)
-                    cmd_line = cmd_line.format(ids_str=all_ids, blueprint=bp, rounds=rd)
+                # 从操作注册表读取模板
+                cmd_config = CMD_REGISTRY.get(cmd_type)
+                if not cmd_config:
+                    errors.append({"account": all_ids, "message": f"不支持的操作: {cmd_type}"})
+                    continue
+
+                template = cmd_config.get("template", "")
+                defaults = cmd_config.get("defaults", {})
+                auto_bp = cmd_config.get("auto_blueprint", False)
+                bp_map = cmd_config.get("blueprint_map", {})
+
+                # 合并参数：params 覆盖 defaults
+                merged = dict(defaults)
+                merged.update(params)
+
+                # Auto-blueprint: 根据账号平台自动选择采集蓝图
+                if auto_bp and not merged.get("blueprint"):
+                    platforms = set(a.get("platform", "douyin") for a in accts)
+                    for p in sorted(platforms):
+                        if p == "xiaohongshu":
+                            merged["blueprint"] = bp_map.get("xiaohongshu", "xiaohongshu_read_profile")
+                        else:
+                            merged["blueprint"] = bp_map.get("douyin", "douyin_read_profile")
+
+                # 模板渲染：安全处理，缺失的模板变量用空字符串代替
+                try:
+                    cmd_line = template.format(ids=all_ids, ids_str=all_ids, **merged)
+                except KeyError:
+                    # 兼容旧代码：对 comment 等类型，缺失变量用空字符串
+                    safe_kw = {k: merged.get(k, "") for k in
+                              [p[1] for p in __import__("string").Formatter().parse(template) if p[1]]}
+                    safe_kw.update({"ids": all_ids, "ids_str": all_ids})
+                    cmd_line = template.format(**safe_kw)
                 if not cmd_line:
                     errors.append({"account": all_ids, "message": f"不支持的操作: {cmd_type}"})
                     continue
@@ -779,6 +984,7 @@ class CommandBus:
             "browsers_running": len(browsers),
             "browser_list": browsers,
             "reachable": session.ssh_target is not None or session.is_local,
+            "queue": session.get_queue_info(),
         }
 
     @classmethod
@@ -800,3 +1006,49 @@ class CommandBus:
         except:
             pass
         return {"machines": machines}
+
+
+# ── Poll 守卫线程（自动轮询所有活跃命令）───────────────────
+# 每15秒检查一次，防止远程命令卡在 running 状态
+def _start_poll_guard():
+    """后台守护线程：自动轮询所有活跃命令的状态"""
+    def _loop():
+        while True:
+            time.sleep(15)
+            try:
+                for name, session in list(MachineSession._sessions.items()):
+                    if session.current_cmd and not session.current_cmd.status.is_terminal:
+                        old_status = session.current_cmd.status.value
+                        new_status = session.poll(session.current_cmd)
+                        if old_status != new_status.value:
+                            logger.info(f"  ⏱ poll守卫: {session.current_cmd.run_id[:30]} {old_status} → {new_status.value}")
+            except Exception:
+                pass
+    thread = threading.Thread(target=_loop, name="poll-guard", daemon=True)
+    thread.start()
+    logger.info("  ✅ Poll 守卫线程已启动 (15s周期)")
+
+_start_poll_guard()
+
+
+def cleanup_stale_commands() -> int:
+    """清理所有僵尸命令：进程已死但状态为 running 的标记为 CRASHED"""
+    count = 0
+    for name, session in MachineSession._sessions.items():
+        for cmd in session.commands:
+            if cmd.status.is_active:
+                # 先 poll 一下看能否自动判定
+                session.poll(cmd)
+                if cmd.status.is_active:
+                    strategy = CMD_POLL_STRATEGY.get(cmd.cmd_type, DEFAULT_POLL_STRATEGY)
+                    gp = strategy.get("grace_period", 30)
+                    if cmd.elapsed_sec > (gp + 5):
+                        cmd.status = CommandStatus.CRASHED
+                        cmd.message = "僵尸清理: 进程已消失"
+                        cmd.completed_at = time.time()
+                        count += 1
+                        logger.info(f"  🧹 清理僵尸: {cmd.run_id[:30]} ({cmd.cmd_type})")
+        # 如果当前命令被清理了，启动下一条
+        if session.current_cmd and session.current_cmd.status.is_terminal:
+            session._start_next()
+    return count

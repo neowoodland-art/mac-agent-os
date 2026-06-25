@@ -1,0 +1,37 @@
+import{t as e}from"./index-CqrrCI3v.js";var t=null,n={completed:`✅`,failed:`❌`,crashed:`💥`,cancelled:`⏸️`,timed_out:`⏰`,running:`🟢`,dispatching:`📡`,queued:`⏳`,preflighting:`🔍`,preflight_failed:`🔍❌`};async function r(e){let t=`cmd_`+Math.random().toString(36).slice(2,6);e.innerHTML=`
+    <div style="padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h2 style="font-size:18px;margin:0">🎯 命令与任务</h2>
+        <div style="display:flex;gap:6px">
+          <span id="statusSummary_${t}" style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px"></span>
+          <button onclick="window._cleanupStale_${t}()" style="background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.3);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🧹 清理僵尸</button>
+          <button onclick="window._refreshCmds_${t}()" style="background:var(--bg3);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">⟳ 刷新</button>
+        </div>
+      </div>
+
+      <!-- 机器 Tab -->
+      <div id="machineTabs_${t}" style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:6px"></div>
+
+      <!-- 命令列表 -->
+      <div id="cmdList_${t}" style="font-size:11px"></div>
+    </div>`,await i(t),l(t)}async function i(t){try{let n=await e(`/ops/status`),r=n.commands||(Array.isArray(n)?n:[]),i={_all:r};r.forEach(e=>{let t=e.machine||`unknown`;i[t]||(i[t]=[]),i[t].push(e)}),a(t,[`chengzigedeAir`,`5kechengdeAir`,`7kecheng`,`unknown`].filter(e=>i[e]),i),s(t,r);let o=document.querySelector(`[data-cmdtab="_all_${t}"]`)||document.querySelector(`[data-cmdtab^="_"][data-cmdtab$="_${t}"]`);o&&o.click()}catch(e){document.getElementById(`cmdList_${t}`).innerHTML=`<div class="error">❌ 加载失败: ${e.message}</div>`}}function a(e,t,n){let r=document.getElementById(`machineTabs_${e}`),i=`<button data-cmdtab="_all_${e}" onclick="window._switchCmdTab_${e}('_all')" style="background:var(--primary);color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600">📋 全部 (${n._all?.length||0})</button>`;t.filter(e=>e!==`_all`).forEach(t=>{let r=(n[t]||[]).filter(e=>e.status===`running`||e.status===`dispatching`||e.status===`queued`).length,a=t===`chengzigedeAir`?`🖥️`:`☁️`,o=r>0?` <span style="color:var(--green)">●${r}</span>`:``;i+=`<button data-cmdtab="${t}_${e}" onclick="window._switchCmdTab_${e}('${t}')" style="background:var(--bg3);border:1px solid var(--border);padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">${a} ${t}${o}</button>`}),r.innerHTML=i,window[`_switchCmdTab_${e}`]=function(t){r.querySelectorAll(`button`).forEach(n=>{n.dataset.cmdtab===`${t}_${e}`||t===`_all`&&n.dataset.cmdtab===`_all_${e}`?(n.style.background=`var(--primary)`,n.style.color=`#fff`,n.style.fontWeight=`600`):(n.style.background=`var(--bg3)`,n.style.color=`var(--text)`,n.style.fontWeight=`400`)}),o(e,n[t]||n._all||[])}}function o(e,t){let r=document.getElementById(`cmdList_${e}`);if(!t.length){r.innerHTML=`<div style="color:var(--text2);padding:12px;font-size:12px">暂无命令记录</div>`;return}let i=`<table style="width:100%;border-collapse:collapse;font-size:10px">
+    <tr style="border-bottom:1px solid var(--border);color:var(--text2);font-size:9px">
+      <th style="padding:3px 4px;font-weight:400;text-align:left;width:28px">状态</th>
+      <th style="padding:3px 4px;font-weight:400;text-align:left;width:40px">类型</th>
+      <th style="padding:3px 4px;font-weight:400;text-align:left;width:50px">机器</th>
+      <th style="padding:3px 4px;font-weight:400;text-align:left;width:80px">账号</th>
+      <th style="padding:3px 4px;font-weight:400;text-align:left">消息</th>
+      <th style="padding:3px 4px;font-weight:400;text-align:right;width:40px">耗时</th>
+      <th style="padding:3px 4px;font-weight:400;text-align:center;width:110px">操作</th>
+    </tr>`;t.slice(0,100).forEach(e=>{let t=n[e.status]||`❓`,r=(e.accounts||[e.account||``]).filter(Boolean).join(`,`),a=e.status===`running`||e.status===`dispatching`,o=e.status===`queued`,s=a||o;i+=`<tr style="border-bottom:1px solid var(--border);${a?`background:rgba(34,197,94,.05)`:o?`background:rgba(250,204,21,.05)`:``}">
+      <td style="padding:3px 4px;font-size:11px" title="${e.status}">${t}</td>
+      <td style="padding:3px 4px">${e.type||e.cmd_type||`?`}</td>
+      <td style="padding:3px 4px;font-size:9px;color:var(--text2)">${e.machine||`?`}</td>
+      <td style="padding:3px 4px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r}">${r.slice(0,20)}</td>
+      <td style="padding:3px 4px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)" title="${e.message||``}">${e.message||e.status||``}</td>
+      <td style="padding:3px 4px;text-align:right;font-size:9px;color:var(--text2)">${c(e.elapsed_sec)}</td>
+      <td style="padding:3px 4px;text-align:center;white-space:nowrap">
+        ${s?`<button onclick="window._cancelCmd('${e.run_id}')" style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:9px;color:var(--red)">⏹取消</button>`:``}
+        <button onclick="window._viewLog('${e.run_id}')" style="background:var(--bg3);border:1px solid var(--border);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:9px;color:var(--text)">📋日志</button>
+      </td>
+    </tr>`}),i+=`</table>`,r.innerHTML=i}function s(e,t){let n=document.getElementById(`statusSummary_${e}`),r=t.filter(e=>e.status===`running`||e.status===`dispatching`).length,i=t.filter(e=>e.status===`queued`).length,a=t.filter(e=>e.status===`completed`).length,o=t.filter(e=>[`failed`,`crashed`,`timed_out`].includes(e.status)).length,s=``;r&&(s+=`<span style="color:var(--green)">🟢 ${r}运行</span>`),i&&(s+=`<span style="color:#f59e0b">⏳ ${i}排队</span>`),s+=`<span style="color:var(--text2)">✅ ${a}完成</span>`,o&&(s+=`<span style="color:var(--red)">❌ ${o}失败</span>`),n.innerHTML=s||`<span style="color:var(--text2)">⏸️ 空闲</span>`}function c(e){if(e==null||e===0)return`-`;if(e<60)return Math.round(e)+`s`;let t=Math.floor(e/60),n=Math.round(e%60);return t+`m`+(n>0?n+`s`:``)}function l(n){t&&clearInterval(t),t=setInterval(()=>{i(n).catch(()=>{})},5e3),window._cancelCmd=async function(t){if(confirm(`取消命令 ${t.slice(0,20)}...?`))try{let r=await e(`/ops/cancel/${t}`,{method:`POST`});(r.ok||r.status===`ok`)&&i(n)}catch(e){alert(`❌ `+e.message)}},window._viewLog=async function(t){try{let n=(await e(`/ops/log/${t}`)).log||`（日志为空）`,r=window.open(``,`_blank`,`width=800,height=600`);r.document.write(`<pre style="font-size:11px;padding:12px;background:#1a1a2e;color:#e0e0e0;white-space:pre-wrap;word-break:break-all">${u(n)}</pre>`),r.document.close()}catch(e){alert(`❌ `+e.message)}},window[`_cleanupStale_${n}`]=async function(){if(confirm(`清理所有僵尸命令吗？（进程已死但状态为 running 的命令）`))try{let t=await e(`/ops/cleanup-stale`,{method:`POST`});alert(`🧹 已清理 ${t.cleaned} 个僵尸命令`),i(n)}catch(e){alert(`❌ `+e.message)}},window[`_refreshCmds_${n}`]=function(){i(n)}}function u(e){return String(e).replace(/&/g,`&amp;`).replace(/</g,`&lt;`).replace(/>/g,`&gt;`)}export{r as loadView};

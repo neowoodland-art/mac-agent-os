@@ -62,8 +62,8 @@ class RecordingSession:
         if not acct_info:
             raise ValueError(f"账号 {self.account_id} 不存在")
 
-        identity_hint = acct_info.get("identity_hint", self.account_id)
-        identity_dir = str(LOCAL_ROOT / "identities" / identity_hint)
+        identity_dir_name = (acct_info.get("identity_dir") or acct_info.get("identity_hint") or self.account_id).replace("identities/", "")
+        identity_dir = str(LOCAL_ROOT / "identities" / identity_dir_name)
 
         print(f"🦀 启动 Camoufox ({self.account_id})...")
         conn = CDPConnector(
