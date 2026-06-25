@@ -329,8 +329,8 @@ class CookieRecovery(RecoveryStep):
             if platform == "xiaohongshu":
                 target = "https://www.xiaohongshu.com/explore"
 
-            # 先 wait_until=load 再用 3 秒渐进确认（vs domcontentloaded 可能漏掉React渲染）
-            await page.goto(target, timeout=30000, wait_until="load")
+            await page.goto(target, timeout=25000, wait_until="domcontentloaded")
+            # 渐进确认: 先等 3 秒让 React 渲染, 再 detect
             await asyncio.sleep(3)
 
             detector = DETECTORS.get(platform, DETECTORS["douyin"])
