@@ -275,7 +275,7 @@ async function loadMatrixCollect() {
   document.getElementById('collectSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
   // 加载采集状态
   try {
-    const sr = await fetch('/api/matrix/collect-homepage/status');
+    const sr = await fetch('/api/ops/status');
     const sd = await sr.json();
     if (sd.running) document.getElementById('collectStatus').innerHTML = '<span style="color:var(--green)">🟢 采集中</span>';
   } catch(e) {}
@@ -313,7 +313,7 @@ window.collectExec = async function() {
   if (logEl) logEl.textContent = '📥 采集 ' + selected.length + ' 个账号...\n';
   for (const s of selected) {
     try {
-      const r = await fetch('/api/matrix/collect-homepage', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:s.id})});
+      const r = await fetch('/api/ops/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'collect',accounts:[s.id],params:{rounds:1}})});
       const d = await r.json();
       document.getElementById('collectStatus').innerHTML = '<span style="color:var(--green)">🟢 采集中</span>';
       if (logEl) logEl.textContent += s.id + ': ' + (d.status || 'OK') + ' 机器:' + (d.machine||s.machine) + '\n';
@@ -357,7 +357,7 @@ async function collectSelected() {
   if (!ids.length) { if (log) log.textContent = '请先选择要采集的账号'; return; }
   if (log) log.textContent = '⏳ 提交 ' + ids.length + ' 个采集任务（自动路由到各机器）...\n';
   try {
-    const r = await fetch('/api/matrix/collect-homepage', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_ids:ids})});
+    const r = await fetch('/api/ops/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'collect',accounts:ids,params:{rounds:1}})});
     const d = await r.json();
     const results = d.results || [];
     if (log) {
@@ -393,7 +393,7 @@ window.collectByIdentity = async function(dir) {
   if (!log) return;
   log.textContent = '⏳ 开始采集身份: ' + dir + '\n';
   try {
-    const r = await fetch('/api/matrix/collect-homepage', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity_dir:dir})});
+    const r = await fetch('/api/ops/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'collect',params:{identity_dir:dir,rounds:1}})});
     const d = await r.json();
     log.textContent += JSON.stringify(d, null, 2);
   } catch(e) { log.textContent += '❌ ' + e.message; }
@@ -403,7 +403,7 @@ window.collectByIdentity = async function(dir) {
   if (!log) return;
   log.textContent = '⏳ 开始采集身份: ' + dir + '\n';
   try {
-    const r = await fetch('/api/matrix/collect-homepage', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity_dir:dir})});
+    const r = await fetch('/api/ops/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'collect',params:{identity_dir:dir,rounds:1}})});
     const d = await r.json();
     log.textContent += JSON.stringify(d, null, 2);
   } catch(e) { log.textContent += '❌ ' + e.message; }
@@ -415,7 +415,7 @@ window.collectByPhone = async function() {
   if (!phone) { log.textContent = '请输入手机号'; return; }
   log.textContent = '⏳ 开始采集手机号: ' + phone + '\n';
   try {
-    const r = await fetch('/api/matrix/collect-homepage/phone', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone})});
+    const r = await fetch('/api/ops/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'collect',params:{phone,rounds:1}})});
     const d = await r.json();
     log.textContent += JSON.stringify(d, null, 2);
   } catch(e) { log.textContent += '❌ ' + e.message; }
@@ -425,7 +425,7 @@ window.cancelCollect = async function() {
   if (!log) return;
   log.textContent = '⏳ 停止中...\n';
   try {
-    const r = await fetch('/api/matrix/collect-homepage/cancel', {method:'POST'});
+    const r = await fetch('/api/ops/cancel', {method:'POST'});
     const d = await r.json();
     log.textContent += JSON.stringify(d, null, 2);
   } catch(e) { log.textContent += '❌ ' + e.message; }
@@ -506,7 +506,7 @@ window.runComment = async function() {
   for (const url of urls) {
     for (const s of selected) {
       try {
-        const r = await fetch('/api/matrix/task/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'comment',url,direction:dir||null,account:s.id,corpus:corpus||null})});
+        const r = await fetch('/api/ops/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'comment',accounts:[s.id],params:{url,direction:dir||null,rounds:1,corpus:corpus||null}})});
         const d = await r.json();
         results.push({url, account:s.id, status: d.error ? '❌' : '✅', msg: d.error || (d.task_id || 'OK')});
       } catch(e) { results.push({url, account:s.id, status: '❌', msg: e.message}); }
@@ -591,7 +591,7 @@ window.runLike = async function() {
   for (const url of urls) {
     for (const s of selected) {
       try {
-        const r = await fetch('/api/matrix/task/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'like',url,account:s.id})});
+        const r = await fetch('/api/ops/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'like',accounts:[s.id],params:{url,direction:'forward',rounds:1}})});
         const d = await r.json();
         results.push({url, account:s.id, status: d.error ? '❌' : '✅', msg: d.error || (d.task_id || 'OK')});
       } catch(e) { results.push({url, account:s.id, status: '❌', msg: e.message}); }

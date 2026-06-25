@@ -85,8 +85,9 @@ function registerGlobals(uid) {
     for (const url of urls) {
       for (const s of selected) {
         try {
-          const d = await apiRequest('/matrix/task/run', {
-            method: 'POST', body: JSON.stringify({ type: 'comment', url, direction: dir || null, account: s.id, corpus: corpus || null }),
+          const d = await apiRequest('/api/ops/run', {
+            method: 'POST',
+            body: JSON.stringify({type:'comment', accounts:[account], params:{url, direction}})
           });
           results.push({ url, account: s.id, status: d.error ? '❌' : '✅', msg: d.error || (d.task_id || 'OK') });
         } catch (e) { results.push({ url, account: s.id, status: '❌', msg: e.message }); }

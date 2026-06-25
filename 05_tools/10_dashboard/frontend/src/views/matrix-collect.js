@@ -39,7 +39,7 @@ export async function loadView(container) {
 
   // 获取采集状态
   try {
-    const sr = await apiRequest('/matrix/collect-homepage/status');
+    const sr = await apiRequest('/ops/status');
     if (sr.running) document.getElementById(`status_${uid}`).innerHTML = '<span style="color:var(--green)">🟢 采集中</span>';
   } catch(e) {}
 }

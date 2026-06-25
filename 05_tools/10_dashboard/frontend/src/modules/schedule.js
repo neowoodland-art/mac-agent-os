@@ -247,8 +247,16 @@ async function doNurtureExec(accountIds) {
     if (bpOverride) body.blueprint = bpOverride;
 
     // 先 dry_run 预览执行计划
-    const r1 = await fetch('/api/matrix/nurture/start', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    const r1 = await fetch('/api/ops/run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        type: 'nurture',
+        accounts: accountIds,
+        params: {
+          blueprint: bpOverride || 'douyin_daily',
+          rounds: rounds || 10
+        }
+      })
     });
     const plan = await r1.json();
 
@@ -274,8 +282,16 @@ async function doNurtureExec(accountIds) {
     if (statusEl) statusEl.innerHTML = '⏳ 执行中（预检 → 分配窗口 → 启动 → 验证）...';
     delete body.dry_run;
 
-    const r2 = await fetch('/api/matrix/nurture/start', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    const r2 = await fetch('/api/ops/run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        type: 'nurture',
+        accounts: accountIds,
+        params: {
+          blueprint: bpOverride || 'douyin_daily',
+          rounds: rounds || 10
+        }
+      })
     });
     const result = await r2.json();
 
