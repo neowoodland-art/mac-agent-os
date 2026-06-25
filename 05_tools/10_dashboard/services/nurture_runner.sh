@@ -60,8 +60,14 @@ STEPS_TOTAL=$(grep -o "总步骤: [0-9]*" "$LOG_FILE" | tail -1 | awk '{print $2
 STEPS_OK=$(grep -o "成功: [0-9]*" "$LOG_FILE" | tail -1 | awk '{print $2}')
 STEPS_FAIL=$(grep -o "失败: [0-9]*" "$LOG_FILE" | tail -1 | awk '{print $2}')
 
-STATUS="completed"
-[ $EXIT_CODE -ne 0 ] && STATUS="failed"
+# 状态判定：exit_code≠0 失败；steps.total=0 但 exit_code=0 → 跳过（未登录或无可执行账号）
+if [ $EXIT_CODE -ne 0 ]; then
+  STATUS="failed"
+elif [ "${STEPS_TOTAL:-0}" -eq 0 ]; then
+  STATUS="skipped"
+else
+  STATUS="completed"
+fi
 
 LOG_TAIL=$(tail -200 "$LOG_FILE" | head -c 3000)
 

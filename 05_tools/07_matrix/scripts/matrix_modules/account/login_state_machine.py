@@ -375,13 +375,26 @@ class VisualRecovery(RecoveryStep):
             await page.screenshot(path=p)
             log_func(f"  📸 截图保存: {p}")
 
+            # 先做基础页面分析（不依赖外部视觉服务）
+            try:
+                title = await page.title()
+                url = page.url
+                text = (await page.evaluate("document.body.innerText")) or ""
+                text_snippet = text[:300].replace("\n", " ")[:200]
+                log_func(f"  📄 页面: {title}")
+                log_func(f"  🔗 URL: {url}")
+                log_func(f"  📝 文本: {text_snippet}")
+            except Exception:
+                pass
+
+            # 尝试视觉分析（oMLX → DashScope 自动 fallback）
             try:
                 from vision_bridge import analyze_screenshot
                 result = await analyze_screenshot(p,
                     "What is on this page? Why can't the system log in?")
                 log_func(f"  👁️ 视觉分析: {result[:200]}")
             except Exception:
-                pass
+                log_func(f"  ⚠️ 视觉分析服务不可用 (跳过)")
         except Exception as e:
             log_func(f"  ⚠️ 截图失败: {e}")
 
@@ -407,7 +420,7 @@ class DouyinLoginRecovery(RecoveryStep):
     SMS_INPUT = "input[placeholder*='验证码']"  # 标准 input
     PHONE_PLACEHOLDER = "请输入手机号"           # 视觉确认的 placeholder
     SMS_PLACEHOLDER = "请输入验证码"             # 视觉确认的 placeholder
-    PHONE_LOGIN_TEXT = "手机号登录"              # 切换到手机号登录
+    PHONE_LOGIN_TEXTS = ["手机号登录", "手机登录", "短信登录", "验证码登录", "其他手机号码", "手机号"]  # 切换到手机号登录（多备选）
     GET_CODE_TEXT = "获取验证码"
     CONFIRM_TEXTS = ["确认登录", "登录", "确认", "提交", "验证", "立即登录", "下一步"]
 
@@ -443,11 +456,35 @@ class DouyinLoginRecovery(RecoveryStep):
             log_func(f"  ✅ [{account_id}] 点击登录后已自动登录（一键登录）")
             return True
 
-        # 2. 检查是否需要切换到手机号登录（二维码默认可见）
-        if await self._has_text(page, self.PHONE_LOGIN_TEXT):
-            print(f"  [DouyinLoginRecovery] 切换到手机号登录...")
-            await self._click_by_text(page, self.PHONE_LOGIN_TEXT, log_func)
-            await asyncio.sleep(2)
+        # 2. 检查是否需要切换到手机号登录（二维码默认可见，多备选文本）
+        switched = False
+        for phone_text in self.PHONE_LOGIN_TEXTS:
+            if await self._has_text(page, phone_text):
+                print(f"  [DouyinLoginRecovery] 切换到手机号登录 (找到「{phone_text}」)...")
+                await self._click_by_text(page, phone_text, log_func)
+                await asyncio.sleep(2)
+                switched = True
+                break
+        if not switched:
+            log_func(f"  ⚠️ 未找到手机号登录切换按钮, 尝试JS查找tab...")
+            # JS 兜底：找 tab/button 包含"手机"或"短信"的
+            try:
+                clicked = await page.evaluate("""() => {
+                    const tabs = document.querySelectorAll('[class*="tab"], [class*="Tab"], button, [role="tab"]');
+                    for (const el of tabs) {
+                        if (!el.offsetParent) continue;
+                        const t = (el.textContent || '').trim();
+                        if (t.includes('手机') || t.includes('短信') || t.includes('验证码')) {
+                            el.click(); return true;
+                        }
+                    }
+                    return false;
+                }""")
+                if clicked:
+                    print(f"  [DouyinLoginRecovery] JS切换到手机号登录成功")
+                    await asyncio.sleep(2)
+            except:
+                pass
 
         # 3. 判断场景：有一键登录 → 短期过期；否则全新登录
         has_onekey = await self._has_onekey(page)
