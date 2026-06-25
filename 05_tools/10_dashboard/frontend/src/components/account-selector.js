@@ -49,7 +49,13 @@ export function createAccountSelector(container, opts = {}) {
     html += `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
       <input class="as-filter-${uid}" placeholder="🔍 搜索账号ID/手机号/昵称..."
         oninput="_filterAS('${uid}')"
-        style="flex:1;min-width:100px;padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
+        style="flex:1;min-width:80px;padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
+      <select class="as-platfilter-${uid}" onchange="_filterAS('${uid}')"
+        style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
+        <option value="">🌐 全部平台</option>
+        <option value="douyin">🎵 抖音</option>
+        <option value="xiaohongshu">📕 小红书</option>
+      </select>
       <span style="font-size:11px;color:var(--text2)">${allAccts.length} 个</span>
       <span style="font-size:11px;color:var(--green)">🎵 ${allAccts.filter(a => a.platform === 'douyin').length}</span>
       <span style="font-size:11px;color:#6366f1">📕 ${allAccts.filter(a => a.platform === 'xiaohongshu').length}</span>
@@ -224,9 +230,12 @@ function _registerGlobals() {
 
   window._filterAS = function (uid) {
     const q = document.querySelector(`.as-filter-${uid}`)?.value?.toLowerCase() || '';
+    const plat = document.querySelector(`.as-platfilter-${uid}`)?.value || '';
     document.querySelectorAll(`.as-row-${uid}`).forEach(row => {
-      const txt = (row.textContent || '').toLowerCase();
-      row.style.display = txt.includes(q) ? '' : 'none';
+      const cb = row.querySelector('input[type="checkbox"]');
+      const matchPlat = !plat || (cb && cb.dataset.plat === plat);
+      const matchText = !q || (row.textContent || '').toLowerCase().includes(q);
+      row.style.display = (matchPlat && matchText) ? '' : 'none';
     });
   };
 }
