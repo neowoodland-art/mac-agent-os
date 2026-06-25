@@ -172,7 +172,8 @@ class BatchEngine:
                   stagger: str = "15-30",
                   keep_open: bool = False,
                   max_browsers: int = 3,
-                  run_id: str = ""):
+                  run_id: str = "",
+                  task_params: dict = None):
         self.accounts = accounts
         self.blueprints = blueprints or []
         self.rounds_total = rounds
@@ -182,7 +183,7 @@ class BatchEngine:
         self.keep_open = keep_open
         self.max_browsers = max_browsers
         self.run_id = run_id
-        self.task_params = {}
+        self.task_params = task_params or {}
 
     def _mark_banned(self, account_id: str, platform: str):
         """将账号标记为封号状态，写入 profiles.json"""
@@ -241,6 +242,14 @@ class BatchEngine:
             if "@url" in v:
                 url = self.task_params.get("url", "")
                 resolved[k] = v.replace("@url", url)
+            if "@comment_text" in v:
+                ct = self.task_params.get("comment_text", "")
+                if ct:
+                    resolved[k] = v.replace("@comment_text", ct)
+            if "@reply_text" in v:
+                rt = self.task_params.get("reply_text", "")
+                if rt:
+                    resolved[k] = v.replace("@reply_text", rt)
             if "@scene" in v:
                 scene = self.task_params.get("scene", "first_comment")
                 from mc.corpus import CorpusManager

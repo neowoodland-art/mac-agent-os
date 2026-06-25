@@ -34,7 +34,8 @@ class BatchRunner:
                  interval_range=(30, 60), mix=False,
                  corpus=None, engine="auto", daemon=False,
                  stagger="15-30", keep_open=False,
-                 max_browsers=3):
+                 max_browsers=3, url="", comment_text="",
+                 reply_text=""):
         self.accounts = accounts
         self.blueprints = blueprints
         self.rounds = rounds
@@ -46,6 +47,9 @@ class BatchRunner:
         self.stagger = stagger
         self.keep_open = keep_open
         self.max_browsers = max_browsers
+        self.url = url
+        self.comment_text = comment_text
+        self.reply_text = reply_text
 
     async def run(self) -> dict:
         """执行 — 委托给 BatchEngine"""
@@ -66,6 +70,12 @@ class BatchRunner:
             stagger=self.stagger,
             keep_open=self.keep_open,
             max_browsers=self.max_browsers,
+            task_params={
+                "url": self.url,
+                "comment_text": self.comment_text,
+                "reply_text": self.reply_text,
+                "direction": "",
+            },
         )
 
         report = await engine.run()

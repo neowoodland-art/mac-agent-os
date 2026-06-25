@@ -159,6 +159,9 @@ def cmd_run(args):
         stagger=getattr(args, 'stagger', '15-30'),
         keep_open=getattr(args, 'keep', False),
         max_browsers=getattr(args, 'max_browsers', 3),
+        url=getattr(args, 'url', ''),
+        comment_text=getattr(args, 'comment_text', ''),
+        reply_text=getattr(args, 'reply_text', ''),
     )
 
     try:
@@ -1469,6 +1472,9 @@ def build_parser(subparsers=None, plugin_name="mc"):
     p_run.add_argument("--stagger", default="15-30", help="身份组间错峰延迟(秒)")
     p_run.add_argument("--max-browsers", type=int, default=3, help="最大同时浏览器数(默认3)")
     p_run.add_argument("--corpus", default="", help="语料分类，逗号分隔")
+    p_run.add_argument("--url", default="", help="视频链接（互动蓝图用）")
+    p_run.add_argument("--comment-text", default="", help="评论内容（互动蓝图用，支持@corpus）")
+    p_run.add_argument("--reply-text", default="", help="回复内容（互动蓝图用）")
     p_run.add_argument("--engine", default="auto", choices=["chrome", "camoufox", "auto"], help="浏览器引擎")
     p_run.add_argument("--mix", action="store_true", help="混合随机模式(每轮随机选蓝图)")
     p_run.add_argument("--daemon", action="store_true", help="后台运行")
