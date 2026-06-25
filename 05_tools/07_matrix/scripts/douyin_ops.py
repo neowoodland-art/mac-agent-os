@@ -64,12 +64,14 @@ SELECTORS = {
     "hover_menu":           '.userMenuPanelShadowAnimation',
     "hover_menu_item":      '.uz1VJwFY.espXX7re',
 
-    # 验证码
+    # 验证码（兼容新旧两种 class）
     "verify_mask":          '.second-verify-mask',
-    "verify_panel":         '.second-verify-panel',
-    "verify_input":         '.uc-ui-verify_sms-verify_input',
-    "verify_confirm":       '.uc-ui-verify_sms-verify_button.primary',
+    "verify_panel":         '.second-verify-panel, .uc-ui-verify_sms-verify',        # 旧+新
+    "verify_input":         '.uc-ui-verify_sms-verify_input, input[placeholder*="验证码"]',
+    "verify_get_code":      '.uc-ui-typography_descript, [class*="getCode"], button:has-text("获取验证码")',
+    "verify_confirm":       '.uc-ui-verify_sms-verify_button.primary, .uc-ui-verify_sms-verify_b',
     "verify_cancel":        '.uc-ui-verify_sms-verify_button.second',
+    "verify_phone_input":   'input:not([type="hidden"])',
 }
 
 # 键盘快捷键
@@ -481,6 +483,10 @@ class DouyinOps(PlatformOps):
             code = args.get("code", "")
             r = await self.post_comment_with_code(text, code, step_id=step_id)
             return OpResult(op, step_id, r == "ok", r, time.time()-t0)
+
+        if op == "auto_verify":
+            ok = await self.auto_verify(step_id=step_id)
+            return OpResult(op, step_id, ok, "verified" if ok else "no_verify", time.time()-t0)
 
         if op == "search_browse":
             kw = args.get("keyword", "热门推荐")
@@ -1062,6 +1068,101 @@ class DouyinOps(PlatformOps):
         except Exception as e:
             await self._log_op(step_id, "AO_CLICK", selector, False, int((time.time()-t0)*1000), str(e))
             return False
+
+    async def auto_verify(self, step_id: int = 0) -> bool:
+        """
+        自动处理验证弹窗：检测→填手机→获验证码→填码→确认
+        兼容新旧两种 class 名，复用 SMS API 获取验证码。
+        """
+        t0 = time.time()
+        try:
+            panel = self.page.locator(SELECTORS['verify_panel'])
+            if await panel.count() == 0:
+                return False
+
+            self.log(f"  ⚠️ 检测到验证弹窗, 自动处理...")
+
+            # 1. 找手机号输入框并填号
+            phone_input = self.page.locator(SELECTORS['verify_phone_input']).first
+            if await phone_input.count() > 0:
+                await phone_input.click()
+                await self._wait(0.5)
+                phone = self._get_phone_from_account()
+                if phone:
+                    await phone_input.fill(phone)
+                    self.log(f"  📱 已填入手机号: {phone}")
+                    await self._wait(1)
+
+            # 2. 点击"获取验证码"
+            get_code_btn = self.page.locator(SELECTORS['verify_get_code']).first
+            if await get_code_btn.count() > 0:
+                await get_code_btn.click()
+                self.log(f"  📡 已点击获取验证码")
+                await self._wait(1)
+
+            # 3. 等待验证码输入框出现
+            for _ in range(45):
+                if await self.page.locator(SELECTORS['verify_input']).count() > 0:
+                    break
+                await asyncio.sleep(1)
+
+            # 4. 获取验证码（复用 SMS API）
+            code = await self._fetch_sms_code()
+            if not code:
+                self.log(f"  ❌ 获取验证码失败")
+                return False
+            self.log(f"  ✅ 获取到验证码: {code}")
+
+            # 5. 填验证码
+            code_input = self.page.locator(SELECTORS['verify_input']).first
+            if await code_input.count() > 0:
+                await code_input.fill(code)
+                await self._wait(0.5)
+
+            # 6. 点确认
+            confirm = self.page.locator(SELECTORS['verify_confirm']).first
+            if await confirm.count() > 0:
+                await confirm.click()
+            else:
+                await self.page.keyboard.press('Enter')
+
+            await self._wait(2)
+            dur = int((time.time() - t0) * 1000)
+            await self._log_op(step_id, "AO_VERIFY", "auto", True, dur)
+            self.log(f"  ✅ 验证完成")
+            return True
+        except Exception as e:
+            await self._log_op(step_id, "AO_VERIFY", "auto", False, int((time.time()-t0)*1000), str(e))
+            return False
+
+    async def _get_phone_from_account(self) -> str:
+        """从 accounts.yaml 读取当前账号手机号"""
+        try:
+            import yaml, os
+            cfg = os.path.expanduser(
+                '~/workbuddy-agent-os/agent-local/tools/matrix/config/accounts.yaml')
+            aid = self._account_id if hasattr(self, '_account_id') else ''
+            if os.path.exists(cfg):
+                data = yaml.safe_load(open(cfg))
+                for a in data.get('accounts', []):
+                    if a.get('id') == aid:
+                        return a.get('phone', '')
+        except:
+            pass
+        return ''
+
+    async def _fetch_sms_code(self) -> str:
+        """获取 SMS 验证码（复用短信 API）"""
+        try:
+            from matrix_modules.account.sms.api import ApiSMSHandler
+            phone = self._get_phone_from_account()
+            if not phone:
+                return ''
+            handler = ApiSMSHandler(phone=phone)
+            code = await handler.wait_for_code(timeout=120)
+            return code
+        except:
+            return ''
 
     # ── 等待类原子操作 ──────────────────────────────────────────
 
