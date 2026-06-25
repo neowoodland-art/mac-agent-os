@@ -1,4 +1,4 @@
-import{n as e,t}from"./index-B53mIKR9.js";import{t as n}from"./account-selector-BztrOMZ6.js";var r=null;async function i(i){let a=i.id||`like`;i.innerHTML=`
+import{n as e,t}from"./index-DnlhnMSe.js";import{t as n}from"./account-selector-B-X_KS9a.js";var r=null;async function i(i){let a=i.id||`like`;i.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:6px">❤️ 收藏点赞 <span style="font-size:10px;color:var(--text2);font-weight:400">选择账号 → 执行点赞/收藏</span></div>
@@ -15,6 +15,6 @@ import{n as e,t}from"./index-B53mIKR9.js";import{t as n}from"./account-selector-
         </div>
         <div id="result_${a}" style="font-size:10px;color:var(--text2);margin-top:4px;font-family:monospace;white-space:pre-wrap"></div>
       </div>
-    </div>`;try{let e=await t(`/matrix/accounts`),i=Array.isArray(e)?e:e.accounts||[],o=document.getElementById(`acctList_${a}`);o&&(r=n(o,{accounts:i,checkAll:!1,compact:!0,height:`200px`,showBlueprint:!1,showStatus:!1,showCollectTime:!1})),document.getElementById(`selCount_${a}`).textContent=`已选 `+(r?.getCount()||0)+` 个`}catch{}window[`_runLike_${a}`]=async function(){let n=r?.getSelected()||[];if(!n.length){alert(`请先选择账号`);return}let i=document.getElementById(`result_${a}`),o=document.getElementById(`likeType_${a}`)?.value||`like`,s=`账号: ${n.map(e=>e.id).join(`, `)}`;if(await e(`对 ${n.length} 个账号执行${o===`like`?`点赞`:`收藏`}？`,s)){i.textContent=`🚀 提交 `+n.length+` 个账号...
+    </div>`;try{let e=await t(`/matrix/accounts`),i=Array.isArray(e)?e:e.accounts||[],o=document.getElementById(`acctList_${a}`);o&&(r=n(o,{accounts:i,checkAll:!1,height:`200px`,showBlueprint:!1,showStatus:!1,showCollectTime:!1})),document.getElementById(`selCount_${a}`).textContent=`已选 `+(r?.getCount()||0)+` 个`}catch{}window[`_runLike_${a}`]=async function(){let n=r?.getSelected()||[];if(!n.length){alert(`请先选择账号`);return}let i=document.getElementById(`result_${a}`),o=document.getElementById(`likeType_${a}`)?.value||`like`,s=`账号: ${n.map(e=>e.id).join(`, `)}`;if(await e(`对 ${n.length} 个账号执行${o===`like`?`点赞`:`收藏`}？`,s)){i.textContent=`🚀 提交 `+n.length+` 个账号...
 `;try{let e=await t(`/ops/run`,{method:`POST`,body:JSON.stringify({type:`like`,accounts:n.map(e=>e.id),params:{rounds:1}})});i.textContent+=`✅ 状态: ${e.status}\n`,e.commands&&e.commands.forEach(e=>{i.textContent+=`  ${e.machine}: ${e.accounts.join(`,`)} → ${e.status}\n`}),e.errors&&(i.textContent+=`⚠️ 错误: ${JSON.stringify(e.errors)}\n`)}catch(e){i.textContent+=`❌ `+e.message+`
 `}}}}export{i as loadView};

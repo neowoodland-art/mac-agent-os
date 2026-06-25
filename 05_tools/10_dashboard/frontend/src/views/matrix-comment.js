@@ -45,7 +45,6 @@ export async function loadView(container) {
       _selector = createAccountSelector(listEl, {
         accounts: accts,
         checkAll: false,
-        compact: true,
         height: '200px',
         showBlueprint: false,
         showCollectTime: false,

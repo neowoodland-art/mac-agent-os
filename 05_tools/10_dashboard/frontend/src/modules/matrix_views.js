@@ -164,7 +164,7 @@ function _tryMigratedView(view) {
     // ── 只读仪表盘 ──
     'matrix-summary','machines','productions','assets','costs',
     // ── 功能完整的操作视图 ──
-    'matrix-comment','matrix-collect','matrix-like','matrix-accounts','matrix-nurture','matrix-sms-proxy','matrix-blueprints','matrix-corpus','ops-command',
+    'matrix-interact','matrix-comment','matrix-collect','matrix-like','matrix-accounts','matrix-nurture','matrix-sms-proxy','matrix-blueprints','matrix-corpus','ops-command',
     // ── 录制标注 ──
     'ops-recorder',
     // ── 列表/管理视图 ──
@@ -659,13 +659,10 @@ async function loadPlugins() {
         {view:'matrix-collect', label:'📡 信息采集'},
         {view:'matrix-publish', label:'📤 内容发布'},
         {view:'matrix-interact', label:'💬 评论互动'},
-        {view:'matrix-comment', label:'💬 定向评论'},
-        {view:'matrix-like', label:'❤️ 收藏点赞'},
         {view:'matrix-blueprints', label:'📋 蓝图管理'},
         // {view:'matrix-login', label:'🔑 登录管理'}, // 已合并到信息采集
         {view:'matrix-schedule', label:'⏱ 定时任务'},
         {view:'ops-recorder', label:'🎬 录制标注'},
-        {view:'matrix-corpus', label:'📚 语料库'},
         {view:'ops-command', label:'🖥️ 联邦指挥台'},
       ]},
       '视频工厂': { icon: '🎬', items: [

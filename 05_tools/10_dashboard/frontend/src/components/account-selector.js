@@ -44,7 +44,7 @@ export function createAccountSelector(container, opts = {}) {
 
   let html = '';
 
-  // 搜索框
+  // 搜索框 + 平台筛选
   if (!compact) {
     html += `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
       <input class="as-filter-${uid}" placeholder="🔍 搜索账号ID/手机号/昵称..."
@@ -85,8 +85,8 @@ export function createAccountSelector(container, opts = {}) {
 
     // 表头
     html += '<tr style="font-size:9px;color:var(--text2);border-bottom:1px solid var(--border)">';
-    html += '<th style="padding:2px 4px;font-weight:400;text-align:left">身份/手机</th>';
     html += '<th style="padding:2px 4px;font-weight:400;width:20px"></th>'; // checkbox col header
+    html += '<th style="padding:2px 4px;font-weight:400;text-align:left">身份/手机</th>';
     html += '<th style="padding:2px 4px;font-weight:400;text-align:left">账号ID</th>';
     html += '<th style="padding:2px 4px;font-weight:400;text-align:left">昵称</th>';
     html += '<th style="padding:2px 4px;font-weight:400;text-align:right" title="粉丝">👥</th>';
@@ -99,6 +99,7 @@ export function createAccountSelector(container, opts = {}) {
     html += '<th style="padding:2px 4px;font-weight:400;text-align:left">采集</th>';
     html += '</tr>';
 
+    let colorIdx = 0;
     Object.keys(idents).sort().forEach(ident => {
       const identity = idents[ident];
       const hp = hpIndex[ident] || hpIndex[identity.phone];
@@ -106,6 +107,8 @@ export function createAccountSelector(container, opts = {}) {
       // 身份路径简称：identities/xxx → xxx
       const identShort = ident.replace('identities/', '');
       const rowspan = identity.accounts.length;
+      const bgColor = colorIdx % 2 === 0 ? 'transparent' : 'var(--bg3)';
+      colorIdx++;
 
       identity.accounts.forEach((a, idx) => {
         const plat = a.platform === 'douyin' ? '🎵' : '📕';
@@ -130,18 +133,14 @@ export function createAccountSelector(container, opts = {}) {
         };
         const statusIcon = statusMap[a._status] || `<span style="color:var(--text2);font-size:9px">${a._status || '未知'}</span>`;
 
-        html += `<tr class="as-row-${uid}" data-account="${a.id}" data-machine="${machine}" data-platform="${a.platform}" data-bp="${defBP}">`;
+        html += `<tr class="as-row-${uid}" data-account="${a.id}" data-machine="${machine}" data-platform="${a.platform}" data-bp="${defBP}" style="background:${bgColor}">`;
         html += `<td style="padding:2px 3px;width:20px"><input type="checkbox" class="as-cb-${uid}" value="${a.id}" data-plat="${a.platform}" data-bp="${defBP}" data-machine="${machine}" ${checkAll ? 'checked' : ''} onchange="_onASChange('${uid}')"></td>`;
-        if (idx === 0) {
-          // 身份行（合并单元格）
-          const dirDisplay = identShort.length > 20 ? identShort.slice(0, 18) + '…' : identShort;
-          html += `<td rowspan="${rowspan}" style="padding:2px 4px;font-size:9px;color:var(--text2);vertical-align:middle;border-right:1px solid var(--border);white-space:nowrap" title="身份: ${identShort}">`;
-          html += `📁${dirDisplay}`;
-          if (phoneDisplay) html += `<br><span style="opacity:.6">📱${phoneDisplay}</span>`;
-          html += '</td>';
-        } else {
-          html += `<td style="padding:2px 4px;border-right:1px solid var(--border)"></td>`; // 对齐身份列
-        }
+        // 每行都显示完整的身份/手机信息
+        const dirDisplay = identShort.length > 20 ? identShort.slice(0, 18) + '…' : identShort;
+        html += `<td style="padding:2px 4px;font-size:9px;color:var(--text2);vertical-align:middle;border-right:1px solid var(--border);white-space:nowrap" title="身份: ${identShort}">`;
+        html += `📁${dirDisplay}`;
+        if (phoneDisplay) html += `<br><span style="opacity:.6">📱${phoneDisplay}</span>`;
+        html += '</td>';
         html += `<td style="padding:2px 4px;white-space:nowrap"><strong>${a.id}</strong></td>`;
         html += `<td style="padding:2px 4px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nickname || '-'}</td>`;
         html += `<td style="padding:2px 4px;text-align:right;white-space:nowrap">${fans || '-'}</td>`;
