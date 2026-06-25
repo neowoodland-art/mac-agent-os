@@ -1291,16 +1291,87 @@ class DouyinOps(PlatformOps):
     # ── 占位: 三级接力原子操作（等你录制后替换）──
 
     async def find_comment_by_code(self, code: str, step_id: int = 0) -> bool:
-        """【占位】在评论区搜索包含识别码的评论。需录制"""
-        log.info(f"  🔍 [占位] find_comment_by_code(code={code}) — 需要录制")
-        log.info(f"    流程: 打开评论 → 搜 \"{code}\" → 找到匹配 → 聚焦")
-        return False
+        """
+        在评论区搜索包含识别码的评论。
+        遍历所有 comment-item，匹配文本内容中的 🌸XX 码。
+        """
+        t0 = time.time()
+        try:
+            if await self.page.locator(SELECTORS['comment_list']).count() == 0:
+                await self.open_comments(step_id)
+                await asyncio.sleep(2)
+
+            # 遍历所有评论，找包含 code 的
+            found = await self.page.evaluate(f"""() => {{
+                const items = document.querySelectorAll('[data-e2e="comment-item"]');
+                for (const item of items) {{
+                    const text = (item.textContent || '').trim();
+                    if (text.includes('{code}')) {{
+                        item.scrollIntoView({{behavior:'smooth', block:'center'}});
+                        item.style.border = '2px solid red';
+                        // 点击评论使其聚焦
+                        const replyBtn = item.querySelector('[class*="reply"],[class*="Reply"]');
+                        if (replyBtn) {{
+                            replyBtn.click();
+                            return 'found_and_reply';
+                        }}
+                        item.click();
+                        return 'found';
+                    }}
+                }}
+                return '';
+            }}""")
+            if found:
+                await self._wait(1.5)
+                dur = int((time.time() - t0) * 1000)
+                await self._log_op(step_id, "AO_FIND_COMMENT", f"code={code} result={found}", True, dur)
+                return True
+            else:
+                await self._log_op(step_id, "AO_FIND_COMMENT", f"code={code} not_found", False, int((time.time()-t0)*1000))
+                return False
+        except Exception as e:
+            await self._log_op(step_id, "AO_FIND_COMMENT", f"code={code}", False, int((time.time()-t0)*1000), str(e))
+            return False
 
     async def reply_with_text(self, text: str, step_id: int = 0) -> bool:
-        """【占位】回复当前聚焦的评论。需录制"""
-        log.info(f"  💬 [占位] reply_with_text(text=\"{text[:20]}...\") — 需要录制")
-        log.info(f"    流程: 点击回复按钮 → 输入文本 → 发送")
-        return False
+        """
+        回复当前聚焦的评论（find_comment_by_code 后调用）。
+        在已聚焦的评论回复框中输入文本并发送。
+        """
+        t0 = time.time()
+        try:
+            # 找 Draft.js 编辑器
+            editor = self.page.locator(SELECTORS['comment_editor'])
+            if await editor.count() == 0:
+                await self._log_op(step_id, "AO_REPLY_TEXT", "editor", False, int((time.time()-t0)*1000), "回复输入框未找到")
+                return False
+
+            await editor.click()
+            await self._wait(0.5)
+            await editor.press_sequentially(text, delay=random.uniform(50, 120))
+            await self._wait(0.5)
+
+            # 发送：先找发送按钮，失败则 Enter
+            sent = await self.page.evaluate("""() => {
+                const btns = document.querySelectorAll('button, [class*="send"], [class*="submit"]');
+                for (const b of btns) {
+                    const t = (b.textContent || '').trim();
+                    if (t.includes('发送') || t.includes('发布') || b.className.includes('send')) {
+                        b.click(); return true;
+                    }
+                }
+                return false;
+            }""")
+            if not sent:
+                await self.page.keyboard.press('Enter')
+
+            await self._wait(1.5)
+            dur = int((time.time() - t0) * 1000)
+            await self._log_op(step_id, "AO_REPLY_TEXT", f"text={text[:20]}", True, dur)
+            return True
+        except Exception as e:
+            await self._log_op(step_id, "AO_REPLY_TEXT", f"text={text[:20]}", False, int((time.time()-t0)*1000), str(e))
+            return False
 
     async def post_comment_with_code(self, text: str, code: str, step_id: int = 0) -> str:
         """发评+识别码。复用 post_comment，末尾追加 code"""

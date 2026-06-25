@@ -1,0 +1,28 @@
+{
+  "id": "daily_comment",
+  "name": "日常-评论激活",
+  "description": "日常评论：打开视频 → 观看 → 评论 → 关闭。每天2-3次保持账号活跃",
+  "version": "1.0",
+  "platform": "douyin",
+  "steps": [
+    {"step_id": 1,  "op": "goto_home", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 2,  "op": "scroll_feed", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 3,  "op": "open_video", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 4,  "op": "wait_watch", "args": {"seconds": null}, "pre": {}, "post": {}},
+    {"step_id": 5,  "op": "like", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 6,  "op": "open_comments", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 7,  "op": "post_comment", "args": {"text": "@corpus"}, "pre": {}, "post": {}},
+    {"step_id": 8,  "op": "close_comments", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 9,  "op": "scroll_feed", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 10, "op": "open_video", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 11, "op": "wait_watch", "args": {"seconds": null}, "pre": {}, "post": {}},
+    {"step_id": 12, "op": "open_comments", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 13, "op": "post_comment", "args": {"text": "@corpus"}, "pre": {}, "post": {}},
+    {"step_id": 14, "op": "close_comments", "args": {}, "pre": {}, "post": {}}
+  ],
+  "daily_limit": 3,
+  "min_interval_minutes": 30,
+  "args_schema": {
+    "corpus": {"type": "string", "desc": "语料分类"}
+  }
+}
