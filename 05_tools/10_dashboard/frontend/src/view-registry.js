@@ -18,6 +18,7 @@ const MIGRATED_VIEWS = [
   'matrix-publish',
   'matrix-blueprints',
   'matrix-comment',
+  'matrix-interact',
   'matrix-schedule',
   'matrix-corpus',
   'matrix-sms-proxy',

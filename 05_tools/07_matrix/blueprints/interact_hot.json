@@ -1,0 +1,20 @@
+{
+  "id": "interact_hot",
+  "name": "互动-热评互动",
+  "description": "在热评下回复提升曝光",
+  "version": "1.0",
+  "platform": "douyin",
+  "steps": [
+    {"step_id": 1, "op": "goto_url", "args": {"url": "@url"}, "pre": {}, "post": {}},
+    {"step_id": 2, "op": "wait_watch", "args": {"seconds": null}, "pre": {}, "post": {}},
+    {"step_id": 3, "op": "open_comments", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 4, "op": "scroll_to_hot_comment", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 5, "op": "like_comment", "args": {"target": "hot"}, "pre": {}, "post": {}},
+    {"step_id": 6, "op": "reply_comment", "args": {"text": "@reply_text"}, "pre": {}, "post": {}},
+    {"step_id": 7, "op": "close_comments", "args": {}, "pre": {}, "post": {}}
+  ],
+  "args_schema": {
+    "url": {"type": "string", "required": true, "desc": "目标视频链接"},
+    "reply_text": {"type": "string", "required": true, "desc": "回复内容"}
+  }
+}

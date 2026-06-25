@@ -41,6 +41,10 @@ SELECTORS = {
     "comment_send":         '.commentInput-right-ct .WFB7wUOX',
     "comment_emoji":        '.commentInput-right-ct .BVMl8WNl',  # 第2个
     "comment_more":         '[data-e2e="video-comment-more"]',
+    "comment_like":         '[data-e2e="comment-digg"]',       # 评论点赞按钮
+    "comment_item":         '[data-e2e="comment-item"]',        # 单条评论容器
+    "comment_reply_btn":    '[class*="reply"],[class*="Reply"]', # 回复按钮
+    "hot_tag":              '.hot-tag,[class*="hot"]',           # 热评标记
 
     # 搜索结果
     "search_card":          '.search-result-card',
@@ -452,6 +456,15 @@ class DouyinOps(PlatformOps):
         if op == "reply_comment":
             ok = await self.reply_comment(args.get("text","谢谢支持"), step_id=step_id)
             return OpResult(op, step_id, ok, "replied" if ok else "no_btn", time.time()-t0)
+
+        if op == "like_comment":
+            target = args.get("target", "first")
+            ok = await self.like_comment(target=target, step_id=step_id)
+            return OpResult(op, step_id, ok, "liked" if ok else "no_btn", time.time()-t0)
+
+        if op == "scroll_to_hot_comment":
+            ok = await self.scroll_to_hot_comment(step_id=step_id)
+            return OpResult(op, step_id, ok, "scrolled", time.time()-t0)
 
         if op == "search_browse":
             kw = args.get("keyword", "热门推荐")
@@ -1199,6 +1212,65 @@ class DouyinOps(PlatformOps):
         dur = int((time.time() - t0) * 1000)
         await self._log_op(step_id, "AO_REPLY", "reply", reply_btn, dur)
         return reply_btn
+
+    async def like_comment(self, target: str = "first", step_id: int = 0) -> bool:
+        """点赞评论。target=first 点第一条, hot 点热评, 或数字指定索引"""
+        t0 = time.time()
+        try:
+            if await self.page.locator(SELECTORS['comment_list']).count() == 0:
+                await self.open_comments(step_id)
+                await asyncio.sleep(2)
+
+            items = await self.page.locator(SELECTORS['comment_like']).all()
+            if not items:
+                await self._log_op(step_id, "AO_LIKE_COMMENT", "comment_like", False, int((time.time()-t0)*1000), "无评论点赞按钮")
+                return False
+
+            idx = 0
+            if target == "hot":
+                # 找有热评标记的评论
+                hot_items = await self.page.locator(f'{SELECTORS["comment_item"]}:has({SELECTORS["hot_tag"]})').all()
+                if hot_items:
+                    idx = 1  # 热评通常是第二条（第一条是置顶）
+            elif target.isdigit():
+                idx = int(target)
+
+            if idx >= len(items):
+                idx = 0
+            await items[idx].click()
+            await self._wait(1)
+            dur = int((time.time() - t0) * 1000)
+            await self._log_op(step_id, "AO_LIKE_COMMENT", f"comment_like[{idx}]", True, dur)
+            return True
+        except Exception as e:
+            await self._log_op(step_id, "AO_LIKE_COMMENT", "comment_like", False, int((time.time()-t0)*1000), str(e))
+            return False
+
+    async def scroll_to_hot_comment(self, step_id: int = 0) -> bool:
+        """滚动到热评区域"""
+        t0 = time.time()
+        try:
+            if await self.page.locator(SELECTORS['comment_list']).count() == 0:
+                await self.open_comments(step_id)
+                await asyncio.sleep(2)
+
+            # 滚动评论区到热评
+            await self.page.evaluate("""() => {
+                const list = document.querySelector('[data-e2e="comment-list"]');
+                if (list) {
+                    const items = list.querySelectorAll('[data-e2e="comment-item"]');
+                    if (items.length > 3) {
+                        items[Math.min(2, items.length-1)].scrollIntoView({behavior: 'smooth', block: 'center'});
+                    }
+                }
+            }""")
+            await self._wait(1.5)
+            dur = int((time.time() - t0) * 1000)
+            await self._log_op(step_id, "AO_SCROLL_HOT", "comment-list", True, dur)
+            return True
+        except Exception as e:
+            await self._log_op(step_id, "AO_SCROLL_HOT", "comment-list", False, int((time.time()-t0)*1000), str(e))
+            return False
 
     async def sms_login(self, phone: str = "", step_id: int = 0) -> bool:
         """抖音 SMS 验证码登录（处理 passport iframe 登录页）

@@ -179,6 +179,44 @@ GENERAL_SHORT = [
     "牛",
 ]
 
+# ── 三级接力语料（评论→回复→再回复的自然互动链）──
+# 每个分类含 first/reply/second 三层
+CHAIN_CORPUS = {
+    "food": [
+        {"first": "看着就很有食欲，周末去试试", "reply": "同意！上次去吃过一次确实不错", "second": "我也去过，他家那个招牌菜绝了"},
+        {"first": "这个做法收藏了，回家就做", "reply": "做了好几次了，家人都说好吃", "second": "是的，跟着做了一次很成功"},
+    ],
+    "travel": [
+        {"first": "这个地方太美了，已加入旅行清单", "reply": "去年去过，风景确实好，值得二刷", "second": "求攻略！准备下个月去"},
+        {"first": "这个机位太绝了，拍得真好", "reply": "早上五点去占的位置，值得", "second": "太卷了哈哈哈，不过效果确实好"},
+    ],
+    "tech": [
+        {"first": "分析得很透彻，学到了", "reply": "对，第三点我之前完全没想到", "second": "是的，按这个方法试了效果很好"},
+    ],
+    "lifestyle": [
+        {"first": "这就是我理想的生活状态", "reply": "同款生活！每天都很充实", "second": "羡慕了，我也要这样过"},
+    ],
+    "emotion": [
+        {"first": "太真实了，完全说到心坎里", "reply": "是啊，经历过的人才懂", "second": "抱抱，都会好起来的"},
+    ],
+}
+
+
+def get_chain(group: str = "food", position: str = "first") -> str:
+    """获取三级接力语料。group=分类, position=first/reply/second"""
+    import random
+    pool = CHAIN_CORPUS.get(group, CHAIN_CORPUS["food"])
+    item = random.choice(pool)
+    return item.get(position, item["first"])
+
+
+def get_chain_group(group: str = "food") -> dict:
+    """获取一组完整的三级接力语料"""
+    import random
+    pool = CHAIN_CORPUS.get(group, CHAIN_CORPUS["food"])
+    return random.choice(pool)
+
+
 # ════════════════════════════════════════════════════════════
 # 评论生成器
 # ════════════════════════════════════════════════════════════

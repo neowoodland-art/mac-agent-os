@@ -1,0 +1,18 @@
+{
+  "id": "interact_like",
+  "name": "互动-点赞互动",
+  "description": "点赞视频→点赞评论→关注用户",
+  "version": "1.0",
+  "platform": "douyin",
+  "steps": [
+    {"step_id": 1, "op": "goto_url", "args": {"url": "@url"}, "pre": {}, "post": {}},
+    {"step_id": 2, "op": "wait_watch", "args": {"seconds": null}, "pre": {}, "post": {}},
+    {"step_id": 3, "op": "like", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 4, "op": "open_comments", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 5, "op": "like_comment", "args": {"target": "hot"}, "pre": {}, "post": {}},
+    {"step_id": 6, "op": "close_comments", "args": {}, "pre": {}, "post": {}}
+  ],
+  "args_schema": {
+    "url": {"type": "string", "required": true, "desc": "目标视频链接"}
+  }
+}

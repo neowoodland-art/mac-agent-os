@@ -71,7 +71,7 @@ function switchView(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','ops-command'];
+  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','ops-command'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -100,7 +100,7 @@ function switchView(view) {
       e.classList.toggle('active', e.dataset.view === view);
     });
     // Hide ALL other views first
-    ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus',
+    ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
      'ave-render','ave-script','ave-materials','ave-templates',
      'crawl-tasks','crawl-sources','crawl-history',
      'machines','fleet-sync','fleet-reconcile','fleet-exec',
@@ -127,7 +127,7 @@ function switchView(view) {
 
   // 视图显隐
   // 视图显隐
-  const viewIds = ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-comment','matrix-schedule','matrix-corpus',
+  const viewIds = ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
                    'ave-render','ave-script','ave-materials','ave-templates',
                    'crawl-tasks','crawl-sources','crawl-history',
                    'machines','fleet-sync','fleet-reconcile','fleet-exec',
@@ -455,6 +455,7 @@ async function loadPlugins() {
         {view:'matrix-nurture', label:'🏃 养号执行'},
         {view:'matrix-collect', label:'📡 信息采集'},
         {view:'matrix-publish', label:'📤 内容发布'},
+        {view:'matrix-interact', label:'💬 评论互动'},
         {view:'matrix-comment', label:'💬 定向评论'},
         {view:'matrix-like', label:'❤️ 收藏点赞'},
         {view:'matrix-blueprints', label:'📋 蓝图管理'},

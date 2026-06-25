@@ -1,0 +1,21 @@
+{
+  "id": "interact_chain",
+  "name": "互动-三级接力",
+  "description": "发评→回复→再回复，三级接力互动链",
+  "version": "1.0",
+  "platform": "douyin",
+  "steps": [
+    {"step_id": 1, "op": "goto_url", "args": {"url": "@url"}, "pre": {}, "post": {}},
+    {"step_id": 2, "op": "wait_watch", "args": {"seconds": null}, "pre": {}, "post": {}},
+    {"step_id": 3, "op": "open_comments", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 4, "op": "post_comment", "args": {"text": "@comment_text"}, "pre": {}, "post": {}},
+    {"step_id": 5, "op": "close_comments", "args": {}, "pre": {}, "post": {}}
+  ],
+  "args_schema": {
+    "url": {"type": "string", "required": true, "desc": "目标视频链接"},
+    "comment_text": {"type": "string", "required": true, "desc": "一级评论内容"},
+    "reply_text": {"type": "string", "desc": "回复内容（二三级用）"},
+    "reply_to": {"type": "string", "desc": "回复目标文本（用于找到目标评论）"},
+    "chain_position": {"enum": ["first", "reply", "second_reply"], "desc": "接力位置"}
+  }
+}

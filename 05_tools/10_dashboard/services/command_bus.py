@@ -667,6 +667,11 @@ CMD_REGISTRY = {
     "like": {
         "template": "mc run --accounts={ids} --blueprints=douyin_daily --rounds=1",
     },
+    "interact": {
+        "template": "mc run --accounts={ids} --blueprints={blueprint} --rounds=1",
+        "defaults": {"blueprint": "interact_comment", "rounds": 1},
+        "required_params": ["url"],
+    },
 }
 
 
