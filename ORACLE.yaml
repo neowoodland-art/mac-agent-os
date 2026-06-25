@@ -1,5 +1,5 @@
 schema_version: '1.0'
-last_updated: 2026-06-25 17:45
+last_updated: 2026-06-15 14:40
 machines:
   chengzigedeAir:
     hostname: chengzigedeAir
@@ -180,6 +180,11 @@ tasks:
   action: collect
   params:
     accounts: all
+- name: git_sync
+  schedule: '*/15 * * * *'
+  on_machines: '*'
+  action: git pull
+  params: {}
 - name: vector_rebuild
   schedule: 30 3 * * *
   on_machines:
@@ -192,32 +197,6 @@ tasks:
   on_machines:
   - chengzigedeAir
   action: inbox_refine
-  params: {}
-- name: submission_metadata
-  description: "提取 01_submissions 元数据和关键词索引（纯文本处理，<10秒）"
-  schedule: 0 5 * * *
-  on_machines:
-  - chengzigedeAir
-  action: distill
-  params:
-    mode: extract
-    source_dir: "01_submissions"
-    output_dir: "04_memory/long_term"
-- name: submission_abstract
-  description: "提交物 AI 摘要生成（每批10篇，~2分钟，每周跑）"
-  schedule: 0 6 * * 1
-  on_machines:
-  - chengzigedeAir
-  action: distill
-  params:
-    mode: llm
-    source_dir: "01_submissions"
-    output_dir: "03_knowledge/00_stream"
-    batch_size: 10
-- name: git_sync
-  schedule: '*/15 * * * *'
-  on_machines: '*'
-  action: git pull
   params: {}
 global:
   timezone: Asia/Shanghai
