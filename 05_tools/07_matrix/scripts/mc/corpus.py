@@ -563,8 +563,12 @@ class CorpusManager:
                     break  # 一个关键词组只匹配一次
         return matched_directions
 
-    def _get_comment_from_categories(self, category_names: list, platform: str = None) -> Optional[str]:
-        """从指定的分类名列表中随机取一条评论（遍历所有平台）"""
+    def _get_comment_from_categories(self, category_names: list, platform: str = None,
+                                      allow_templates: bool = True) -> Optional[str]:
+        """从指定的分类名列表中随机取一条评论（遍历所有平台）
+        Args:
+            allow_templates: 是否允许使用含 {keyword} 的模板
+        """
         platforms = [platform] if platform else ["douyin", "xiaohongshu"]
         candidates = []
 
@@ -575,8 +579,10 @@ class CorpusManager:
                     continue
                 if not info.get("enabled", True):
                     continue
-                comments = info.get("comments", []) + info.get("templates", [])
-                candidates.extend(comments)
+                if allow_templates:
+                    candidates.extend(info.get("comments", []) + info.get("templates", []))
+                else:
+                    candidates.extend(info.get("comments", []))
 
         if candidates:
             return random.choice(candidates)
@@ -657,11 +663,15 @@ class CorpusManager:
                 cat = DIRECTION_TO_CATEGORY.get(d)
                 if not cat:
                     continue
-                comment = self._get_comment_from_categories([cat])
+                kw = self._extract_first_keyword(video_title)
+                # 有关键词 → 可用模板（含 {keyword} 替换）
+                if kw:
+                    comment = self._get_comment_from_categories([cat], allow_templates=True)
+                    if comment:
+                        return comment.replace("{keyword}", kw)
+                # 无关键词 → 只用成品评论（不含模板）
+                comment = self._get_comment_from_categories([cat], allow_templates=False)
                 if comment:
-                    kw = self._extract_first_keyword(video_title)
-                    if kw:
-                        comment = comment.replace("{keyword}", kw)
                     return comment
 
         # 4) 没有语料匹配 → fallback: 尝试 AI 生成
