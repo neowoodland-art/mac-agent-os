@@ -1,5 +1,27 @@
 # AgentOS 项目变更日志
 
+## [4.2.2] - 2026-06-26
+
+### 定向评论B模式修复 — 输入方式+登录检测
+
+#### `<douyin_ops.py>` post_comment
+- **修复** B模式 (`/video/` 独立页面) 评论输入不生效问题
+- 输入方式改为 **pbcopy + Meta+V 粘贴**（复制 reply_comment 方案）
+- 原因：Draft.js + Camoufox(Firefox) 下 `press_sequentially` 分发的键盘事件不被正确拦截
+- 粘贴是浏览器原生操作，Draft.js 可靠处理 `insertFromPaste` 事件
+- 输入后验证：`_verify_comment_posted()` 检查评论区前5条是否含刚发文字
+- 选择器顺序恢复为 `[contenteditable="true"]` 优先
+
+#### `<login_state_machine.py>` DouyinDetector & DouyinLoginRecovery
+- **修复** 登录检测误触广告问题（"登录后领取奖励"广告被当成未登录信号）
+- **LOGGED_IN_ANCHORS** 增强：+3 个顶栏头像选择器（`[class*="DyHeader"] [class*="avatar"]` 等）
+- **NOT_LOGGED_ANCHORS** 移除 `'div:has-text("登录后")'` — 太宽泛会匹配广告
+- **页面文本检测** 去掉 `"登录后"` 关键词（同样匹配广告）
+- **`_trigger_login` JS 兜底** 改为只查 `button, a` + `offsetHeight > 10` 过滤，防止点到广告元素
+
+### 验证
+- [ ] 定向评论手动测试中
+
 ## [4.2.1] - 2026-06-25
 
 ### 命令传导统一治理
