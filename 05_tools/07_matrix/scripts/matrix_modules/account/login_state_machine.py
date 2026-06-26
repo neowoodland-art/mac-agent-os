@@ -53,6 +53,10 @@ class DouyinDetector(PlatformDetector):
         '.user-info-avatar',         # 个人主页上的头像
         '.user-header-avatar',        # 顶栏用户头像（仅登录后显示）
         '.user-info-wrap',            # 用户信息容器
+        # 增强：抖音 Web 顶栏头像（登录后右上角必出现）
+        '[class*="DyHeader"] [class*="avatar"]',
+        '[class*="header"] [class*="avatar"]',
+        '[class*="user-header"]',
     ]
 
     # 未登录 DOM 锚点（命中任一即未登录）
@@ -68,8 +72,7 @@ class DouyinDetector(PlatformDetector):
         '[class*="user-login"]',
         '[class*="account-login"]',
         '[class*="unlogin"]',
-        # 各种登录提示
-        'div:has-text("登录后")',
+        # 注意: 不用 'div:has-text("登录后")' — 太宽泛会匹配广告"登录后领取奖励"
     ]
 
     # 验证弹窗选择器
@@ -90,8 +93,8 @@ class DouyinDetector(PlatformDetector):
         # 2) 页面文本（次可靠 — 检查"未登录"关键词）
         try:
             text = (await page.evaluate("document.body.innerText")) or ""
-            # 未登录信号：页面包含"未登录"或"登录后"
-            if "未登录" in text or "登录后" in text:
+            # 未登录信号：只精确匹配"未登录"（去掉"登录后"→ 太宽泛匹配广告）
+            if "未登录" in text:
                 return "not_logged"
             # 已登录信号：页面包含"我的喜欢"和"粉丝"（登录后导航特有）
             if "粉丝" in text and "关注" in text:
@@ -543,10 +546,10 @@ class DouyinLoginRecovery(RecoveryStep):
         # 兜底：用 JS 找任何包含"登录"文字的可见元素
         try:
             clicked = await page.evaluate(f"""() => {{
-                var all = document.querySelectorAll('span, div, a, button, li');
+                var all = document.querySelectorAll('button, a');
                 for (var i = 0; i < all.length; i++) {{
                     var txt = (all[i].textContent || '').trim();
-                    if (txt.includes('{self.LOGIN_BTN_TEXT}') && all[i].offsetParent) {{
+                    if (txt.includes('{self.LOGIN_BTN_TEXT}') && all[i].offsetParent && all[i].offsetHeight > 10) {{
                         all[i].click();
                         return true;
                     }}

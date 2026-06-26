@@ -1,0 +1,36 @@
+{
+  "id": "douyin_reply",
+  "name": "抖音-作者回复",
+  "description": "打开自己视频 → 读评论 → 回复评论",
+  "version": "1.0",
+  "steps": [
+    {
+      "step_id": 1,
+      "op": "goto_home",
+      "args": {}
+    },
+    {
+      "step_id": 2,
+      "op": "goto_profile",
+      "args": {}
+    },
+    {
+      "step_id": 3,
+      "op": "read_my_comments",
+      "args": {}
+    },
+    {
+      "step_id": 4,
+      "op": "reply_comment",
+      "args": {
+        "text": "@reply_text"
+      }
+    },
+    {
+      "step_id": 5,
+      "op": "go_back",
+      "args": {}
+    }
+  ],
+  "platform": "douyin"
+}

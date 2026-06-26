@@ -1127,14 +1127,8 @@ class DouyinOps(PlatformOps):
                 await editor.first.click()
             await self._wait(0.8)
 
-            # 5. pbcopy + Meta+V 粘贴输入（复制 reply_comment 的成功方案）
-            #    绕过 Draft.js + Camoufox 键盘事件兼容问题，粘贴是浏览器原生操作
-            proc = await asyncio.create_subprocess_exec(
-                'pbcopy', stdin=asyncio.subprocess.PIPE
-            )
-            await proc.communicate(input=text.encode())
-            await self._wait(0.3)
-            await self.page.keyboard.press('Meta+V')
+            # 5. 逐字输入文本（模拟真人打字）
+            await editor.first.press_sequentially(text, delay=random.uniform(50, 120))
             await self._wait(0.5)
 
             # 6. 发送——用 Enter （你说可用回车或 Ctrl+回车）
