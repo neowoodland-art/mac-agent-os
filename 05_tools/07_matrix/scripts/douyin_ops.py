@@ -1088,28 +1088,31 @@ class DouyinOps(PlatformOps):
                 await self.open_comments(step_id)
                 await self._wait(1.5)
 
-            # 2. 定位输入框（A模式Draft.js / B模式评论区输入框）
+            # 2. 定位输入框（录制分析:从文本+class+坐标多路匹配）
             editor_selectors = [
-                SELECTORS['comment_editor'],    # .public-DraftEditor-content (A模式)
+                SELECTORS['comment_editor'],    # .public-DraftEditor-content (A模式 Draft.js)
+                '[class*="notranslate"][contenteditable="true"]',  # 通用可编辑区(录制发现)
                 '[data-e2e="comment-input"]',   # 评论区输入框
                 '[class*="comment-input"]',      # 通用评论输入
-                '[class*="DraftEditor"]',        # Draft.js 编辑器
                 '[contenteditable="true"]',       # 可编辑区域
+                '[class*="DraftEditor"]',        # Draft.js 编辑器 (回复场景)
                 'input[placeholder*="评论"]',
                 'textarea[placeholder*="评论"]',
-                # 录制发现: "留下你的精彩评论吧" 文本
-                '[class*="notranslate"][contenteditable="true"]',
             ]
             editor = None
             for sel in editor_selectors:
                 el = self.page.locator(sel)
-                if await el.count() > 0:
+                c = await el.count()
+                if c > 0:
                     editor = el
                     break
+            # 兜底: 任何 contenteditable 元素
             if editor is None:
-                dur = int((time.time() - t0) * 1000)
-                await self._log_op(step_id, "AO_COMMENT", "all_selectors", False, dur, "所有评论输入框选择器均未命中")
-                return 'failed'
+                editor = self.page.locator('[contenteditable="true"]')
+                if await editor.count() == 0:
+                    dur = int((time.time() - t0) * 1000)
+                    await self._log_op(step_id, "AO_COMMENT", "all_selectors", False, dur, "所有评论输入框选择器均未命中")
+                    return 'failed'
 
             # 滚动到视图并点击
             try:
