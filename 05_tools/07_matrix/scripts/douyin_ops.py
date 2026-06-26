@@ -966,10 +966,10 @@ class DouyinOps(PlatformOps):
         return False
 
     async def open_comments(self, step_id: int = 0) -> bool:
-        """打开评论区（A模式:键盘X → B模式:点评论按钮/坐标）"""
+        """打开评论区（和成功版一致的逻辑）"""
         t0 = time.time()
         try:
-            # 先检测评论区是否已打开
+            # 1. 先检测评论区是否已打开
             try:
                 if await self.page.locator(SELECTORS['comment_list']).count(timeout=500) > 0:
                     dur = int((time.time() - t0) * 1000)
@@ -982,55 +982,31 @@ class DouyinOps(PlatformOps):
             is_standalone = '/video/' in url and 'modal_id' not in url
 
             if is_standalone:
-                # ── B模式（独立视频页）──
-                # 策略1: 选择器点击
+                # ── B模式：点击评论区入口按钮 ──
+                # 方案A: 多选择器快速探测
                 for sel in [
                     '[data-e2e="video-player-comment"]',
                     '[class*="comment-action"]',
                     '[class*="comment-count"]',
                     '[aria-label*="评论"]',
-                    SELECTORS['comment_icon'],
                 ]:
                     try:
                         btn = self.page.locator(sel)
-                        if await btn.count(timeout=200) > 0:
+                        if await btn.count(timeout=100) > 0:
                             await btn.first.click(timeout=1000)
                             await self._wait(1.5)
                             if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
                                 dur = int((time.time() - t0) * 1000)
-                                await self._log_op(step_id, "AO_OPEN", f"B_sel", True, dur)
+                                await self._log_op(step_id, "AO_OPEN", "B_sel", True, dur)
                                 return True
                     except Exception:
                         continue
 
-                # 策略2: 录制显示评论区按钮在视频左下方(≈[193,685])
-                video = self.page.locator('video')
-                if await video.count() > 0:
-                    box = await video.first.bounding_box()
-                    if box:
-                        # 点视频下方左侧(评论区入口区域)
-                        cx = box['x'] + box['width'] * 0.3
-                        cy = box['y'] + box['height'] + 20
-                        await self.page.mouse.click(cx, cy)
-                        await self._wait(1.5)
-                        try:
-                            if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
-                                dur = int((time.time() - t0) * 1000)
-                                await self._log_op(step_id, "AO_OPEN", "B_coord", True, dur)
-                                return True
-                        except Exception:
-                            pass
-
-                # 策略3: 找"评论"文本元素点击
+                # 方案B: JS点击（和成功版一致）
                 clicked = await self.page.evaluate("""() => {
-                    const all = document.querySelectorAll('span, div, button');
-                    for (const el of all) {
-                        const t = (el.textContent || '').trim();
-                        if (/^\\d+$/.test(t) && el.offsetWidth < 100) {
-                            const parent = el.parentElement;
-                            if (parent && parent.textContent.includes('评论')) { parent.click(); return true; }
-                        }
-                    }
+                    const s = '[data-e2e="video-player-comment"], [class*="comment-action"], [class*="comment-count"]';
+                    const el = document.querySelector(s);
+                    if (el) { el.click(); return true; }
                     return false;
                 }""")
                 if clicked:
@@ -1038,12 +1014,12 @@ class DouyinOps(PlatformOps):
                     try:
                         if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
                             dur = int((time.time() - t0) * 1000)
-                            await self._log_op(step_id, "AO_OPEN", "B_js_text", True, dur)
+                            await self._log_op(step_id, "AO_OPEN", "B_js", True, dur)
                             return True
                     except Exception:
                         pass
             else:
-                # ── A模式（Feed弹窗）──
+                # ── A模式：键盘X打开评论区浮层 ──
                 await self._ensure_video_focused()
                 await self.page.keyboard.press(KEYS['comment'])
                 await self._wait(1.0)
