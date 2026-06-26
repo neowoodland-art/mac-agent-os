@@ -1114,10 +1114,10 @@ class DouyinOps(PlatformOps):
             await editor.press_sequentially(text, delay=random.uniform(50, 100))
             await self._wait(0.3 + random.uniform(0, 0.5))
 
-            # 4. 发送（多策略：找按钮→坐标→Enter→Ctrl+Enter）
+            # 4. 发送（多策略：找按钮→Enter→Ctrl+Enter）
             sent = False
             for attempt in range(3):
-                # 策略A: 找发送/发布按钮
+                # 策略A: 找发送/发布按钮（仅文本匹配，拒绝svg/path通配避免误点搜索图标）
                 send_btn = await self.page.evaluate("""() => {
                     const btnTexts = ['发送', '发布', '提交', '发表'];
                     const sels = ['button', '[class*="send"]', '[class*="submit"]', '[class*="publish"]',
@@ -1127,7 +1127,6 @@ class DouyinOps(PlatformOps):
                         for (const el of els) {
                             const t = (el.textContent || '').trim();
                             if (btnTexts.some(bt => t.includes(bt))) { el.click(); return true; }
-                            if ((el.querySelector('svg') || el.querySelector('path'))) { el.click(); return true; }
                         }
                     }
                     return false;
