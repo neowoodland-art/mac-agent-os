@@ -160,6 +160,7 @@ def cmd_run(args):
         keep_open=getattr(args, 'keep', False),
         max_browsers=getattr(args, 'max_browsers', 3),
         url=getattr(args, 'url', ''),
+        direction=getattr(args, 'direction', ''),
         comment_text=getattr(args, 'comment_text', ''),
         reply_text=getattr(args, 'reply_text', ''),
     )
@@ -1507,6 +1508,7 @@ def build_parser(subparsers=None, plugin_name="mc"):
     p_run.add_argument("--interval", default="30-60", help="轮间隔范围(秒)")
     p_run.add_argument("--stagger", default="15-30", help="身份组间错峰延迟(秒)")
     p_run.add_argument("--max-browsers", type=int, default=3, help="最大同时浏览器数(默认3)")
+    p_run.add_argument("--direction", default="", help="评论方向（称赞/提问/共鸣/感慨/客观）")
     p_run.add_argument("--corpus", default="", help="语料分类，逗号分隔")
     p_run.add_argument("--url", default="", help="视频链接（互动蓝图用）")
     p_run.add_argument("--comment-text", default="", help="评论内容（互动蓝图用，支持@corpus）")

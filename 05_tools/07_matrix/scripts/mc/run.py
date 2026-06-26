@@ -34,8 +34,8 @@ class BatchRunner:
                  interval_range=(30, 60), mix=False,
                  corpus=None, engine="auto", daemon=False,
                  stagger="15-30", keep_open=False,
-                 max_browsers=3, url="", comment_text="",
-                 reply_text=""):
+                 max_browsers=3, url="", direction="",
+                 comment_text="", reply_text=""):
         self.accounts = accounts
         self.blueprints = blueprints
         self.rounds = rounds
@@ -48,6 +48,7 @@ class BatchRunner:
         self.keep_open = keep_open
         self.max_browsers = max_browsers
         self.url = url
+        self.direction = direction
         self.comment_text = comment_text
         self.reply_text = reply_text
 
@@ -74,7 +75,7 @@ class BatchRunner:
                 "url": self.url,
                 "comment_text": self.comment_text,
                 "reply_text": self.reply_text,
-                "direction": "",
+                "direction": self.direction,
             },
         )
 

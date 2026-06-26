@@ -16,7 +16,7 @@ let _selector = null;
 let _activeTab = 'comment';
 
 export async function loadView(container) {
-  const uid = container.id || 'interact';
+  const uid = (container.id || 'interact').replace(/-/g, '_');
   const data = await apiRequest('/matrix/accounts');
   const allAccts = Array.isArray(data) ? data : (data.accounts || []);
 
@@ -153,54 +153,181 @@ function renderLikeTab(uid, body) {
     </div>`;
 }
 
-// ── Tab 3: 语料库 ───────────────────────────────────────
+// ── Tab 3: 语料库管理 ───────────────────────────────────────
 
 async function renderCorpusTab(uid, body) {
   body.innerHTML = '<div class="loading">⏳ 加载语料库...</div>';
   try {
     const r = await apiRequest('/matrix/corpus');
-    const d = r;
-    const cats = d.categories || d.corpus || [];
+    const cats = r.categories || [];
+    const total = r.total_comments || 0;
 
-    // 按平台分组
-    const groups = {};
-    cats.forEach(c => {
-      const p = c.platform === 'xiaohongshu' ? '📕 小红书' : '🎵 抖音';
-      if (!groups[p]) groups[p] = [];
-      groups[p].push(c);
-    });
+    const platforms = { douyin: '🎵 抖音', xiaohongshu: '📕 小红书' };
+    const groups = { douyin: [], xiaohongshu: [] };
+    cats.forEach(c => { if (groups[c.platform]) groups[c.platform].push(c); });
 
-    let html = `<div style="font-size:12px;color:var(--text2);margin-bottom:6px">共 ${cats.length} 个分类 · ${d.total_comments || 0} 条评论</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">`;
+    let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:12px;color:var(--text2)">共 ${cats.length} 个分类 · ${total} 条评论</span>
+      <span style="font-size:10px;color:var(--text2)">点分类行展开管理</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px" id="corpusGrid_${uid}">`;
 
-    Object.entries(groups).forEach(([platform, items]) => {
-      html += `<div style="background:var(--bg2);border-radius:6px;padding:10px;border:1px solid var(--border)">
-        <div style="font-weight:600;font-size:12px;margin-bottom:6px">${platform}</div>
-        <table style="width:100%;font-size:10px;border-collapse:collapse">
-        <thead><tr><th style="text-align:left;padding:2px 4px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:400">分类</th>
-        <th style="padding:2px 4px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:400;text-align:center">条数</th></tr></thead>
-        <tbody>${items.map(c => `<tr>
-          <td style="padding:2px 4px;border-bottom:1px solid var(--border)">${c.name || c.category || '?'}</td>
-          <td style="padding:2px 4px;border-bottom:1px solid var(--border);text-align:center">${c.count || c.comment_count || 0}</td>
-        </tr>`).join('')}</tbody></table>
+    Object.entries(groups).forEach(([platKey, items]) => {
+      if (!items.length) return;
+      const platLabel = platforms[platKey] || platKey;
+      html += `<div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-weight:600;font-size:12px;margin-bottom:6px">${platLabel}</div>
+        ${items.map((c, ci) => `
+          <div style="border:1px solid var(--border);border-radius:4px;margin-bottom:3px;overflow:hidden">
+            <div onclick="_ia_toggleCorpusCat_${uid}('${platKey}','${c.name}',${ci})"
+              style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:var(--bg3);cursor:pointer;font-size:10px;user-select:none">
+              <span id="corpusArrow_${uid}_${platKey}_${ci}" style="font-size:8px;opacity:.6">▶</span>
+              <span style="flex:1"><strong>${c.label || c.name}</strong></span>
+              <span style="color:var(--text2)">${c.count}条</span>
+              <span style="color:var(--text2);font-size:9px">权重${c.weight}</span>
+            </div>
+            <div id="corpusBody_${uid}_${platKey}_${ci}" style="display:none;padding:4px 6px"></div>
+          </div>
+        `).join('')}
+        <!-- 新增批量导入 -->
+        <div style="margin-top:4px;display:flex;gap:4px">
+          <textarea id="corpusImport_${uid}_${platKey}" placeholder="批量导入评论（每行一条）" rows="2"
+            style="flex:1;font-size:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 5px;resize:vertical"></textarea>
+          <button onclick="_ia_batchImportCorpus_${uid}('${platKey}')"
+            style="background:var(--primary);color:#fff;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px;white-space:nowrap">📥 导入</button>
+        </div>
       </div>`;
     });
 
-    // 三级接力语料展示
-    html += `<div style="background:var(--bg2);border-radius:6px;padding:10px;border:1px solid var(--border);grid-column:1/-1">
-      <div style="font-weight:600;font-size:12px;margin-bottom:6px">🔗 三级接力语料</div>
-      <div style="font-size:10px;color:var(--text2);margin-bottom:4px">评论→回复→再回复，5 个分类可用。在「定向评论」Tab 选择"三级接力"策略即可使用</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <span style="background:var(--bg3);padding:2px 8px;border-radius:3px;font-size:10px">🍜 美食 2组</span>
-        <span style="background:var(--bg3);padding:2px 8px;border-radius:3px;font-size:10px">✈️ 旅行 2组</span>
-        <span style="background:var(--bg3);padding:2px 8px;border-radius:3px;font-size:10px">💻 科技 1组</span>
-        <span style="background:var(--bg3);padding:2px 8px;border-radius:3px;font-size:10px">🌿 生活 1组</span>
-        <span style="background:var(--bg3);padding:2px 8px;border-radius:3px;font-size:10px">💛 情感 1组</span>
-      </div>
+    html += '</div>';
+
+    // 三阶场景语料
+    html += `<div style="margin-top:8px;background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+      <div style="font-weight:600;font-size:12px;margin-bottom:6px">🔗 三阶接力语料 <span style="font-size:10px;color:var(--text2);font-weight:400">一阶(评论) → 二阶(回复) → 三阶(再回复)</span></div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:4px">在「定向评论」Tab 选"三级接力"策略时使用</div>
+      <div id="corpusScenes_${uid}" style="font-size:10px;color:var(--text2)">⏳ 加载场景数据...</div>
     </div>`;
 
-    html += '</div>';
     body.innerHTML = html;
+
+    // 加载三阶数据
+    try {
+      const sr = await apiRequest('/matrix/corpus/scenes');
+      const groups = sr.groups || {};
+      const sceneEl = document.getElementById(`corpusScenes_${uid}`);
+      if (sceneEl) {
+        let sh = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">';
+        const labels = { first_comment: '💬 一阶(评论)', reply: '💬 二阶(回复)', re_reply: '💬 三阶(再回复)' };
+        for (const [key, label] of Object.entries(labels)) {
+          const items = groups[key] || [];
+          sh += `<div style="background:var(--bg3);border-radius:6px;padding:6px">
+            <div style="font-weight:600;font-size:11px;margin-bottom:3px">${label}</div>
+            ${items.length ? items.map(s => `<span style="display:inline-block;background:var(--bg2);padding:1px 5px;border-radius:3px;margin:1px;font-size:9px">${s.persona}</span>`).join('') : '<span style="color:var(--text2);font-size:9px">暂无数据，可在 YAML 中配置</span>'}
+          </div>`;
+        }
+        sh += '</div>';
+        sceneEl.innerHTML = sh;
+      }
+    } catch(e) { /* ignore */ }
+
+    // 注册展开/折叠函数
+    window[`_ia_toggleCorpusCat_${uid}`] = async (platKey, catName, ci) => {
+      const bodyEl = document.getElementById(`corpusBody_${uid}_${platKey}_${ci}`);
+      const arrow = document.getElementById(`corpusArrow_${uid}_${platKey}_${ci}`);
+      if (!bodyEl) return;
+      if (bodyEl.style.display !== 'none') {
+        bodyEl.style.display = 'none';
+        if (arrow) arrow.textContent = '▶';
+        return;
+      }
+      bodyEl.innerHTML = '<div style="font-size:10px;color:var(--text2)">⏳ 加载中...</div>';
+      bodyEl.style.display = 'block';
+      if (arrow) arrow.textContent = '▼';
+      try {
+        const detail = await apiRequest(`/matrix/corpus/category?platform=${platKey}&category=${encodeURIComponent(catName)}`);
+        const comments = detail.comments || [];
+        let dh = '<div style="font-size:10px">';
+        if (!comments.length) {
+          dh += '<div style="color:var(--text2);padding:2px 0">暂无评论，在下方批量导入</div>';
+        } else {
+          comments.forEach((text, idx) => {
+            const display = text.length > 60 ? text.slice(0, 58) + '…' : text;
+            dh += `<div style="display:flex;align-items:center;gap:4px;padding:2px 0;border-bottom:1px solid var(--border)">
+              <span style="flex:1;word-break:break-all">${display}</span>
+              <button onclick="_ia_delCorpus_${uid}('${platKey}','${catName.replace(/'/g,"\\'")}',${idx})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:10px;padding:0 2px" title="删除">✕</button>
+            </div>`;
+          });
+        }
+        // 单条新增
+        dh += `<div style="display:flex;gap:4px;margin-top:4px">
+          <input id="corpusAddInput_${uid}_${platKey}_${ci}" placeholder="输入新评论..."
+            style="flex:1;font-size:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 5px">
+          <button onclick="_ia_addCorpus_${uid}('${platKey}','${catName.replace(/'/g,"\\'")}',${ci})"
+            style="background:var(--primary);color:#fff;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">➕ 添加</button>
+        </div>`;
+        dh += '</div>';
+        bodyEl.innerHTML = dh;
+      } catch(e) {
+        bodyEl.innerHTML = `<div style="color:var(--red);font-size:10px">❌ ${e.message}</div>`;
+      }
+    };
+
+    // 单条添加
+    window[`_ia_addCorpus_${uid}`] = async (platKey, catName, ci) => {
+      const input = document.getElementById(`corpusAddInput_${uid}_${platKey}_${ci}`);
+      const text = input?.value?.trim();
+      if (!text) return;
+      try {
+        await apiRequest('/matrix/corpus/add', {
+          method: 'POST',
+          body: JSON.stringify({ platform: platKey, category: catName, text }),
+        });
+        input.value = '';
+        // 刷新此分类
+        const fn = window[`_ia_toggleCorpusCat_${uid}`];
+        if (fn) fn(platKey, catName, ci);
+      } catch(e) { alert('❌ ' + e.message); }
+    };
+
+    // 删除评论
+    window[`_ia_delCorpus_${uid}`] = async (platKey, catName, idx) => {
+      if (!confirm('确定删除这条评论？')) return;
+      try {
+        await apiRequest('/matrix/corpus/delete', {
+          method: 'POST',
+          body: JSON.stringify({ platform: platKey, category: catName, index: idx }),
+        });
+        renderCorpusTab(uid, body); // 刷新整个页面
+      } catch(e) { alert('❌ ' + e.message); }
+    };
+
+    // 批量导入
+    window[`_ia_batchImportCorpus_${uid}`] = async (platKey) => {
+      const ta = document.getElementById(`corpusImport_${uid}_${platKey}`);
+      const lines = ta?.value?.split('\n').map(l => l.trim()).filter(Boolean);
+      if (!lines || !lines.length) { alert('请先在文本框中输入评论（每行一条）'); return; }
+      // 弹窗让用户选分类
+      const cats = groups[platKey] || [];
+      if (!cats.length) { alert('该平台暂无分类'); return; }
+      const catList = cats.map((c, i) => `${i+1}. ${c.label || c.name}`).join('\n');
+      const choice = prompt(`选择导入到哪个分类？\n${catList}\n\n输入编号 (1-${cats.length}):`);
+      const idx = parseInt(choice) - 1;
+      if (isNaN(idx) || idx < 0 || idx >= cats.length) { alert('无效选择'); return; }
+      const catName = cats[idx].name;
+      if (!confirm(`向 ${platKey}/${catName} 导入 ${lines.length} 条评论？`)) return;
+      try {
+        const r = await apiRequest('/matrix/corpus/batch-add', {
+          method: 'POST',
+          body: JSON.stringify({ platform: platKey, category: catName, texts: lines }),
+        });
+        if (r.status === 'ok') {
+          ta.value = '';
+          renderCorpusTab(uid, body); // 刷新
+        } else {
+          alert('❌ ' + (r.error || '导入失败'));
+        }
+      } catch(e) { alert('❌ ' + e.message); }
+    };
   } catch (e) {
     body.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
   }

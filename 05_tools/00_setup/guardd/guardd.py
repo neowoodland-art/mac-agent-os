@@ -23,19 +23,24 @@ try:
 except Exception:
     version = "2.3.0"
 
+import fcntl
+import http.server
 import json
 import logging
 import logging.handlers
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 _guardd_start_time = time.time()
 
@@ -118,6 +123,168 @@ LOG_FILE = DIR_GUARDD_LOG / "guardd.log"
 LAST_RUN_FILE = DIR_GUARDD_LOG / "last_run.json"
 ERROR_LOG_FILE = DIR_GUARDD_LOG / "errors.log"
 VERSIONS_FILE = DIR_KNOWLEDGE / "versions.json"
+
+# ── 任务管理器（v7 新增）──────────────────────────────────
+# 管理通过 HTTP API 接收的任务进程
+_task_lock = threading.Lock()
+_running_tasks = {}  # run_id → {proc, cmd, status, start_time, machine}
+TASK_LOG_DIR = AGENT_LOCAL / "runtime" / "guardd" / "tasks"
+TASK_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _task_log_path(run_id: str) -> Path:
+    return TASK_LOG_DIR / f"{run_id}.log"
+
+
+def _start_task(run_id: str, cmd: str, machine: str = "") -> dict:
+    """创建子进程执行命令，返回任务信息"""
+    log_file = _task_log_path(run_id)
+    with open(log_file, "w") as f:
+        f.write(f"[{datetime.now()}] START: {cmd}\n")
+    try:
+        proc = subprocess.Popen(
+            cmd, shell=True, stdout=open(log_file, "a"), stderr=subprocess.STDOUT,
+            preexec_fn=os.setsid  # 独立进程组，方便 kill
+        )
+        task = {
+            "run_id": run_id,
+            "cmd": cmd,
+            "machine": machine,
+            "pid": proc.pid,
+            "status": "running",
+            "start_time": datetime.now(timezone.utc).isoformat(),
+            "proc": proc,
+        }
+        with _task_lock:
+            _running_tasks[run_id] = task
+        logger.info(f"  🚀 任务已启动 [{run_id}] PID={proc.pid} cmd={cmd[:80]}")
+        return {"status": "accepted", "run_id": run_id, "pid": proc.pid}
+    except Exception as e:
+        logger.error(f"  ❌ 任务启动失败 [{run_id}]: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+def _stop_task(run_id: str) -> dict:
+    """停止任务（SIGTERM → 2s → SIGKILL）"""
+    with _task_lock:
+        task = _running_tasks.get(run_id)
+    if not task:
+        return {"status": "error", "error": f"任务 {run_id} 不存在"}
+    proc = task.get("proc")
+    if not proc or proc.poll() is not None:
+        task["status"] = "completed" if proc and proc.returncode == 0 else "crashed"
+        return {"status": "already_stopped", "run_id": run_id}
+    try:
+        # SIGTERM 先礼貌终止
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        time.sleep(2)
+        if proc.poll() is None:
+            # 还没死 → SIGKILL
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        task["status"] = "cancelled"
+        with _task_lock:
+            _running_tasks[run_id] = task
+        with open(_task_log_path(run_id), "a") as f:
+            f.write(f"[{datetime.now()}] CANCELLED\n")
+        logger.info(f"  ⏹ 任务已停止 [{run_id}] PID={proc.pid}")
+        return {"status": "stopped", "run_id": run_id}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+def _get_tasks() -> list:
+    """返回所有任务状态列表（不含 proc 对象）"""
+    with _task_lock:
+        # 更新已结束进程的状态
+        for rid, t in list(_running_tasks.items()):
+            proc = t.get("proc")
+            if proc and proc.poll() is not None:
+                t["status"] = "completed" if proc.returncode == 0 else "failed"
+                t["exit_code"] = proc.returncode
+                t["end_time"] = datetime.now(timezone.utc).isoformat()
+        return [
+            {k: v for k, v in t.items() if k != "proc"}
+            for t in _running_tasks.values()
+        ]
+
+
+# ── HTTP 任务服务器（v7 新增）─────────────────────────────
+
+class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
+    """guardd HTTP API — 端口 9090"""
+
+    def log_message(self, fmt, *args):
+        logger.debug(f"HTTP: {args[0]} {args[1]}")
+
+    def _send_json(self, code, data):
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode())
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/")
+
+        if path == "/health":
+            self._send_json(200, {
+                "hostname": HOSTNAME,
+                "version": version,
+                "uptime_sec": round(time.time() - _guardd_start_time),
+                "running_tasks": len([t for t in _get_tasks() if t.get("status") == "running"]),
+                "total_tasks": len(_get_tasks()),
+            })
+        elif path == "/tasks":
+            self._send_json(200, _get_tasks())
+        else:
+            self._send_json(404, {"error": "not_found"})
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/")
+
+        # 读取请求体
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length).decode() if length else "{}"
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            self._send_json(400, {"error": "invalid_json"})
+            return
+
+        if path == "/task":
+            cmd = data.get("cmd", "")
+            run_id = data.get("run_id", str(uuid.uuid4().hex[:12]))
+            machine = data.get("machine", HOSTNAME)
+            if not cmd:
+                self._send_json(400, {"error": "cmd 必填"})
+                return
+            result = _start_task(run_id, cmd, machine)
+            self._send_json(200, result)
+
+        elif path.startswith("/task/") and path.endswith("/stop"):
+            run_id = path.split("/")[2]
+            result = _stop_task(run_id)
+            self._send_json(200, result)
+
+        else:
+            self._send_json(404, {"error": "not_found"})
+
+
+def _run_http_server():
+    """在后台线程启动 HTTP 服务器"""
+    server = http.server.HTTPServer(("0.0.0.0", 9090), TaskHTTPHandler)
+    logger.info(f"  🌐 HTTP 任务服务器已启动: http://0.0.0.0:9090")
+    server.serve_forever()
+
 
 # ── 日志配置（带轮转：单文件最大 10MB，保留 3 个备份）────
 _log_handler = logging.handlers.RotatingFileHandler(
@@ -1159,10 +1326,9 @@ def module_dashboard_sync():
         sys.path.pop(0)
 
 
-def main():
-    start_time = time.time()
-    logger.info(f"guardd v{version} 启动 — hostname={HOSTNAME}")
-
+def _run_heartbeat_cycle():
+    """执行一轮健康检查（9 模块）"""
+    t0 = time.time()
     modules = [
         ("heartbeat", module_heartbeat),
         ("dashboard_sync", module_dashboard_sync),
@@ -1174,7 +1340,6 @@ def main():
         ("sync_checker", module_sync_checker),
         ("cleanup", module_cleanup),
     ]
-
     results = {}
     for name, func in modules:
         try:
@@ -1186,10 +1351,7 @@ def main():
             logger.error(f"  ✗ {name}: {e}")
             with open(ERROR_LOG_FILE, "a") as f:
                 f.write(f"{datetime.now()} {name}: {e}\n")
-
-    elapsed = time.time() - start_time
-
-    # 写入 last_run.json
+    elapsed = time.time() - t0
     last_run = {
         "hostname": HOSTNAME,
         "version": version,
@@ -1197,12 +1359,27 @@ def main():
         "elapsed_sec": round(elapsed, 2),
         "results": results,
         "next_run": (datetime.now(timezone.utc) + timedelta(seconds=300)).isoformat(),
-        "current_task": None,
+        "running_tasks": len(_get_tasks()),
     }
     with open(LAST_RUN_FILE, "w") as f:
         json.dump(last_run, f, indent=2, ensure_ascii=False)
+    logger.info(f"guardd 心跳完成 — {elapsed:.2f}s, results={results}")
 
-    logger.info(f"guardd 完成 — {elapsed:.2f}s, results={results}")
+
+def main():
+    logger.info(f"guardd v{version} 启动 — hostname={HOSTNAME} (持久模式)")
+
+    # 启动 HTTP 任务服务器（后台线程）
+    http_thread = threading.Thread(target=_run_http_server, daemon=True)
+    http_thread.start()
+
+    # 先跑一轮心跳
+    _run_heartbeat_cycle()
+
+    # 持续心跳循环（每 300 秒）
+    while True:
+        time.sleep(300)
+        _run_heartbeat_cycle()
 
 
 if __name__ == "__main__":

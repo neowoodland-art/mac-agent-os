@@ -357,7 +357,9 @@ class PlatformOps(ABC):
             try:
                 if cond.type == 'page_mode':
                     cond.actual = state.page_mode
-                    cond.passed = (state.page_mode == cond.expected)
+                    cond.passed = state.page_mode == cond.expected or (
+                        cond.expected == 'player' and state.page_mode in ('player', 'player_full', 'player_modal')
+                    )
                     cond.message = f"page_mode={state.page_mode}" if cond.passed \
                         else f"期望={cond.expected}, 实际={state.page_mode}"
 

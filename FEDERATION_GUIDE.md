@@ -108,26 +108,59 @@ launchctl reload ...        # 重启 Dashboard
 
 **后端**：FastAPI (Python)，端口 9988，app.py 注册所有 API 路由。
 
-### 3.2.5 CommandBus — 统一命令传输层
+### 3.2.5 CommandBus → guardd 任务管理体系 (v7)
 
-**位置**：`05_tools/10_dashboard/services/command_bus.py`
+**架构演进**：v6 之前用 SSH/subprocess 直接执行；v7 改为 Dashboard 调 guardd HTTP API，guardd 作为节点代理管理任务生命周期。
 
-**职责**：接收看板命令 → ORACLE 对账 → 按机器分组 → 队列发送 → 状态回传
+**组件关系**：
 
-**v6 队列机制**：
-- 每台机器一个 `MachineSession`，含队列（`current_cmd` + `queued_cmds`）
-- `is_busy` 判断机器是否在执行，新命令来则排队（status=queued）
-- 当前命令完成后，`poll()` 自动调 `_start_next()` 启动下一条
-- 不同机器之间并行执行，互不影响
-- 不拆解命令（路由传什么就发什么），MC 引擎处理 identity 分组和并发
+```
+Dashboard (控制平面)              guardd (每台机器的节点代理)
+┌─────────────────────┐          ┌──────────────────────────┐
+│ 看板UI              │  HTTP    │ HTTP Server :9090         │
+│ 任务编排(CMD模板)    │◄────────►│ 任务管理器(进程追踪)      │
+│ 跨机状态聚合         │          │ 心跳上报(每300s)          │
+│ POST /api/ops/run   │          │ 模块化健康检查(9模块)     │
+└─────────────────────┘          └──────────────────────────┘
+```
 
-**停止机制**：`POST /api/ops/cancel/{run_id}` → 杀 `mc run` 进程 → `pkill Camoufox` → 启动下一条
+**位置**：
+- 控制面：`05_tools/10_dashboard/services/command_bus.py`
+- 节点代理：`05_tools/00_setup/guardd/guardd.py`
 
-**状态查询**：`GET /api/ops/machines` → 返回每台机器的队列信息（当前任务、排队数）
+**职责**：
+- CommandBus：接收看板命令 → ORACLE 对账 → 按机器分组 → 渲染CMD模板 → HTTP发给目标机器guardd
+- guardd：接收HTTP任务 → 创建子进程 → 追踪PID → 日志采集 → 状态上报 → 支持停止/清理
 
-### 3.2 guardd — 系统守护进程
+**任务生命周期状态**：
+```
+queued → running → completed / failed / cancelled / crashed
+```
 
-**作用**：每 300 秒执行一轮健康检查 + 自动恢复。
+**guardd HTTP API**（端口 9090）：
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/task` | 接收并执行任务（body: cmd, run_id, machine） |
+| GET | `/tasks` | 返回所有任务状态列表 |
+| POST | `/task/{id}/stop` | 停止指定任务（SIGTERM → SIGKILL） |
+| GET | `/health` | 健康检查（心跳数据 + 任务统计） |
+
+**停止机制**：Dashboard → `POST /api/ops/stop/{run_id}` → 查找任务所在机器 → HTTP调guardd `/task/{id}/stop` → guardd kill 子进程 → 标记为 CANCELLED
+
+**与 v6 的区别**：
+- 不再 subprocess 直接执行，改为 HTTP 调 guardd
+- 远程机器不再走 SSH，走 HTTP (Tailscale IP + 9090)
+- guardd 从定时任务(300s) 改为持久守护进程(KeepAlive=true)
+- 任务PID持久追踪，支持真正的进程级停止
+
+### 3.2 guardd — 节点代理守护进程 (v7)
+
+**作用**：持久运行的节点代理，提供 HTTP 任务管理 API + 定时健康检查(300s)。
+
+**v7 架构变更**：从 launchd 定时任务(StartInterval=300) 改为持久守护进程(KeepAlive=true)：
+- HTTP Server (端口 9090) — 接收 Dashboard 下发的任务
+- 任务管理器 — 创建子进程、追踪 PID、支持停止/清理
+- 心跳循环 — 每 300 秒执行 9 模块健康检查（原有逻辑不变）
 
 **三台机器都已通过 launchd 安装**，开机自启，`launch.sh` 包装器自动适配本机路径。
 
@@ -135,7 +168,10 @@ launchctl reload ...        # 重启 Dashboard
 # 查看状态
 launchctl list com.agentos.guardd
 
-# 查看最近一次运行结果
+# 查看任务状态
+curl -s http://localhost:9090/tasks | python3 -m json.tool
+
+# 查看健康检查结果
 cat ~/workbuddy-agent-os/agent-local/runtime/guardd/last_run.json
 
 # 查看日志
@@ -146,7 +182,7 @@ launchctl unload ~/Library/LaunchAgents/com.agentos.guardd.plist
 launchctl load ~/Library/LaunchAgents/com.agentos.guardd.plist
 ```
 
-**检查项**（9 模块）：心跳上报 → Dashboard 数据同步 → 任务执行 → 升级检查 → 记忆整理 → 知识同步 → 加密通道 → Git 同步拉取 → 过期数据清理。
+**检查项**（9 模块，每 300 秒一轮）：心跳上报 → Dashboard 数据同步 → 任务执行 → 升级检查 → 记忆整理 → 知识同步 → 加密通道 → Git 同步拉取 → 过期数据清理。
 
 ### 3.3 Socks5 代理转发
 

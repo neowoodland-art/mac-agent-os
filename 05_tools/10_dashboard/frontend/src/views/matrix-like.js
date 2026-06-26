@@ -13,7 +13,7 @@ import { createAccountSelector } from '../components/account-selector.js';
 let _selector = null;
 
 export async function loadView(container) {
-  const uid = container.id || 'like';
+  const uid = (container.id || 'like').replace(/-/g, '_');
   container.innerHTML = `
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">

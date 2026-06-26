@@ -1,4 +1,4 @@
-import{n as e,t}from"./index-DnlhnMSe.js";import{t as n}from"./account-selector-B-X_KS9a.js";var r=null;async function i(e){let i=e.id||`interact`,o=await t(`/matrix/accounts`),s=Array.isArray(o)?o:o.accounts||[];e.innerHTML=`
+import{n as e,t}from"./index-Dgodcw1J.js";import{t as n}from"./account-selector-B-X_KS9a.js";var r=null;async function i(e){let i=(e.id||`interact`).replace(/-/g,`_`),o=await t(`/matrix/accounts`),s=Array.isArray(o)?o:o.accounts||[];e.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:4px">💬 评论互动 <span style="font-size:10px;color:var(--text2);font-weight:400">定向评论 / 三级接力 / 点赞 / 语料库</span></div>
@@ -75,27 +75,49 @@ import{n as e,t}from"./index-DnlhnMSe.js";import{t as n}from"./account-selector-
         <input id="il_url_${e}" placeholder="留空则浏览推荐页操作" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
         <button onclick="window._ia_runLike('${e}')" style="margin-top:6px;background:var(--primary);color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;width:100%">🚀 执行选中账号</button>
       </div>
-    </div>`}async function c(e,n){n.innerHTML=`<div class="loading">⏳ 加载语料库...</div>`;try{let e=await t(`/matrix/corpus`),r=e.categories||e.corpus||[],i={};r.forEach(e=>{let t=e.platform===`xiaohongshu`?`📕 小红书`:`🎵 抖音`;i[t]||(i[t]=[]),i[t].push(e)});let a=`<div style="font-size:12px;color:var(--text2);margin-bottom:6px">共 ${r.length} 个分类 · ${e.total_comments||0} 条评论</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">`;Object.entries(i).forEach(([e,t])=>{a+=`<div style="background:var(--bg2);border-radius:6px;padding:10px;border:1px solid var(--border)">
-        <div style="font-weight:600;font-size:12px;margin-bottom:6px">${e}</div>
-        <table style="width:100%;font-size:10px;border-collapse:collapse">
-        <thead><tr><th style="text-align:left;padding:2px 4px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:400">分类</th>
-        <th style="padding:2px 4px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:400;text-align:center">条数</th></tr></thead>
-        <tbody>${t.map(e=>`<tr>
-          <td style="padding:2px 4px;border-bottom:1px solid var(--border)">${e.name||e.category||`?`}</td>
-          <td style="padding:2px 4px;border-bottom:1px solid var(--border);text-align:center">${e.count||e.comment_count||0}</td>
-        </tr>`).join(``)}</tbody></table>
-      </div>`}),a+=`<div style="background:var(--bg2);border-radius:6px;padding:10px;border:1px solid var(--border);grid-column:1/-1">
-      <div style="font-weight:600;font-size:12px;margin-bottom:6px">🔗 三级接力语料</div>
-      <div style="font-size:10px;color:var(--text2);margin-bottom:4px">评论→回复→再回复，5 个分类可用。在「定向评论」Tab 选择"三级接力"策略即可使用</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <span style="background:var(--bg3);padding:2px 8px;border-radius:3px;font-size:10px">🍜 美食 2组</span>
-        <span style="background:var(--bg3);padding:2px 8px;border-radius:3px;font-size:10px">✈️ 旅行 2组</span>
-        <span style="background:var(--bg3);padding:2px 8px;border-radius:3px;font-size:10px">💻 科技 1组</span>
-        <span style="background:var(--bg3);padding:2px 8px;border-radius:3px;font-size:10px">🌿 生活 1组</span>
-        <span style="background:var(--bg3);padding:2px 8px;border-radius:3px;font-size:10px">💛 情感 1组</span>
-      </div>
-    </div>`,a+=`</div>`,n.innerHTML=a}catch(e){n.innerHTML=`<div class="error">❌ 加载失败: ${e.message}</div>`}}window._ia_previewComment=async function(e){let n=document.getElementById(`log_${e}`),i=r?.getSelected()||[],a=document.getElementById(`ic_urls_${e}`)?.value;if(!a?.trim()){n.textContent=`❌ 请填写视频链接
+    </div>`}async function c(e,n){n.innerHTML=`<div class="loading">⏳ 加载语料库...</div>`;try{let r=await t(`/matrix/corpus`),i=r.categories||[],a=r.total_comments||0,o={douyin:`🎵 抖音`,xiaohongshu:`📕 小红书`},s={douyin:[],xiaohongshu:[]};i.forEach(e=>{s[e.platform]&&s[e.platform].push(e)});let l=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:12px;color:var(--text2)">共 ${i.length} 个分类 · ${a} 条评论</span>
+      <span style="font-size:10px;color:var(--text2)">点分类行展开管理</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px" id="corpusGrid_${e}">`;Object.entries(s).forEach(([t,n])=>{if(!n.length)return;let r=o[t]||t;l+=`<div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="font-weight:600;font-size:12px;margin-bottom:6px">${r}</div>
+        ${n.map((n,r)=>`
+          <div style="border:1px solid var(--border);border-radius:4px;margin-bottom:3px;overflow:hidden">
+            <div onclick="_ia_toggleCorpusCat_${e}('${t}','${n.name}',${r})"
+              style="display:flex;align-items:center;gap:4px;padding:4px 6px;background:var(--bg3);cursor:pointer;font-size:10px;user-select:none">
+              <span id="corpusArrow_${e}_${t}_${r}" style="font-size:8px;opacity:.6">▶</span>
+              <span style="flex:1"><strong>${n.label||n.name}</strong></span>
+              <span style="color:var(--text2)">${n.count}条</span>
+              <span style="color:var(--text2);font-size:9px">权重${n.weight}</span>
+            </div>
+            <div id="corpusBody_${e}_${t}_${r}" style="display:none;padding:4px 6px"></div>
+          </div>
+        `).join(``)}
+        <!-- 新增批量导入 -->
+        <div style="margin-top:4px;display:flex;gap:4px">
+          <textarea id="corpusImport_${e}_${t}" placeholder="批量导入评论（每行一条）" rows="2"
+            style="flex:1;font-size:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 5px;resize:vertical"></textarea>
+          <button onclick="_ia_batchImportCorpus_${e}('${t}')"
+            style="background:var(--primary);color:#fff;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px;white-space:nowrap">📥 导入</button>
+        </div>
+      </div>`}),l+=`</div>`,l+=`<div style="margin-top:8px;background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+      <div style="font-weight:600;font-size:12px;margin-bottom:6px">🔗 三阶接力语料 <span style="font-size:10px;color:var(--text2);font-weight:400">一阶(评论) → 二阶(回复) → 三阶(再回复)</span></div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:4px">在「定向评论」Tab 选"三级接力"策略时使用</div>
+      <div id="corpusScenes_${e}" style="font-size:10px;color:var(--text2)">⏳ 加载场景数据...</div>
+    </div>`,n.innerHTML=l;try{let n=(await t(`/matrix/corpus/scenes`)).groups||{},r=document.getElementById(`corpusScenes_${e}`);if(r){let e=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">`;for(let[t,r]of Object.entries({first_comment:`💬 一阶(评论)`,reply:`💬 二阶(回复)`,re_reply:`💬 三阶(再回复)`})){let i=n[t]||[];e+=`<div style="background:var(--bg3);border-radius:6px;padding:6px">
+            <div style="font-weight:600;font-size:11px;margin-bottom:3px">${r}</div>
+            ${i.length?i.map(e=>`<span style="display:inline-block;background:var(--bg2);padding:1px 5px;border-radius:3px;margin:1px;font-size:9px">${e.persona}</span>`).join(``):`<span style="color:var(--text2);font-size:9px">暂无数据，可在 YAML 中配置</span>`}
+          </div>`}e+=`</div>`,r.innerHTML=e}}catch{}window[`_ia_toggleCorpusCat_${e}`]=async(n,r,i)=>{let a=document.getElementById(`corpusBody_${e}_${n}_${i}`),o=document.getElementById(`corpusArrow_${e}_${n}_${i}`);if(a){if(a.style.display!==`none`){a.style.display=`none`,o&&(o.textContent=`▶`);return}a.innerHTML=`<div style="font-size:10px;color:var(--text2)">⏳ 加载中...</div>`,a.style.display=`block`,o&&(o.textContent=`▼`);try{let o=(await t(`/matrix/corpus/category?platform=${n}&category=${encodeURIComponent(r)}`)).comments||[],s=`<div style="font-size:10px">`;o.length?o.forEach((t,i)=>{let a=t.length>60?t.slice(0,58)+`…`:t;s+=`<div style="display:flex;align-items:center;gap:4px;padding:2px 0;border-bottom:1px solid var(--border)">
+              <span style="flex:1;word-break:break-all">${a}</span>
+              <button onclick="_ia_delCorpus_${e}('${n}','${r.replace(/'/g,`\\'`)}',${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:10px;padding:0 2px" title="删除">✕</button>
+            </div>`}):s+=`<div style="color:var(--text2);padding:2px 0">暂无评论，在下方批量导入</div>`,s+=`<div style="display:flex;gap:4px;margin-top:4px">
+          <input id="corpusAddInput_${e}_${n}_${i}" placeholder="输入新评论..."
+            style="flex:1;font-size:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 5px">
+          <button onclick="_ia_addCorpus_${e}('${n}','${r.replace(/'/g,`\\'`)}',${i})"
+            style="background:var(--primary);color:#fff;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">➕ 添加</button>
+        </div>`,s+=`</div>`,a.innerHTML=s}catch(e){a.innerHTML=`<div style="color:var(--red);font-size:10px">❌ ${e.message}</div>`}}},window[`_ia_addCorpus_${e}`]=async(n,r,i)=>{let a=document.getElementById(`corpusAddInput_${e}_${n}_${i}`),o=a?.value?.trim();if(o)try{await t(`/matrix/corpus/add`,{method:`POST`,body:JSON.stringify({platform:n,category:r,text:o})}),a.value=``;let s=window[`_ia_toggleCorpusCat_${e}`];s&&s(n,r,i)}catch(e){alert(`❌ `+e.message)}},window[`_ia_delCorpus_${e}`]=async(r,i,a)=>{if(confirm(`确定删除这条评论？`))try{await t(`/matrix/corpus/delete`,{method:`POST`,body:JSON.stringify({platform:r,category:i,index:a})}),c(e,n)}catch(e){alert(`❌ `+e.message)}},window[`_ia_batchImportCorpus_${e}`]=async r=>{let i=document.getElementById(`corpusImport_${e}_${r}`),a=i?.value?.split(`
+`).map(e=>e.trim()).filter(Boolean);if(!a||!a.length){alert(`请先在文本框中输入评论（每行一条）`);return}let o=s[r]||[];if(!o.length){alert(`该平台暂无分类`);return}let l=o.map((e,t)=>`${t+1}. ${e.label||e.name}`).join(`
+`),u=prompt(`选择导入到哪个分类？\n${l}\n\n输入编号 (1-${o.length}):`),d=parseInt(u)-1;if(isNaN(d)||d<0||d>=o.length){alert(`无效选择`);return}let f=o[d].name;if(confirm(`向 ${r}/${f} 导入 ${a.length} 条评论？`))try{let o=await t(`/matrix/corpus/batch-add`,{method:`POST`,body:JSON.stringify({platform:r,category:f,texts:a})});o.status===`ok`?(i.value=``,c(e,n)):alert(`❌ `+(o.error||`导入失败`))}catch(e){alert(`❌ `+e.message)}}}catch(e){n.innerHTML=`<div class="error">❌ 加载失败: ${e.message}</div>`}}window._ia_previewComment=async function(e){let n=document.getElementById(`log_${e}`),i=r?.getSelected()||[],a=document.getElementById(`ic_urls_${e}`)?.value;if(!a?.trim()){n.textContent=`❌ 请填写视频链接
 `;return}if(!i.length){n.textContent=`❌ 请选择账号
 `;return}n.textContent=`🔍 预检...
 `;try{let r=(await t(`/ops/run`,{method:`POST`,body:JSON.stringify({type:`interact`,accounts:i.map(e=>e.id),params:{url:a.split(`

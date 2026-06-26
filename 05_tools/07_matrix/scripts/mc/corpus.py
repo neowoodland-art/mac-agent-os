@@ -509,6 +509,21 @@ class CorpusManager:
             self._cache.pop(platform, None)
             log.info(f"  🗑 已删除评论 [{platform}/{category}]: {removed}")
 
+    def update_category(self, platform: str, category: str, **kwargs):
+        """更新分类设置（weight/enabled/label 等）"""
+        data = self._load(platform)
+        cats = data.get("categories", {})
+        if category not in cats:
+            cats[category] = {"weight": 10, "enabled": True, "label": category, "comments": [], "templates": []}
+        for k, v in kwargs.items():
+            if k in ("weight", "enabled", "label"):
+                cats[category][k] = v
+        data["categories"] = cats
+        path = CORPUS_DIR / f"{platform}.yaml"
+        path.write_text(yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False))
+        self._cache.pop(platform, None)
+        log.info(f"  ✅ 已更新分类 [{platform}/{category}]: {kwargs}")
+
     # ── 账号上下文 ──────────────────────────────────────────
 
     def set_account_id(self, account_id: str):

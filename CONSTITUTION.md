@@ -52,7 +52,7 @@ AgentOS 是一个**运行在多台 Mac 上的 AI 智能体联邦操作系统**�
 | ⑤ | **技能** | `02_skills/` | WorkBuddy 可调用的能力。当前 7 活跃 + 4 已归档 |
 | ⑥ | **工具** | `05_tools/` | 底层执行脚本。当前 8 活跃 + 4 已清空 |
 | ⑦ | **看板** | `05_tools/10_dashboard/` | Web 监控界面（FastAPI 1521 行 + 15 插件） |
-| ⑧ | **命令分发** | `services/command_bus.py` | 看板→CommandBus→ORACLE 对账→SSH/本地 |
+| ⑧ | **命令分发** | `services/command_bus.py` → `guardd HTTP API(9090)` | 看板→CommandBus→guardd节点代理HTTP→本地执行 |
 | ⑨ | **CLI 执行** | `05_tools/00_setup/agentos/` + `07_matrix/mc` | 统一命令行入口 + mc 快捷别名 |
 | ⑩ | **蓝图系统** | `05_tools/07_matrix/blueprints/` | 12 个 JSON 操作模板 |
 

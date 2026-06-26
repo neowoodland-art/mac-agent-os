@@ -1,16 +1,15 @@
 {
   "id": "interact_comment",
   "name": "互动-定向评论",
-  "description": "给指定视频发评论（含验证弹窗自动处理）",
-  "version": "1.1",
+  "description": "打开视频链接 → 等待加载 → 定位评论区 → 输入评论 → 提交",
+  "version": "1.3",
   "platform": "douyin",
   "steps": [
-    {"step_id": 1,  "op": "goto_url", "args": {"url": "@url"}, "pre": {}, "post": {}},
-    {"step_id": 2,  "op": "wait_watch", "args": {"seconds": null}, "pre": {}, "post": {}},
-    {"step_id": 3,  "op": "open_comments", "args": {}, "pre": {}, "post": {}},
-    {"step_id": 4,  "op": "post_comment", "args": {"text": "@corpus"}, "pre": {}, "post": {}},
-    {"step_id": 5,  "op": "auto_verify", "args": {}, "pre": {}, "post": {}},
-    {"step_id": 6,  "op": "close_comments", "args": {}, "pre": {}, "post": {}}
+    {"step_id": 1, "op": "goto_url",     "args": {"url": "@url"},    "pre": {}, "post": {}},
+    {"step_id": 2, "op": "wait_watch",   "args": {"seconds": 3},    "pre": {}, "post": {}},
+    {"step_id": 3, "op": "open_comments","args": {},                 "pre": {}, "post": {}},
+    {"step_id": 4, "op": "post_comment", "args": {"text": "@corpus"},"pre": {}, "post": {}},
+    {"step_id": 5, "op": "auto_verify",  "args": {},                 "pre": {}, "post": {}}
   ],
   "args_schema": {
     "url": {"type": "string", "required": true, "desc": "目标视频链接"},

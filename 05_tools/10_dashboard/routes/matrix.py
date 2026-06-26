@@ -1146,64 +1146,129 @@ def api_matrix_diag_accounts():
 
 @router.get("/corpus")
 def api_matrix_corpus():
-    """获取语料库"""
-    corpus_file = AGENT_SYNC / "05_tools" / "07_matrix" / "data" / "corpus.json"
-    if corpus_file.exists():
-        return json.loads(corpus_file.read_text())
-    return {"corpus": []}
+    """获取语料库概览（按平台+分类统计）"""
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        cats = cm.list_categories()
+        # 同时获取三阶场景数据
+        scenes = cm.list_scenes()
+        return {"categories": cats, "scenes": scenes, "total_comments": sum(c.get("count", 0) for c in cats)}
+    except Exception as e:
+        return {"categories": [], "scenes": [], "total_comments": 0, "error": str(e)}
+
+
+@router.get("/corpus/category")
+def api_matrix_corpus_category(platform: str = "douyin", category: str = ""):
+    """获取指定分类的详情（所有评论+模板）"""
+    if not category:
+        return {"error": "category 必填"}
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        data = cm._load(platform)
+        cat = data.get("categories", {}).get(category, {})
+        return {
+            "platform": platform,
+            "category": category,
+            "label": cat.get("label", category),
+            "weight": cat.get("weight", 10),
+            "enabled": cat.get("enabled", True),
+            "comments": cat.get("comments", []),
+            "templates": cat.get("templates", []),
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @router.post("/corpus/add")
 async def api_matrix_add_corpus(data: dict):
-    """添加语料"""
-    return {"status": "ok"}
-
-
-@router.get("/corpus/detail")
-def api_matrix_corpus_detail(platform: str = "", category: str = ""):
-    """获取指定平台+分类的语料详情"""
-    corpus_file = AGENT_SYNC / "05_tools" / "07_matrix" / "data" / "corpus.json"
-    if not corpus_file.exists():
-        return {"corpus": []}
-    data = json.loads(corpus_file.read_text())
-    items = data.get("corpus", [])
-    if platform:
-        items = [i for i in items if i.get("platform", "").lower() == platform.lower()]
-    if category:
-        items = [i for i in items if i.get("category", "").lower() == category.lower()]
-    return {"corpus": items, "total": len(items)}
+    """添加一条评论"""
+    platform = data.get("platform", "douyin")
+    category = data.get("category", "")
+    text = data.get("text", "")
+    if not category or not text:
+        return {"status": "error", "error": "category 和 text 必填"}
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        cm.add_comment(category, text, platform)
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 
 @router.post("/corpus/batch-add")
 async def api_matrix_corpus_batch_add(data: dict):
-    """批量添加语料"""
-    items = data.get("items", [])
-    if not items:
-        return {"status": "error", "error": "items 必填"}
-    corpus_file = AGENT_SYNC / "05_tools" / "07_matrix" / "data" / "corpus.json"
-    existing = {"corpus": []}
-    if corpus_file.exists():
-        existing = json.loads(corpus_file.read_text())
-    existing["corpus"].extend(items)
-    corpus_file.write_text(json.dumps(existing, ensure_ascii=False, indent=2))
-    return {"status": "ok", "added": len(items), "total": len(existing["corpus"])}
+    """批量添加语料（逐条处理）"""
+    platform = data.get("platform", "douyin")
+    category = data.get("category", "")
+    texts = data.get("texts", [])
+    if not category or not texts:
+        return {"status": "error", "error": "category 和 texts 必填"}
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        added = 0
+        for t in texts:
+            if t.strip():
+                cm.add_comment(category, t.strip(), platform)
+                added += 1
+        return {"status": "ok", "added": added}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 
 @router.post("/corpus/delete")
 async def api_matrix_corpus_delete(data: dict):
-    """删除语料"""
-    delete_id = data.get("id", "")
-    if not delete_id:
-        return {"status": "error", "error": "id 必填"}
-    corpus_file = AGENT_SYNC / "05_tools" / "07_matrix" / "data" / "corpus.json"
-    if not corpus_file.exists():
-        return {"status": "error", "error": "语料库为空"}
-    existing = json.loads(corpus_file.read_text())
-    before = len(existing.get("corpus", []))
-    existing["corpus"] = [i for i in existing.get("corpus", []) if i.get("id") != delete_id]
-    after = len(existing["corpus"])
-    corpus_file.write_text(json.dumps(existing, ensure_ascii=False, indent=2))
-    return {"status": "ok", "deleted": before - after}
+    """删除指定索引的评论"""
+    platform = data.get("platform", "douyin")
+    category = data.get("category", "")
+    index = data.get("index", -1)
+    if not category or index < 0:
+        return {"status": "error", "error": "category 和 index 必填"}
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        cm.delete_comment(category, index, platform)
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@router.post("/corpus/category/save")
+async def api_matrix_corpus_category_save(data: dict):
+    """保存分类设置（权重/启用/标签）"""
+    platform = data.get("platform", "douyin")
+    category = data.get("category", "")
+    updates = {k: v for k, v in data.items() if k in ("weight", "enabled", "label")}
+    if not category:
+        return {"status": "error", "error": "category 必填"}
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        cm.update_category(platform, category, **updates)
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@router.get("/corpus/scenes")
+def api_matrix_corpus_scenes():
+    """获取三阶场景语料"""
+    try:
+        from mc.corpus import CorpusManager
+        cm = CorpusManager()
+        scenes = cm.list_scenes()
+        # 按场景类型分组
+        groups = {"first_comment": [], "reply": [], "re_reply": []}
+        for s in scenes:
+            scene_id = s.get("id", "")
+            if scene_id in groups:
+                groups[scene_id].append(s)
+        return {"scenes": scenes, "groups": groups}
+    except Exception as e:
+        return {"scenes": [], "groups": {}, "error": str(e)}
 
 
 @router.post("/accounts/{account_id}/login")

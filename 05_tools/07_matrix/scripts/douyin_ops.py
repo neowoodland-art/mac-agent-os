@@ -234,9 +234,7 @@ class DouyinOps(PlatformOps):
             "open_comments": [
                 Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
             ],
-            "close_comments": [
-                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
-            ],
+            "close_comments": [],
             "next_video": [
                 Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
             ],
@@ -244,7 +242,7 @@ class DouyinOps(PlatformOps):
                 Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
             ],
             "post_comment": [
-                Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
+                # B模式兼容：评论区已在页面中无需额外条件
             ],
 
             # ── Feed 流页操作 ──
@@ -949,21 +947,96 @@ class DouyinOps(PlatformOps):
 
     # ── 评论类原子操作 ──────────────────────────────────────────
 
+    async def _click_comment_btn(self) -> bool:
+        """点击页面上的评论区入口按钮（快速探测，100ms超时）"""
+        for sel in [
+            SELECTORS['comment_icon'],
+            '[data-e2e="video-player-comment"]',
+            '[class*="comment-action"]',
+            '[class*="comment-count"]',
+            '[aria-label*="评论"]',
+        ]:
+            try:
+                btn = self.page.locator(sel)
+                if await btn.count(timeout=100) > 0:
+                    await btn.first.click(timeout=1000)
+                    return True
+            except Exception:
+                continue
+        return False
+
     async def open_comments(self, step_id: int = 0) -> bool:
-        """打开评论区"""
+        """打开评论区（B模式：点评论图标 → A模式：键盘X）"""
         t0 = time.time()
         try:
-            await self._ensure_video_focused()
-            await self.page.keyboard.press(KEYS['comment'])
-            await self._wait(1.5)
+            # 先快速检测评论区是否已打开
+            try:
+                if await self.page.locator(SELECTORS['comment_list']).count(timeout=500) > 0:
+                    dur = int((time.time() - t0) * 1000)
+                    await self._log_op(step_id, "AO_OPEN", "already_open", True, dur)
+                    return True
+            except Exception:
+                pass
 
-            # 验证评论列表出现
-            ok = await self.page.locator(SELECTORS['comment_list']).count() > 0
+            # 判断页面模式
+            url = self.page.url
+            is_standalone = '/video/' in url and 'modal_id' not in url
+
+            if is_standalone:
+                # ── B模式（独立视频页）──
+                # 点击评论按钮（视频下方的评论数/图标）
+                for sel in [
+                    '[data-e2e="video-player-comment"]',
+                    '[class*="comment-action"]',
+                    '[class*="comment-count"]',
+                    '[aria-label*="评论"]',
+                    SELECTORS['comment_icon'],
+                ]:
+                    try:
+                        btn = self.page.locator(sel)
+                        if await btn.count(timeout=100) > 0:
+                            await btn.first.click(timeout=1000)
+                            await self._wait(1.5)
+                            if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
+                                dur = int((time.time() - t0) * 1000)
+                                await self._log_op(step_id, "AO_OPEN", f"B:{sel}", True, dur)
+                                return True
+                    except Exception:
+                        continue
+                # B模式兜底：JS点击
+                clicked = await self.page.evaluate("""() => {
+                    const s = '[data-e2e="video-player-comment"], [class*="comment-action"], [class*="comment-count"]';
+                    const el = document.querySelector(s);
+                    if (el) { el.click(); return true; }
+                    return false;
+                }""")
+                if clicked:
+                    await self._wait(1.5)
+                    try:
+                        if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
+                            dur = int((time.time() - t0) * 1000)
+                            await self._log_op(step_id, "AO_OPEN", "B:js_fallback", True, dur)
+                            return True
+                    except Exception:
+                        pass
+            else:
+                # ── A模式（Feed弹窗）──
+                await self._ensure_video_focused()
+                await self.page.keyboard.press(KEYS['comment'])
+                await self._wait(1.0)
+                try:
+                    if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
+                        dur = int((time.time() - t0) * 1000)
+                        await self._log_op(step_id, "AO_OPEN", "A:keyboard_x", True, dur)
+                        return True
+                except Exception:
+                    pass
+
             dur = int((time.time() - t0) * 1000)
-            await self._log_op(step_id, "AO_CLICK", "keyboard:x", ok, dur)
-            return ok
+            await self._log_op(step_id, "AO_OPEN", "failed", False, dur, "所有方式均失败")
+            return False
         except Exception as e:
-            await self._log_op(step_id, "AO_CLICK", "keyboard:x", False, int((time.time()-t0)*1000), str(e))
+            await self._log_op(step_id, "AO_OPEN", "error", False, int((time.time()-t0)*1000), str(e))
             return False
 
     async def close_comments(self, step_id: int = 0) -> bool:
@@ -991,13 +1064,16 @@ class DouyinOps(PlatformOps):
                 await self.open_comments(step_id)
                 await self._wait(1.5)
 
-            # 2. 点击输入框
+            # 2. 定位输入框并滚动到视图
             editor = self.page.locator(SELECTORS['comment_editor'])
             if await editor.count() == 0:
                 dur = int((time.time() - t0) * 1000)
                 await self._log_op(step_id, "AO_COMMENT", SELECTORS['comment_editor'], False, dur, "评论输入框未找到")
                 return 'failed'
 
+            # B模式：输入框可能在页面底部，滚动到视图
+            await editor.first.scroll_into_view_if_needed(timeout=2000)
+            await self._wait(0.3)
             await editor.click()
             await self._wait(0.5)
 

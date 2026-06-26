@@ -48,6 +48,7 @@ export async function loadView(container) {
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">状态</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">操作</th></tr>';
       machineOrder.filter(m => groups[m]).forEach(m => {
+        groups[m].sort((a, b) => (a.phone || '').localeCompare(b.phone || ''));
         groups[m].forEach(a => {
           const statusMap = { logged_in:'🟢已登录', remote:'🔵远程', expired:'🟡过期', no_cookie:'🔴无Cookie', disabled:'⚪禁用', banned:'🚫已封号' };
           const s = statusMap[a.status] || a.status;
