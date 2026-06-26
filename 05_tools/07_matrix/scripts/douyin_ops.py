@@ -982,8 +982,16 @@ class DouyinOps(PlatformOps):
             is_standalone = '/video/' in url and 'modal_id' not in url
 
             if is_standalone:
-                # ── B模式：点击评论区入口按钮 ──
-                # 方案A: 多选择器快速探测
+                # ── B模式：评论区已渲染在页面上 ──
+                # 直接检测评论区是否存在
+                try:
+                    if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
+                        dur = int((time.time() - t0) * 1000)
+                        await self._log_op(step_id, "AO_OPEN", "B_comments_visible", True, dur)
+                        return True
+                except Exception:
+                    pass
+                # 兜底：尝试点击评论区入口按钮
                 for sel in [
                     '[data-e2e="video-player-comment"]',
                     '[data-e2e="feed-comment-icon"]',
@@ -1002,23 +1010,6 @@ class DouyinOps(PlatformOps):
                                 return True
                     except Exception:
                         continue
-
-                # 方案B: JS点击（和成功版一致）
-                clicked = await self.page.evaluate("""() => {
-                    const s = '[data-e2e="video-player-comment"], [data-e2e="feed-comment-icon"], [class*="comment-action"], [class*="comment-count"]';
-                    const el = document.querySelector(s);
-                    if (el) { el.click(); return true; }
-                    return false;
-                }""")
-                if clicked:
-                    await self._wait(1.5)
-                    try:
-                        if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
-                            dur = int((time.time() - t0) * 1000)
-                            await self._log_op(step_id, "AO_OPEN", "B_js", True, dur)
-                            return True
-                    except Exception:
-                        pass
             else:
                 # ── A模式：键盘X打开评论区浮层 ──
                 await self._ensure_video_focused()
@@ -1065,13 +1056,14 @@ class DouyinOps(PlatformOps):
                 await self._wait(1.5)
 
             # 2. 定位输入框（录制分析:从文本+class+坐标多路匹配）
+            # 录制发现: 编辑框含固定文本"留下你的精彩评论吧",class动态变化不写死
             editor_selectors = [
-                SELECTORS['comment_editor'],    # .public-DraftEditor-content (A模式 Draft.js)
-                '[class*="notranslate"][contenteditable="true"]',  # 通用可编辑区(录制发现)
-                '[data-e2e="comment-input"]',   # 评论区输入框
-                '[class*="comment-input"]',      # 通用评论输入
-                '[contenteditable="true"]',       # 可编辑区域
-                '[class*="DraftEditor"]',        # Draft.js 编辑器 (回复场景)
+                '[contenteditable="true"]',       # 通用可编辑区域(优先)
+                '[class*="notranslate"][contenteditable="true"]',
+                SELECTORS['comment_editor'],    # .public-DraftEditor-content
+                '[data-e2e="comment-input"]',
+                '[class*="comment-input"]',
+                '[class*="DraftEditor"]',
                 'input[placeholder*="评论"]',
                 'textarea[placeholder*="评论"]',
             ]
