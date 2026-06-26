@@ -243,101 +243,139 @@ function formatElapsed(sec) {
   return m + 'm' + (s > 0 ? s + 's' : '');
 }
 
-async function loadExecutionHistory() {
+async function loadTaskPanel() {
+  const el = document.getElementById('execHistory');
+  if (!el) return;
+
   try {
-    const r = await fetch('/api/ops/status');
-    const d = await r.json();
-    const cmds = d.commands || (Array.isArray(d) ? d : []);
-    const el = document.getElementById('execHistory');
-    if (!el) return;
-    if (!cmds.length) { el.innerHTML = '<div style="color:var(--text2);font-size:11px;padding:8px">暂无执行记录</div>'; return; }
+    // 获取 guardd 运行中任务 + 命令历史
+    const [rr, sr] = await Promise.all([
+      fetch('/api/ops/running').then(r => r.json()).catch(() => ({machines:[]})),
+      fetch('/api/ops/status').then(r => r.json()).catch(() => ({commands:[]})),
+    ]);
+    const runningMachines = rr.machines || [];
+    const cmds = sr.commands || (Array.isArray(sr) ? sr : []);
 
-    // ── 按状态分组统计 ──
-    var byStatus = {};
-    var byMachine = {};
-    for (var i = 0; i < cmds.length; i++) {
-      var c = cmds[i], s = c.status || 'unknown';
-      var sm = STATUS_MAP[s] || { icon: '❓', label: s, group: 'fail' };
-      byStatus[s] = (byStatus[s] || 0) + 1;
-      var mach = c.machine || '?';
-      if (!byMachine[mach]) byMachine[mach] = { total:0, ok:0, active:0, fail:0 };
-      byMachine[mach].total++;
-      byMachine[mach][sm.group]++;
+    let html = '<div style="font-size:10px">';
+
+    // ── 运行中任务（从 guardd 获取）──
+    const hasRunning = runningMachines.some(m => m.tasks && m.tasks.some(t => t.status === 'running'));
+    if (hasRunning) {
+      html += '<div style="font-weight:600;font-size:11px;margin-bottom:4px">🟢 运行中任务</div>';
+      for (const m of runningMachines) {
+        const running = (m.tasks || []).filter(t => t.status === 'running');
+        if (!running.length) continue;
+        for (const t of running) {
+          const elapsed = t.start_time ? Math.round((Date.now() - new Date(t.start_time).getTime())/1000) + 's' : '?';
+          html += `<div style="display:flex;align-items:center;gap:4px;padding:3px 6px;margin:2px 0;background:var(--bg3);border-radius:4px">`
+            + `<span style="font-weight:500;min-width:80px">🖥 ${m.machine}</span>`
+            + `<span style="color:var(--green);font-weight:600">🟢 运行中</span>`
+            + `<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.cmd || ''}</span>`
+            + `<span style="color:var(--text2)">${elapsed}</span>`
+            + `<button onclick="window._stopRun('${t.run_id}')" style="background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.3);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">⏹ 停止</button>`
+            + `</div>`;
+        }
+      }
+      html += '<div style="margin:6px 0"></div>';
     }
 
-    var html = '<div style="font-size:10px">';
+    // ── 状态统计（从命令历史）──
+    if (cmds.length) {
+      var byStatus = {}, byMachine = {};
+      for (var i = 0; i < cmds.length; i++) {
+        var c = cmds[i], s = c.status || 'unknown';
+        var sm = STATUS_MAP[s] || { icon: '❓', label: s, group: 'fail' };
+        byStatus[s] = (byStatus[s] || 0) + 1;
+        var mach = c.machine || '?';
+        if (!byMachine[mach]) byMachine[mach] = { total:0, ok:0, active:0, fail:0 };
+        byMachine[mach].total++;
+        byMachine[mach][sm.group]++;
+      }
 
-    // ── 全状态行列（每个状态一行）──
-    html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">';
-    for (var s in STATUS_MAP) {
-      var sm = STATUS_MAP[s];
-      var count = byStatus[s] || 0;
-      if (count === 0) continue;
-      html += '<span style="display:inline-flex;align-items:center;gap:3px;background:var(--bg3);padding:2px 8px;border-radius:4px;font-size:10px">'
-        + sm.icon + ' <span style="font-weight:600;color:' + sm.color + '">' + count + '</span> ' + sm.label
-        + '</span>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">';
+      for (var s in STATUS_MAP) {
+        var sm = STATUS_MAP[s];
+        var count = byStatus[s] || 0;
+        if (count === 0) continue;
+        html += '<span style="display:inline-flex;align-items:center;gap:3px;background:var(--bg3);padding:2px 8px;border-radius:4px;font-size:10px">'
+          + sm.icon + ' <span style="font-weight:600;color:' + sm.color + '">' + count + '</span> ' + sm.label + '</span>';
+      }
+      html += '</div>';
+
+      // 总数
+      var okCount = 0, activeCount = 0, failCount = 0;
+      for (var s in byStatus) {
+        var g = (STATUS_MAP[s] || STATUS_MAP['cancelled']).group;
+        if (g === 'ok') okCount += byStatus[s];
+        else if (g === 'active') activeCount += byStatus[s];
+        else failCount += byStatus[s];
+      }
+      html += '<div style="display:flex;gap:12px;margin-bottom:6px;font-size:11px">'
+        + '<span>📊 <strong>' + cmds.length + '</strong></span>'
+        + '<span style="color:var(--green)">✅ ' + okCount + '</span>'
+        + '<span style="color:var(--red)">❌ ' + failCount + '</span>'
+        + '<span style="color:var(--blue)">⏳ ' + activeCount + '</span>'
+        + '</div>';
+
+      // 每台机器
+      for (var mach in byMachine) {
+        var s = byMachine[mach];
+        var rate = s.total > 0 ? Math.round(s.ok / s.total * 100) : 0;
+        var barLen = Math.round(rate / 10);
+        var bar = '█'.repeat(Math.max(0, barLen)) + '░'.repeat(Math.max(0, 10 - barLen));
+        var dtl = [];
+        if (s.active > 0) dtl.push('<span style="color:var(--blue)">▶' + s.active + '</span>');
+        if (s.fail > 0) dtl.push('<span style="color:var(--red)">✕' + s.fail + '</span>');
+        html += '<div style="margin:2px 0;display:flex;align-items:center;gap:6px;font-size:10px">'
+          + '<span style="min-width:100px;font-weight:500">🖥 ' + mach + '</span>'
+          + '<span style="color:var(--text2)">' + s.ok + '/' + s.total + ' (' + rate + '%)</span>'
+          + '<span style="font-size:9px">' + bar + '</span>'
+          + (dtl.length ? '<span style="font-size:10px"> (' + dtl.join(' ') + ')</span>' : '')
+          + '</div>';
+      }
+
+      // 最近执行
+      html += '<div style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px">'
+        + '<div style="color:var(--text2);font-size:10px;margin-bottom:2px;font-weight:500">最近执行:</div>';
+      var showCount = Math.min(6, cmds.length);
+      for (var i = 0; i < showCount; i++) {
+        var c = cmds[i], s = c.status || 'unknown';
+        var sm = STATUS_MAP[s] || { icon: '❓', color: '#999', label: s };
+        var accts = c.accounts ? c.accounts.join(',') : (c.account || '?');
+        var elapsed = formatElapsed(c.elapsed_sec);
+        var msg = (c.message || sm.label).slice(0, 40);
+        var timeStr = c.created_at ? c.created_at.slice(11, 19) : '';
+        html += '<div style="display:flex;align-items:center;gap:3px;padding:1px 0;font-size:10px">'
+          + '<span style="flex-shrink:0">' + sm.icon + '</span>'
+          + '<span style="color:' + sm.color + ';font-weight:500;min-width:26px;font-size:9px">' + sm.label + '</span>'
+          + '<span style="color:var(--text2);min-width:75px">' + (c.machine || '?') + '</span>'
+          + '<span style="font-weight:500;min-width:50px">' + accts + '</span>'
+          + '<span style="color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + msg + '</span>'
+          + '<span style="color:var(--text2);min-width:30px;text-align:right">' + elapsed + '</span>'
+          + (timeStr ? '<span style="color:var(--text2);font-size:9px;min-width:45px;text-align:right">' + timeStr + '</span>' : '')
+          + '</div>';
+      }
+      html += '</div>';
+    } else {
+      html += '<div style="color:var(--text2);padding:6px 0;font-size:11px">暂无执行记录</div>';
     }
+
     html += '</div>';
-
-    // ── 总数行 ──
-    var okCount = 0, activeCount = 0, failCount = 0;
-    for (var s in byStatus) {
-      var g = (STATUS_MAP[s] || STATUS_MAP['cancelled']).group;
-      if (g === 'ok') okCount += byStatus[s];
-      else if (g === 'active') activeCount += byStatus[s];
-      else failCount += byStatus[s];
-    }
-    html += '<div style="display:flex;gap:12px;margin-bottom:6px;font-size:11px">'
-      + '<span>📊 <strong>' + cmds.length + '</strong></span>'
-      + '<span style="color:var(--green)">✅ ' + okCount + '</span>'
-      + '<span style="color:var(--red)">❌ ' + failCount + '</span>'
-      + '<span style="color:var(--blue)">⏳ ' + activeCount + '</span>'
-      + '</div>';
-
-    // ── 每台机器详细（含各状态小计数）──
-    for (var mach in byMachine) {
-      var s = byMachine[mach];
-      var rate = s.total > 0 ? Math.round(s.ok / s.total * 100) : 0;
-      var barLen = Math.round(rate / 10);
-      var bar = '█'.repeat(Math.max(0, barLen)) + '░'.repeat(Math.max(0, 10 - barLen));
-      var detailParts = [];
-      if (s.active > 0) detailParts.push('<span style="color:var(--blue)">▶' + s.active + '</span>');
-      if (s.fail > 0) detailParts.push('<span style="color:var(--red)">✕' + s.fail + '</span>');
-      var detailStr = detailParts.length > 0 ? ' (' + detailParts.join(' ') + ')' : '';
-      html += '<div style="margin:2px 0;display:flex;align-items:center;gap:6px">'
-        + '<span style="min-width:100px;font-weight:500">🖥 ' + mach + '</span>'
-        + '<span style="font-size:10px;color:var(--text2)">' + s.ok + '/' + s.total + ' (' + rate + '%)</span>'
-        + '<span style="font-size:9px">' + bar + '</span>'
-        + '<span style="font-size:10px">' + detailStr + '</span>'
-        + '</div>';
-    }
-
-    // ── 最近执行（每条命令显示完整状态）──
-    html += '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">'
-      + '<div style="color:var(--text2);font-size:10px;margin-bottom:4px;font-weight:500">最近执行:</div>';
-    var showCount = Math.min(8, cmds.length);
-    for (var i = 0; i < showCount; i++) {
-      var c = cmds[i], s = c.status || 'unknown';
-      var sm = STATUS_MAP[s] || { icon: '❓', color: '#999', label: s };
-      var accts = c.accounts ? c.accounts.join(',') : (c.account || '?');
-      var elapsed = formatElapsed(c.elapsed_sec);
-      var msg = (c.message || sm.label);
-      var timeStr = c.created_at ? c.created_at.slice(11, 19) : '';
-      html += '<div style="display:flex;align-items:center;gap:4px;padding:2px 0;font-size:10px;line-height:1.4">'
-        + '<span style="flex-shrink:0">' + sm.icon + '</span>'
-        + '<span style="color:' + sm.color + ';font-weight:500;flex-shrink:0;min-width:28px;font-size:9px">' + sm.label + '</span>'
-        + '<span style="color:var(--text2);flex-shrink:0;min-width:80px">' + (c.machine || '?') + '</span>'
-        + '<span style="font-weight:500;min-width:60px">' + accts + '</span>'
-        + '<span style="color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + msg + '</span>'
-        + '<span style="color:var(--text2);flex-shrink:0;min-width:36px;text-align:right">' + elapsed + '</span>'
-        + (timeStr ? '<span style="color:var(--text2);flex-shrink:0;font-size:9px;min-width:50px;text-align:right">' + timeStr + '</span>' : '')
-        + '</div>';
-    }
-    html += '</div></div>';
     el.innerHTML = html;
-  } catch(e) { var el = document.getElementById('execHistory'); if (el) el.innerHTML = '<div style="color:var(--text2);font-size:11px">❌ 加载失败: '+e.message+'</div>'; }
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--text2);font-size:11px">❌ 加载失败: ' + e.message + '</div>';
+  }
 }
-window.loadExecutionHistory = loadExecutionHistory;
+
+window.loadExecutionHistory = loadTaskPanel;
+window._stopRun = async function(runId) {
+  if (!confirm('确定停止任务 ' + runId + '？')) return;
+  try {
+    const r = await fetch('/api/ops/cancel/' + runId, {method:'POST'});
+    const d = await r.json();
+    loadTaskPanel();
+  } catch(e) { alert('❌ ' + e.message); }
+};
 
 // 自动刷新 + 初始化
 setTimeout(function() { window.loadExecutionHistory(); }, 500);

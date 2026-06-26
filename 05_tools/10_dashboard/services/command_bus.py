@@ -18,7 +18,7 @@ command_bus.py — 统一命令传输层 v6
   Dashboard → API → CommandBus → MachineSession(队列) → mc run → 引擎 → Camoufox
 """
 
-import asyncio, json, logging, os, subprocess, sys, time, threading
+import asyncio, json, logging, os, subprocess, sys, time, threading, urllib.request, urllib.error
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -34,6 +34,40 @@ ORACLE_PATH = AGENT_SYNC / "ORACLE.yaml"
 from utils.identity import resolve_hostname
 
 HOSTNAME = resolve_hostname()
+
+# ── guardd HTTP API 客户端（v7）──────────────────────────
+GUARDD_PORT = 9090
+
+def _guardd_url(machine: str = "") -> str:
+    """获取目标机器的 guardd URL（本机用 localhost，远程用 Tailscale IP）"""
+    if not machine or machine == HOSTNAME:
+        return f"http://localhost:{GUARDD_PORT}"
+    info = _get_machine_info(machine)
+    ip = info.get("ip", "")
+    if ip:
+        return f"http://{ip}:{GUARDD_PORT}"
+    return ""
+
+def _guardd_api(method: str, path: str, data: dict = None, machine: str = "") -> dict:
+    """调用 guardd HTTP API，失败返回空结果"""
+    url = _guardd_url(machine)
+    if not url:
+        return {}
+    full_url = f"{url}{path}"
+    try:
+        if method == "GET":
+            r = urllib.request.urlopen(full_url, timeout=5)
+            return json.loads(r.read().decode())
+        elif method == "POST":
+            body = json.dumps(data or {}).encode()
+            req = urllib.request.Request(full_url, data=body,
+                headers={"Content-Type": "application/json"}, method="POST")
+            r = urllib.request.urlopen(req, timeout=5)
+            return json.loads(r.read().decode())
+    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, OSError):
+        pass
+    return {}
+
 
 class CommandStatus(str, Enum):
     QUEUED = "queued"
@@ -225,7 +259,22 @@ class MachineSession:
             return result
 
     def _send_local(self, cmd: Command) -> dict:
-        # 系统级安全检查（仅保留警戒线，杀掉异常过多的 mc 进程）
+        # 优先通过 guardd HTTP API 执行
+        guardd_result = _guardd_api("POST", "/task", {
+            "cmd": cmd.command_line,
+            "run_id": cmd.run_id,
+            "machine": HOSTNAME,
+        })
+        if guardd_result.get("status") == "accepted":
+            cmd.pid = guardd_result.get("pid")
+            cmd.status = CommandStatus.DISPATCHING
+            cmd.started_at = time.time()
+            self.commands.insert(0, cmd)
+            self._trim_history()
+            return {"pid": cmd.pid, "guardd": True}
+
+        # guardd 不可用时降级为 subprocess（向后兼容）
+        logger.warning(f"guardd 不可用，降级为 subprocess: {cmd.run_id}")
         try:
             mc_count = int(subprocess.run(
                 ["pgrep", "-f", "python3.*-m mc"], capture_output=True, text=True, timeout=3
@@ -236,9 +285,6 @@ class MachineSession:
                 return {"error": f"系统 mc 进程数过高 ({mc_count})，已自动清理，请重试"}
         except:
             pass
-
-        # ⚠️ 并发控制：CommandBus 只转发，由 MC engine 内部 Semaphore 控制
-        # 同一台机器只会发一条命令（路由层已合并），引擎内按 identity 分组 + Semaphore(3)
 
         scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
         log_dir = AGENT_LOCAL / "runtime" / "commands"
@@ -260,8 +306,7 @@ class MachineSession:
             python_path = f"{Path.home()}/.workbuddy/binaries/python/envs/agent-os/bin/python3"
             full_cmd = f"cd {scripts_dir} && PYTHONPATH='{scripts_dir}' {python_path} -m {cmd.command_line}"
             p = subprocess.Popen(
-                full_cmd,
-                shell=True, stdout=log_fh, stderr=subprocess.STDOUT
+                full_cmd, shell=True, stdout=log_fh, stderr=subprocess.STDOUT
             )
 
         cmd.pid = p.pid
@@ -272,11 +317,28 @@ class MachineSession:
         return {"pid": cmd.pid, "log_path": str(log_path)}
 
     def _send_remote(self, cmd: Command) -> dict:
+        # 优先通过远程机器的 guardd HTTP API
+        guardd_result = _guardd_api("POST", "/task", {
+            "cmd": cmd.command_line,
+            "run_id": cmd.run_id,
+            "machine": self.machine,
+        }, machine=self.machine)
+        if guardd_result.get("status") == "accepted":
+            cmd.pid = guardd_result.get("pid")
+            cmd.status = CommandStatus.DISPATCHING
+            cmd.started_at = time.time()
+            cmd.message = f"已通过 guardd 发送到 {self.machine}"
+            self.commands.insert(0, cmd)
+            self._trim_history()
+            return {"pid": cmd.pid, "guardd": True, "machine": self.machine}
+
+        # guardd 不可用 → 降级为 SSH
         if not self.ssh_target:
             cmd.status = CommandStatus.PREFLIGHT_FAILED
-            cmd.message = f"机器 {self.machine} 连接信息不存在"
+            cmd.message = f"机器 {self.machine} guardd 和 SSH 均不可用"
             return {"error": cmd.message}
 
+        logger.warning(f"guardd 远程不可用，降级为 SSH: {cmd.run_id} @ {self.machine}")
         py_discover = 'PY=$(ls $HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3 2>/dev/null || which python3); '
         scripts_dir = "$AGENT_SYNC/05_tools/07_matrix/scripts"
         env_setup = f"export AGENT_SYNC=\"$HOME/workbuddy-agent-os/agent-sync\"; export AGENT_LOCAL=\"$HOME/workbuddy-agent-os/agent-local\"; export MC_PYTHON=\"$PY\"; export PYTHONPATH={scripts_dir}:$PYTHONPATH; "
@@ -298,7 +360,7 @@ class MachineSession:
             )
             cmd.status = CommandStatus.DISPATCHING
             cmd.started_at = time.time()
-            cmd.message = "命令已发送到远程机器"
+            cmd.message = "命令已通过 SSH 发送到远程机器"
             self.commands.insert(0, cmd)
             self._trim_history()
             return {"status": "sent"}
@@ -376,6 +438,27 @@ class MachineSession:
             max_timeout = cmd.params.get("timeout", strategy.get("timeout", 600))
             check_process = strategy.get("check_process", True)
             check_log_completed = strategy.get("check_log_completed", [])
+
+            # 通过 guardd 查询任务状态（v7）
+            g_tasks = _guardd_api("GET", "/tasks", machine=self.machine)
+            for gt in g_tasks if isinstance(g_tasks, list) else []:
+                if gt.get("run_id") == cmd.run_id:
+                    gs = gt.get("status", "")
+                    if gs == "completed":
+                        cmd.status = CommandStatus.COMPLETED
+                        cmd.completed_at = time.time()
+                        return cmd.status
+                    elif gs in ("failed", "crashed"):
+                        cmd.status = CommandStatus.FAILED
+                        cmd.completed_at = time.time()
+                        return cmd.status
+                    elif gs == "cancelled":
+                        cmd.status = CommandStatus.CANCELLED
+                        cmd.completed_at = time.time()
+                        return cmd.status
+                    elif gs == "running":
+                        cmd.status = CommandStatus.RUNNING
+                        return cmd.status
 
             # 远程命令：通过 SSH 读取结果
             if not self.is_local and self.ssh_target:
@@ -536,28 +619,33 @@ class MachineSession:
             if cmd.status.is_terminal:
                 return {"error": "命令已结束"}
 
-            # 杀掉进程 + 清理浏览器
-            if self.is_local and cmd.pid:
-                try:
-                    os.kill(cmd.pid, 15)
-                    time.sleep(0.5)
-                    os.kill(cmd.pid, 9)
-                except:
-                    pass
-                # 清理残留 Camoufox 进程（所有账号）
-                for aid in cmd.accounts:
+            # 优先通过 guardd 停止（v7）
+            g_stop = _guardd_api("POST", f"/task/{cmd.run_id}/stop", machine=self.machine)
+            if g_stop.get("status") in ("stopped", "already_stopped"):
+                # guardd 已处理进程清理
+                pass
+            else:
+                # 降级：手动杀进程 + 清理浏览器
+                if self.is_local and cmd.pid:
                     try:
-                        subprocess.run(["pkill", "-f", aid], capture_output=True, timeout=3)
+                        os.kill(cmd.pid, 15)
+                        time.sleep(0.5)
+                        os.kill(cmd.pid, 9)
                     except:
                         pass
-            elif not self.is_local and self.ssh_target:
-                try:
-                    subprocess.run(
-                        ["ssh", self.ssh_target, f"pkill -f '{cmd.run_id}' 2>/dev/null"],
-                        capture_output=True, text=True, timeout=5
-                    )
-                except:
-                    pass
+                    for aid in cmd.accounts:
+                        try:
+                            subprocess.run(["pkill", "-f", aid], capture_output=True, timeout=3)
+                        except:
+                            pass
+                elif not self.is_local and self.ssh_target:
+                    try:
+                        subprocess.run(
+                            ["ssh", self.ssh_target, f"pkill -f '{cmd.run_id}' 2>/dev/null"],
+                            capture_output=True, text=True, timeout=5
+                        )
+                    except:
+                        pass
 
             cmd.status = CommandStatus.CANCELLED
             cmd.message = "用户取消"

@@ -96,6 +96,28 @@ def api_ops_machines():
     return CommandBus.get_all_machines_status()
 
 
+@router.get("/running")
+def api_ops_running():
+    """聚合所有机器的运行中任务（从 guardd 获取）"""
+    from services.command_bus import _guardd_api, HOSTNAME, _get_machine_info
+    machines = []
+    # 本机
+    local_tasks = _guardd_api("GET", "/tasks") or []
+    if local_tasks:
+        machines.append({"machine": HOSTNAME, "tasks": local_tasks})
+    # 远程机器（从 ORACLE 获取机器列表）
+    info = _get_machine_info("dummy")  # 触发 ORACLE 加载
+    for name, minfo in getattr(_get_machine_info, "_oracle_machines", {}).items():
+        if name == HOSTNAME:
+            continue
+        ip = minfo.get("tailscale_ip", "")
+        if ip:
+            remote_tasks = _guardd_api("GET", "/tasks", machine=name) or []
+            if remote_tasks:
+                machines.append({"machine": name, "tasks": remote_tasks})
+    return {"machines": machines}
+
+
 @router.post("/test-atom")
 def api_ops_test_atom(data: dict = {}):
     """
