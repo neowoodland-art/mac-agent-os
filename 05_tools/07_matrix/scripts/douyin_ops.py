@@ -1064,44 +1064,73 @@ class DouyinOps(PlatformOps):
                 await self.open_comments(step_id)
                 await self._wait(1.5)
 
-            # 2. 定位输入框并滚动到视图
-            editor = self.page.locator(SELECTORS['comment_editor'])
-            if await editor.count() == 0:
+            # 2. 定位输入框（兼容A/B模式）
+            editor_selectors = [
+                SELECTORS['comment_editor'],    # .public-DraftEditor-content (A模式)
+                '[data-e2e="comment-input"]',   # B模式评论区输入框
+                '[class*="comment-input"]',      # 通用评论输入
+                '[class*="DraftEditor"]',        # Draft.js 编辑器
+                '[contenteditable="true"]',       # 可编辑区域
+                'input[placeholder*="评论"]',     # placeholder 匹配
+                'textarea[placeholder*="评论"]',  # textarea 匹配
+            ]
+            editor = None
+            for sel in editor_selectors:
+                el = self.page.locator(sel)
+                if await el.count() > 0:
+                    editor = el
+                    break
+            if editor is None:
                 dur = int((time.time() - t0) * 1000)
-                await self._log_op(step_id, "AO_COMMENT", SELECTORS['comment_editor'], False, dur, "评论输入框未找到")
+                await self._log_op(step_id, "AO_COMMENT", "all_selectors", False, dur, "所有评论输入框选择器均未命中")
                 return 'failed'
 
-            # B模式：输入框可能在页面底部，滚动到视图
-            await editor.first.scroll_into_view_if_needed(timeout=2000)
+            # 滚动到视图并点击
+            try:
+                await editor.first.scroll_into_view_if_needed(timeout=2000)
+            except Exception:
+                pass
             await self._wait(0.3)
-            await editor.click()
+            await editor.first.click()
             await self._wait(0.5)
 
-            # 3. 输入评论（Draft.js 编辑器）
+            # 3. 输入评论
             await editor.press_sequentially(text, delay=random.uniform(50, 100))
             await self._wait(0.3 + random.uniform(0, 0.5))
 
-            # 4. 发送（先找发送按钮，失败则Enter）
+            # 4. 发送（多策略：找按钮→Enter→Ctrl+Enter→验证）
             sent = False
             for attempt in range(3):
                 send_btn = await self.page.evaluate("""() => {
-                    const btns = Array.from(document.querySelectorAll('button, [class*="send"], [class*="submit"]'));
-                    const btn = btns.find(b =>
-                        (b.textContent || '').includes('发送')
-                        || (b.textContent || '').includes('发布')
-                        || b.className.includes('send')
-                        || b.className.includes('submit')
-                        || (b.querySelector('svg') && b.className.includes('arrow'))
-                    );
-                    if (btn) { btn.click(); return true; }
+                    const btnTexts = ['发送', '发布', '提交', '发表'];
+                    const sels = ['button', '[class*="send"]', '[class*="submit"]', '[class*="publish"]',
+                        '[class*="comment-arrow"]', '[data-e2e="comment-send"]'];
+                    for (const sel of sels) {
+                        const els = document.querySelectorAll(sel);
+                        for (const el of els) {
+                            const t = (el.textContent || '').trim();
+                            if (btnTexts.some(bt => t.includes(bt))) { el.click(); return true; }
+                            if ((el.querySelector('svg') || el.querySelector('path'))) { el.click(); return true; }
+                        }
+                    }
                     return false;
                 }""")
                 if send_btn:
                     sent = True
                     break
+                # 策略B: Enter
                 await self.page.keyboard.press('Enter')
                 await self._wait(1)
-                # 验证：评论是否出现在列表
+                # 验证
+                appeared = await self.page.evaluate(
+                    f"() => {{ const l = document.querySelector('[data-e2e=\"comment-list\"]'); return l ? l.textContent.includes('{text[:10]}') : false; }}"
+                )
+                if appeared:
+                    sent = True
+                    break
+                # 策略C: Ctrl+Enter
+                await self.page.keyboard.press('Control+Enter')
+                await self._wait(1)
                 appeared = await self.page.evaluate(
                     f"() => {{ const l = document.querySelector('[data-e2e=\"comment-list\"]'); return l ? l.textContent.includes('{text[:10]}') : false; }}"
                 )

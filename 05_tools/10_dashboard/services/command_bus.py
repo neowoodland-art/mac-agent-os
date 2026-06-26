@@ -259,9 +259,14 @@ class MachineSession:
             return result
 
     def _send_local(self, cmd: Command) -> dict:
+        # 构建完整 shell 命令（含工作目录和环境变量）
+        scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
+        python_path = f"{Path.home()}/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+        full_shell_cmd = f"cd {scripts_dir} && PYTHONPATH='{scripts_dir}' {python_path} -m {cmd.command_line}"
+
         # 优先通过 guardd HTTP API 执行
         guardd_result = _guardd_api("POST", "/task", {
-            "cmd": cmd.command_line,
+            "cmd": full_shell_cmd,
             "run_id": cmd.run_id,
             "machine": HOSTNAME,
         })
