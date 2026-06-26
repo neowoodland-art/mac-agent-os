@@ -986,6 +986,7 @@ class DouyinOps(PlatformOps):
                 # 方案A: 多选择器快速探测
                 for sel in [
                     '[data-e2e="video-player-comment"]',
+                    '[data-e2e="feed-comment-icon"]',
                     '[class*="comment-action"]',
                     '[class*="comment-count"]',
                     '[aria-label*="评论"]',
@@ -1004,7 +1005,7 @@ class DouyinOps(PlatformOps):
 
                 # 方案B: JS点击（和成功版一致）
                 clicked = await self.page.evaluate("""() => {
-                    const s = '[data-e2e="video-player-comment"], [class*="comment-action"], [class*="comment-count"]';
+                    const s = '[data-e2e="video-player-comment"], [data-e2e="feed-comment-icon"], [class*="comment-action"], [class*="comment-count"]';
                     const el = document.querySelector(s);
                     if (el) { el.click(); return true; }
                     return false;
