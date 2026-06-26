@@ -1003,15 +1003,14 @@ class DouyinOps(PlatformOps):
                     except Exception:
                         continue
 
-                # 策略2: 从录制提取—评论区按钮通常在视频下方(y≈680-700)
-                # 点视频底部区域触发评论区
+                # 策略2: 录制显示评论区按钮在视频左下方(≈[193,685])
                 video = self.page.locator('video')
                 if await video.count() > 0:
                     box = await video.first.bounding_box()
                     if box:
-                        # 点视频正下方偏右(评论区入口区域)
-                        cx = box['x'] + box['width'] * 0.7
-                        cy = box['y'] + box['height'] + 30
+                        # 点视频下方左侧(评论区入口区域)
+                        cx = box['x'] + box['width'] * 0.3
+                        cy = box['y'] + box['height'] + 20
                         await self.page.mouse.click(cx, cy)
                         await self._wait(1.5)
                         try:

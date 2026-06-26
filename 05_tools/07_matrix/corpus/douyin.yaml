@@ -25,9 +25,9 @@ categories:
     - 感谢分享{keyword}的心得
     - 说得太好了，{keyword}这部分启发很大
     - 对{keyword}的分析很透彻
-    - {keyword}这个角度很新颖
+    - "{keyword}这个角度很新颖"
     - 看完对{keyword}有了新的认识
-    - {keyword}说得真不错
+    - "{keyword}说得真不错"
   共鸣:
     weight: 20
     enabled: true
@@ -50,9 +50,9 @@ categories:
     - 泪目了
     templates:
     - 看到{keyword}想起了自己
-    - {keyword}真的太真实了
+    - "{keyword}真的太真实了"
     - 说到{keyword}我也有同感
-    - {keyword}的经历我也有过
+    - "{keyword}的经历我也有过"
   提问:
     weight: 15
     enabled: true
@@ -101,7 +101,7 @@ categories:
     - 一切都是最好的安排
     templates:
     - 看到{keyword}想起了自己的经历
-    - {keyword}真的让人感慨
+    - "{keyword}真的让人感慨"
     - 时间过得真快，{keyword}都变了
   客观:
     weight: 10
@@ -146,4 +146,4 @@ categories:
     templates:
     - '{keyword}这个梗笑死我了'
     - 哈哈哈哈{keyword}太有才了
-    - {keyword}还能这样？笑死
+    - "{keyword}还能这样？笑死"
