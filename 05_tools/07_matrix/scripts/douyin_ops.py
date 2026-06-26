@@ -701,17 +701,36 @@ class DouyinOps(PlatformOps):
             return False
 
     async def goto_url(self, url: str, step_id: int = 0) -> bool:
-        """AO_NAV: 导航到指定URL"""
+        """AO_NAV: 导航到指定URL（含登录恢复后页面前置检测）"""
         t0 = time.time()
         try:
-            await self.page.goto(url, wait_until='domcontentloaded')
+            # 如果页面被登录恢复卡住(弹窗/加载中)，先 reload 一次
+            try:
+                cur = self.page.url
+                if cur and ('login' in cur.lower() or 'passport' in cur.lower()):
+                    await self.page.reload(timeout=15000)
+                    await self._wait(1)
+            except Exception:
+                pass
+
+            await self.page.goto(url, timeout=30000, wait_until='domcontentloaded')
             await self._wait(2)
             dur = int((time.time() - t0) * 1000)
             await self._log_op(step_id, "AO_NAV", url, True, dur)
             return True
         except Exception as e:
-            await self._log_op(step_id, "AO_NAV", url, False, int((time.time()-t0)*1000), str(e))
-            return False
+            # 兜底：reload 重试一次
+            try:
+                await self.page.reload(timeout=15000)
+                await self._wait(1)
+                await self.page.goto(url, timeout=30000, wait_until='domcontentloaded')
+                await self._wait(2)
+                dur = int((time.time() - t0) * 1000)
+                await self._log_op(step_id, "AO_NAV", f"{url}(retry)", True, dur)
+                return True
+            except Exception as e2:
+                await self._log_op(step_id, "AO_NAV", url, False, int((time.time()-t0)*1000), str(e2))
+                return False
 
     async def go_back(self, step_id: int = 0) -> bool:
         """AO_NAV: 浏览器后退"""
