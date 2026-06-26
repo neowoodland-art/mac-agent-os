@@ -966,10 +966,10 @@ class DouyinOps(PlatformOps):
         return False
 
     async def open_comments(self, step_id: int = 0) -> bool:
-        """打开评论区（B模式：点评论图标 → A模式：键盘X）"""
+        """打开评论区（A模式:键盘X → B模式:点评论按钮/坐标）"""
         t0 = time.time()
         try:
-            # 先快速检测评论区是否已打开
+            # 先检测评论区是否已打开
             try:
                 if await self.page.locator(SELECTORS['comment_list']).count(timeout=500) > 0:
                     dur = int((time.time() - t0) * 1000)
@@ -978,13 +978,12 @@ class DouyinOps(PlatformOps):
             except Exception:
                 pass
 
-            # 判断页面模式
             url = self.page.url
             is_standalone = '/video/' in url and 'modal_id' not in url
 
             if is_standalone:
                 # ── B模式（独立视频页）──
-                # 点击评论按钮（视频下方的评论数/图标）
+                # 策略1: 选择器点击
                 for sel in [
                     '[data-e2e="video-player-comment"]',
                     '[class*="comment-action"]',
@@ -994,20 +993,45 @@ class DouyinOps(PlatformOps):
                 ]:
                     try:
                         btn = self.page.locator(sel)
-                        if await btn.count(timeout=100) > 0:
+                        if await btn.count(timeout=200) > 0:
                             await btn.first.click(timeout=1000)
                             await self._wait(1.5)
                             if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
                                 dur = int((time.time() - t0) * 1000)
-                                await self._log_op(step_id, "AO_OPEN", f"B:{sel}", True, dur)
+                                await self._log_op(step_id, "AO_OPEN", f"B_sel", True, dur)
                                 return True
                     except Exception:
                         continue
-                # B模式兜底：JS点击
+
+                # 策略2: 从录制提取—评论区按钮通常在视频下方(y≈680-700)
+                # 点视频底部区域触发评论区
+                video = self.page.locator('video')
+                if await video.count() > 0:
+                    box = await video.first.bounding_box()
+                    if box:
+                        # 点视频正下方偏右(评论区入口区域)
+                        cx = box['x'] + box['width'] * 0.7
+                        cy = box['y'] + box['height'] + 30
+                        await self.page.mouse.click(cx, cy)
+                        await self._wait(1.5)
+                        try:
+                            if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
+                                dur = int((time.time() - t0) * 1000)
+                                await self._log_op(step_id, "AO_OPEN", "B_coord", True, dur)
+                                return True
+                        except Exception:
+                            pass
+
+                # 策略3: 找"评论"文本元素点击
                 clicked = await self.page.evaluate("""() => {
-                    const s = '[data-e2e="video-player-comment"], [class*="comment-action"], [class*="comment-count"]';
-                    const el = document.querySelector(s);
-                    if (el) { el.click(); return true; }
+                    const all = document.querySelectorAll('span, div, button');
+                    for (const el of all) {
+                        const t = (el.textContent || '').trim();
+                        if (/^\\d+$/.test(t) && el.offsetWidth < 100) {
+                            const parent = el.parentElement;
+                            if (parent && parent.textContent.includes('评论')) { parent.click(); return true; }
+                        }
+                    }
                     return false;
                 }""")
                 if clicked:
@@ -1015,7 +1039,7 @@ class DouyinOps(PlatformOps):
                     try:
                         if await self.page.locator(SELECTORS['comment_list']).count(timeout=2000) > 0:
                             dur = int((time.time() - t0) * 1000)
-                            await self._log_op(step_id, "AO_OPEN", "B:js_fallback", True, dur)
+                            await self._log_op(step_id, "AO_OPEN", "B_js_text", True, dur)
                             return True
                     except Exception:
                         pass
@@ -1033,7 +1057,7 @@ class DouyinOps(PlatformOps):
                     pass
 
             dur = int((time.time() - t0) * 1000)
-            await self._log_op(step_id, "AO_OPEN", "failed", False, dur, "所有方式均失败")
+            await self._log_op(step_id, "AO_OPEN", "failed", False, dur)
             return False
         except Exception as e:
             await self._log_op(step_id, "AO_OPEN", "error", False, int((time.time()-t0)*1000), str(e))
@@ -1064,15 +1088,17 @@ class DouyinOps(PlatformOps):
                 await self.open_comments(step_id)
                 await self._wait(1.5)
 
-            # 2. 定位输入框（兼容A/B模式）
+            # 2. 定位输入框（A模式Draft.js / B模式评论区输入框）
             editor_selectors = [
                 SELECTORS['comment_editor'],    # .public-DraftEditor-content (A模式)
-                '[data-e2e="comment-input"]',   # B模式评论区输入框
+                '[data-e2e="comment-input"]',   # 评论区输入框
                 '[class*="comment-input"]',      # 通用评论输入
                 '[class*="DraftEditor"]',        # Draft.js 编辑器
                 '[contenteditable="true"]',       # 可编辑区域
-                'input[placeholder*="评论"]',     # placeholder 匹配
-                'textarea[placeholder*="评论"]',  # textarea 匹配
+                'input[placeholder*="评论"]',
+                'textarea[placeholder*="评论"]',
+                # 录制发现: "留下你的精彩评论吧" 文本
+                '[class*="notranslate"][contenteditable="true"]',
             ]
             editor = None
             for sel in editor_selectors:
@@ -1098,9 +1124,10 @@ class DouyinOps(PlatformOps):
             await editor.press_sequentially(text, delay=random.uniform(50, 100))
             await self._wait(0.3 + random.uniform(0, 0.5))
 
-            # 4. 发送（多策略：找按钮→Enter→Ctrl+Enter→验证）
+            # 4. 发送（多策略：找按钮→坐标→Enter→Ctrl+Enter）
             sent = False
             for attempt in range(3):
+                # 策略A: 找发送/发布按钮
                 send_btn = await self.page.evaluate("""() => {
                     const btnTexts = ['发送', '发布', '提交', '发表'];
                     const sels = ['button', '[class*="send"]', '[class*="submit"]', '[class*="publish"]',

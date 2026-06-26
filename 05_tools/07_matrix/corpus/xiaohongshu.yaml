@@ -1,7 +1,7 @@
 version: '1.0'
 categories:
   穿搭:
-    weight: 25
+    weight: 20
     enabled: true
     label: 穿搭评论
     comments:
@@ -10,9 +10,20 @@ categories:
     - 色系搭配太舒服了
     - 超有气质
     - 这个风格很适合你
+    - 求衣服链接
+    - 太会穿了
+    - 已种草这套搭配
+    - 颜色搭配绝了
+    - 这个季节穿刚好
+    - 鞋子是哪家的？
+    - 搭配得很高级
+    - 简约又好看
+    - 求全套链接
+    - 你的衣品真好
     templates:
     - '{keyword}这套太好看了'
     - 求{keyword}的链接
+    - {keyword}搭得真好看
   美妆:
     weight: 20
     enabled: true
@@ -22,11 +33,22 @@ categories:
     - 求粉底色号
     - 口红颜色太美了
     - 教程很详细，收藏了
+    - 这个妆容很自然
+    - 眼妆画法学到了
+    - 皮肤好好啊
+    - 求所有用品的色号
+    - 这个妆适合通勤
+    - 化妆技术真好
+    - 清透自然的妆容
+    - 眉毛画得好棒
+    - 求刷子链接
+    - 这技术我学不会
     templates:
     - '{keyword}这个妆容好干净'
     - '{keyword}是什么色号'
+    - '{keyword}教程很详细'
   种草:
-    weight: 20
+    weight: 18
     enabled: true
     label: 种草评论
     comments:
@@ -34,11 +56,22 @@ categories:
     - 我也买了同款，真的不错
     - 已加购物车
     - 求推荐更多好物
+    - 被安利到了
+    - 这个真的值得买吗？
+    - 用了一个月来反馈，很好用
+    - 性价比很高
+    - 已经下单了
+    - 后悔没早买
+    - 回购第三次了
+    - 包装也很精致
+    - 送人也很合适
+    - 看起来质量不错
     templates:
     - 被{keyword}种草了
     - '{keyword}已加入清单'
+    - {keyword}真的值得买
   美食:
-    weight: 15
+    weight: 17
     enabled: true
     label: 美食评论
     comments:
@@ -46,11 +79,22 @@ categories:
     - 求地址
     - 收藏了，周末去试试
     - 这个做法很简单，明天就试
+    - 看饿了
+    - 求店铺名字
+    - 人均多少？
+    - 需要提前预约吗？
+    - 拍得好有食欲
+    - 这个搭配绝了
+    - 已经流口水了
+    - 求教程
+    - 看着就很有食欲
+    - 周末安排上了
     templates:
     - '{keyword}看着好好吃'
     - 求{keyword}的店名
+    - '{keyword}的做法很简单'
   家居:
-    weight: 10
+    weight: 15
     enabled: true
     label: 家居评论
     comments:
@@ -58,6 +102,39 @@ categories:
     - 求家具链接
     - 这个风格好喜欢
     - 家的感觉真好
+    - 好会生活啊
+    - 梦想中的家
+    - 这个小细节好用心
+    - 求地毯链接
+    - 装修风格很统一
+    - 收纳做得好棒
+    - 好温馨的小家
+    - 采光真好
+    - 求绿植链接
+    - 这个布局很合理
     templates:
     - '{keyword}的布置好温馨'
     - 求{keyword}的链接
+    - '{keyword}的风格很舒服'
+  旅行:
+    weight: 10
+    enabled: true
+    label: 旅行评论
+    comments:
+    - 风景太美了
+    - 求攻略
+    - 这个地方在哪里？
+    - 收藏了，下次去
+    - 拍照技术真好
+    - 这是哪里呀？
+    - 建议什么季节去？
+    - 住宿方便吗？
+    - 需要门票吗？
+    - 拍得好有感觉
+    - 好想去
+    - 已经列入旅行清单
+    - 有什么推荐的路线吗？
+    templates:
+    - '{keyword}好美，求攻略'
+    - '{keyword}在哪里'
+    - 想去{keyword}很久了
