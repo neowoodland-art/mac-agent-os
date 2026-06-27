@@ -456,6 +456,7 @@ async function loadPlugins() {
         {view:'matrix-collect', label:'📡 信息采集'},
         {view:'matrix-publish', label:'📤 内容发布'},
         {view:'matrix-interact', label:'💬 评论互动'},
+        {view:'ops-command', label:'🚀 联邦指挥台'},
         {view:'matrix-comment', label:'💬 定向评论'},
         {view:'matrix-like', label:'❤️ 收藏点赞'},
         {view:'matrix-blueprints', label:'📋 蓝图管理'},

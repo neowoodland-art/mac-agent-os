@@ -1,262 +1,225 @@
-import { apiRequest, confirmExecute } from '../router.js';
+/**
+ * 联邦指挥台视图 (v4.3.0)
+ * 显示三机实时状态 + 任务队列 + 浏览器槽位
+ */
+
+import { apiRequest } from '../router.js';
+
+let _pollTimer = null;
 
 export async function loadView(container) {
-  const uid = 'cmd_' + Math.random().toString(36).slice(2, 6);
-  const PS = ['douyin_daily','douyin_comment','douyin_search','douyin_collect','douyin_read_profile',
-              'xhs_daily','xhs_active_v1','xiaohongshu_read_profile'];
-
   container.innerHTML = `
-    <div style="padding:16px;max-width:1100px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div><span style="font-weight:600;font-size:15px">🖥️ 联邦指挥台</span>
-        <span style="font-size:11px;color:var(--text2);margin-left:8px">跨机器命令下发 · 批量执行 · 状态监控</span></div>
-        <div style="display:flex;gap:6px">
-          <button onclick="window._refCmd('${uid}')" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer">⟳ 刷新状态</button>
+    <div style="padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-weight:700;font-size:16px">🚀 联邦指挥台</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="cmdLastUpdate" style="font-size:10px;color:var(--text2)"></span>
+          <button onclick="window._cmdRefresh()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔄 刷新</button>
+          <label style="font-size:10px;color:var(--text2)">
+            <input type="checkbox" id="cmdAutoRefresh" checked onchange="window._cmdToggleAuto()"> 自动刷新(15s)
+          </label>
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-
-        <!-- 左栏: 命令配置 -->
-        <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-          <div style="font-weight:600;font-size:12px;margin-bottom:8px">📋 命令配置</div>
-
-          <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">目标机器</label>
-          <select id="tgtMachine_${uid}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:11px;margin-bottom:8px">
-            <option value="">⏳ 加载机器列表...</option>
-          </select>
-
-          <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">操作类型</label>
-          <select id="opsType_${uid}" onchange="window._opsTypeChange_${uid}()" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:11px;margin-bottom:8px">
-            <option value="nurture">🏃 养号</option>
-            <option value="collect">📡 采集</option>
-            <option value="comment">💬 评论</option>
-            <option value="login">🔑 登录</option>
-            <option value="logout">🔒 登出</option>
-          </select>
-
-          <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">选择蓝图</label>
-          <select id="bpSelect_${uid}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:11px;margin-bottom:8px">
-            <option value="">⏳ 加载蓝图...</option>
-          </select>
-
-          <div id="paramsArea_${uid}" style="margin-bottom:8px;display:none">
-            <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">参数配置</label>
-            <div id="paramFields_${uid}"></div>
-          </div>
-
-          <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">轮数</label>
-          <select id="rounds_${uid}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:11px;margin-bottom:8px">
-            <option value="1">1</option><option value="3">3</option>
-            <option value="5" selected>5</option><option value="10">10</option><option value="20">20</option>
-          </select>
-
-          <div style="display:flex;gap:6px">
-            <button onclick="window._execCmd_${uid}()" style="flex:1;background:#22c55e;color:#000;border:none;padding:7px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">🚀 执行</button>
-            <button onclick="window._clearLog_${uid}()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer">✕ 清空</button>
-          </div>
-        </div>
-
-        <!-- 右栏: 账号选择 + 执行结果 -->
-        <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-          <div style="font-weight:600;font-size:12px;margin-bottom:8px">👥 账号选择 <span id="selCount_${uid}" style="font-size:10px;color:var(--text2);font-weight:400"></span></div>
-          <div id="acctList_${uid}" style="max-height:180px;overflow-y:auto;margin-bottom:8px;font-size:11px"><div class="loading">⏳ 加载账号列表...</div></div>
-
-          <div style="font-weight:600;font-size:12px;margin-bottom:4px">📊 执行日志</div>
-          <div id="log_${uid}" style="background:var(--bg3);border-radius:6px;padding:8px;font-size:10px;font-family:monospace;white-space:pre-wrap;max-height:260px;overflow-y:auto;border:1px solid var(--border)"><span style="color:var(--text2)">等待执行...</span></div>
+      <!-- 三机状态总览 -->
+      <div id="cmdMachineOverview" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+        <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border);text-align:center">
+          <div style="font-size:10px;color:var(--text2)">加载中...</div>
         </div>
       </div>
 
-      <!-- 底栏: 机器状态 + 快捷操作 -->
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <span style="font-weight:600;font-size:12px">🔌 机器状态</span>
-          <div style="display:flex;gap:6px">
-            <button onclick="window._syncAll_${uid}()" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer">🔄 同步所有</button>
-          </div>
-        </div>
-        <div id="machineList_${uid}" style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px"><span style="color:var(--text2)">加载中...</span></div>
-        <div id="statusLog_${uid}" style="margin-top:6px;font-size:10px;color:var(--text2);font-family:monospace"></div>
+      <!-- 筛选栏 -->
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:11px;color:var(--text2);font-weight:600">筛选:</span>
+        <label style="font-size:10px;color:var(--text2)"><input type="checkbox" class="cmdFilter" value="P0" checked> 🔴 优先任务</label>
+        <label style="font-size:10px;color:var(--text2)"><input type="checkbox" class="cmdFilter" value="P1" checked> 🟢 日常任务</label>
+        <label style="font-size:10px;color:var(--text2)"><input type="checkbox" class="cmdFilter" value="P2"> ⚪ 闲时任务</label>
+        <span style="margin-left:12px;font-size:11px;color:var(--text2);font-weight:600">机器:</span>
+        <select id="cmdMachineFilter" onchange="window._cmdRefresh()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 6px;border-radius:4px;font-size:10px">
+          <option value="all">全部</option>
+        </select>
       </div>
+
+      <!-- 各机详细队列 -->
+      <div id="cmdQueueDetail"></div>
     </div>`;
 
-  // ── 数据加载 ──
-  loadMachines(uid);
-  loadBlueprints(uid);
-  loadAccounts(uid);
-
-  // ── 蓝图切换时动态参数 ──
-  window[`_opsTypeChange_${uid}`] = function() {
-    const type = document.getElementById(`opsType_${uid}`)?.value;
-    const pa = document.getElementById(`paramsArea_${uid}`);
-    const pf = document.getElementById(`paramFields_${uid}`);
-    if (type === 'comment') {
-      pa.style.display = '';
-      pf.innerHTML = `
-        <input id="url_${uid}" placeholder="视频链接" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:10px;margin-bottom:4px">
-        <input id="text_${uid}" placeholder="评论内容(空=用语料库)" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:10px;margin-bottom:4px">
-        <select id="corpus_${uid}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:10px">
-          <option value="">不用语料库</option>
-          <option value="corpus_praise">赞美</option>
-          <option value="corpus_question">提问</option>
-          <option value="corpus_discuss">讨论</option>
-        </select>`;
-    } else if (type === 'collect') {
-      pa.style.display = '';
-      pf.innerHTML = `<input id="keyword_${uid}" placeholder="搜索关键词(可选)" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:10px">`;
-    } else {
-      pa.style.display = 'none';
-    }
-  };
-
-  // ── 执行 ──
-  window[`_execCmd_${uid}`] = async function() {
-    const logEl = document.getElementById(`log_${uid}`);
-    const accts = getSelectedAccounts(uid);
-    if (!accts.length) { logEl.innerHTML = '<span style="color:var(--red)">⚠️ 请选择至少一个账号</span>'; return; }
-    const type = document.getElementById(`opsType_${uid}`)?.value || 'nurture';
-    const bp = document.getElementById(`bpSelect_${uid}`)?.value || 'douyin_daily';
-    const rounds = parseInt(document.getElementById(`rounds_${uid}`)?.value || '5');
-    const machine = document.getElementById(`tgtMachine_${uid}`)?.value || '';
-
-    // 执行前确认弹窗
-    const detail = `操作: ${type}\n蓝图: ${bp}\n账号: ${accts.join(', ')}\n轮数: ${rounds}\n机器: ${machine || '自动分配'}`;
-    const confirmed = await confirmExecute(`即将在 ${accts.length} 个账号上执行 ${type} 操作`, detail);
-    if (!confirmed) { logEl.innerHTML = '<span style="color:var(--text2)">已取消</span>'; return; }
-
-    const params = { blueprint: bp, rounds };
-    if (type === 'comment') {
-      const url = document.getElementById(`url_${uid}`)?.value;
-      const text = document.getElementById(`text_${uid}`)?.value;
-      const corpus = document.getElementById(`corpus_${uid}`)?.value;
-      if (url) params.url = url;
-      if (text) params.text = text;
-      if (corpus) params.corpus = corpus;
-    }
-    if (machine) params.machine = machine;
-
-    logEl.innerHTML = '<span style="color:var(--text2)">⏳ 提交执行...</span>\n';
-    try {
-      const r = await fetch('/api/ops/run', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ type, accounts: accts, params }),
-      });
-      const d = await r.json();
-      let html = `<span style="color:var(--green)">✅ 已提交</span>\n`;
-      const cmds = d.commands || d.results || [];
-      cmds.forEach(c => {
-        const id = c.account || c.account_id || c.target || '?';
-        const st = c.status || c.machine || 'sent';
-        html += `  ${id}: ${st}\n`;
-      });
-      if (d.errors) html += `<span style="color:var(--red)">⚠️ 错误: ${JSON.stringify(d.errors)}</span>\n`;
-      logEl.innerHTML = html;
-    } catch(e) {
-      logEl.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
-    }
-  };
-
-  window[`_clearLog_${uid}`] = function() {
-    document.getElementById(`log_${uid}`).innerHTML = '<span style="color:var(--text2)">已清空</span>';
-  };
-
-  window[`_refCmd_${uid}`] = function() {
-    loadMachines(uid);
-    const logEl = document.getElementById(`log_${uid}`);
-    if (logEl) logEl.innerHTML = '<span style="color:var(--text2)">⟳ 已刷新</span>\n';
-  };
-
-  window[`_syncAll_${uid}`] = async function() {
-    const sl = document.getElementById(`statusLog_${uid}`);
-    if (sl) sl.textContent = '⏳ 同步中...';
-    try {
-      const r = await fetch('/api/fleet/sync', { method: 'POST' });
-      const d = await r.json();
-      if (sl) sl.textContent = '✅ 同步完成: ' + (d.message || JSON.stringify(d));
-    } catch(e) {
-      if (sl) sl.textContent = '❌ 同步失败: ' + e.message;
-    }
-  };
-}
-
-// ── 辅助函数 ──
-
-async function loadMachines(uid) {
-  try {
-    const r = await fetch('/api/machines');
-    const d = await r.json();
-    const machines = d.machines || [];
-    const sel = document.getElementById(`tgtMachine_${uid}`);
-    if (sel) {
-      sel.innerHTML = '<option value="">全部机器(自动分配)</option>' +
-        machines.map(m => `<option value="${m.hostname}">${m.hostname} ${m.status === 'online' ? '🟢' : '🔴'}</option>`).join('');
-      const online = machines.find(m => m.status === 'online');
-      if (!online && machines.length) sel.value = machines[0].hostname;
-    }
-    const ml = document.getElementById(`machineList_${uid}`);
-    if (ml) {
-      ml.innerHTML = machines.map(m =>
-        `<div style="background:var(--bg3);border-radius:6px;padding:6px 10px;border:1px solid var(--border);display:flex;align-items:center;gap:6px">
-          ${m.status === 'online' ? '🟢' : '🔴'}
-          <span style="font-weight:500">${m.hostname}</span>
-          <span style="font-size:10px;color:var(--text2)">${m.ip || m.tailscale_ip || ''}</span>
-          <span style="font-size:10px;color:${m.status === 'online' ? 'var(--green)' : 'var(--red)'}">${m.status || '?'}</span>
-        </div>`
-      ).join('');
-    }
-  } catch(e) {
-    const sel = document.getElementById(`tgtMachine_${uid}`);
-    if (sel) sel.innerHTML = '<option value="">加载失败</option>';
-  }
-}
-
-async function loadBlueprints(uid) {
-  try {
-    const r = await fetch('/api/matrix/blueprints');
-    const d = await r.json();
-    const bps = Array.isArray(d) ? d : (d.blueprints || []);
-    const sel = document.getElementById(`bpSelect_${uid}`);
-    if (sel) {
-      sel.innerHTML = bps.map(bp => {
-        const val = bp.file ? bp.file.replace('.json','') : bp.name;
-        const label = `${bp.name} — ${(bp.description || '').slice(0,36)}`;
-        return `<option value="${val}">${label}</option>`;
-      }).join('');
-    }
-  } catch(e) {
-    const sel = document.getElementById(`bpSelect_${uid}`);
-    if (sel) sel.innerHTML = '<option value="">加载失败</option>';
-  }
-}
-
-async function loadAccounts(uid) {
-  try {
-    const r = await fetch('/api/matrix/accounts');
-    const d = await r.json();
-    const accts = Array.isArray(d) ? d : (d.accounts || []);
-    const el = document.getElementById(`acctList_${uid}`);
-    if (!el) return;
-    el.innerHTML = accts.map(a => {
-      const pid = `acct_${uid}_${a.id}`;
-      return `<label style="display:flex;align-items:center;gap:4px;padding:2px 0;cursor:pointer">
-        <input type="checkbox" id="${pid}" value="${a.id}" onchange="window._updateCount_${uid}()">
-        <span>${a.id}</span>
-        <span style="font-size:10px;color:var(--text2)">${a.platform || ''}</span>
-        <span style="font-size:10px;color:${a._status === 'logged_in' ? 'var(--green)' : 'var(--red)'}">${a._status === 'logged_in' ? '🟢' : a._status === 'remote' ? '🟡远程' : '🔴离线'}</span>
-      </label>`;
-    }).join('');
-    window[`_updateCount_${uid}`] = function() {
-      const checked = document.querySelectorAll(`#acctList_${uid} input:checked`).length;
-      const sc = document.getElementById(`selCount_${uid}`);
-      if (sc) sc.textContent = `已选 ${checked} 个`;
+  // 注册全局函数
+  if (!window._cmdRegistered) {
+    window._cmdRegistered = true;
+    window._cmdRefresh = () => refreshView(container);
+    window._cmdToggleAuto = () => {
+      if (document.getElementById('cmdAutoRefresh')?.checked) {
+        startAutoRefresh(container);
+      } else {
+        stopAutoRefresh();
+      }
     };
-    window[`_updateCount_${uid}`]();
-  } catch(e) {
-    const el = document.getElementById(`acctList_${uid}`);
-    if (el) el.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
+  }
+
+  // 首轮加载
+  await refreshView(container);
+  startAutoRefresh(container);
+}
+
+export function unloadView() {
+  stopAutoRefresh();
+}
+
+function startAutoRefresh(container) {
+  stopAutoRefresh();
+  _pollTimer = setInterval(() => {
+    if (document.getElementById('cmdAutoRefresh')?.checked) {
+      refreshView(container, true);
+    }
+  }, 15000);
+}
+
+function stopAutoRefresh() {
+  if (_pollTimer) {
+    clearInterval(_pollTimer);
+    _pollTimer = null;
   }
 }
 
-function getSelectedAccounts(uid) {
-  return [...document.querySelectorAll(`#acctList_${uid} input:checked`)].map(el => el.value);
+async function refreshView(container, silent = false) {
+  try {
+    // 并行获取所有数据
+    const [queueData, machineData] = await Promise.all([
+      apiRequest('/api/ops/queue'),
+      apiRequest('/api/ops/machines'),
+    ]);
+
+    if (!silent) {
+      document.getElementById('cmdLastUpdate').textContent = `最后更新: ${new Date().toLocaleTimeString()}`;
+    }
+
+    renderMachines(queueData, machineData);
+    renderQueueDetail(queueData);
+  } catch (e) {
+    if (!silent) {
+      document.getElementById('cmdQueueDetail').innerHTML = `<div style="color:#ef4444;font-size:12px">❌ 加载失败: ${e.message}</div>`;
+    }
+  }
+}
+
+function renderMachines(queueData, machineData) {
+  const overview = document.getElementById('cmdMachineOverview');
+  const machineFilter = document.getElementById('cmdMachineFilter');
+  const machines = queueData?.machines || {};
+  const allMachineStatus = machineData?.machines || {};
+  
+  // 更新机器筛选下拉
+  const currentFilter = machineFilter.value;
+  machineFilter.innerHTML = '<option value="all">全部</option>';
+  
+  let html = '';
+  let idx = 0;
+  for (const [name, status] of Object.entries(machines)) {
+    machineFilter.innerHTML += `<option value="${name}">${name}</option>`;
+    
+    const slots = status?.slots || {};
+    const active = status?.tasks?.active || null;
+    const counts = status?.tasks?.counts || {};
+    const isOnline = !status?.error;
+    const usedSlots = slots?.used || 0;
+    const maxSlots = slots?.max || 3;
+    const statusIcon = isOnline ? (usedSlots > 0 ? '🟢' : '🟢') : '🔴';
+    
+    html += `
+      <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-weight:600;font-size:12px">${statusIcon} ${name}</div>
+          <div style="font-size:10px;color:var(--text2)">${usedSlots}/${maxSlots} 槽位</div>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:4px">
+          ${Array.from({length: maxSlots}, (_, i) => {
+            const slot = slots?.slots?.find(s => s.slot_id === i);
+            const active2 = slot && slot.account_id;
+            return `<div style="width:28px;height:28px;border-radius:6px;background:${active2 ? '#22c55e' : 'var(--bg3)'};border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:8px;color:${active2 ? '#000' : 'var(--text2)'}">${active2 ? slot.account_id.slice(-3) : '∅'}</div>`;
+          }).join('')}
+        </div>
+        ${active ? `
+          <div style="font-size:10px;color:var(--text);background:var(--bg3);border-radius:4px;padding:4px 6px;margin-top:4px">
+            <div><strong>${active.cmd_type || '?'}</strong> · ${active.account || ''}</div>
+            <div style="color:var(--text2)">${active.blueprint || ''} · ${active.progress?.current_step || ''} (${active.progress?.step_index || 0}/${active.progress?.total_steps || '?'})</div>
+          </div>
+        ` : `
+          <div style="font-size:10px;color:var(--text2);margin-top:4px">空闲</div>
+        `}
+        <div style="font-size:9px;color:var(--text2);margin-top:4px">
+          ${counts?.running ? `▶️运行:${counts.running}` : ''}
+          ${counts?.queued ? ` ⏳排队:${counts.queued}` : ''}
+          ${counts?.completed ? ` ✅完成:${counts.completed}` : ''}
+          ${counts?.failed ? ` ❌失败:${counts.failed}` : ''}
+        </div>
+      </div>`;
+    idx++;
+  }
+  
+  overview.innerHTML = html;
+  if (currentFilter) machineFilter.value = currentFilter;
+}
+
+function renderQueueDetail(queueData) {
+  const detail = document.getElementById('cmdQueueDetail');
+  const filterValue = document.getElementById('cmdMachineFilter')?.value || 'all';
+  const machines = queueData?.machines || {};
+  
+  let html = '';
+  for (const [name, status] of Object.entries(machines)) {
+    if (filterValue !== 'all' && name !== filterValue) continue;
+    
+    const active = status?.tasks?.active || null;
+    const queued = status?.tasks?.queued || [];
+    const counts = status?.tasks?.counts || {};
+    const slots = status?.slots?.slots || [];
+    
+    html += `
+      <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border);margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-weight:600;font-size:13px">${name}</div>
+          <div style="font-size:10px;color:var(--text2)">队列: ${queued.length} | 完成: ${counts.completed||0} | 失败: ${counts.failed||0}</div>
+        </div>
+        
+        ${active ? `
+          <div style="background:var(--bg3);border-radius:6px;padding:8px;margin-bottom:6px;border-left:3px solid #22c55e">
+            <div style="display:flex;justify-content:space-between">
+              <div><span style="font-size:10px;background:#ef4444;color:#fff;padding:1px 5px;border-radius:3px;margin-right:4px">P0</span><strong style="font-size:12px">${active.cmd_type || ''}</strong></div>
+              <div style="font-size:10px;color:var(--text2)">⏱ ${active.elapsed_sec ? Math.floor(active.elapsed_sec/60)+'分' : '刚刚'}</div>
+            </div>
+            <div style="font-size:11px;margin-top:4px">账号: ${active.account || ''}</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:2px">蓝图: ${active.blueprint || ''}</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:2px">当前: ${active.progress?.current_step || ''} (${active.progress?.step_index || 0}/${active.progress?.total_steps || '?'})</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:2px">状态: ${active.status || ''}</div>
+          </div>
+        ` : `
+          <div style="background:var(--bg3);border-radius:6px;padding:8px;margin-bottom:6px;color:var(--text2);font-size:11px">当前无活跃任务</div>
+        `}
+        
+        ${slots.length > 0 ? `
+          <div style="display:grid;grid-template-columns:repeat(${Math.min(slots.length,3)},1fr);gap:4px;margin-bottom:6px">
+            ${slots.map(s => `
+              <div style="background:${s.account_id ? '#22c55e20' : 'var(--bg3)'};border-radius:4px;padding:6px;border:1px solid var(--border);font-size:9px">
+                <div style="font-weight:600">槽位${s.slot_id+1}</div>
+                <div>${s.account_id || '空闲'}</div>
+                ${s.current_step ? `<div style="color:var(--text2)">${s.current_step}</div>` : ''}
+                ${s.elapsed_sec ? `<div style="color:var(--text2)">${Math.floor(s.elapsed_sec/60)}分</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        
+        ${queued.length > 0 ? `
+          <div style="font-size:10px;color:var(--text2);margin-bottom:4px">⏳ 排队中 (${queued.length})</div>
+          ${queued.slice(0,10).map(q => {
+            const pri = q.priority === 0 ? '🔴' : q.priority === 1 ? '🟢' : '⚪';
+            const label = q.priority === 0 ? 'P0优先' : q.priority === 1 ? 'P1日常' : 'P2闲时';
+            return `<div style="font-size:10px;padding:2px 4px;background:var(--bg3);border-radius:3px;margin-bottom:2px">${pri} [${label}] ${q.task_id?.slice(0,40) || ''}</div>`;
+          }).join('')}
+        ` : '<div style="font-size:10px;color:var(--text2)">队列为空</div>'}
+      </div>`;
+  }
+  
+  detail.innerHTML = html || '<div style="color:var(--text2);font-size:12px;text-align:center;padding:20px">没有机器数据</div>';
 }

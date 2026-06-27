@@ -221,3 +221,51 @@ def api_ops_log(run_id: str):
             tail = f.read_text(encoding="utf-8", errors="replace")[-5000:]
             return {"run_id": run_id, "log": tail, "path": str(f)}
     return {"run_id": run_id, "log": "", "path": ""}
+
+
+@router.get(/queue)
+def api_ops_queue(machine: str = None):
+    """查看各机任务队列详情（含活跃任务、排队、槽位）"""
+    from services.command_bus import _guardd_api
+    machines = [machine] if machine else []
+    if not machines:
+        try:
+            import yaml
+            from pathlib import Path
+            oracle = yaml.safe_load(Path(__import__("os").environ.get("AGENT_SYNC", str(Path.home() / "workbuddy-agent-os" / "agent-sync")) / "ORACLE.yaml").read_text())
+            machines = list(oracle.get("machines", {}).keys())
+        except:
+            machines = [__import__("utils.identity", fromlist=["resolve_hostname"]).resolve_hostname()]
+    
+    results = {}
+    for m in machines:
+        try:
+            data = _guardd_api("GET", "/scheduler/tasks", machine=m)
+            results[m] = data if data else {"error": "guardd 不可达"}
+        except Exception as e:
+            results[m] = {"error": str(e)}
+    return {"machines": results}
+
+
+@router.post(/task/cancel)
+def api_ops_task_cancel(data: dict = {}):
+    """取消任务 — 发送到对应机器的 guardd"""
+    task_id = data.get("task_id", "")
+    machine = data.get("machine", "")
+    if not task_id:
+        return {"status": "error", "message": "task_id 必填"}
+    from services.command_bus import _guardd_api
+    result = _guardd_api("POST", f"/task/{task_id}/stop", {}, machine=machine)
+    return {"status": "ok", "task_id": task_id, "result": result}
+
+
+@router.post(/task/submit)
+def api_ops_task_submit(data: dict = {}):
+    """提交任务到调度器 — 发到目标机器的 guardd"""
+    task = data.get("task", {})
+    machine = data.get("machine", "")
+    if not task.get("task_id"):
+        return {"status": "error", "message": "task.task_id 必填"}
+    from services.command_bus import _guardd_api
+    result = _guardd_api("POST", "/scheduler/submit", task, machine=machine)
+    return {"status": "accepted", "result": result}
