@@ -432,6 +432,280 @@ class BrowserSlotManager:
 冲突检测确保: 同账号不分配到两个浏览器实例 → 避免指纹冲突和封号风险
 
 
+
+### 6.6 任务执行状态实时追踪（深潜分析）
+
+#### 当前问题：状态可见性存在断层
+
+| 层级 | 当前有什么 | 缺什么 | 原因 |
+|:-----|:----------|:-------|:------|
+| **mc engine** | 每步执行后 log 输出到 stdout，含 account_id + step_name + 耗时 | 没有标准化的进度事件，只有文本日志 | engine.py 用 `log.info()` 而非结构化事件 |
+| **nurture_runner.sh** | 执行完毕后写一份 JSON 结果文件到 `runtime/nurture/results/` | 执行过程中没有中间状态写入 | 只在 `exit` 时写结果 |
+| **guardd 心跳** | `current_task` 字段来自 `last_run.json` | 没有 per-account 粒度，没有当前步骤 | `last_run.json` 只在任务切换时更新 |
+| **Dashboard** | `CommandBus.get_status()` 返回命令级状态 | 看不到每个账号的进度，看不到当前步骤 | 状态聚合只有命令级，没有 account 级 |
+
+#### 改造后：三层实时状态 pipeline
+
+```
+mc engine (每步执行后)
+  │  emit_progress(account_id, step_id, step_name, success, detail)
+  ▼
+executor.py (guardd 模块)
+  │  write to task_store: task.progress.current_step += 1
+  │  update slot_manager: slot[0].current_step = "post_comment"
+  ▼
+guardd 心跳 (每15秒)
+  │  collect task_store + slot_manager → 结构化状态
+  ▼
+Dashboard (每15秒拉取)
+  │  聚合显示各机实时状态
+```
+
+#### executor.py 的进度回传协议
+
+```python
+# executor.py — 执行 mc run 时实时解析输出
+class Executor:
+    async def execute(self, task: Task):
+        proc = await asyncio.create_subprocess_exec(
+            "python3", "-m", "mc", "run",
+            f"--accounts={task.accounts[0]}",
+            f"--blueprints={task.blueprint}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        
+        # 实时解析 stdout，每行都尝试提取进度信息
+        async for line in proc.stdout:
+            text = line.decode().strip()
+            
+            # 提取账号信息
+            if "📱" in text:
+                # "📱 douyin_136 (douyin) → interact_comment (5步)"
+                account = self._extract_account(text)
+                blueprint = self._extract_blueprint(text)
+                self._update_task_progress(task.task_id, account, blueprint)
+            
+            # 提取步骤结果
+            elif "✅" in text or "❌" in text:
+                # "✅ [ 4] post_comment       → ok (12.5s)"
+                step = self._extract_step(text)
+                self._update_step_progress(task.task_id, step)
+            
+            # 提取完成状态
+            elif "📊" in text:
+                # "📊 执行完成: 成功 5, 失败 0, 耗时 125s"
+                self._finalize_task(task.task_id, text)
+        
+        # 保存完整日志
+        self.task_store.save_log(task.task_id, log_text)
+```
+
+#### guardd 心跳中的任务状态（升级后）
+
+```json
+{
+  "hostname": "chengzigedeAir",
+  "status": "online",
+  "tasks": {
+    "active": {
+      "task_id": "nurture_20260627_001",
+      "type": "scheduled",
+      "accounts_running": [
+        {
+          "account_id": "douyin_136",
+          "slot_id": 1,
+          "blueprint": "interact_comment",
+          "current_step": "post_comment",
+          "step_index": 4,
+          "total_steps": 5,
+          "elapsed_sec": 82,
+          "steps_success": 3,
+          "steps_failed": 0,
+          "status": "running"
+        },
+        {
+          "account_id": "douyin_137",
+          "slot_id": 2,
+          "blueprint": "douyin_daily",
+          "current_step": "like",
+          "step_index": 3,
+          "total_steps": 7,
+          "elapsed_sec": 145,
+          "steps_success": 2,
+          "steps_failed": 0,
+          "status": "running"
+        }
+      ],
+      "queued_accounts": ["douyin_138", "douyin_139"],
+      "alerts": []
+    },
+    "queued": [{"task_id": "interact_002", "type": "priority", "estimated_start": "13:00"}],
+    "completed_today": 3,
+    "failed_today": 0
+  },
+  "slots": {
+    "max": 3,
+    "used": 2,
+    "list": [
+      {"slot_id": 0, "account_id": "douyin_136", "identity_dir": "phone_15370103682", "pid": 82345, "current_step": "post_comment", "elapsed_sec": 82},
+      {"slot_id": 1, "account_id": "douyin_137", "identity_dir": "phone_15370103683", "pid": 82346, "current_step": "like", "elapsed_sec": 145},
+      {"slot_id": 2, "account_id": null, "identity_dir": null, "pid": null, "current_step": null}
+    ]
+  }
+}
+```
+
+#### 指挥台上的显示效果
+
+每条运行中的任务展开后：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 🔴 [P0 优先] 定向评论              13:00:23  运行 1分22秒  │
+│                                                              │
+│  ├─ 🎯 视频: https://www.douyin.com/video/xxx               │
+│  ├─ 📋 蓝图: interact_comment (5步)                        │
+│  │                                                          │
+│  ├─ 🟢 槽位1: douyin_136 (phone_15370103682)               │
+│  │   ├─ 当前: [4/5] post_comment ████████░░ 80%            │
+│  │   └─ 已完: ✅goto_url ✅wait_watch ✅open_comments       │
+│  │                                                          │
+│  ├─ ⏳ 排队: [douyin_138] [douyin_139] [douyin_140]        │
+│  │                                                          │
+│  └─ 📊 统计: 成功 3 | 失败 0 | 总耗时 82秒                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+
+### 6.7 浏览器账号/蓝图/脚本运行状态（深潜分析）
+
+#### 当前问题：浏览器层面完全黑盒
+
+| 问题 | 影响 |
+|:-----|:------|
+| 不知道每个浏览器在跑哪个账号 | 无法判断"douyin_136 是否在线" |
+| 不知道每个浏览器用哪个身份目录 | 身份目录 = 指纹，出问题无法定位 |
+| 不知道浏览器进程是否存活 | 进程挂了槽位还在占用，资源浪费 |
+| 不知道浏览器内存/CPU消耗 | 无法判断"是否需要减少并发浏览器数" |
+| 没有浏览器健康度评分 | 频繁崩溃的浏览器需要重建身份目录 |
+
+#### 改造后：BrowserSlotManager 上报完整状态
+
+每个浏览器槽位的状态包含：
+
+```python
+@dataclass
+class SlotStatus:
+    """单个浏览器槽位的完整状态"""
+    slot_id: int
+    account_id: Optional[str]           # 当前运行的账号
+    identity_dir: Optional[str]          # 身份目录名（=指纹ID）
+    pid: Optional[int]                   # 浏览器进程PID
+    blueprint: Optional[str]             # 当前执行的蓝图
+    current_step: Optional[str]          # 当前原子操作
+    step_index: int = 0                  # 步骤序号
+    total_steps: int = 0                 # 总步骤数
+    elapsed_sec: int = 0                 # 已运行秒数
+    started_at: Optional[float] = None   # 开始时间戳
+    cpu_percent: float = 0.0             # 进程CPU占用
+    memory_mb: float = 0.0              # 进程内存占用
+    health: str = "healthy"              # healthy / warning / crashed
+    last_heartbeat: Optional[float] = None  # 上次活跃时间
+```
+
+#### SlotManager 的浏览器健康检查
+
+```python
+class BrowserSlotManager:
+    def check_health(self):
+        """每轮 cycle 检查所有浏览器进程健康状态"""
+        for slot in self.slots:
+            if not slot or not slot["pid"]:
+                continue
+            
+            # 检查进程是否存在
+            try:
+                os.kill(slot["pid"], 0)  # 发空信号测存活
+            except OSError:
+                slot["health"] = "crashed"
+                slot["account_id"] = None
+                self._report_crash(slot)
+                continue
+            
+            # 检查进程 CPU/内存
+            try:
+                r = subprocess.run(
+                    ["ps", "-p", str(slot["pid"]), "-o", "%cpu=,%mem=,rss="],
+                    capture_output=True, text=True, timeout=3
+                )
+                parts = r.stdout.strip().split()
+                if len(parts) >= 3:
+                    slot["cpu_percent"] = float(parts[0])
+                    slot["memory_mb"] = float(parts[2]) / 1024
+                    slot["health"] = "healthy" if float(parts[0]) < 80 else "warning"
+            except:
+                pass
+```
+
+#### 指挥台上的浏览器状态面板
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🌐 chengzigedeAir — 浏览器状态             3槽/3最大      │
+│                                                              │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐                     │
+│  │ 🟢 槽位1 │  │ 🟢 槽位2 │  │ ⚪ 槽位3 │                     │
+│  │         │  │         │  │         │                     │
+│  │ 账号:   │  │ 账号:   │  │ 空闲    │                     │
+│  │ douyin  │  │ douyin  │  │         │                     │
+│  │ _136    │  │ _137    │  │         │                     │
+│  │         │  │         │  │         │                     │
+│  │ 📋      │  │ 📋      │  │         │                     │
+│  │ interact│  │ douyin  │  │         │                     │
+│  │ _comment│  │ _daily  │  │         │                     │
+│  │         │  │         │  │         │                     │
+│  │ ⏱ 1分22 │  │ ⏱ 2分25 │  │         │                     │
+│  │ 🔄 4/5步│  │ 🔄 3/7步│  │         │                     │
+│  │ 💾 220MB│  │ 💾 185MB│  │         │                     │
+│  └─────────┘  └─────────┘  └─────────┘                     │
+│                                                              │
+│  📊 总内存: 620MB/16GB | CPU: 23% | 浏览器进程: 2/3         │
+│  ⚠️ 告警: douyin_136 登录已过期（需重新登录）               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 账号健康度追踪
+
+每执行完一个任务，更新账号状态到 task_store：
+
+```json
+{
+  "account_id": "douyin_136",
+  "last_seen": "2026-06-27T13:05:23Z",
+  "last_machine": "chengzigedeAir",
+  "last_blueprint": "interact_comment",
+  "last_result": "completed",
+  "health": "login_expired",
+  "health_detail": "登录态过期，本次执行已自动重登成功",
+  "tasks_today": 5,
+  "failed_today": 0,
+  "banned": false
+}
+```
+
+当 `health` 为 `banned` 或 `login_expired` 时，指挥台告警中心高亮显示。调度器在分配任务时跳过健康度异常的账号，避免无效执行。
+
+#### 框架评估：是否合适？
+
+**当前文档的调度层设计基本覆盖了需求**，但以下三点需要加强：
+
+| 缺失项 | 补充建议 | 优先级 |
+|:-------|:---------|:-------|
+| **executor 实时进度解析** | 文档只说了 executor "调 mc run"，没说"实时解析 stdout 提取进度"。需要在 executor.py 中增加 stdout 逐行解析逻辑 | P0 — 否则指挥台看不到实时进度 |
+| **浏览器进程健康巡检** | slot_manager 的 health check 需要增加 CPU/内存采集和 crash 检测 | P0 — 否则浏览器进程挂了都不知道 |
+| **账号健康度持久化** | 每次任务完成后更新账号状态到 task_store，供调度器决策"这个账号还适不适合分配任务" | P1 — 否则会一直给封号账号发任务 |
+
 ---
 
 ## 七、恢复 guardd 的增强方案
