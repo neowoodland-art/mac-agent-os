@@ -69,6 +69,9 @@ export function tryLoadView(viewName) {
   return true;
 }
 
+// 暴露到 window，供电线函数 switchView() 使用
+window.tryLoadView = tryLoadView;
+
 // ── 工具函数 ──
 
 export function showLoading(el, msg = '⏳ 加载中...') {

@@ -1031,19 +1031,29 @@ def cmd_smart_login(args):
             cookie_file = identity_path / "cookies.sqlite"
             
             if cookie_file.exists():
-                import sqlite3
+                import sqlite3, time
                 try:
                     conn = sqlite3.connect(str(cookie_file), timeout=3)
-                    cur = conn.execute(
+                    now = int(time.time())
+                    # 查 session cookie 数量 + 检查是否有未过期的
+                    valid = conn.execute(
+                        "SELECT count(*) FROM moz_cookies WHERE name LIKE '%session%' AND expiry > ?",
+                        (now,)
+                    ).fetchone()[0]
+                    total = conn.execute(
                         "SELECT count(*) FROM moz_cookies WHERE name LIKE '%session%'"
-                    )
-                    session_count = cur.fetchone()[0]
+                    ).fetchone()[0]
+                    expired = total - valid
                     conn.close()
                     
-                    if session_count > 0:
-                        print(f"\n  ✅ 已检测到登录态 (session cookie x{session_count})")
-                        print(f"     如需重新登录请使用 --skip-check 参数")
+                    if valid > 0:
+                        print(f"\n  ✅ 已检测到有效登录态 (session cookie {valid}/{total} 有效)")
+                        if expired > 0:
+                            print(f"     ⚠️ 有 {expired} 个已过期 cookie 被忽略")
                         return
+                    elif total > 0 and valid == 0:
+                        print(f"\n  ⚠️ 检测到 {total} 个 session cookie 但全部过期，重新登录")
+                        # 继续执行登录流程
                 except Exception:
                     pass
         except Exception:

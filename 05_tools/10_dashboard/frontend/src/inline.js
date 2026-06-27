@@ -144,7 +144,10 @@ function switchView(view) {
     if (pv) pv.classList.remove('hidden');
   }
 
-  // 所有视图已迁移，由 views/*.js 的 loadView 接管
+  // 尝试加载已迁移视图（由 views/*.js 的 loadView 接管）
+  if (window.tryLoadView) {
+    window.tryLoadView(view);
+  }
 }
 
 // ── Stats ──
