@@ -1,4 +1,4 @@
-import{t as e}from"./index-C-WiGmst.js";var t=null;async function n(t){t.innerHTML=`
+import{t as e}from"./index-D4oTmJhH.js";var t=null;async function n(t){t.innerHTML=`
     <div style="padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-weight:700;font-size:16px">🚀 联邦指挥台</div>
@@ -10,6 +10,15 @@ import{t as e}from"./index-C-WiGmst.js";var t=null;async function n(t){t.innerHT
             <input type="checkbox" id="cmdAutoRefresh" checked onchange="window._cmdToggleAuto()"> 自动刷新(15s)
           </label>
         </div>
+      </div>
+
+      <!-- 账号健康度面板 -->
+      <div id="cmdHealthPanel" style="background:var(--bg2);border-radius:8px;padding:8px;border:1px solid var(--border);margin-bottom:8px;display:none">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <div style="font-weight:600;font-size:12px">🩺 账号健康度</div>
+          <button onclick="document.getElementById('cmdHealthPanel').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text2)">✕</button>
+        </div>
+        <div id="cmdHealthList" style="font-size:10px;max-height:120px;overflow-y:auto">加载中...</div>
       </div>
 
       <!-- 三机状态总览 -->
@@ -39,7 +48,7 @@ import{t as e}from"./index-C-WiGmst.js";var t=null;async function n(t){t.innerHT
 
       <!-- 各机详细队列 -->
       <div id="cmdQueueDetail"></div>
-    </div>`,window._cmdRegistered||(window._cmdRegistered=!0,window._cmdRefresh=()=>o(t),window._cmdStop=async(n,r)=>{if(confirm(`确定停止任务 `+r+` ？`))try{await e(`/ops/task/cancel`,{method:`POST`,body:JSON.stringify({task_id:r,machine:n})}),alert(`✅ 已发送停止指令`),o(t)}catch(e){alert(`❌ 停止失败: `+e.message)}},window._cmdReset=async()=>{if(confirm(`确定重置所有机器？将清空任务队列、终止运行中的任务。`))try{let n=await e(`/ops/reset`,{method:`POST`,body:`{}`});alert(`✅ 已重置: `+JSON.stringify(n.machines)),o(t)}catch(e){alert(`❌ 重置失败: `+e.message)}},window._cmdToggleAuto=()=>{document.getElementById(`cmdAutoRefresh`)?.checked?i(t):a()}),await o(t),i(t)}function r(){a()}function i(e){a(),t=setInterval(()=>{document.getElementById(`cmdAutoRefresh`)?.checked&&o(e,!0)},15e3)}function a(){t&&=(clearInterval(t),null)}async function o(t,n=!1){try{let[t,r]=await Promise.all([e(`/ops/queue`),e(`/ops/machines`)]);n||(document.getElementById(`cmdLastUpdate`).textContent=`最后更新: ${new Date().toLocaleTimeString()}`),c(t),s(t,r),l(t)}catch(e){n||(document.getElementById(`cmdQueueDetail`).innerHTML=`<div style="color:#ef4444;font-size:12px">❌ 加载失败: ${e.message}</div>`)}}function s(e,t){let n=document.getElementById(`cmdMachineOverview`),r=document.getElementById(`cmdMachineFilter`),i=e?.machines||{};t?.machines;let a=r.value;r.innerHTML=`<option value="all">全部</option>`;let o=``,s=0;for(let[e,t]of Object.entries(i)){r.innerHTML+=`<option value="${e}">${e}</option>`;let n=t?.slots||{},i=t?.tasks?.active||null,a=t?.tasks?.counts||{},c=!t?.error,l=n?.used||0,u=n?.max||3;o+=`
+    </div>`,window._cmdRegistered||(window._cmdRegistered=!0,window._cmdRefresh=()=>o(t),window._cmdMoveUp=(e,t)=>{},window._cmdMoveDown=(e,t)=>{},window._cmdRemoveQueue=async(e,t)=>{confirm(`确定从队列中移除此任务？`)&&alert(`移出队列功能待实现`)},window._cmdStop=async(n,r)=>{if(confirm(`确定停止任务 `+r+` ？`))try{await e(`/ops/task/cancel`,{method:`POST`,body:JSON.stringify({task_id:r,machine:n})}),alert(`✅ 已发送停止指令`),o(t)}catch(e){alert(`❌ 停止失败: `+e.message)}},window._cmdReset=async()=>{if(confirm(`确定重置所有机器？将清空任务队列、终止运行中的任务。`))try{let n=await e(`/ops/reset`,{method:`POST`,body:`{}`});alert(`✅ 已重置: `+JSON.stringify(n.machines)),o(t)}catch(e){alert(`❌ 重置失败: `+e.message)}},window._cmdToggleAuto=()=>{document.getElementById(`cmdAutoRefresh`)?.checked?i(t):a()}),await o(t),i(t)}function r(){a()}function i(e){a(),t=setInterval(()=>{document.getElementById(`cmdAutoRefresh`)?.checked&&o(e,!0)},15e3)}function a(){t&&=(clearInterval(t),null)}async function o(t,n=!1){try{let[t,r,i]=await Promise.all([e(`/ops/queue`),e(`/ops/machines`),e(`/matrix/accounts`).catch(()=>[])]);s(i),n||(document.getElementById(`cmdLastUpdate`).textContent=`最后更新: ${new Date().toLocaleTimeString()}`),l(t),c(t,r),u(t)}catch(e){n||(document.getElementById(`cmdQueueDetail`).innerHTML=`<div style="color:#ef4444;font-size:12px">❌ 加载失败: ${e.message}</div>`)}}function s(e){let t=document.getElementById(`cmdHealthPanel`),n=document.getElementById(`cmdHealthList`);if(!t||!n||!Array.isArray(e)||e.length===0)return;let r=e.filter(e=>e.status===`banned`||e.status===`login_expired`);if(r.length===0){t.style.display=`none`;return}t.style.display=`block`,n.innerHTML=r.map(e=>`<div style="padding:2px 0;color:#ef4444">⚠️ `+(e.platform||`?`)+` `+(e.id||`?`)+` — `+(e.status||`unknown`)+`</div>`).join(``)}function c(e,t){let n=document.getElementById(`cmdMachineOverview`),r=document.getElementById(`cmdMachineFilter`),i=e?.machines||{};t?.machines;let a=r.value;r.innerHTML=`<option value="all">全部</option>`;let o=``,s=0;for(let[e,t]of Object.entries(i)){r.innerHTML+=`<option value="${e}">${e}</option>`;let n=t?.slots||{},i=t?.tasks?.active||null,a=t?.tasks?.counts||{},c=!t?.error,l=n?.used||0,u=n?.max||3;o+=`
       <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <div style="font-weight:600;font-size:12px">${c?`🟢`:`🔴`} ${e}</div>
@@ -62,7 +71,7 @@ import{t as e}from"./index-C-WiGmst.js";var t=null;async function n(t){t.innerHT
           ${a?.completed?` ✅完成:${a.completed}`:``}
           ${a?.failed?` ❌失败:${a.failed}`:``}
         </div>
-      </div>`,s++}n.innerHTML=o,a&&(r.value=a)}function c(e){let t=document.getElementById(`cmdAlerts`),n=document.getElementById(`cmdAlertsList`);if(!t||!n)return;let r=[],i=e?.machines||{};for(let[e,t]of Object.entries(i)){let n=t?.tasks?.active||null,i=t?.tasks?.counts||{};t?.error&&r.push({machine:e,type:`error`,msg:`不可达: `+t.error}),n?.status===`failed`&&r.push({machine:e,type:`failed`,msg:`任务失败: `+n.task_id}),i?.failed>0&&r.push({machine:e,type:`failed_count`,msg:i.failed+` 个任务失败`})}r.length>0?(t.style.display=`block`,n.innerHTML=r.map(e=>`<div style="padding:2px 0">⚠️ [`+e.machine+`] `+e.msg+`</div>`).join(``)):t.style.display=`none`}function l(e){let t=document.getElementById(`cmdQueueDetail`),n=document.getElementById(`cmdMachineFilter`)?.value||`all`,r=e?.machines||{},i=``;for(let[e,t]of Object.entries(r)){if(n!==`all`&&e!==n)continue;let r=t?.tasks?.active||null,a=t?.tasks?.queued||[],o=t?.tasks?.counts||{},s=t?.slots?.slots||[];i+=`
+      </div>`,s++}n.innerHTML=o,a&&(r.value=a)}function l(e){let t=document.getElementById(`cmdAlerts`),n=document.getElementById(`cmdAlertsList`);if(!t||!n)return;let r=[],i=e?.machines||{};for(let[e,t]of Object.entries(i)){let n=t?.tasks?.active||null,i=t?.tasks?.counts||{};t?.error&&r.push({machine:e,type:`error`,msg:`不可达: `+t.error}),n?.status===`failed`&&r.push({machine:e,type:`failed`,msg:`任务失败: `+n.task_id}),i?.failed>0&&r.push({machine:e,type:`failed_count`,msg:i.failed+` 个任务失败`})}r.length>0?(t.style.display=`block`,n.innerHTML=r.map(e=>`<div style="padding:2px 0">⚠️ [`+e.machine+`] `+e.msg+`</div>`).join(``)):t.style.display=`none`}function u(e){let t=document.getElementById(`cmdQueueDetail`),n=document.getElementById(`cmdMachineFilter`)?.value||`all`,r=e?.machines||{},i=``;for(let[e,t]of Object.entries(r)){if(n!==`all`&&e!==n)continue;let r=t?.tasks?.active||null,a=t?.tasks?.queued||[],o=t?.tasks?.counts||{},s=t?.slots?.slots||[];i+=`
       <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border);margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <div style="font-weight:600;font-size:13px">${e}</div>
@@ -98,7 +107,14 @@ import{t as e}from"./index-C-WiGmst.js";var t=null;async function n(t){t.innerHT
         `:``}
         
         ${a.length>0?`
-          <div style="font-size:10px;color:var(--text2);margin-bottom:4px">⏳ 排队中 (${a.length})</div>
-          ${a.slice(0,10).map(e=>`<div style="font-size:10px;padding:2px 4px;background:var(--bg3);border-radius:3px;margin-bottom:2px">${e.priority===0?`🔴`:e.priority===1?`🟢`:`⚪`} [${e.priority===0?`P0优先`:e.priority===1?`P1日常`:`P2闲时`}] ${e.task_id?.slice(0,40)||``}</div>`).join(``)}
+          <div style="font-size:10px;color:var(--text2);margin-bottom:4px">⏳ 排队中 (${a.length}) <span style="font-size:9px;color:var(--text2);margin-left:8px">(拖拽调整顺序功能开发中)</span></div>
+          ${a.slice(0,10).map((t,n)=>`<div style="font-size:10px;padding:2px 4px;background:var(--bg3);border-radius:3px;margin-bottom:2px;display:flex;justify-content:space-between">
+              <span>${t.priority===0?`🔴`:t.priority===1?`🟢`:`⚪`} [${t.priority===0?`P0优先`:t.priority===1?`P1日常`:`P2闲时`}] ${t.task_id?.slice(0,40)||``}</span>
+              <span>
+                <button onclick="window._cmdMoveUp('${e}',${n})" style="background:none;border:none;cursor:pointer;font-size:9px;color:var(--text2)">↑</button>
+                <button onclick="window._cmdMoveDown('${e}',${n})" style="background:none;border:none;cursor:pointer;font-size:9px;color:var(--text2)">↓</button>
+                <button onclick="window._cmdRemoveQueue('${e}',${n})" style="background:none;border:none;cursor:pointer;font-size:9px;color:#ef4444">✕</button>
+              </span>
+            </div>`).join(``)}
         `:`<div style="font-size:10px;color:var(--text2)">队列为空</div>`}
       </div>`}t.innerHTML=i||`<div style="color:var(--text2);font-size:12px;text-align:center;padding:20px">没有机器数据</div>`}export{n as loadView,r as unloadView};

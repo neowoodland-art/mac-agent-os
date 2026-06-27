@@ -22,6 +22,15 @@ export async function loadView(container) {
         </div>
       </div>
 
+      <!-- 账号健康度面板 -->
+      <div id="cmdHealthPanel" style="background:var(--bg2);border-radius:8px;padding:8px;border:1px solid var(--border);margin-bottom:8px;display:none">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <div style="font-weight:600;font-size:12px">🩺 账号健康度</div>
+          <button onclick="document.getElementById('cmdHealthPanel').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text2)">✕</button>
+        </div>
+        <div id="cmdHealthList" style="font-size:10px;max-height:120px;overflow-y:auto">加载中...</div>
+      </div>
+
       <!-- 三机状态总览 -->
       <div id="cmdMachineOverview" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
         <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border);text-align:center">
@@ -55,6 +64,12 @@ export async function loadView(container) {
   if (!window._cmdRegistered) {
     window._cmdRegistered = true;
     window._cmdRefresh = () => refreshView(container);
+    window._cmdMoveUp = (machine, idx) => { /* TODO */ };
+    window._cmdMoveDown = (machine, idx) => { /* TODO */ };
+    window._cmdRemoveQueue = async (machine, idx) => {
+      if (!confirm('确定从队列中移除此任务？')) return;
+      alert('移出队列功能待实现');
+    };
     window._cmdStop = async (machine, taskId) => {
       if (!confirm('确定停止任务 '+taskId+' ？')) return;
       try {
@@ -110,10 +125,12 @@ function stopAutoRefresh() {
 async function refreshView(container, silent = false) {
   try {
     // 并行获取所有数据
-    const [queueData, machineData] = await Promise.all([
+    const [queueData, machineData, healthData] = await Promise.all([
       apiRequest('/ops/queue'),
       apiRequest('/ops/machines'),
+      apiRequest('/matrix/accounts').catch(() => []),
     ]);
+    renderHealth(healthData);
 
     if (!silent) {
       document.getElementById('cmdLastUpdate').textContent = `最后更新: ${new Date().toLocaleTimeString()}`;
@@ -127,6 +144,16 @@ async function refreshView(container, silent = false) {
       document.getElementById('cmdQueueDetail').innerHTML = `<div style="color:#ef4444;font-size:12px">❌ 加载失败: ${e.message}</div>`;
     }
   }
+}
+
+function renderHealth(accounts) {
+  const el = document.getElementById('cmdHealthPanel');
+  const list = document.getElementById('cmdHealthList');
+  if (!el || !list || !Array.isArray(accounts) || accounts.length === 0) return;
+  const issues = accounts.filter(a => a.status === 'banned' || a.status === 'login_expired');
+  if (issues.length === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  list.innerHTML = issues.map(a => '<div style="padding:2px 0;color:#ef4444">⚠️ ' + (a.platform||'?') + ' ' + (a.id||'?') + ' — ' + (a.status||'unknown') + '</div>').join('');
 }
 
 function renderMachines(queueData, machineData) {
@@ -258,11 +285,18 @@ function renderQueueDetail(queueData) {
         ` : ''}
         
         ${queued.length > 0 ? `
-          <div style="font-size:10px;color:var(--text2);margin-bottom:4px">⏳ 排队中 (${queued.length})</div>
-          ${queued.slice(0,10).map(q => {
+          <div style="font-size:10px;color:var(--text2);margin-bottom:4px">⏳ 排队中 (${queued.length}) <span style="font-size:9px;color:var(--text2);margin-left:8px">(拖拽调整顺序功能开发中)</span></div>
+          ${queued.slice(0,10).map((q, qi) => {
             const pri = q.priority === 0 ? '🔴' : q.priority === 1 ? '🟢' : '⚪';
             const label = q.priority === 0 ? 'P0优先' : q.priority === 1 ? 'P1日常' : 'P2闲时';
-            return `<div style="font-size:10px;padding:2px 4px;background:var(--bg3);border-radius:3px;margin-bottom:2px">${pri} [${label}] ${q.task_id?.slice(0,40) || ''}</div>`;
+            return `<div style="font-size:10px;padding:2px 4px;background:var(--bg3);border-radius:3px;margin-bottom:2px;display:flex;justify-content:space-between">
+              <span>${pri} [${label}] ${q.task_id?.slice(0,40) || ''}</span>
+              <span>
+                <button onclick="window._cmdMoveUp('${name}',${qi})" style="background:none;border:none;cursor:pointer;font-size:9px;color:var(--text2)">↑</button>
+                <button onclick="window._cmdMoveDown('${name}',${qi})" style="background:none;border:none;cursor:pointer;font-size:9px;color:var(--text2)">↓</button>
+                <button onclick="window._cmdRemoveQueue('${name}',${qi})" style="background:none;border:none;cursor:pointer;font-size:9px;color:#ef4444">✕</button>
+              </span>
+            </div>`;
           }).join('')}
         ` : '<div style="font-size:10px;color:var(--text2)">队列为空</div>'}
       </div>`;
