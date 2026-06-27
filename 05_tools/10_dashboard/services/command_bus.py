@@ -18,7 +18,7 @@ command_bus.py — 统一命令传输层 v6
   Dashboard → API → CommandBus → MachineSession(队列) → mc run → 引擎 → Camoufox
 """
 
-import asyncio, json, logging, os, subprocess, sys, time, threading, urllib.request, urllib.error
+import asyncio, copy, json, logging, os, subprocess, sys, time, threading, urllib.request, urllib.error
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -968,7 +968,34 @@ class CommandBus:
                 except Exception as e:
                     logger.error(f"并行分发异常: {e}")
 
-        # 第四步：等待执行结果（仅 wait=True 时）
+        # 第四步：任务拆解（interact 类型拆成 per-account 子任务）
+        decomposed_count = 0
+        for cmd in dispatched_cmds[:]:
+            if cmd.cmd_type == "interact" and len(cmd.accounts) > 1:
+                logger.info(f"  拆解 interact 任务: {len(cmd.accounts)}个账号 → 独立子任务")
+                for acct in cmd.accounts:
+                    sub_task = copy.deepcopy(cmd)
+                    sub_task.run_id = f"{cmd.run_id}_{acct}"
+                    sub_task.accounts = [acct]
+                    sub_task.cmd_line = cmd.cmd_line.replace(
+                        ",".join(cmd.accounts), acct
+                    )
+                    sub_task.params = dict(cmd.params)
+                    sub_task.params["decomposed_from"] = cmd.run_id
+                    # 投递到 guardd
+                    _guardd_api("POST", "/scheduler/submit", {
+                        "task_id": sub_task.run_id,
+                        "cmd_type": "interact",
+                        "accounts": [acct],
+                        "blueprint": cmd.params.get("blueprint", "interact_comment"),
+                        "priority": 0,
+                        "params": cmd.params,
+                    }, machine=cmd.machine)
+                    decomposed_count += 1
+                # 移除原始群组命令
+                dispatched_cmds.remove(cmd)
+
+        # 第五步：等待执行结果（仅 wait=True 时）
         per_machine = {}
         if wait and dispatched_cmds:
             deadline = time.time() + params.get("timeout", 600)
@@ -1052,16 +1079,51 @@ class CommandBus:
 
     @classmethod
     def get_status(cls, machine: str = None, account: str = None) -> list[dict]:
+        """查询各机状态 — 优先从 guardd HTTP API 读取"""
         results = []
-        for m_name, session in MachineSession._sessions.items():
-            if machine and m_name != machine:
-                continue
-            for c in session.commands:
-                if account and account not in c.accounts:
+        machines = [machine] if machine else list(MachineSession._sessions.keys())
+        if not machines:
+            machines = [HOSTNAME]
+        for m_name in machines:
+            try:
+                data = _guardd_api("GET", "/scheduler/tasks", machine=m_name)
+                if data:
+                    results.append({"machine": m_name, "data": data})
                     continue
-                session.poll(c)
-                results.append(c.to_dict())
+            except Exception:
+                pass
+            # fallback: 从 MachineSession 读取（兼容旧版）
+            session = MachineSession.get(m_name)
+            for cmd in session.commands:
+                if account and account not in cmd.accounts:
+                    continue
+                session.poll(cmd)
+                results.append(cmd.to_dict())
         return results
+    
+    @classmethod
+    def get_machine_status(cls, machine: str) -> dict:
+        """查询单机状态 — 优先 guardd"""
+        try:
+            data = _guardd_api("GET", "/scheduler/tasks", machine=machine)
+            if data:
+                from services.browser_orchestrator import check_running_browsers
+                browsers = check_running_browsers(machine)
+                slots = data.get("slots", {})
+                return {
+                    "machine": machine,
+                    "is_local": machine == HOSTNAME,
+                    "active_task": data.get("active"),
+                    "queue": data.get("queue", []),
+                    "slots": slots,
+                    "browsers_running": len(browsers) if browsers else slots.get("used", 0),
+                    "browser_list": browsers if browsers else [],
+                }
+        except Exception:
+            pass
+        # fallback
+        session = MachineSession.get(machine)
+        return super().get_machine_status(machine)
 
     @classmethod
     def cancel(cls, run_id: str) -> dict:
@@ -1091,44 +1153,26 @@ class CommandBus:
     def get_all_machines_status(cls) -> dict:
         from services.browser_orchestrator import check_running_browsers
         machines = {}
-        for m_name in list(MachineSession._sessions.keys()):
-            machines[m_name] = cls.get_machine_status(m_name)
-        if HOSTNAME not in machines:
-            machines[HOSTNAME] = cls.get_machine_status(HOSTNAME)
+        # 从 guardd 查询所有已知机器
+        known_machines = set(MachineSession._sessions.keys()) | {HOSTNAME}
         try:
             import yaml
             oracle = yaml.safe_load(ORACLE_PATH.read_text())
             for m_name in oracle.get("machines", {}):
-                if m_name not in machines:
-                    machines[m_name] = {"machine": m_name, "is_local": False,
-                        "active_commands": 0, "browsers_running": 0,
-                        "browser_list": [], "reachable": False}
+                known_machines.add(m_name)
         except:
             pass
+        for m_name in sorted(known_machines):
+            machines[m_name] = cls.get_machine_status(m_name)
         return {"machines": machines}
 
 
-# ── Poll 守卫线程（自动轮询所有活跃命令）───────────────────
-# 每15秒检查一次，防止远程命令卡在 running 状态
+# ── Poll 守卫线程（已迁移到 guardd 调度引擎）────────────────
+# v4.3.0: CommandBus 不再负责轮询，由各机 guardd 的 Scheduler.run_cycle() 处理
+# 保留空桩以兼容旧代码引用
 def _start_poll_guard():
-    """后台守护线程：自动轮询所有活跃命令的状态"""
-    def _loop():
-        while True:
-            time.sleep(15)
-            try:
-                for name, session in list(MachineSession._sessions.items()):
-                    if session.current_cmd and not session.current_cmd.status.is_terminal:
-                        old_status = session.current_cmd.status.value
-                        new_status = session.poll(session.current_cmd)
-                        if old_status != new_status.value:
-                            logger.info(f"  ⏱ poll守卫: {session.current_cmd.run_id[:30]} {old_status} → {new_status.value}")
-            except Exception:
-                pass
-    thread = threading.Thread(target=_loop, name="poll-guard", daemon=True)
-    thread.start()
-    logger.info("  ✅ Poll 守卫线程已启动 (15s周期)")
-
-_start_poll_guard()
+    """已废弃 — 轮询由 guardd 调度引擎处理"""
+    pass
 
 
 def cleanup_stale_commands() -> int:
