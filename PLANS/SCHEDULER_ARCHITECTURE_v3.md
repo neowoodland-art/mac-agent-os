@@ -306,42 +306,48 @@ CommandBus 收到请求:
 
 ```python
 class BrowserSlotManager:
-    """浏览器槽位管理器 — 在 guardd 内部"""
-    
+    """浏览器槽位管理器 — 在 guardd 内部
+    槽位 = Camoufox 浏览器实例，identity_dir 是唯一ID
+    槽位编号不重要（用户可能拖拽窗口），核心是 browser_id
+
+    关键规则:
+      1. 一个账号同一时间只能在一个浏览器上运行
+      2. 槽位只是计数器，实际以 browser_id 为准
+      3. 释放槽位 = 关闭浏览器进程，不是简单标记空闲
+    """
     def __init__(self, max_slots=3):
         self.max_slots = max_slots
-        self.slots = [None] * max_slots  # slot → account_id or None
-    
-    def acquire(self, account_id: str) -> Optional[int]:
-        """获取一个槽位，返回 slot_id"""
+        self.slots = [None] * max_slots
+
+    def acquire(self, account_id, identity_dir):
+        for s in self.slots:
+            if s and s["account_id"] == account_id:
+                raise Exception(f"账号 {account_id} 已在运行")
         for i in range(self.max_slots):
             if self.slots[i] is None:
-                self.slots[i] = account_id
-                return i
-        return None  # 无可用槽位
-    
-    def release(self, slot_id: int):
-        """释放槽位"""
-        if 0 <= slot_id < self.max_slots:
-            self.slots[slot_id] = None
-    
-    def get_usage(self) -> dict:
-        """返回槽位使用情况"""
-        return {
-            "max": self.max_slots,
-            "used": sum(1 for s in self.slots if s is not None),
-            "slots": self.slots,
-        }
-```
+                info = {"slot_id": i, "account_id": account_id, "browser_id": identity_dir, "pid": None}
+                self.slots[i] = info
+                return info
+        return None
 
-好处：
-- 可动态调整 `max_slots`（机器性能好就调高）
-- 槽位状态通过心跳上报 Dashboard
-- 任务调度时先看有没有空槽，没空就排队等待
+    def release(self, browser_id):
+        for i in range(self.max_slots):
+            if self.slots[i] and self.slots[i]["browser_id"] == browser_id:
+                self.slots[i] = None
+                return True
+        return False
 
----
+    def get_usage(self):
+        slots_info = []
+        for i, s in enumerate(self.slots):
+            if s: slots_info.append({"slot_id": i, "account_id": s["account_id"], "browser_id": s["browser_id"]})
+        return {"max": self.max_slots, "used": sum(1 for s in self.slots if s), "slots": slots_info}
 
-## 六、联邦指挥台（Dashboard 重建）
+    def find_account(self, account_id):
+        for s in self.slots:
+            if s and s["account_id"] == account_id:
+                return s
+        return None
 
 ### 6.1 当前问题
 
@@ -397,6 +403,34 @@ class BrowserSlotManager:
 | **插入新任务** | 直接在当前队列中插入 priority 任务 |
 | **告警中心** | 封号、登录失败、任务失败的高亮提示 |
 | **历史追踪** | 已完成任务的执行结果（成功/失败/耗时）|
+
+### 6.4 任务卡片的优先级标识
+
+每个任务在时间线上显示时，带优先级标签：
+
+```
+[P0🔴 优先] 定向评论 视频V          13:00  账号: douyin_136 | 子任务 2/5
+[P1🟢 日常] 养号 douyin_01-05     08:00  蓝图: douyin_daily | 第3/10轮
+[P2⚪ 闲时] 采集个人信息           03:00  蓝图: douyin_read_profile | 全部账号
+```
+
+在指挥台上方提供筛选开关: [☑ 优先任务] [☑ 日常任务] [☐ 闲时任务]，默认显示 P0+P1。
+
+### 6.5 账号冲突检测机制
+
+当 guardd 收到新任务时:
+
+```
+接收 priority 任务: 账号A 评论视频V
+  ├─ BrowserSlotManager.find_account("账号A")
+  │   ├─ 返回 None → 空闲 → 正常分配槽位
+  │   └─ 返回 slot_info → 账号A正在运行 → 等待完成
+  ├─ 检查账号状态: active→执行 / banned→告警跳过 / login_expired→插入登录恢复
+  └─ 检查浏览器进程: pid存活→复用 / 不存在→启动新浏览器
+```
+
+冲突检测确保: 同账号不分配到两个浏览器实例 → 避免指纹冲突和封号风险
+
 
 ---
 
