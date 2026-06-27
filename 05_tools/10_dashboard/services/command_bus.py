@@ -259,12 +259,30 @@ class MachineSession:
             return result
 
     def _send_local(self, cmd: Command) -> dict:
-        # 构建完整 shell 命令（含工作目录和环境变量）
+        # 优先通过 guardd 调度引擎提交（v4.3.0）
+        scheduler_task = {
+            "task_id": cmd.run_id,
+            "cmd_type": cmd.cmd_type,
+            "accounts": cmd.accounts,
+            "blueprint": cmd.params.get("blueprint", ""),
+            "rounds": cmd.params.get("rounds", 1),
+            "priority": 0 if cmd.cmd_type in ("interact", "comment") else 1,
+            "params": cmd.params,
+            "command_line": cmd.command_line,
+        }
+        guardd_result = _guardd_api("POST", "/scheduler/submit", scheduler_task)
+        if guardd_result.get("status") == "accepted":
+            cmd.status = CommandStatus.DISPATCHING
+            cmd.started_at = time.time()
+            self.commands.insert(0, cmd)
+            self._trim_history()
+            return {"guardd": True, "scheduler": True}
+
+        # guardd 调度引擎不可用，降级到旧版 /task 或 subprocess
         scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
         python_path = f"{Path.home()}/.workbuddy/binaries/python/envs/agent-os/bin/python3"
         full_shell_cmd = f"cd {scripts_dir} && PYTHONPATH='{scripts_dir}' {python_path} -m {cmd.command_line}"
 
-        # 优先通过 guardd HTTP API 执行
         guardd_result = _guardd_api("POST", "/task", {
             "cmd": full_shell_cmd,
             "run_id": cmd.run_id,
@@ -278,7 +296,7 @@ class MachineSession:
             self._trim_history()
             return {"pid": cmd.pid, "guardd": True}
 
-        # guardd 不可用时降级为 subprocess（向后兼容）
+        # guardd 完全不可用时降级为 subprocess（向后兼容）
         logger.warning(f"guardd 不可用，降级为 subprocess: {cmd.run_id}")
         try:
             mc_count = int(subprocess.run(
