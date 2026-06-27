@@ -322,9 +322,23 @@ class MachineSession:
         return {"pid": cmd.pid, "log_path": str(log_path)}
 
     def _send_remote(self, cmd: Command) -> dict:
-        # 优先通过远程机器的 guardd HTTP API
+        # ── 构造完整的 shell 命令（与 _send_local 一致，使用远程路径）──
+        py_discover = 'PY=$(ls $HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3 2>/dev/null || which python3); '
+        scripts_dir = "$AGENT_SYNC/05_tools/07_matrix/scripts"
+        env_setup = f"export AGENT_SYNC=\"$HOME/workbuddy-agent-os/agent-sync\"; export AGENT_LOCAL=\"$HOME/workbuddy-agent-os/agent-local\"; export MC_PYTHON=\"$PY\"; export PYTHONPATH={scripts_dir}:$PYTHONPATH; "
+
+        if cmd.cmd_type == "nurture":
+            accts = ",".join(cmd.accounts)
+            _bp = cmd.params.get("blueprint") or "douyin_daily"
+            _rd = cmd.params.get("rounds") or 10
+            wrapper = "$AGENT_SYNC/05_tools/10_dashboard/services/nurture_runner.sh"
+            full_cmd = f"{py_discover} {env_setup} bash {wrapper} {accts} {_bp} {_rd} {cmd.run_id}"
+        else:
+            full_cmd = f"{py_discover} {env_setup} cd {scripts_dir} && $MC_PYTHON -m {cmd.command_line}"
+
+        # 优先通过远程机器的 guardd HTTP API（guardd 自行管理日志和进程组）
         guardd_result = _guardd_api("POST", "/task", {
-            "cmd": cmd.command_line,
+            "cmd": full_cmd,
             "run_id": cmd.run_id,
             "machine": self.machine,
         }, machine=self.machine)
@@ -337,30 +351,19 @@ class MachineSession:
             self._trim_history()
             return {"pid": cmd.pid, "guardd": True, "machine": self.machine}
 
-        # guardd 不可用 → 降级为 SSH
+        # guardd 不可用 → 降级为 SSH（需要 nohup + 重定向保持后台运行）
         if not self.ssh_target:
             cmd.status = CommandStatus.PREFLIGHT_FAILED
             cmd.message = f"机器 {self.machine} guardd 和 SSH 均不可用"
             return {"error": cmd.message}
 
         logger.warning(f"guardd 远程不可用，降级为 SSH: {cmd.run_id} @ {self.machine}")
-        py_discover = 'PY=$(ls $HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3 2>/dev/null || which python3); '
-        scripts_dir = "$AGENT_SYNC/05_tools/07_matrix/scripts"
-        env_setup = f"export AGENT_SYNC=\"$HOME/workbuddy-agent-os/agent-sync\"; export AGENT_LOCAL=\"$HOME/workbuddy-agent-os/agent-local\"; export MC_PYTHON=\"$PY\"; export PYTHONPATH={scripts_dir}:$PYTHONPATH; "
-
-        if cmd.cmd_type == "nurture":
-            accts = ",".join(cmd.accounts)
-            _bp = cmd.params.get("blueprint") or "douyin_daily"
-            _rd = cmd.params.get("rounds") or 10
-            wrapper_cmd = f"bash $AGENT_SYNC/05_tools/10_dashboard/services/nurture_runner.sh {accts} {_bp} {_rd} {cmd.run_id}"
-            full_cmd = f"{py_discover} {env_setup} nohup {wrapper_cmd} > /tmp/nurture_{cmd.run_id}.log 2>&1 &"
-        else:
-            full_cmd = f"{py_discover} {env_setup} nohup cd $AGENT_SYNC/05_tools/07_matrix/scripts && $MC_PYTHON -m {cmd.command_line} > /tmp/ops_{cmd.run_id}.log 2>&1 &"
+        ssh_cmd = f"nohup {full_cmd} > /tmp/ops_{cmd.run_id}.log 2>&1 &"
 
         try:
             subprocess.run(
                 ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
-                 self.ssh_target, full_cmd],
+                 self.ssh_target, ssh_cmd],
                 capture_output=True, text=True, timeout=15
             )
             cmd.status = CommandStatus.DISPATCHING
