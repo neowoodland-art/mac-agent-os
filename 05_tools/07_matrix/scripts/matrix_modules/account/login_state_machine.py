@@ -78,6 +78,15 @@ class DouyinDetector(PlatformDetector):
     # 验证弹窗选择器
     VERIFY_PANEL_SEL = '.second-verify-panel'
     VERIFY_INPUT_SEL = '.uc-ui-verify_sms-verify_input'
+    # 页面内登录浮层选择器（URL 不变但弹窗覆盖页面的场景）
+    LOGIN_OVERLAY_SELS = [
+        '[class*="login-container"]',
+        '[class*="login-modal"]',
+        '[class*="float-login"]',
+        '[class*="user-login"]',
+        'div[class*="DyHeader"] [class*="login"]',
+        '[class*="unlogin"]',
+    ]
 
     async def detect(self, page, account_id: str) -> str:
         """四重检测：DOM 锚点 → 页面文本 → 页面标题 → Cookie（仅辅助）"""
@@ -126,7 +135,29 @@ class DouyinDetector(PlatformDetector):
         return "unknown"
 
     async def check_verify(self, page) -> str:
-        """检测抖音验证弹窗"""
+        """检测抖音验证弹窗 + 登录态丢失检测
+        Returns: 'none' / 'sms' / 'captcha' / 'login_required'
+        """
+        # 一、检测登录态丢失：URL 是否被重定向到登录页
+        try:
+            cur_url = page.url
+            if any(k in cur_url.lower() for k in ["passport", "/login/", "sso_login"]):
+                return "login_required"
+        except Exception:
+            pass
+
+        # 一.b 检测页面内登录浮层（URL 不变但有登录弹窗覆盖页面的场景）
+        try:
+            for sel in self.LOGIN_OVERLAY_SELS:
+                cnt = await page.locator(sel).count()
+                if cnt > 0:
+                    vis = await page.locator(sel).first.is_visible()
+                    if vis:
+                        return "login_required"
+        except Exception:
+            pass
+
+        # 二、检测验证弹窗
         try:
             if await page.locator(self.VERIFY_PANEL_SEL).count() > 0:
                 if await page.locator(self.VERIFY_INPUT_SEL).count() > 0:

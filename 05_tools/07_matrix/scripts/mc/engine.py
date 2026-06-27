@@ -347,12 +347,33 @@ class BatchEngine:
             icon = "✅" if result.success else "❌"
             log.info(f"    {icon} [{sn:2d}] {op_name:18s} → {result.detail[:25]} ({result.elapsed:.1f}s)")
 
-            # ── 钩子2: 操作后检查验证弹窗 ──
+            # ── 钩子2: 操作后检查验证弹窗 + 登录态检查 ──
             verify_type = await lsm.check_verify_dialog(conn.page)
-            if verify_type == "sms":
+            if verify_type == "login_required":
+                log.warning(f"    🔑 [{account_id}] 登录态丢失（页面重定向到登录页），恢复中...")
+                # 尝试恢复登录态，最多重试2次
+                recovered = False
+                for retry in range(2):
+                    if retry > 0:
+                        log.info(f"    🔄 [{account_id}] 登录恢复重试 ({retry+1}/2)...")
+                    ok = await lsm.ensure_login(conn.page, account_id, platform)
+                    if ok:
+                        recovered = True
+                        break
+                    await asyncio.sleep(3)
+                if recovered:
+                    log.info(f"    ✅ [{account_id}] 登录恢复成功，重试当前操作 [{sn}]")
+                    # 重试当前失败的步骤
+                    result = await ops.execute(op=op_name, args=sargs, step_id=sn)
+                    report.add_step(StepResult(op_name, sn, result.success, result.elapsed,
+                                               "" if result.success else result.error))
+                    icon = "✅" if result.success else "❌"
+                    log.info(f"    {icon} [{sn:2d}] {op_name:18s} → {result.detail[:25]} (重试, {result.elapsed:.1f}s)")
+                else:
+                    log.warning(f"    ❌ [{account_id}] 登录恢复失败，跳过当前操作 [{sn}]")
+            elif verify_type == "sms":
                 log.warning(f"    📱 [{account_id}] 触发短信验证，自动恢复...")
                 await lsm.recover_sms(conn.page, account_id)
-                # 跳过当前步
                 log.info(f"    ⏭️ 跳过当前操作 [{sn}]")
             elif verify_type == "captcha":
                 log.warning(f"    🔐 [{account_id}] 滑块验证，需手动处理")
