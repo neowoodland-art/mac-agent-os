@@ -64,8 +64,12 @@ def _guardd_api(method: str, path: str, data: dict = None, machine: str = "") ->
                 headers={"Content-Type": "application/json"}, method="POST")
             r = urllib.request.urlopen(req, timeout=5)
             return json.loads(r.read().decode())
-    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, OSError):
-        pass
+    except urllib.error.HTTPError as e:
+        logger.warning(f"guardd_api HTTP {e.code} {e.read().decode()[:100]}")
+    except urllib.error.URLError as e:
+        logger.warning(f"guardd_api 连接失败: {e.reason}")
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning(f"guardd_api 异常: {e}")
     return {}
 
 
