@@ -1,504 +1,678 @@
 # AgentOS 任务编排与调度系统 — 全面规划 v3.0
 
-> 日期: 2026-06-27 | 版本: 4.3.0 规划
-> 前置文档: PLANS/INTERACT_SYSTEM_PLAN.md, PLANS/COMMAND_UNIFICATION_PLAN.md, PLANS/OPTIMIZATION_PLAN_v2.md
-> 当前状态: Phase 1 已落地（命令传导统一），Phase 2 启动（心跳+任务编排）
+> 日期: 2026-06-27 | 版本: 4.3.0 规划 | 第2版重写
+> 基于: 用户需求深度讨论 + 现有架构审计
+> 核心原则: 不新增臃肿层级，能合并的合并到现有组件
 
 ---
 
-## 一、核心概念与场景分析
+## 一、需求全景图
 
-### 1.1 三台机器的角色
+### 1.1 任务的两类本质
+
+经过讨论，所有操作不按"动作类型"分类，而按**意图**分类：
+
+| 维度 | 日常养号（scheduled） | 特殊交互（priority） |
+|:-----|:---------------------|:--------------------|
+| **触发方式** | 定时/循环自动触发 | 用户主动提交 |
+| **操作内容** | 蓝图中编排的随机动作 | 指定具体目标（URL/直播间） |
+| **是否指定链接** | ❌ 不指定，随机推荐流 | ✅ 指定具体视频/博主/直播间 |
+| **执行时间** | 按日程表串行执行 | 随时插入，可设置间隔 |
+| **优先级** | 低（可被抢占） | 高（抢占低优任务） |
+
+**关键结论**：同一个"点赞"动作，既可以是养号里的随机点赞（走蓝图），也可以是特殊交互里的指定点赞（走定向任务）。**按意图分类而非按动作分类**。
+
+### 1.2 任务的粒度拆解
 
 ```
-┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
-│  chengzigedeAir     │     │  5kechengdeAir      │     │  7kecheng           │
-│  100.111.43.6       │     │  100.72.182.121      │     │  100.65.35.28       │
-│  ──────────────     │     │  ──────────────      │     │  ──────────────      │
-│  角色: master       │     │  角色: worker        │     │  角色: worker        │
-│  Dashboard: ✅      │     │  Dashboard: ❌       │     │  Dashboard: ❌       │
-│  养号: 少量账号    │     │  养号: 中等账号      │     │  养号: 大量账号      │
-│  guardd: ✅         │     │  guardd: ✅          │     │  guardd: ✅          │
-│  心跳: 主动推送    │     │  心跳: 通过master    │     │  心跳: 通过master    │
-└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
+用户提交: "20个账号评论这个视频"
+  ↓
+调度层拆解为 20 个独立子任务:
+  ├─ 账号A 在 13:00 评论
+  ├─ 账号B 在 13:05 评论  (间隔5分钟)
+  ├─ 账号C 在 13:12 评论  (随机间隔7分钟)
+  ├─ 账号D 在 13:15 评论  (随机间隔3分钟)
+  └─ ...
+  ↓
+每个子任务 = 一条独立 Task，有自己的状态追踪
 ```
 
-### 1.2 场景拆解
+间隔参数：用户可设置 `{min: 5, max: 15}` 分钟，调度器在每个子任务执行完毕后随机等待。
 
-**场景A — 日常养号（定时任务）**
-```
-每天 08:00 ~ 23:00
-每台机器各自串行执行账号集合:
-  账号集1（douyin账号5个）→ 约3小时
-     ↓ 串行
-  账号集2（xhs账号3个）  → 约2小时
-     ↓ 串行
-  账号集3（douyin账号4个）→ 约3小时
-```
-→ 每台机器的 MachineSession 串行队列，自动衔接
+### 1.3 任务依赖链
 
-**场景B — 定向评论（高优插入）**
 ```
-在养号队列运行时，突发插入:
-  1. 用户提交: 视频URL + 20个账号 + 间隔40分钟
-  2. 评估: 当前养号任务进度
-  3. 决策: 高优先级 → 暂停养号 → 插入评论任务 → 恢复养号
-```
-→ 需要 **优先级队列** 和 **任务抢占/暂停/恢复** 机制
+三级接力评论:
+  账号A 评论           → 完成后产出 comment_id
+     ↓ 依赖 A 成功
+  账号B 回复 A         → 需要 A 的 comment_id
+     ↓ 依赖 B 成功
+  账号C 回复 B         → 需要 B 的 comment_id
 
-**场景C — 三级接力评论（依赖链）**
+直播间关注:
+  所有账号先进直播间     → 等待全部进入
+     ↓ 全部就绪
+  同时发起关注           → 关注主播
+     ↓ 关注完成
+  等待10分钟            → 观看时长
+     ↓ 时间到
+  退出直播间
 ```
-账号A 评论 (step1)
-   ↓ 依赖: step1 成功
-账号B 回复 A (step2)  
-   ↓ 依赖: step2 成功
-账号C 回复 B (step3)
-```
-→ 需要 **任务依赖图** 和 **状态回传**
 
-**场景D — 跨机协同（三台机器协作一个任务）**
-```
-任务: 对同一个视频进行 20 个账号的定向评论
-账号A-D 在 chengzigedeAir → 时间: 13:00-13:40
-账号E-J 在 5kechengdeAir  → 时间: 13:10-14:30
-账号K-T 在 7kecheng       → 时间: 13:20-16:00
-```
-→ 需要 **跨机时间线同步** 和 **全局任务视图**
+### 1.4 已有功能不需要改的
+
+| 现有模块 | 原因 |
+|:---------|:------|
+| `douyin_ops.py` 原子操作 | 底层能力不变，只管"怎么点"不管"什么时候点" |
+| `engine.py` 批量执行 | 单次批量的执行引擎逻辑不变 |
+| `nurture_runner.sh` | 养号包装器不变，调度层直接调它 |
+| `blueprints/*.json` | 蓝图文件不变，调度层读取蓝图参数 |
+| `corpus.py` 语料库 | 评论内容生成逻辑不变 |
 
 ---
 
-## 二、当前架构的问题
+## 二、调度层放在哪？— 方案对比
 
-### 2.1 MachineSession 队列太简单
+### 方案A：完全新增 scheduler/ 模块（v3.0初版方案）
 
-当前: 一个机器只有一个 current_cmd + 一个 queued_cmds 列表
-- ❌ 没有按优先级排队
-- ❌ 没有时间调度
-- ❌ 没有暂停/恢复
-- ❌ 没有任务依赖
+```
+scheduler/  ← 全新模块
+  ├── task.py
+  ├── task_store.py
+  ├── scheduler.py
+  └── ...
+```
+- ❌ 新增一层，系统更臃肿
+- ❌ 需要额外进程/线程
+- ❌ 和 guardd 职责重叠
 
-### 2.2 没有心跳同步任务状态
+### 方案B：合并到 guardd（推荐方案）
 
-当前 guardd 心跳只包含 hostname/status/running_tasks/browsers_open
-- ❌ 没有每个任务的详细状态
-- ❌ 没有队列视图
-- ❌ 没有跨机任务同步
+```
+guardd  ← 现有守护进程，扩展
+  ├── HTTP Server (已有)        ← 扩展任务管理API
+  ├── 300s周期循环 (已有)        ← 缩短到15-30s
+  ├── 心跳上报 (已有)            ← 增加详细任务状态
+  ├── 任务调度引擎 [新增]        ← 优先级队列+时间线
+  └── 浏览器槽位管理 [新增]      ← 接管mc的浏览器限制
+```
 
-### 2.3 没有优先级概念
+**原因**：
+- guardd 已经在每台机器上运行
+- guardd 已经有 HTTP API（/task 接受任务）
+- guardd 已经有周期性循环（用于心跳）
+- guardd 已经有跨机通信（心跳上报到 Dashboard）
+- **不需要额外进程**，全部在 guardd 内部完成
 
-当前所有任务同等优先级
-- ❌ 定向评论应该比日常养号优先级高
-- ❌ 没有抢占机制
+### 方案C：合并到 CommandBus
 
-### 2.4 没有任务依赖跟踪
+```
+CommandBus  ← 扩展为带调度功能
+```
+- ❌ CommandBus 运行在 Dashboard 进程内，Dashboard 挂了调度就停了
+- ❌ CommandBus 主要职责是分发，不是调度
+- ❌ 不适合做本机队列管理
 
-nurture_runner.sh → mc run → 跑完就结束
-- ❌ 不知道每个账号的执行结果
-- ❌ step2 无法等待 step1 完成后获取其评论ID
+### 结论：采用方案B，调度功能合并到 guardd
 
 ---
 
-## 三、新架构设计
+## 三、新架构（轻量级）
 
-### 3.1 总体架构
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│ L6 看板层 (Dashboard)                                        │
-│  ├─ 操作视图 (matrix-*.js) — 提交任务                        │
-│  ├─ 计划视图 (matrix-schedule.js) — 查看/管理全局时间线      │
-│  └─ 任务监控视图 — 查看各机实时队列                          │
-├──────────────────────────────────────────────────────────────┤
-│ L5 调度层 (Scheduler) — 【新增】                              │
-│  ├─ TaskScheduler         — 全局任务调度器（运行在master）    │
-│  ├─ 优先级队列            — P0/P1/P2 多级队列                │
-│  ├─ 时间线生成器          — 根据策略生成执行时间线            │
-│  └─ 依赖管理器            — 任务依赖图解析                    │
-├──────────────────────────────────────────────────────────────┤
-│ L4 API 路由 (routes/ops.py) — 统一执行入口                    │
-│  ├─ POST /api/ops/run     — 提交任务（已有，扩展）           │
-│  ├─ POST /api/ops/schedule— 编排计划任务（新增）              │
-│  ├─ GET  /api/ops/queue   — 查看队列（新增）                  │
-│  └─ POST /api/ops/cancel  — 取消/暂停/恢复（新增）            │
-├──────────────────────────────────────────────────────────────┤
-│ L3 命令分发 (CommandBus) — 扩展                               │
-│  ├─ CMD_REGISTRY          — 注册表（已有）                    │
-│  ├─ MachineSession v2     — 升级为优先级+时间调度队列         │
-│  ├─ CrossMachineSync      — 跨机任务状态同步（通过心跳）      │
-│  └─ TaskTracker           — 任务执行追踪                      │
-├──────────────────────────────────────────────────────────────┤
-│ L2 执行引擎 (mc)                                             │
-│  ├─ engine.py + BatchEngine — 批量执行（已有）                │
-│  ├─ InteractOrchestrator   — 互动编排引擎（Phase 2 新增）     │
-│  ├─ nurture_runner.sh      — 养号包装器（已有）               │
-│  └─ plan_executor.py       — 计划执行器（新增）               │
-├──────────────────────────────────────────────────────────────┤
-│ L1 原子操作 (douyin_ops, xhs_ops) — 已有                     │
-├──────────────────────────────────────────────────────────────┤
-│ L0 浏览器层 (Camoufox) — 已有                                 │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### 3.2 任务数据结构
-
-```python
-@dataclass
-class Task:
-    """统一任务描述 —— 所有操作最终落为 Task"""
-    task_id: str                            # 全局唯一 task_id
-    cmd_type: str                           # nurture / interact / collect / login
-    accounts: list[str]                     # 涉及的账号列表
-    machine: str                            # 分配给哪台机器
-    priority: int                           # 0=最高(P0), 1=中(P1), 2=低(P2)
-    
-    # 执行计划
-    schedule_type: str                      # "now" / "delay" / "cron" / "dependency"
-    scheduled_at: Optional[datetime]        # 计划执行时间
-    cron_expr: Optional[str]                # cron 表达式 (schedule_type="cron")
-    
-    # 依赖关系
-    depends_on: list[str]                   # 依赖的 task_id 列表
-    depends_status: list[str]               # 依赖要求的状态 ["completed"]
-    interval_after_dep: int = 0             # 依赖完成后等待秒数
-    
-    # 执行参数
-    params: dict                            # 传给执行器的参数
-    blueprint: str                          # 蓝图名称
-    rounds: int = 1
-    
-    # 运行时状态
-    status: TaskStatus = TaskStatus.PENDING
-    result: Optional[dict] = None           # 执行结果
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    
-    # 上下文传递（三级接力用）
-    context: dict = field(default_factory=dict)
-    # 例如: {"comment_id": "xxx", "comment_text": "..."}
-
-
-class TaskStatus(str, Enum):
-    PENDING     = "pending"      # 已创建，等待调度
-    SCHEDULED   = "scheduled"    # 已安排执行时间
-    QUEUED      = "queued"       # 在机器队列中等待
-    PREFLIGHT   = "preflight"    # 前置检查中
-    RUNNING     = "running"      # 执行中
-    PAUSED      = "paused"       # 被高优任务暂停
-    WAITING_DEP = "waiting_dep"  # 等待依赖完成
-    COMPLETED   = "completed"    # 成功完成
-    FAILED      = "failed"       # 执行失败
-    CANCELLED   = "cancelled"    # 被取消
-    SKIPPED     = "skipped"      # 跳过（依赖失败导致）
-```
-
-### 3.3 优先级队列设计
-
-```python
-PRIORITY_MAP = {
-    "interact_chain":  0,   # 三级接力 — 最高优先级
-    "interact":        0,   # 定向评论
-    "comment":         0,   # 单条评论
-    "login":           1,   # 登录
-    "nurture":         1,   # 日常养号
-    "collect":         2,   # 信息采集 — 最低优先级
-    "like":            2,   # 点赞
-}
-```
-
-**P0 任务（交互类）**：
-- 可抢占当前运行的 P1/P2 任务
-- 被抢占的任务标记为 PAUSED
-- P0 执行完后自动恢复
-
-**P1 任务（日常养号/登录）**：
-- 不可抢占 P0
-- 被 P0 抢占后自动暂停，P0 完成后恢复
-
-**P2 任务（采集/点赞）**：
-- 闲时执行，任何高优任务都可抢占
-
-### 3.4 任务执行生命周期
+### 3.1 系统分层
 
 ```
-PENDING → [依赖检查] → WAITING_DEP → [依赖满足]
-→ SCHEDULED → [时间到] → QUEUED → [轮到]
-→ RUNNING → [高优抢占?] → PAUSED → [恢复] → RUNNING
-→ COMPLETED / FAILED / CANCELLED / SKIPPED
+┌─────────────────────────────────────────────────────┐
+│ L5 看板（Dashboard）                                  │
+│  ├─ 联邦指挥台 (matrix-command.js) ← 重建为任务管理  │
+│  │   显示: 每台机器的实时队列 + 时间线 + 执行状态     │
+│  │   操作: 提交任务 / 拖拽排序 / 暂停/恢复/取消      │
+│  │   告警: 封号/登录失败/任务失败 → 高亮提示         │
+│  └─ 操作视图 (matrix-interact.js) ← 提交交互任务     │
+│      POST /api/ops/run {type, accounts, params}      │
+├─────────────────────────────────────────────────────┤
+│ L4 API 路由 (routes/ops.py)                          │
+│  统一入口: POST /api/ops/run                         │
+│  新增:     Task 管理路由（查看列表/取消/重排）       │
+├─────────────────────────────────────────────────────┤
+│ L3 命令分发 (CommandBus)                              │
+│  职责缩小: 仅做按机器分组 + 模板渲染 + 投递到 guardd │
+│  不再管理队列 — 队列管理下沉到各机 guardd            │
+│  不再管理轮询 — 轮询下沉到各机 guardd                │
+├─────────────────────────────────────────────────────┤
+│ L2 本机调度 (guardd) ← 核心增强                       │
+│  ├─ HTTP Server: /task (接收任务)                    │
+│  │               /tasks (查询队列)                    │
+│  │               /task/{id}/cancel (取消)             │
+│  │               /task/{id}/pause (暂停)              │
+│  │               /task/{id}/resume (恢复)             │
+│  ├─ TaskScheduler: 优先级队列 + 浏览器槽位管理        │
+│  ├─ Heartbeat: 每15秒上报详细状态到 Dashboard         │
+│  └─ Executor: 调 mc run / mc interact / 等            │
+├─────────────────────────────────────────────────────┤
+│ L1 mc 引擎                                            │
+│  engine.py → 单次执行，被 guardd 调用                 │
+│  浏览器数量控制 → 上移至 guardd 的槽位管理            │
+├─────────────────────────────────────────────────────┤
+│ L0 浏览器层 (Camoufox)                                │
+└─────────────────────────────────────────────────────┘
 ```
+
+### 3.2 新架构的轻量说明
+
+| 组件 | 变化 | 原因 |
+|:-----|:-----|:------|
+| **guardd** | 增强，非新增 | 合并调度器 + 心跳增强 + 槽位管理 |
+| **CommandBus** | 瘦身 | 去掉 poll/queue 逻辑，只做分发+模板渲染 |
+| **Dashboard** | 重建联邦指挥台 | 可视化任务管理（不是新增组件） |
+| **scheduler/** | 不新增目录 | 代码放在 guardd 模块内 |
 
 ---
 
-## 四、核心模块设计
+## 四、任务模型
 
-### 4.1 TaskScheduler（全局调度器）
+### 4.1 任务分类（按意图）
 
-位置: 05_tools/07_matrix/scripts/matrix_modules/scheduler/
-
-```
-scheduler/
-├── __init__.py
-├── task.py            — Task 数据模型
-├── task_store.py      — 任务持久化存储 (SQLite)
-├── priority_queue.py  — 优先级队列
-├── dependency.py      — 依赖图解析器
-├── timeline.py        — 时间线生成器
-├── cross_machine.py   — 跨机任务同步
-├── scheduler.py       — 主编排器
-└── executor.py        — 任务执行器
-```
-
-**核心流程**:
-
-```
-TaskScheduler.submit(task)
-  ├── 1. 执行依赖分析 → 构建 DAG
-  ├── 2. 按机器分组 → 分配到各机
-  ├── 3. 生成执行时间线
-  ├── 4. 写入 task_store (SQLite)
-  ├── 5. 通知对应机器的 guardd
-  └── 6. 返回 plan_id
-
-
-TaskScheduler.poll()  (每 15 秒由 guardd 调用)
-  ├── 1. 扫描所有 PENDING/SCHEDULED 任务
-  ├── 2. 检查依赖是否满足
-  ├── 3. 检查时间是否到达
-  ├── 4. 检查机器是否空闲
-  ├── 5. 按优先级投递到 MachineSession
-  └── 6. 更新任务状态
-```
-
-### 4.2 MachineSession v2（升级队列）
-
-```python
-class MachineSession:
-    """单台机器的命令执行会话 (v2.0)"""
-    
-    def __init__(self, machine: str):
-        self.machine = machine
-        self.is_local = (machine == HOSTNAME)
-        self.active_task: Optional[Task] = None       # 当前执行
-        self.paused_task: Optional[Task] = None        # 被抢占暂停的任务
-        self.priority_queue = PriorityQueue()          # 优先级队列
-        self.completed_tasks: list[Task] = []          # 已完成
-        self.task_store = TaskStore()                  # SQLite 持久化
-        
-    def submit(self, task: Task):
-        """提交任务到队列"""
-        if task.priority == 0 and self.active_task and self.active_task.priority > 0:
-            self._preempt(task)
-            return
-        self.priority_queue.push(task)
-        task.status = TaskStatus.QUEUED
-        self.task_store.save(task)
-    
-    def _preempt(self, high_task: Task):
-        """高优抢占当前任务"""
-        self.active_task.status = TaskStatus.PAUSED
-        self.paused_task = self.active_task
-        self.task_store.save(self.active_task)
-        self._signal_stop(self.active_task)
-        high_task.status = TaskStatus.RUNNING
-        self.active_task = high_task
-        self._execute(high_task)
-    
-    def poll(self):
-        """轮询：检查当前任务状态 + 启动下一个"""
-        now = time.time()
-        if self.active_task and self.active_task.status.is_terminal:
-            self.task_store.save(self.active_task)
-            self.completed_tasks.append(self.active_task)
-            if self.paused_task:
-                self.paused_task.status = TaskStatus.RUNNING
-                self.active_task = self.paused_task
-                self.paused_task = None
-                self._execute(self.active_task)
-                return
-            self.active_task = None
-        
-        if not self.active_task:
-            next_task = self.priority_queue.pop_ready(now)
-            if next_task:
-                next_task.status = TaskStatus.RUNNING
-                self.active_task = next_task
-                self._execute(next_task)
-```
-
-### 4.3 心跳集成（guardd 增强）
-
-**当前心跳**（每300秒）：
-```json
-{"hostname": "chengzigedeAir", "status": "online", "running_tasks": 2, "browsers_open": 3}
-```
-
-**升级后心跳**（每30~60秒，携带详细任务状态）：
 ```json
 {
+  "task_type": "scheduled",
+  // 或 "priority"
+
+  "task_id": "nurture_douyin_daily_20260627",
+  "accounts": ["douyin_01", "douyin_02"],
+  "machine": "chengzigedeAir",
+  
+  // 调度参数
+  "schedule": {
+    "type": "cron",          // cron / interval / dependency / now
+    "cron": "0 8 * * *",     // 每天8点
+    "interval_sec": null,     // 间隔秒数（优先级任务用）
+    "interval_random": null,  // {min: 300, max: 900} 随机间隔
+  },
+
+  // 依赖（三级接力用）
+  "depends_on": [],
+  "interval_after_dep": 0,
+
+  // 执行参数
+  "blueprint": "douyin_daily",
+  "rounds": 3,
+  "params": {},               // 特殊链接等
+
+  // 状态
+  "status": "pending",
+  "progress": {"current": 0, "total": 3},
+  "result": null,
+  "error": null
+}
+```
+
+### 4.2 任务状态流转
+
+```
+PENDING ──→ QUEUED ──→ RUNNING ──→ COMPLETED
+  │           │           │
+  │           │      [高优抢占]
+  │           │           │
+  │           │      ┌────▼────┐
+  │           │      │ PAUSED  │──→ [恢复] → RUNNING
+  │           │      └─────────┘
+  │           │
+  │      [用户取消] → CANCELLED
+  │
+  [依赖未满足] → WAITING_DEP → [满足] → QUEUED
+  
+  RUNNING → FAILED → [重试] → QUEUED
+                    → [重试耗尽] → FAILED
+                                  → [依赖任务] → SKIPPED
+```
+
+### 4.3 账号状态跟踪
+
+每个账号在执行过程中会维护状态，任务完成后回写：
+
+```json
+{
+  "account_id": "douyin_136",
+  "machine": "7kecheng",
+  "status": "active",          // active / login_expired / banned / sms_verify
+  "last_task": "interact_001",
+  "last_error": null,
+  "browser_slot": 2,            // 占用的浏览器槽位
+  "tasks_today": 5,
+  "failed_today": 0
+}
+```
+
+当 guardd 检测到账号状态变化（登录过期/封号）→ Dashboard 收到心跳告警 → 联邦指挥台高亮显示。
+
+---
+
+## 五、任务拆解与插入逻辑
+
+### 5.1 优先级任务的拆解
+
+```
+用户提交: "20个账号评论视频V，间隔5-15分钟"
+  ↓
+CommandBus 收到请求:
+  ├─ 1. 查 ORACLE.yaml 把20个账号按机器分组
+  │     机器A: 5个账号
+  │     机器B: 8个账号
+  │     机器C: 7个账号
+  ├─ 2. 对每台机器生成一条"编排任务"
+  └─ 3. 发送给各机 guardd
+      ↓
+各机 guardd 收到编排任务:
+  ├─ TaskScheduler.decompose()
+  │   ├─ 拆成5条独立子任务（每个账号一条）
+  │   ├─ 计算时间线（每条间隔随机5-15分钟）
+  │   └─ 写入本机 task_store
+  └─ 返回编排计划给 Dashboard
+```
+
+### 5.2 优先级插入 vs 日常养号
+
+```
+当前机器队列:
+  [scheduled] 养号 douyin_01-05 (P1) → 正在执行
+  
+插入 priority 任务:
+  ├─ 方式A: 等待当前这一轮执行完 → 插入 P0
+  │   养号 douyin_01-05 第3轮结束
+  │   → [priority] 账号A 评论视频V (P0)
+  │   → 间隔8分钟
+  │   → [priority] 账号B 评论视频V (P0)
+  │   → 间隔5分钟
+  │   → ...全部 P0 子任务完成
+  │   → [scheduled] 恢复养号 douyin_01-05 第4轮
+  
+  ├─ 方式B: 强行暂停当前养号
+  │   养号进程收到 SIGSTOP 或 guardd stop API
+  │   → 插入 P0
+  │   → P0 完成
+  │   → 恢复养号进程
+  │   (注: 需要浏览器进程支持暂停，技术复杂)
+  
+  推荐用方式A: 等当前这一轮完再接 P0
+  (Camoufox 浏览器不能随意中断)
+```
+
+### 5.3 浏览器槽位管理
+
+当前：`mc/engine.py` 用 `--max-browsers=3` 控制并发浏览器数。
+
+升级后：由 **guardd** 统一管理本机浏览器槽位：
+
+```python
+class BrowserSlotManager:
+    """浏览器槽位管理器 — 在 guardd 内部"""
+    
+    def __init__(self, max_slots=3):
+        self.max_slots = max_slots
+        self.slots = [None] * max_slots  # slot → account_id or None
+    
+    def acquire(self, account_id: str) -> Optional[int]:
+        """获取一个槽位，返回 slot_id"""
+        for i in range(self.max_slots):
+            if self.slots[i] is None:
+                self.slots[i] = account_id
+                return i
+        return None  # 无可用槽位
+    
+    def release(self, slot_id: int):
+        """释放槽位"""
+        if 0 <= slot_id < self.max_slots:
+            self.slots[slot_id] = None
+    
+    def get_usage(self) -> dict:
+        """返回槽位使用情况"""
+        return {
+            "max": self.max_slots,
+            "used": sum(1 for s in self.slots if s is not None),
+            "slots": self.slots,
+        }
+```
+
+好处：
+- 可动态调整 `max_slots`（机器性能好就调高）
+- 槽位状态通过心跳上报 Dashboard
+- 任务调度时先看有没有空槽，没空就排队等待
+
+---
+
+## 六、联邦指挥台（Dashboard 重建）
+
+### 6.1 当前问题
+
+| 问题 | 表现 |
+|:-----|:------|
+| 信息不全 | 只显示"运行中"，不知道每台机器的具体任务 |
+| 交互不准 | 状态刷新滞后，看不到队列里有什么 |
+| 无手动干预 | 不能暂停/取消/重排任务 |
+| 无告警 | 封号/登录失败没有醒目提示 |
+
+### 6.2 新指挥台设计
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🚀 联邦指挥台                                              │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │  📡 三机状态总览                                         │ │
+│  │   🟢 chengzigedeAir  (3/3槽位) 运行中: 养号  | 队列: 2  │ │
+│  │   🟡 5kechengdeAir   (2/3槽位) 运行中: 评论  | 队列: 3  │ │
+│  │   🔴 7kecheng        (0/3槽位) offline        | 心跳:-- │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │  📋 chengzigedeAir 任务时间线  [今天 08:00 ~ 23:00]    │ │
+│  │                                                         │ │
+│  │  08:00 ── [🔄] 养号 douyin_01-05  ─── 第3轮 [▓▓▓▓░░]  │ │
+│  │  11:00 ── [⏸] 养号 xhs_01-03      ─── 等待中          │ │
+│  │  13:00 ── [🔴] 定向评论 视频V      ─── 子任务1/5       │ │
+│  │  13:08 ── [⏳] 定向评论 视频V      ─── 子任务2/5       │ │
+│  │  13:15 ── [⏳] 定向评论 视频V      ─── 子任务3/5       │ │
+│  │  ...                                                     │ │
+│  │  [拖拽调整顺序] [暂停] [取消] [插入新任务]              │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │  ⚠️ 告警中心                                             │ │
+│  │  ⚠️ douyin_136 @ 7kecheng — 登录过期 (10分钟前)        │ │
+│  │  ❌ xhs_07 @ 5kechengdeAir — 封号 (2小时前)            │ │
+│  └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 6.3 联邦指挥台能力清单
+
+| 能力 | 说明 |
+|:-----|:------|
+| **状态总览** | 三台机器在线/离线、槽位使用率、当前任务、队列长度 |
+| **时间线视图** | 每台机器今天已执行和待执行的任务时间线 |
+| **进度条** | 当前运行的每个任务完成百分比 |
+| **手动调度** | 拖拽调整待执行任务顺序 |
+| **暂停/恢复/取消** | 对正在执行或排队中的任务操作 |
+| **插入新任务** | 直接在当前队列中插入 priority 任务 |
+| **告警中心** | 封号、登录失败、任务失败的高亮提示 |
+| **历史追踪** | 已完成任务的执行结果（成功/失败/耗时）|
+
+---
+
+## 七、恢复 guardd 的增强方案
+
+### 7.1 guardd 新增能力
+
+```python
+# guardd.py 原有 + 新增模块
+
+class GuarddServer:
+    """guardd 主进程 — 每个机器一个实例"""
+    
+    def __init__(self):
+        # 原有
+        self.http_server = HTTPServer(('0.0.0.0', 9090), GuarddHTTPHandler)
+        self.hostname = resolve_hostname()
+        
+        # 新增
+        self.task_store = TaskStore()              # SQLite 持久化
+        self.slot_manager = BrowserSlotManager(max_slots=3)
+        self.priority_queue = PriorityQueue()
+        self.active_task: Optional[Task] = None
+        self.heartbeat_interval = 15               # 15秒心跳
+        
+    def run_cycle(self):
+        """主循环 — 每 15 秒执行一次"""
+        while True:
+            # 1. 检查当前任务状态
+            self._check_active_task()
+            
+            # 2. 队列调度：从队列取出下一个可执行任务
+            self._schedule_next()
+            
+            # 3. 上报心跳到 Dashboard
+            self._send_heartbeat()
+            
+            # 4. 清理过期数据
+            self._cleanup()
+            
+            time.sleep(self.heartbeat_interval)
+```
+
+### 7.2 与 Dashboard 的通信
+
+```
+guardd → Dashboard (POST /api/push/heartbeat):
+  每15秒上报一次:
+  {
     "hostname": "chengzigedeAir",
     "status": "online",
-    "machine_uid": "4cf443bc",
-    "last_seen": "2026-06-27T10:00:00Z",
-    "tasks": {
-        "active": {"task_id": "interact_001", "cmd_type": "interact", "account": "douyin_136", "status": "running", "progress": {"step": 3, "total": 5}},
-        "paused": null,
-        "queued": [{"task_id": "nurture_003", "priority": 1, "estimated_at": "2026-06-27T10:20:00Z"}],
-        "completed_today": 3,
-        "failed_today": 0
-    },
-    "system": {"cpu_percent": 23.5, "memory_percent": 62.1, "browsers_open": 1}
-}
+    "slots": {"max": 3, "used": 2, "list": ["douyin_01", "douyin_02"]},
+    "active_task": {"id": "nurture_001", "type": "scheduled", "blueprint": "douyin_daily", 
+                    "progress": "60%", "elapsed_sec": 7200},
+    "queued": [{"id": "nurture_002", "type": "scheduled", "estimated_start": "11:00"},
+               {"id": "interact_001", "type": "priority", "estimated_start": "13:00"}],
+    "alerts": [{"account": "douyin_136", "type": "login_expired", "time": "09:30"}],
+    "system": {"cpu": 23, "mem": 62}
+  }
+
+
+Dashboard → guardd (POST /task):
+  下发新任务:
+  {
+    "task_id": "interact_20260627_001",
+    "type": "priority",
+    "accounts": ["douyin_136"],
+    "params": {"url": "https://www.douyin.com/video/xxx", "text": "@corpus"},
+    "blueprint": "interact_comment",
+    "schedule": {"type": "interval", "interval_sec": 600, "interval_random": {"min": 300, "max": 900}}
+  }
 ```
 
----
-
-## 五、三级接力评论的编排实现
-
-### 5.1 任务链示例
-
-用户提交: 对视频V做三级接力，账号A→B→C
-
-TaskScheduler 生成 3 个 Task:
-
-- Task-A: task_id="chain_V_001", accounts=["douyin_A"], machine="chengzigedeAir", priority=0, chain_position="first", schedule_type="now"
-- Task-B: task_id="chain_V_002", accounts=["douyin_B"], machine="5kechengdeAir", priority=0, chain_position="reply", schedule_type="dependency", depends_on=["chain_V_001"], interval_after_dep=300
-- Task-C: task_id="chain_V_003", accounts=["douyin_C"], machine="7kecheng", priority=0, chain_position="second_reply", schedule_type="dependency", depends_on=["chain_V_002"], interval_after_dep=300
-
-### 5.2 依赖状态回传
-
-Task-A 执行完 post_comment 后，把评论ID传回 Task-B：
+### 7.3 CommandBus 瘦身后的职责
 
 ```python
-task.result = {
-    "comment_id": "74001234567890",
-    "comment_text": "一级评论内容",
-    "account_id": "douyin_A",
-    "status": "completed"
-}
-
-dep_result = task_store.get("chain_V_001").result
-reply_to_comment_id = dep_result["comment_id"]
+# 瘦身后的 CommandBus — 只做三件事:
+class CommandBus:
+    def dispatch(self, cmd_type, accounts, params):
+        """1. 按机器分组 + 模板渲染 + 投递"""
+        machine_groups = self._group_by_machine(accounts)
+        for machine, accts in machine_groups:
+            task = self._render_task(cmd_type, accts, params)
+            self._send_to_guardd(machine, task)
+    
+    def _send_to_guardd(self, machine, task):
+        """2. 投递到目标机器的 guardd"""
+        if machine == HOSTNAME:
+            # 本机：直接调 guardd 内部 API
+            local_guardd.submit_task(task)
+        else:
+            # 远程：HTTP 调 guardd
+            guardd_api(f"http://{ip}:9090/task", "POST", task)
+    
+    def get_global_queue(self):
+        """3. 聚合各机队列信息（通过心跳/API）"""
+        for machine in ALL_MACHINES:
+            status = self._query_guardd(machine)
+            # 聚合为全局视图
 ```
 
 ---
 
-## 六、定时任务编排
+## 八、执行流程完整示例
 
-### 6.1 从 ORACLE.yaml 到调度器
-
-当前 ORACLE.yaml 已定义定时任务（schedules: 节），将其自动导入 TaskScheduler：
-
-```python
-schedules = oracle.get("schedules", [])
-for s in schedules:
-    task = Task(
-        task_id=f"{s['name']}_{date}",
-        cmd_type="nurture",
-        accounts=s.get("accounts", "all"),
-        machine=s.get("on_machines", "*"),
-        priority=1,
-        schedule_type="cron",
-        cron_expr=s["schedule"],
-        params=s.get("params", {}),
-    )
-    task_store.save(task)
-```
-
-### 6.2 每日时间线示例
+### 8.1 日常养号的一天
 
 ```
-08:00  每台机器开始养号
-11:00  养号完成
-    [空闲时段]  ← 可插入交互任务
-13:00  用户提交定向评论 → P0 插入
-13:05  各机分别执行评论任务
-14:00  继续养号/等待
-17:00  晚上养号
-20:00  全部完成
+08:00  ── guardd 读取 ORACLE.yaml 的 schedules 节
+     │   发现 08:00 douyin_daily → 生成 Task
+     │   TaskScheduler 检查槽位: 3个空 → 开始执行
+     │   在 3 个浏览器上同时跑 3 个账号的养号
+     │   每跑完一个账号 → 释放槽位 → 启动下一个账号
+     ├── 第1轮 douyin_01,02,03 并行
+     ├── 第2轮 douyin_04,05,06 并行
+     └── ...
+11:00  ── 所有 douyin 账号跑完 → 释放槽位 → 等待下个定时任务
+     │   心跳上报: 队列为空, 3个槽位空闲
+     │   
+13:00  ── 用户在 Dashboard 提交定向评论
+     │   20个账号, 间隔5-15分钟, 视频V
+     │   CommandBus 按机器分组后投递给各机 guardd
+     │   guardd 拆解为子任务, 排入优先级队列
+     ├── chengzigedeAir: 5个子任务, P0 插入队列头
+     ├── 5kechengdeAir:  8个子任务, P0 插入队列头
+     └── 7kecheng:       7个子任务, P0 插入队列头
+     │   
+13:05  ── chengzigedeAir: 当前养号第3轮结束
+     │   检测到 P0 任务 → 暂停后续养号 → 开始执行评论
+     │   账号A → 浏览器槽位1 → post_comment → 完成
+     │   等待8分钟 → 账号B → 浏览器槽位1 → post_comment → 完成
+     │   ...全部5个完成 → 恢复养号队列
+```
+
+### 8.2 三级接力的编排
+
+```
+用户提交: 三级接力, 账号A→B→C, 视频V
+
+CommandBus.dispatch("interact", [A,B,C], {url:V, strategy:"chain"})
+  │
+  ├─ 按机器分组: A在机器1, B在机器2, C在机器3
+  ├─ 生成3条 Task:
+  │   Task-A: machine=1, chain_position="first",  schedule_type="now"
+  │   Task-B: machine=2, chain_position="reply",   depends_on=["Task-A"]
+  │   Task-C: machine=3, chain_position="second",  depends_on=["Task-B"]
+  └─ 发送到各机 guardd
+      │
+      ├─ 机器1 guardd: Task-A → 立即执行 → post_comment → 完成
+      │   → 把 result.comment_id 写入 task_store
+      │   → Dashboard 心跳收到: Task-A COMPLETED
+      │
+      ├─ 机器2 guardd: Task-B 状态 WAITING_DEP
+      │   → 每15秒检查 Task-A 状态
+      │   → 发现 Task-A completed → 等待300秒 → 执行
+      │   → 读取 Task-A.result.comment_id
+      │   → reply_to_comment(comment_id) → 完成
+      │   → Task-B COMPLETED
+      │
+      └─ 机器3 guardd: Task-C 状态 WAITING_DEP
+          → 每15秒检查 Task-B 状态
+          → 发现 Task-B completed → 等待300秒 → 执行
+          → 读取 Task-B.result.comment_id
+          → reply_to_comment(comment_id) → 完成
+          → Task-C COMPLETED
+
+Dashboard 实时显示三级进度:
+  [✅] 13:00 账号A 评论成功
+  [⏳] 13:05 账号B 回复A...
+  [📅] 13:10 账号C 回复B (等待中)
 ```
 
 ---
 
-## 七、与现有代码的关系
+## 九、与现有代码的合并策略
 
-### 7.1 不需要改的
+### 9.1 代码放在哪里
 
-| 模块 | 原因 |
+```
+05_tools/00_setup/guardd/
+├── guardd.py                  ← 主文件，约1400行 → 预计增加到2000行
+├── modules/
+│   ├── __init__.py
+│   ├── heartbeat.py           ← [new] 心跳上报逻辑(从主文件抽出)
+│   ├── task_store.py          ← [new] SQLite任务持久化
+│   ├── priority_queue.py      ← [new] 优先级队列
+│   ├── slot_manager.py        ← [new] 浏览器槽位管理
+│   ├── scheduler.py           ← [new] 调度引擎
+│   └── executor.py            ← [new] 任务执行器(调mc)
+├── launch.sh
+├── install_guardd.sh
+└── com.agentos.guardd.plist
+```
+
+`guardd.py` 主文件保持不变，新增功能以模块方式导入。
+
+### 9.2 不需要动的文件
+
+| 文件 | 原因 |
 |:-----|:------|
-| douyin_ops.py | 原子操作层不变 |
-| xhs_ops.py | 同上 |
-| engine.py | 单次批量执行引擎不变 |
-| nurture_runner.sh | 养号包装器不变 |
-| corpus.py | 语料库不变 |
+| `douyin_ops.py` | 原子操作层，只管"怎么点" |
+| `xhs_ops.py` | 同上 |
+| `engine.py` | 单次执行引擎，被 guardd Executor 调用 |
+| `nurture_runner.sh` | 包装器，被 guardd Executor 调用 |
+| `blueprints/*.json` | 蓝图定义不变 |
+| `corpus.py` | 语料库不变 |
+| `login_state_machine.py` | 登录检测逻辑不变 |
+| `command_bus.py` | 瘦身（去掉poll/queue），保留模板渲染+分发 |
 
-### 7.2 需要扩展的
+### 9.3 需要改的文件
 
-| 模块 | 改动 |
+| 文件 | 改动 |
 |:-----|:------|
-| command_bus.py:MachineSession | 升级为优先级队列 |
-| guardd.py:heartbeat | 增加详细任务状态 |
-| routes/ops.py | 新增 schedule/queue/cancel 路由 |
-
-### 7.3 需要新增的
-
-| 模块 | 说明 |
-|:-----|:------|
-| scheduler/task.py | Task 数据模型 |
-| scheduler/task_store.py | SQLite 持久化 |
-| scheduler/priority_queue.py | 优先级队列 |
-| scheduler/dependency.py | 依赖图 |
-| scheduler/timeline.py | 时间线 |
-| scheduler/scheduler.py | 主编排器 |
+| `guardd.py` | + 5个模块导入，+ 调度循环，+ 槽位管理 |
+| `command_bus.py` | 去掉 poll 守卫线程、CMD_POLL_STRATEGY，dispatch 改为投递到 guardd |
+| `routes/ops.py` | + 任务管理路由 |
+| `frontend/src/views/matrix-command.js` | 重建为联邦指挥台 |
+| `frontend/src/views/matrix-interact.js` | 提交交互任务（已有框架需完善）|
 
 ---
 
-## 八、关键设计决策
+## 十、实施路线图
 
-### 决策1: 中心化调度
+### Phase 1 — guardd 调度引擎（本周）
 
-master 上的 TaskScheduler 做全局决策，worker 上的 guardd 只负责接收/执行/上报。简单可控，单点决策避免冲突。
+| # | 任务 | 工作量 |
+|:-:|:-----|:-------|
+| 1.1 | TaskStore (SQLite) 持久化 | 小 |
+| 1.2 | 优先级队列 | 小 |
+| 1.3 | 浏览器槽位管理 | 小 |
+| 1.4 | 调度主循环集成到 guardd | 中 |
+| 1.5 | guardd HTTP API 扩展 (/tasks, /task/cancel) | 中 |
+| 1.6 | 心跳增强（携带详细任务状态） | 中 |
 
-### 决策2: 本地 SQLite 持久化
+### Phase 2 — 联邦指挥台（下周）
 
-每台机器本地 SQLite (agent-local/runtime/scheduler/tasks.db)，通过心跳上报给 master。比跨网络数据库可靠。
+| # | 任务 | 工作量 |
+|:-:|:-----|:-------|
+| 2.1 | Dashboard 任务状态聚合（从各机心跳读取） | 中 |
+| 2.2 | 联邦指挥台前端骨架（三机总览+时间线） | 大 |
+| 2.3 | 任务手动调度（暂停/恢复/取消/重排） | 中 |
+| 2.4 | 告警中心（封号/登录失败高亮） | 中 |
+| 2.5 | CommandBus 瘦身（去掉poll/queue逻辑） | 小 |
 
-### 决策3: 非抢占式 + 队列优先级
+### Phase 3 — 高级编排（下月）
 
-P0 不强制打断 P1 的当前执行轮次，而是在 P1 的下一轮前插入。Camoufox 浏览器不能随意中断。
-
-### 决策4: 评论成功判定
-
-post_comment 返回 'ok' AND _verify_comment_posted 找到文字 AND 拿到 comment_id。失败则重试1-2次 → 标记 FAILED → 后续依赖标记 SKIPPED。
+| # | 任务 | 工作量 |
+|:-:|:-----|:-------|
+| 3.1 | 任务拆解（一台机器收到群组任务后拆成子任务） | 中 |
+| 3.2 | 依赖链支持（waitting_dep 状态+跨机查询） | 中 |
+| 3.3 | 三级接力全流程 | 大 |
+| 3.4 | 任务失败自动重试+链式跳过 | 中 |
+| 3.5 | ORACLE.yaml 定时任务自动导入 | 小 |
 
 ---
 
-## 九、实施路线图
+## 十一、关键设计决策总结
 
-### Phase 1（本周）— 基础架构
+### 决策1: 调度放 guardd，不新增层级
+- guardd 已经是每台机器上的常驻进程
+- 合并比新建更轻量，减少进程数
 
-| 任务 | 工作量 |
-|:-----|:-------|
-| Task 数据模型 + TaskStore (SQLite) | 中 |
-| 优先级队列 | 小 |
-| MachineSession v2 升级 | 中 |
-| guardd 心跳增强 | 中 |
-| Dashboard 任务监控视图 | 大 |
+### 决策2: 按意图分类，不按动作分类
+- `scheduled` = 定时养号（蓝图驱动，随机动作）
+- `priority` = 特殊交互（用户指定目标，可设置间隔）
+- 同一个原子操作可以在两类任务中出现
 
-### Phase 2（下周）— 编排引擎
+### 决策3: 浏览器槽位上移
+- 从 `mc/engine.py` 移到 `guardd/slot_manager.py`
+- 让调度层能感知和控制浏览器资源
 
-| 任务 | 工作量 |
-|:-----|:-------|
-| TaskScheduler 核心 | 大 |
-| 依赖图解析器 | 中 |
-| 时间线生成器 | 中 |
-| 跨机任务同步 | 中 |
-| InteractOrchestrator 对接 | 中 |
+### 决策4: 非抢占式插入
+- 等待当前养号轮次完成后再插入 P0 任务
+- 不强制中断 Camoufox 浏览器
 
-### Phase 3（下月）— 高级功能
-
-| 任务 | 工作量 |
-|:-----|:-------|
-| 抢占/暂停/恢复 | 中 |
-| 三级接力全流程联调 | 大 |
-| 定时任务 cron 支持 | 中 |
-| Dashboard 计划预览 | 大 |
-| 自动恢复失败任务 | 中 |
+### 决策5: CommandBus 瘦身
+- 去掉 poll 守卫线程
+- 去掉 CMD_POLL_STRATEGY
+- 只保留：按机器分组 + 模板渲染 + 投递到 guardd
