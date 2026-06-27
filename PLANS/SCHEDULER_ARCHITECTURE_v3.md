@@ -730,6 +730,7 @@ Dashboard 实时显示三级进度:
 |:-----|:------|:------|
 | guardd 拆分方式 | 拆成 modules/ 多文件 | 主文件1400行已到极限，新增调度逻辑后预计超2500行，必须拆分 |
 | 跨机依赖通信 | 事件推送而非轮询 | O(n²) 轮询在>10个任务时代价不可接受 |
+| guardd 单点故障 | 三层防护: launchd+恢复+超时兜底 | guardd 崩溃不丢失任务，1秒内重生 |
 | 任务存储 | 内存 dict + SQLite 双写 | 内存保性能，SQLite 保持久化 |
 | 浏览器孤儿清理 | guardd 启动时全量扫描 | 实现简单，成本低 |
 | ORACLE 同步 | guardd 启动+每6小时 | 不是实时系统，6小时间隔足够 |
@@ -937,6 +938,41 @@ def _check_active_task(self):
 #### 4. 安全：防止重复提交
 
 同一 task_id 重复提交时，guardd 应返回"已存在"而非重新执行。
+
+#### 5. guardd 单点故障防护 — ✅ 已决策
+
+guardd 崩溃不会丢失任务，通过三层防护：
+
+**第一层：launchd 自动重启（已有）**
+`com.agentos.guardd.plist` 已配置 KeepAlive=true + RunAtLoad=true。
+guardd 进程崩溃后 launchd 在 1 秒内自动拉起新进程。
+
+**第二层：启动时恢复未完成任务（新增）**
+guardd 启动时执行以下恢复流程：
+
+```
+guardd.startup_recovery()
+  ├─ 1. 扫描孤儿浏览器进程
+  │     ps aux | grep camoufox → 遍历 browser_pids/ 目录
+  │     有进程但无对应槽位记录 → 标记为孤儿
+  │     有关联槽位但进程不存在 → 清理槽位记录
+  │
+  ├─ 2. 从 task_store 加载未完成任务
+  │     SELECT * FROM tasks WHERE status IN ('running', 'queued', 'waiting_dep')
+  │     加载到内存队列，重置状态为 queued（重启后需要重新检查前置条件）
+  │
+  ├─ 3. 恢复依赖索引
+  │     重建 WAITING_DEP 任务的依赖图
+  │     检查依赖项是否已完成 → 已完成则入 queued 队列
+  │     未完成则保留 WAITING_DEP 状态
+  │
+  └─ 4. 上报恢复结果到 Dashboard
+      通过心跳上报恢复的任务数量
+```
+
+**第三层：超时兜底（新增）**
+如果在心跳周期内（15秒）没有收到某台机器的心跳，Dashboard 标记该机器为 offline。
+之前下发给该机器的任务状态变为 unknown，等机器恢复后重新同步。
 
 
 ### 12.6 调整后的实施路线图
