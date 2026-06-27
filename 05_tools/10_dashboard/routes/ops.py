@@ -102,17 +102,18 @@ def api_ops_running():
     from services.command_bus import _guardd_api, HOSTNAME, _get_machine_info
     machines = []
     # 本机
-    local_tasks = _guardd_api("GET", "/tasks") or []
-    if local_tasks:
-        machines.append({"machine": HOSTNAME, "tasks": local_tasks})
-    # 远程机器（从 ORACLE 获取机器列表）
-    info = _get_machine_info("dummy")  # 触发 ORACLE 加载
+    local_tasks = _guardd_api("GET", "/scheduler/tasks") or {}
+    local_active = local_tasks.get("active") or local_tasks
+    if local_active:
+        machines.append({"machine": HOSTNAME, "tasks": [local_active] if isinstance(local_active, dict) else local_active})
+    # 远程机器
+    info = _get_machine_info("dummy")
     for name, minfo in getattr(_get_machine_info, "_oracle_machines", {}).items():
         if name == HOSTNAME:
             continue
         ip = minfo.get("tailscale_ip", "")
         if ip:
-            remote_tasks = _guardd_api("GET", "/tasks", machine=name) or []
+            remote_tasks = _guardd_api("GET", "/scheduler/tasks", machine=name) or {}
             if remote_tasks:
                 machines.append({"machine": name, "tasks": remote_tasks})
     return {"machines": machines}
