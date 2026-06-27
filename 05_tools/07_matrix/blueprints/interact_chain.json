@@ -1,22 +1,24 @@
 {
   "id": "interact_chain",
   "name": "互动-三级接力",
-  "description": "发评→搜识别码→回复→再回复，通过🌸识别码定位评论",
+  "description": "A评论→B回复A→C回复B，形成互动链",
   "version": "1.0",
   "platform": "douyin",
   "steps": [
-    {"step_id": 1, "op": "goto_url", "args": {"url": "@url"}, "pre": {}, "post": {}},
-    {"step_id": 2, "op": "wait_watch", "args": {"seconds": null}, "pre": {}, "post": {}},
-    {"step_id": 3, "op": "open_comments", "args": {}, "pre": {}, "post": {}},
-    {"step_id": 4, "op": "post_comment_with_code", "args": {"text": "@comment_text", "code": "@my_code"}, "pre": {}, "post": {}},
-    {"step_id": 5, "op": "close_comments", "args": {}, "pre": {}, "post": {}}
+    {"step_id": 1, "op": "goto_url",     "args": {"url": "@url"},        "pre": {}, "post": {}},
+    {"step_id": 2, "op": "wait_watch",   "args": {"seconds": 5},        "pre": {}, "post": {}},
+    {"step_id": 3, "op": "open_comments","args": {},                     "pre": {}, "post": {}},
+    {"step_id": 4, "op": "post_comment", "args": {"text": "@comment_text"}, "pre": {}, "post": {}},
+    {"step_id": 5, "op": "wait",         "args": {"seconds": 60},       "pre": {}, "post": {}},
+    {"step_id": 6, "op": "reply_comment","args": {"text": "@reply_text"},   "pre": {}, "post": {}},
+    {"step_id": 7, "op": "wait",         "args": {"seconds": 60},       "pre": {}, "post": {}},
+    {"step_id": 8, "op": "reply_comment","args": {"text": "@second_reply_text"}, "pre": {}, "post": {}}
   ],
   "args_schema": {
-    "url": {"type": "string", "required": true, "desc": "目标视频链接"},
-    "comment_text": {"type": "string", "desc": "一级评论内容（含🌸识别码）"},
-    "my_code": {"type": "string", "desc": "当前账号的识别码"},
-    "target_code": {"type": "string", "desc": "要搜索的目标识别码"},
-    "reply_text": {"type": "string", "desc": "回复内容"},
-    "chain_position": {"enum": ["first", "reply", "second_reply"], "desc": "接力位置"}
+    "url": {"type": "string", "required": true, "desc": "视频链接"},
+    "comment_text": {"type": "string", "desc": "一级评论内容，支持@corpus"},
+    "reply_text": {"type": "string", "desc": "二级回复内容"},
+    "second_reply_text": {"type": "string", "desc": "三级回复内容"},
+    "chain_position": {"type": "string", "enum": ["first", "reply", "second_reply"]}
   }
 }

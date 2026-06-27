@@ -41,6 +41,12 @@ export async function loadView(container) {
         </select>
       </div>
 
+      <!-- 告警中心 -->
+      <div id="cmdAlerts" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px;margin-bottom:8px;font-size:11px">
+        <div style="font-weight:600;margin-bottom:4px">⚠️ 告警中心</div>
+        <div id="cmdAlertsList"></div>
+      </div>
+
       <!-- 各机详细队列 -->
       <div id="cmdQueueDetail"></div>
     </div>`;
@@ -49,6 +55,14 @@ export async function loadView(container) {
   if (!window._cmdRegistered) {
     window._cmdRegistered = true;
     window._cmdRefresh = () => refreshView(container);
+    window._cmdStop = async (machine, taskId) => {
+      if (!confirm('确定停止任务 '+taskId+' ？')) return;
+      try {
+        const r = await apiRequest('/ops/task/cancel', {method:'POST', body:JSON.stringify({task_id:taskId, machine:machine})});
+        alert('✅ 已发送停止指令');
+        refreshView(container);
+      } catch(e) { alert('❌ 停止失败: '+e.message); }
+    };
     window._cmdReset = async () => {
       if (!confirm('确定重置所有机器？将清空任务队列、终止运行中的任务。')) return;
       try {
@@ -105,6 +119,7 @@ async function refreshView(container, silent = false) {
       document.getElementById('cmdLastUpdate').textContent = `最后更新: ${new Date().toLocaleTimeString()}`;
     }
 
+    renderAlerts(queueData);
     renderMachines(queueData, machineData);
     renderQueueDetail(queueData);
   } catch (e) {
@@ -170,6 +185,27 @@ function renderMachines(queueData, machineData) {
   
   overview.innerHTML = html;
   if (currentFilter) machineFilter.value = currentFilter;
+}
+
+function renderAlerts(queueData) {
+  const el = document.getElementById('cmdAlerts');
+  const list = document.getElementById('cmdAlertsList');
+  if (!el || !list) return;
+  const alerts = [];
+  const machines = queueData?.machines || {};
+  for (const [name, status] of Object.entries(machines)) {
+    const active = status?.tasks?.active || null;
+    const counts = status?.tasks?.counts || {};
+    if (status?.error) alerts.push({machine:name, type:'error', msg:'不可达: '+status.error});
+    if (active?.status === 'failed') alerts.push({machine:name, type:'failed', msg:'任务失败: '+active.task_id});
+    if (counts?.failed > 0) alerts.push({machine:name, type:'failed_count', msg:counts.failed+' 个任务失败'});
+  }
+  if (alerts.length > 0) {
+    el.style.display = 'block';
+    list.innerHTML = alerts.map(a => '<div style="padding:2px 0">⚠️ ['+a.machine+'] '+a.msg+'</div>').join('');
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 function renderQueueDetail(queueData) {

@@ -1,6 +1,6 @@
 # OpenCLI 集成说明
 
-> 最后更新：2026-05-07
+> 最后更新：2026-06-27
 
 ## 用途
 
@@ -36,7 +36,7 @@ opencli doctor
 
 ## 本机配置
 
-- 扩展连接码: `6jffptk2`（固定不变）
+- 扩展连接码: `9zdft8vm`（随机生成，各机不同）
 - Chrome 已登录平台: 百度、B站、知乎、小红书、抖音、微博
-- OpenCLI v1.7.12 + 扩展 v1.0.5
-- 建议升级: `npm install -g @jackwener/opencli`（到 v1.7.14）
+- OpenCLI v1.7.21 + 扩展 v1.0.15
+- 可用升级: `npm install -g @jackwener/opencli`（到 v1.8.4）+ 扩展 v1.0.20

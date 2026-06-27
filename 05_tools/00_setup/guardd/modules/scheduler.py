@@ -79,12 +79,27 @@ class Scheduler:
             self._schedule_next()
 
     def _check_active_task(self):
-        """检查当前活跃任务是否完成"""
+        """检查当前活跃任务是否完成或超时"""
         if not self.active_task:
             return
 
         task_id = self.active_task["task_id"]
         status = self.active_task.get("status", "")
+
+        # 超时检测：运行中的任务超过 max_execution_sec 则自动标记失败
+        if status == STATUS_RUNNING:
+            elapsed = time.time() - self.active_task.get("started_at", time.time())
+            max_time = self.active_task.get("max_execution_sec", 7200)
+            if elapsed > max_time:
+                logger.warning(f"  ⏰ [{task_id}] 超时 ({elapsed:.0f}s > {max_time}s), 自动终止")
+                self.executor.kill(task_id)
+                self.active_task["status"] = STATUS_FAILED
+                self.active_task["error"] = f"超时 ({elapsed:.0f}s)"
+                self.active_task["completed_at"] = time.time()
+                self.task_store.save(self.active_task)
+                self._notify_dependents(self.active_task)
+                self.active_task = None
+                return
 
         if status not in TERMINAL_STATUSES:
             return  # 还在运行
@@ -147,16 +162,16 @@ class Scheduler:
             logger.error(f"  ❌ [{next_task_id}] 执行失败: {e}")
 
     def _notify_dependents(self, completed_task: dict):
-        """通知依赖此任务的下游任务"""
+        """通知依赖此任务的下游任务（支持跨机）"""
         task_id = completed_task["task_id"]
         dep_ids = self.task_store.find_dependents(task_id)
+        hostname = __import__("os").uname().nodename
 
         for dep_id in dep_ids:
             dep = self.task_store.get(dep_id)
             if not dep or dep.get("status") != STATUS_WAITING_DEP:
                 continue
 
-            # 检查被依赖任务是否全部完成
             all_done = True
             for d in dep.get("depends_on", []):
                 t = self.task_store.get(d)
@@ -164,15 +179,34 @@ class Scheduler:
                     all_done = False
                     break
 
-            if all_done:
-                # 依赖满足，入队
-                interval = dep.get("interval_after_dep", 0)
-                dep["scheduled_at"] = time.time() + interval
-                dep["status"] = STATUS_QUEUED
-                dep["message"] = f"依赖 {task_id} 已完成"
-                self.task_store.save(dep)
+            if not all_done:
+                continue
+
+            interval = dep.get("interval_after_dep", 0)
+            dep["scheduled_at"] = time.time() + interval
+            dep["status"] = STATUS_QUEUED
+            dep["message"] = "依赖 {} 已完成".format(task_id)
+            self.task_store.save(dep)
+
+            dep_machine = dep.get("machine", "")
+            if dep_machine and dep_machine != hostname:
+                try:
+                    import urllib.request
+                    import json
+                    payload = json.dumps(dep).encode()
+                    req = urllib.request.Request(
+                        "http://127.0.0.1:9988/api/ops/task/submit",
+                        data=payload,
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    urllib.request.urlopen(req, timeout=5)
+                    logger.info("  [{}] 跨机依赖，已发送到 {}".format(dep_id, dep_machine))
+                except Exception as e:
+                    logger.warning("  [{}] 跨机发送失败: {}".format(dep_id, e))
+            else:
                 self.queue.push(dep)
-                logger.info(f"  📬 [{dep_id}] 依赖满足，入队 (delay={interval}s)")
+                logger.info("  [{}] 依赖满足，入队 (delay={}s)".format(dep_id, interval))
 
     def kill_active(self):
         """终止当前活跃任务"""
