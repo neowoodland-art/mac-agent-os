@@ -255,8 +255,30 @@ class MachineSession:
                     return {"ok": False, "message": f"机器 {self.machine} 连接失败: {e}", "running": len(active)}
             return {"ok": True, "message": "就绪", "running": len(active)}
 
+    def _clear_stale(self):
+        """清理卡死的 current_cmd（_guardd_api 临时不可用导致 is_busy 卡死）"""
+        cmd = self.current_cmd
+        if not cmd:
+            return
+        elapsed = time.time() - (cmd.started_at or time.time())
+        timeout_map = {
+            "login": 600,      # 登录最多等 10 分钟
+            "comment": 1200,   # 评论最多等 20 分钟
+            "collect": 600,    # 采集最多等 10 分钟
+            "nurture": 21600,  # 养号最多等 6 小时
+        }
+        max_time = timeout_map.get(cmd.cmd_type, 3600)
+        if elapsed > max_time:
+            cmd.status = CommandStatus.TIMED_OUT
+            cmd.message = f"超时自动清理 ({int(elapsed)}s > {max_time}s)"
+            self.current_cmd = None
+            logger.warning(f"  ⏰ 清理卡死命令 ({cmd.cmd_type}, {int(elapsed)}s > {max_time}s)")
+
     def send(self, cmd: Command) -> dict:
         with self._lock:
+            # 先清理卡死的命令
+            self._clear_stale()
+
             # 机器已经在执行命令 → 排队
             if self.is_busy:
                 cmd.status = CommandStatus.QUEUED
