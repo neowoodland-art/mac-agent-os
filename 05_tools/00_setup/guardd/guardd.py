@@ -42,6 +42,20 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
+# 确保 modules/ 目录在 Python 路径中
+_guardd_dir = Path(__file__).resolve().parent
+if str(_guardd_dir) not in sys.path:
+    sys.path.insert(0, str(_guardd_dir))
+
+# 调度引擎模块
+from modules.task_store import TaskStore
+from modules.priority_queue import PriorityQueue
+from modules.slot_manager import BrowserSlotManager, AccountBusyError
+from modules.executor import Executor
+from modules.scheduler import Scheduler
+from modules.heartbeat import HeartbeatReporter
+from modules.oracle_sync import OracleSync
+
 _guardd_start_time = time.time()
 
 # ── 路径常量 ──────────────────────────────────────────────
@@ -1384,6 +1398,76 @@ def _run_heartbeat_cycle():
     with open(LAST_RUN_FILE, "w") as f:
         json.dump(last_run, f, indent=2, ensure_ascii=False)
     logger.info(f"guardd 心跳完成 — {elapsed:.2f}s, results={results}")
+
+
+
+# ════════════════════════════════════════════════════════════
+# 调度引擎集成（v4.3.0 新增）
+# ════════════════════════════════════════════════════════════
+
+# ── 全局实例 ──
+_task_store = None
+_slot_manager = None
+_scheduler = None
+_heartbeat_reporter = None
+_oracle_sync = None
+
+
+def _init_scheduler():
+    """初始化调度引擎"""
+    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync
+    if _scheduler is not None:
+        return
+    logger = logging.getLogger('guardd')
+    logger.info('  ⚙️ 初始化调度引擎 (v4.3.0)...')
+    _task_store = TaskStore()
+    queue = PriorityQueue()
+    _slot_manager = BrowserSlotManager(max_slots=3)
+    _slot_manager.cleanup_orphans()
+    executor = Executor(_task_store, _slot_manager)
+    _scheduler = Scheduler(_task_store, queue, _slot_manager, executor)
+    _heartbeat_reporter = HeartbeatReporter(_task_store, _slot_manager, _scheduler, HOSTNAME, MACHINE_UID)
+    _oracle_sync = OracleSync(_task_store)
+    _oracle_sync.sync()
+    recovered = _task_store.reset_unfinished()
+    if recovered:
+        logger.info(f'  🔄 恢复 {recovered} 个未完成任务')
+    logger.info('  ✅ 调度引擎初始化完成')
+    _heartbeat_reporter.send_to_dashboard()
+    _heartbeat_reporter.write_local()
+
+
+def _run_scheduler_loop():
+    """调度循环线程"""
+    _init_scheduler()
+    _scheduler.run_cycle()
+
+
+def _run_enhanced_heartbeat():
+    """增强版心跳"""
+    if _heartbeat_reporter is None:
+        _init_scheduler()
+    hb = _heartbeat_reporter.collect()
+    _heartbeat_reporter.write_local(hb)
+    _heartbeat_reporter.send_to_dashboard(hb)
+
+
+def api_scheduler_submit(task_json):
+    """HTTP API: 提交任务"""
+    _init_scheduler()
+    _scheduler.submit_task(task_json)
+    return {'status': 'accepted', 'task_id': task_json.get('task_id', '')}
+
+
+def api_scheduler_status():
+    """HTTP API: 调度器状态"""
+    _init_scheduler()
+    return {
+        'active': _heartbeat_reporter._task_to_heartbeat(_scheduler.active_task) if _scheduler and _scheduler.active_task else None,
+        'queue': _scheduler.queue.get_all() if _scheduler else [],
+        'slots': _slot_manager.get_usage() if _slot_manager else {},
+        'counts': _task_store.count() if _task_store else {},
+    }
 
 
 def main():
