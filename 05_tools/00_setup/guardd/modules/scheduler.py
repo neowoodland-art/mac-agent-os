@@ -8,7 +8,6 @@ scheduler.py — 调度引擎 (guardd 模块)
   - 任务拆解（把群组任务拆成子任务）
   - 依赖完成后通知下游
 """
-import asyncio
 import logging
 import time
 from typing import Optional
@@ -140,11 +139,12 @@ class Scheduler:
         self.task_store.save(next_task)
         logger.info(f"  ▶️ [{next_task_id}] 开始执行")
 
-        # 异步执行（不阻塞主循环）
-        asyncio.run_coroutine_threadsafe(
-            self.executor.execute(next_task),
-            asyncio.get_event_loop()
-        )
+        # 同步执行（在调度线程内，不阻塞主循环的下一轮）
+        try:
+            import threading
+            threading.Thread(target=self.executor.execute, args=(next_task,), daemon=True).start()
+        except Exception as e:
+            logger.error(f"  ❌ [{next_task_id}] 执行失败: {e}")
 
     def _notify_dependents(self, completed_task: dict):
         """通知依赖此任务的下游任务"""
