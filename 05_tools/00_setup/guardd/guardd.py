@@ -244,6 +244,15 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             })
         elif path == "/tasks":
             self._send_json(200, _get_tasks())
+        elif path == "/scheduler/tasks":
+            self._send_json(200, api_scheduler_status())
+        elif path == "/scheduler/queue":
+            from modules.priority_queue import PriorityQueue
+            status = api_scheduler_status()
+            self._send_json(200, {"queue": status.get("queue", [])})
+        elif path == "/scheduler/slots":
+            status = api_scheduler_status()
+            self._send_json(200, status.get("slots", {}))
         else:
             self._send_json(404, {"error": "not_found"})
 
@@ -274,6 +283,17 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             run_id = path.split("/")[2]
             result = _stop_task(run_id)
             self._send_json(200, result)
+
+        elif path == "/scheduler/submit":
+            result = api_scheduler_submit(data)
+            self._send_json(200, result)
+
+        elif path == "/scheduler/stop":
+            from modules.task_store import STATUS_FAILED
+            _init_scheduler()
+            if _scheduler:
+                _scheduler.kill_active()
+            self._send_json(200, {"status": "ok"})
 
         else:
             self._send_json(404, {"error": "not_found"})
@@ -1373,14 +1393,142 @@ def main():
     http_thread = threading.Thread(target=_run_http_server, daemon=True)
     http_thread.start()
 
-    # 先跑一轮心跳
+    # 启动调度引擎（后台线程）
+    try:
+        _init_scheduler()
+        scheduler_thread = threading.Thread(target=_run_scheduler_loop, daemon=True)
+        scheduler_thread.start()
+        logger.info("  🔁 调度引擎后台线程已启动")
+    except Exception as e:
+        logger.warning(f"  调度引擎启动失败: {e} (不影响原有功能)")
+
+    # 先跑一轮心跳（含增强版）
     _run_heartbeat_cycle()
+    try:
+        _run_enhanced_heartbeat()
+    except Exception as e:
+        logger.debug(f"  增强心跳首轮失败: {e}")
 
     # 持续心跳循环（每 300 秒）
     while True:
         time.sleep(300)
         _run_heartbeat_cycle()
+        try:
+            _run_enhanced_heartbeat()
+        except Exception as e:
+            logger.debug(f"  增强心跳失败: {e}")
 
 
 if __name__ == "__main__":
     main()
+
+# ════════════════════════════════════════════════════════════
+# 模块 10：调度引擎集成（v4.3.0 新增）
+# ════════════════════════════════════════════════════════════
+# 与原 9 模块并行运行，不取代现有功能
+# ────────────────────────────────────────────────────────────
+
+from modules.task_store import TaskStore, STATUS_COMPLETED, STATUS_FAILED
+from modules.priority_queue import PriorityQueue
+from modules.slot_manager import BrowserSlotManager, AccountBusyError
+from modules.executor import Executor
+from modules.scheduler import Scheduler
+from modules.heartbeat import HeartbeatReporter
+from modules.oracle_sync import OracleSync
+
+# ── 全局实例 ──
+_task_store = None
+_slot_manager = None
+_scheduler = None
+_heartbeat_reporter = None
+_oracle_sync = None
+
+
+def _init_scheduler():
+    """初始化调度引擎（线程安全，可重复调）"""
+    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync
+    
+    if _scheduler is not None:
+        return  # 已初始化
+    
+    logger.info("  ⚙️ 初始化调度引擎 (v4.3.0)...")
+    
+    # TaskStore
+    _task_store = TaskStore()
+    logger.info(f"  📦 TaskStore 就绪 ({_task_store.count()})")
+    
+    # PriorityQueue
+    queue = PriorityQueue()
+    
+    # SlotManager
+    _slot_manager = BrowserSlotManager(max_slots=3)
+    _slot_manager.cleanup_orphans()
+    logger.info(f"  🖥️ SlotManager 就绪 ({_slot_manager.get_usage()['used']}/{_slot_manager.max_slots})")
+    
+    # Executor
+    executor = Executor(_task_store, _slot_manager)
+    
+    # Scheduler
+    _scheduler = Scheduler(_task_store, queue, _slot_manager, executor)
+    
+    # HeartbeatReporter
+    _heartbeat_reporter = HeartbeatReporter(
+        _task_store, _slot_manager, _scheduler,
+        HOSTNAME, MACHINE_UID,
+        dashboard_url="http://127.0.0.1:9988"
+    )
+    
+    # OracleSync
+    _oracle_sync = OracleSync(_task_store)
+    _oracle_sync.sync()
+    
+    # 恢复未完成任务
+    recovered = _task_store.reset_unfinished()
+    if recovered:
+        logger.info(f"  🔄 恢复 {recovered} 个未完成任务到队列")
+        for task in _task_store.get_by_status("queued"):
+            _scheduler.submit_task(task)
+    
+    logger.info("  ✅ 调度引擎初始化完成")
+    
+    # 发一轮心跳
+    _heartbeat_reporter.send_to_dashboard()
+    _heartbeat_reporter.write_local()
+
+
+def _run_scheduler_loop():
+    """在独立线程中运行调度循环"""
+    _init_scheduler()
+    logger.info("  🔁 调度循环启动 (15s间隔)")
+    _scheduler.run_cycle()
+
+
+def _run_enhanced_heartbeat():
+    """增强版心跳 — 替换原有 module_heartbeat"""
+    if _heartbeat_reporter is None:
+        _init_scheduler()
+    try:
+        hb = _heartbeat_reporter.collect()
+        _heartbeat_reporter.write_local(hb)
+        _heartbeat_reporter.send_to_dashboard(hb)
+        logger.info(f"  ✓ enhanced_heartbeat (slots={hb['slots']['used']}/{hb['slots']['max']})")
+    except Exception as e:
+        logger.error(f"  ✗ enhanced_heartbeat: {e}")
+
+
+def api_scheduler_submit(task_json: dict) -> dict:
+    """HTTP API 入口：提交任务到调度器"""
+    _init_scheduler()
+    _scheduler.submit_task(task_json)
+    return {"status": "accepted", "task_id": task_json.get("task_id", "")}
+
+
+def api_scheduler_status() -> dict:
+    """HTTP API 入口：查询调度器状态"""
+    _init_scheduler()
+    return {
+        "active": _heartbeat_reporter._task_to_heartbeat(_scheduler.active_task) if _scheduler.active_task else None,
+        "queue": _scheduler.queue.get_all(),
+        "slots": _slot_manager.get_usage() if _slot_manager else {},
+        "counts": _task_store.count() if _task_store else {},
+    }
