@@ -1,10 +1,11 @@
-import{t as e}from"./index-CHWtK3Oh.js";var t=null;async function n(e){e.innerHTML=`
+import{t as e}from"./index-v91XRs5x.js";var t=null;async function n(t){t.innerHTML=`
     <div style="padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-weight:700;font-size:16px">🚀 联邦指挥台</div>
         <div style="display:flex;gap:8px;align-items:center">
           <span id="cmdLastUpdate" style="font-size:10px;color:var(--text2)"></span>
           <button onclick="window._cmdRefresh()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔄 刷新</button>
+          <button onclick="window._cmdReset()" style="background:#ef4444;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🗑 重置所有</button>
           <label style="font-size:10px;color:var(--text2)">
             <input type="checkbox" id="cmdAutoRefresh" checked onchange="window._cmdToggleAuto()"> 自动刷新(15s)
           </label>
@@ -32,7 +33,7 @@ import{t as e}from"./index-CHWtK3Oh.js";var t=null;async function n(e){e.innerHT
 
       <!-- 各机详细队列 -->
       <div id="cmdQueueDetail"></div>
-    </div>`,window._cmdRegistered||(window._cmdRegistered=!0,window._cmdRefresh=()=>o(e),window._cmdToggleAuto=()=>{document.getElementById(`cmdAutoRefresh`)?.checked?i(e):a()}),await o(e),i(e)}function r(){a()}function i(e){a(),t=setInterval(()=>{document.getElementById(`cmdAutoRefresh`)?.checked&&o(e,!0)},15e3)}function a(){t&&=(clearInterval(t),null)}async function o(t,n=!1){try{let[t,r]=await Promise.all([e(`/ops/queue`),e(`/ops/machines`)]);n||(document.getElementById(`cmdLastUpdate`).textContent=`最后更新: ${new Date().toLocaleTimeString()}`),s(t,r),c(t)}catch(e){n||(document.getElementById(`cmdQueueDetail`).innerHTML=`<div style="color:#ef4444;font-size:12px">❌ 加载失败: ${e.message}</div>`)}}function s(e,t){let n=document.getElementById(`cmdMachineOverview`),r=document.getElementById(`cmdMachineFilter`),i=e?.machines||{};t?.machines;let a=r.value;r.innerHTML=`<option value="all">全部</option>`;let o=``,s=0;for(let[e,t]of Object.entries(i)){r.innerHTML+=`<option value="${e}">${e}</option>`;let n=t?.slots||{},i=t?.tasks?.active||null,a=t?.tasks?.counts||{},c=!t?.error,l=n?.used||0,u=n?.max||3;o+=`
+    </div>`,window._cmdRegistered||(window._cmdRegistered=!0,window._cmdRefresh=()=>o(t),window._cmdReset=async()=>{if(confirm(`确定重置所有机器？将清空任务队列、终止运行中的任务。`))try{let n=await e(`/ops/reset`,{method:`POST`,body:`{}`});alert(`✅ 已重置: `+JSON.stringify(n.machines)),o(t)}catch(e){alert(`❌ 重置失败: `+e.message)}},window._cmdToggleAuto=()=>{document.getElementById(`cmdAutoRefresh`)?.checked?i(t):a()}),await o(t),i(t)}function r(){a()}function i(e){a(),t=setInterval(()=>{document.getElementById(`cmdAutoRefresh`)?.checked&&o(e,!0)},15e3)}function a(){t&&=(clearInterval(t),null)}async function o(t,n=!1){try{let[t,r]=await Promise.all([e(`/ops/queue`),e(`/ops/machines`)]);n||(document.getElementById(`cmdLastUpdate`).textContent=`最后更新: ${new Date().toLocaleTimeString()}`),s(t,r),c(t)}catch(e){n||(document.getElementById(`cmdQueueDetail`).innerHTML=`<div style="color:#ef4444;font-size:12px">❌ 加载失败: ${e.message}</div>`)}}function s(e,t){let n=document.getElementById(`cmdMachineOverview`),r=document.getElementById(`cmdMachineFilter`),i=e?.machines||{};t?.machines;let a=r.value;r.innerHTML=`<option value="all">全部</option>`;let o=``,s=0;for(let[e,t]of Object.entries(i)){r.innerHTML+=`<option value="${e}">${e}</option>`;let n=t?.slots||{},i=t?.tasks?.active||null,a=t?.tasks?.counts||{},c=!t?.error,l=n?.used||0,u=n?.max||3;o+=`
       <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <div style="font-weight:600;font-size:12px">${c?`🟢`:`🔴`} ${e}</div>

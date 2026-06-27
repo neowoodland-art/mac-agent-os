@@ -15,6 +15,7 @@ export async function loadView(container) {
         <div style="display:flex;gap:8px;align-items:center">
           <span id="cmdLastUpdate" style="font-size:10px;color:var(--text2)"></span>
           <button onclick="window._cmdRefresh()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔄 刷新</button>
+          <button onclick="window._cmdReset()" style="background:#ef4444;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🗑 重置所有</button>
           <label style="font-size:10px;color:var(--text2)">
             <input type="checkbox" id="cmdAutoRefresh" checked onchange="window._cmdToggleAuto()"> 自动刷新(15s)
           </label>
@@ -48,6 +49,16 @@ export async function loadView(container) {
   if (!window._cmdRegistered) {
     window._cmdRegistered = true;
     window._cmdRefresh = () => refreshView(container);
+    window._cmdReset = async () => {
+      if (!confirm('确定重置所有机器？将清空任务队列、终止运行中的任务。')) return;
+      try {
+        const r = await apiRequest('/ops/reset', {method:'POST', body:'{}'});
+        alert('✅ 已重置: ' + JSON.stringify(r.machines));
+        refreshView(container);
+      } catch(e) {
+        alert('❌ 重置失败: ' + e.message);
+      }
+    };
     window._cmdToggleAuto = () => {
       if (document.getElementById('cmdAutoRefresh')?.checked) {
         startAutoRefresh(container);

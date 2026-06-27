@@ -274,3 +274,29 @@ def api_ops_task_submit(data: dict = {}):
     from services.command_bus import _guardd_api
     result = _guardd_api("POST", "/scheduler/submit", task, machine=machine)
     return {"status": "accepted", "result": result}
+
+@router.post(/reset)
+def api_ops_reset(data: dict = {}):
+    """重置所有机器：清空任务队列 + 重启 guardd"""
+    from services.command_bus import _guardd_api, ORACLE_PATH, HOSTNAME
+    import yaml, subprocess, time
+    
+    # Get all machines
+    machines = []
+    try:
+        oracle = yaml.safe_load(ORACLE_PATH.read_text())
+        machines = list(oracle.get("machines", {}).keys())
+    except:
+        machines = [HOSTNAME]
+    
+    results = {}
+    for m in machines:
+        try:
+            # Call guardd reset endpoint
+            r = _guardd_api("POST", "/scheduler/stop", {}, machine=m)
+            results[m] = "ok" if r else "no response"
+        except Exception as e:
+            results[m] = str(e)
+    
+    return {"status": "ok", "machines": results}
+
