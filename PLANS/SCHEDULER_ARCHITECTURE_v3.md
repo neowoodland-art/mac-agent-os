@@ -899,13 +899,18 @@ class CommandBus:
 
 ### 12.5 其他重要审计建议
 
-#### 1. guardd HTTP 安全
+#### 1. guardd HTTP 安全 — ✅ 已决策
 
-HTTPServer 绑定到 127.0.0.1 而非 0.0.0.0。本机通信够用，远程通信走 Dashboard 中转。
+HTTPServer 绑定到 127.0.0.1:9090，加简单 API token 认证。
+各机 guardd 之间通信时携带 token，Dashboard 查询各机时也携带 token。
+token 存放在各机 agent-local/identity/secrets/guardd_token，安装时自动生成。
 
-#### 2. 跨机依赖事件推送
+#### 2. 跨机依赖事件推送 — ✅ 已决策
 
-Task 完成后，通知依赖它的下游机器，而不是下游轮询：
+不用轮询。每台机器的 guardd 维护一个"我依赖谁"的反向索引。
+Task-A 完成后，机器1 guardd 查索引发现机器2的 Task-B 依赖它，直接 HTTP POST 通知机器2。
+机器2 guardd 收到通知后将 Task-B 从 WAITING_DEP 移入 QUEUED。
+超时兜底：通知丢失时，15分钟没收到则主动查一次上游。
 
 ```python
 def _notify_dependents(self, completed_task):
