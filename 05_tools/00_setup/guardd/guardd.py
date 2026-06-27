@@ -309,6 +309,18 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
                 _scheduler.kill_active()
             self._send_json(200, {"status": "ok"})
 
+        elif path == "/scheduler/reset":
+            _init_scheduler()
+            if _scheduler:
+                _scheduler.kill_active()
+            import os
+            for p in ["camoufox", "firefox", "mc run"]:
+                os.system('pkill -f ' + p + ' 2>/dev/null')
+            db = str(Path(__file__).resolve().parent.parent.parent.parent / "agent-local" / "runtime" / "guardd" / "tasks.db")
+            if os.path.exists(db):
+                os.remove(db)
+            self._send_json(200, {"status": "ok", "message": "reset: tasks cleared, browsers killed"})
+
         else:
             self._send_json(404, {"error": "not_found"})
 
