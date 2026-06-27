@@ -339,8 +339,8 @@ class MachineSession:
         self._trim_history()
         return {"pid": cmd.pid, "log_path": str(log_path)}
 
-        def _send_remote(self, cmd: Command) -> dict:
-        # 优先通过远程机器的 guardd 调度引擎（v4.3.0）
+    def _send_remote(self, cmd: Command) -> dict:
+        # try guardd scheduler first (v4.3.0)
         scheduler_task = {
             "task_id": cmd.run_id,
             "cmd_type": cmd.cmd_type,
@@ -355,36 +355,48 @@ class MachineSession:
         if guardd_result.get("status") == "accepted":
             cmd.status = CommandStatus.DISPATCHING
             cmd.started_at = time.time()
-            cmd.message = f"已通过 guardd 调度引擎发送到 {self.machine}"
+            cmd.message = "sent to {} via scheduler".format(self.machine)
             self.commands.insert(0, cmd)
             self._trim_history()
             return {"guardd": True, "scheduler": True, "machine": self.machine}
 
-        # 降级：走旧版 /task（guardd 调度引擎不可用时）
-        # ── 構造完整的 shell 命令（与 _send_local 一致，使用远程路径）──
+        # fallback: construct remote shell command
         py_discover = 'PY=$(ls $HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3 2>/dev/null || which python3); '
         scripts_dir = "$AGENT_SYNC/05_tools/07_matrix/scripts"
-        env_setup = f"export AGENT_SYNC=\"$HOME/workbuddy-agent-os/agent-sync\"; export AGENT_LOCAL=\"$HOME/workbuddy-agent-os/agent-local\"; export MC_PYTHON=\"$PY\"; export PYTHONPATH={scripts_dir}:$PYTHONPATH; "
+        env_setup = "export AGENT_SYNC=\"$HOME/workbuddy-agent-os/agent-sync\"; export AGENT_LOCAL=\"$HOME/workbuddy-agent-os/agent-local\"; export MC_PYTHON=\"$PY\"; export PYTHONPATH={}:$PYTHONPATH; ".format(scripts_dir)
 
         if cmd.cmd_type == "nurture":
             accts = ",".join(cmd.accounts)
             _bp = cmd.params.get("blueprint") or "douyin_daily"
             _rd = cmd.params.get("rounds") or 10
             wrapper = "$AGENT_SYNC/05_tools/10_dashboard/services/nurture_runner.sh"
-            full_cmd = f"{py_discover} {env_setup} bash {wrapper} {accts} {_bp} {_rd} {cmd.run_id}"
+            full_cmd = "{} {} bash {} {} {} {}".format(py_discover, env_setup, wrapper, accts, _bp, _rd, cmd.run_id)
         else:
-            full_cmd = f"{py_discover} {env_setup} cd {scripts_dir} && $MC_PYTHON -m {cmd.command_line}"
+            full_cmd = "{} {} cd {} && $MC_PYTHON -m {}".format(py_discover, env_setup, scripts_dir, cmd.command_line)
 
-        # 降级：通过远程 guardd 旧 /task API
+        # fallback: try old guardd /task API
         guardd_result = _guardd_api("POST", "/task", {
-        # guardd 不可用 → 降级为 SSH（需要 nohup + 重定向保持后台运行）
+            "cmd": full_cmd,
+            "run_id": cmd.run_id,
+            "machine": self.machine,
+        }, machine=self.machine)
+        if guardd_result.get("status") == "accepted":
+            cmd.pid = guardd_result.get("pid")
+            cmd.status = CommandStatus.DISPATCHING
+            cmd.started_at = time.time()
+            cmd.message = "sent to {} via guardd /task".format(self.machine)
+            self.commands.insert(0, cmd)
+            self._trim_history()
+            return {"pid": cmd.pid, "guardd": True, "machine": self.machine}
+
+        # fallback: SSH
         if not self.ssh_target:
             cmd.status = CommandStatus.PREFLIGHT_FAILED
-            cmd.message = f"机器 {self.machine} guardd 和 SSH 均不可用"
+            cmd.message = "machine {} guardd and SSH unavailable".format(self.machine)
             return {"error": cmd.message}
 
-        logger.warning(f"guardd 远程不可用，降级为 SSH: {cmd.run_id} @ {self.machine}")
-        ssh_cmd = f"nohup {full_cmd} > /tmp/ops_{cmd.run_id}.log 2>&1 &"
+        logger.warning("guardd unavailable, fallback to SSH: {} @ {}".format(cmd.run_id, self.machine))
+        ssh_cmd = "nohup {} > /tmp/ops_{}.log 2>&1 &".format(full_cmd, cmd.run_id)
 
         try:
             subprocess.run(
@@ -394,13 +406,13 @@ class MachineSession:
             )
             cmd.status = CommandStatus.DISPATCHING
             cmd.started_at = time.time()
-            cmd.message = "命令已通过 SSH 发送到远程机器"
+            cmd.message = "command sent via SSH"
             self.commands.insert(0, cmd)
             self._trim_history()
             return {"status": "sent"}
         except Exception as e:
             cmd.status = CommandStatus.FAILED
-            cmd.message = f"远程发送失败: {e}"
+            cmd.message = "remote send failed: {}".format(e)
             return {"error": str(e)}
 
     def _remote_poll_result(self, cmd: Command) -> bool:
