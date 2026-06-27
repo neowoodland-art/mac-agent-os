@@ -687,7 +687,271 @@ Dashboard 实时显示三级进度:
 
 ---
 
-## 十一、关键设计决策总结
+
+
+---
+
+## 十二、架构审计与改进建议（2026-06-27 评审结果）
+
+
+### 12.1 需要你决策的议题
+
+#### 决策A：任务拆解位置
+
+**问题**: 用户提交"20个账号评论视频V"，拆成20条子任务的工作放在哪层？
+
+| 方案 | 拆解位置 | 优点 | 缺点 |
+|:-----|:---------|:-----|:------|
+| **A（推荐）** | CommandBus | master有全局子任务视图，指挥台可直接展示各机完整时间线 | CommandBus 从薄变厚 |
+| B | guardd | guardd 逻辑内聚，CommandBus 保持薄 | master看不到子任务粒度 |
+
+**我的建议**：选 **方案A**。原因是指挥台必须看到每条子任务的进度，不可能让20个账号的评论显示为"1条任务 20/20进度"。让 CommandBus 负责"模板渲染+按机器分组+拆解"三位一体。
+
+#### 决策B：Dashboard 读路径是否直连 guardd
+
+**问题**: 指挥台查询各机队列状态，走 CommandBus 还是直连各机 guardd？
+
+| 方案 | 读路径 | 写路径 | 优点 |
+|:-----|:-------|:-------|:-----|
+| **C（推荐）** | Dashboard→guardd(直连HTTP) | Dashboard→CommandBus→guardd | 读不依赖CommandBus，CommandBus宕机不影响查看 |
+| D | 全走 CommandBus | 全走 CommandBus | 统一入口，但CommandBus变成瓶颈 |
+
+**我的建议**：选 **方案C（读写分离）**。理由:
+- 读操作是查询类（GET /tasks, GET /heartbeat），直接调各机 guardd 简单高效
+- 写操作是命令类（POST /task, POST /cancel），需要 CommandBus 做机器分组和模板渲染
+- CommandBus 可以独立重启，不影响 Dashboard 查看队列
+
+
+### 12.2 我直接确认的决策
+
+以下是我的判断，不需要你决策：
+
+| 决策 | 结论 | 理由 |
+|:-----|:------|:------|
+| guardd 拆分方式 | 拆成 modules/ 多文件 | 主文件1400行已到极限，新增调度逻辑后预计超2500行，必须拆分 |
+| 跨机依赖通信 | 事件推送而非轮询 | O(n²) 轮询在>10个任务时代价不可接受 |
+| 任务存储 | 内存 dict + SQLite 双写 | 内存保性能，SQLite 保持久化 |
+| 浏览器孤儿清理 | guardd 启动时全量扫描 | 实现简单，成本低 |
+| ORACLE 同步 | guardd 启动+每6小时 | 不是实时系统，6小时间隔足够 |
+| 心跳间隔 | 15秒 | 与调度轮询周期一致，不要额外线程 |
+
+
+### 12.3 guardd 拆分方案（详细讨论）
+
+#### 当前问题
+
+`guardd.py` 目前 1386 行，HTTP 处理器、9个模块循环、心跳上报、文件同步全部在一个文件里。加上调度引擎后预计突破 2500 行，必须拆分。
+
+#### 拆分方案
+
+```
+05_tools/00_setup/guardd/
+├── guardd.py                     ← 主入口(~200行)，只做:
+│                                     1. import 所有模块
+│                                     2. 启动 HTTP Server
+│                                     3. 启动主循环 run_cycle()
+│
+├── modules/
+│   ├── __init__.py
+│   ├── http_handler.py           ← [抽出] HTTP请求处理(约300行)
+│   │   ├── GuarddHTTPHandler
+│   │   ├── GET /health, /tasks, /task/{id}
+│   │   └── POST /task, /task/{id}/cancel
+│   │
+│   ├── heartbeat.py              ← [抽出] 心跳上报(约200行)
+│   │   ├── collect_system_stats()
+│   │   ├── collect_task_stats()
+│   │   └── send_heartbeat()
+│   │
+│   ├── task_store.py             ← [新增] 任务持久化(约200行)
+│   │   ├── SQLite 存储
+│   │   ├── 内存缓存(dict) + 定时写回
+│   │   └── 启动时恢复未完成任务
+│   │
+│   ├── priority_queue.py         ← [新增] 优先级队列(约150行)
+│   │   ├── heapq 实现
+│   │   ├── push / pop_ready / peek
+│   │   └── cancel / reorder
+│   │
+│   ├── slot_manager.py           ← [新增] 浏览器槽位(约150行)
+│   │   ├── acquire / release / find_account
+│   │   ├── 启动时扫描孤儿浏览器
+│   │   └── 槽位状态上报
+│   │
+│   ├── scheduler.py              ← [新增] 调度引擎(约300行)
+│   │   ├── run_cycle() 主循环
+│   │   ├── _check_active_task()
+│   │   ├── _schedule_next()
+│   │   ├── _decompose_task()
+│   │   └── _notify_dependents()
+│   │
+│   ├── executor.py               ← [新增] 任务执行器(约200行)
+│   │   ├── 调 mc run / mc interact
+│   │   ├── 捕获输出 + 解析结果
+│   │   └── 超时控制
+│   │
+│   └── oracle_sync.py            ← [新增] ORACLE同步(约100行)
+│       ├── 启动时导入 schedules
+│       └── 每6小时增量同步
+│
+├── launch.sh                     ← 不变
+├── install_guardd.sh              ← 不变
+└── com.agentos.guardd.plist       ← 不变
+```
+
+#### 拆分后主文件 (guardd.py)
+
+```python
+#!/usr/bin/env python3
+from modules.http_handler import GuarddHTTPHandler, start_http_server
+from modules.heartbeat import HeartbeatReporter
+from modules.task_store import TaskStore
+from modules.priority_queue import PriorityQueue
+from modules.slot_manager import BrowserSlotManager
+from modules.scheduler import Scheduler
+from modules.executor import Executor
+from modules.oracle_sync import OracleSync
+
+class GuarddServer:
+    def __init__(self):
+        self.task_store = TaskStore()
+        self.slot_manager = BrowserSlotManager(max_slots=3)
+        self.priority_queue = PriorityQueue()
+        self.executor = Executor(self.task_store, self.slot_manager)
+        self.oracle_sync = OracleSync(self.task_store)
+        self.scheduler = Scheduler(
+            self.task_store, self.priority_queue,
+            self.slot_manager, self.executor
+        )
+        self.heartbeat = HeartbeatReporter(self.task_store, self.slot_manager, self.scheduler)
+
+    def run(self):
+        start_http_server(self)
+        self.oracle_sync.sync()
+        self.slot_manager.cleanup_orphans()
+        self.scheduler.run_cycle()
+```
+
+主文件 ~150 行，只做组装。每个模块职责单一。
+
+
+### 12.4 CommandBus 读写分离方案（详细讨论）
+
+#### 当前问题
+
+CommandBus 目前既负责写（分发任务）也负责读（poll 状态、聚合队列）。导致:
+- 页面刷新要等 CommandBus 响应
+- CommandBus 挂了 Dashboard 什么都看不到
+- 代码耦合
+
+#### 读写分离方案
+
+```
+写路径（提交任务）:
+  前端 → POST /api/ops/run → CommandBus.dispatch()
+    ├─ 按机器分组 + 模板渲染 + 任务拆解
+    └─ 投递到各机 guardd
+
+读路径（查看状态）:
+  前端 → GET /api/ops/queue?machine=all
+    └→ 直接调各机 guardd HTTP API:
+        ├─ chengzigedeAir:  GET http://127.0.0.1:9090/tasks
+        ├─ 5kechengdeAir:   GET http://100.72.182.121:9090/tasks
+        └─ 7kecheng:        GET http://100.65.35.28:9090/tasks
+        └→ 聚合为全局视图
+
+取消/暂停:
+  前端 → POST /api/ops/cancel
+    └→ 直接调对应机器 guardd: POST guardd_ip:9090/task/{id}/cancel
+```
+
+#### 方案优势
+
+| 对比项 | 现在（全走CommandBus） | 读写分离后 |
+|:-------|:----------------------|:-----------|
+| CommandBus 宕机影响 | 提交任务❌ + 看队列❌ | 只能提交任务❌，看队列✅ |
+| 前端刷新速度 | 要等 CommandBus 聚合 | 直接查各机 guardd，快 |
+| 代码复杂度 | dispatch + poll + queue 混在一起 | dispatch 只写，UI 只读 |
+
+#### 任务拆解在 CommandBus 中的实现
+
+```python
+class CommandBus:
+    def dispatch(self, cmd_type, accounts, params):
+        machine_groups = self._group_by_machine(accounts)
+        tasks = []
+        for machine, accts in machine_groups.items():
+            if cmd_type == "interact" and len(accts) > 1:
+                # 交互任务：每个账号拆一条独立 Task
+                for acct in accts:
+                    task = self._render_single_task(cmd_type, [acct], params, machine)
+                    task.decomposed_from = f"group_{int(time.time())}"
+                    tasks.append(task)
+            else:
+                # 普通任务：合并成一条 Task
+                task = self._render_task(cmd_type, accts, params, machine)
+                tasks.append(task)
+        for task in tasks:
+            self._send_to_guardd(task.machine, task)
+        return {"plan_id": "xxx", "count": len(tasks)}
+```
+
+
+### 12.5 其他重要审计建议
+
+#### 1. guardd HTTP 安全
+
+HTTPServer 绑定到 127.0.0.1 而非 0.0.0.0。本机通信够用，远程通信走 Dashboard 中转。
+
+#### 2. 跨机依赖事件推送
+
+Task 完成后，通知依赖它的下游机器，而不是下游轮询：
+
+```python
+def _notify_dependents(self, completed_task):
+    for dep_task_id in self.task_store.find_dependents(completed_task.task_id):
+        dep = self.task_store.get(dep_task_id)
+        if dep and dep.machine != self.hostname:
+            guardd_api(f"http://{dep.machine_ip}:9090/task/{dep_task_id}/dep_ready", "POST")
+```
+
+#### 3. 任务超时熔断
+
+每个 Task 增加 max_execution_sec 硬限制，超时自动标记 FAILED：
+
+```python
+def _check_active_task(self):
+    if self.active_task and self.active_task.status == "running":
+        elapsed = time.time() - self.active_task.started_at
+        max_time = self.active_task.params.get("max_execution_sec", 3600)
+        if elapsed > max_time:
+            self.active_task.status = "failed"
+            self.active_task.error = f"超时 ({elapsed:.0f}s)"
+```
+
+#### 4. 安全：防止重复提交
+
+同一 task_id 重复提交时，guardd 应返回"已存在"而非重新执行。
+
+
+### 12.6 调整后的实施路线图
+
+| Phase | 任务 | 工作量 |
+|:------|:-----|:-------|
+| **1a** | guardd modules/ 目录拆分 | 小 |
+| **1b** | TaskStore 内存+SQLite + PriorityQueue | 中 |
+| **1c** | 启动时孤儿浏览器清理 | 小 |
+| **1d** | BrowserSlotManager + 心跳增强 | 中 |
+| **1e** | 调度主循环 + Executor | 中 |
+| **2a** | CommandBus 读写分离 + 任务拆解 | 中 |
+| **2b** | 指挥台前端（读视图）| 大 |
+| **2c** | 跨机依赖事件推送 | 中 |
+| **3a** | 指挥台操作功能（取消/暂停/重排）| 大 |
+| **3b** | ORACLE 定时任务同步 | 小 |
+| **3c** | 三级接力全流程 | 大 |
+| **3d** | 告警中心 | 中 |
+| **3e** | 任务超时熔断 + 自动恢复 | 中 |
+
 
 ### 决策1: 调度放 guardd，不新增层级
 - guardd 已经是每台机器上的常驻进程
