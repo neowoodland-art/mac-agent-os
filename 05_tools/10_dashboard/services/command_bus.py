@@ -18,7 +18,7 @@ command_bus.py — 统一命令传输层 v6
   Dashboard → API → CommandBus → MachineSession(队列) → mc run → 引擎 → Camoufox
 """
 
-import asyncio, copy, json, logging, os, subprocess, sys, time, threading, urllib.request, urllib.error
+import asyncio, copy, json, logging, os, socket, subprocess, sys, time, threading, urllib.request, urllib.error
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -48,30 +48,43 @@ def _guardd_url(machine: str = "") -> str:
         return f"http://{ip}:{GUARDD_PORT}"
     return ""
 
-def _guardd_api(method: str, path: str, data: dict = None, machine: str = "") -> dict:
-    """调用 guardd HTTP API，失败返回空结果"""
+def _guardd_api(method, path, data=None, machine=""):
+    """call guardd HTTP API via socket (avoids urllib+Tailscale timeout issue)"""
     url = _guardd_url(machine)
     if not url:
+        logger.warning("guardd_api: machine {} URL empty".format(machine))
         return {}
-    full_url = f"{url}{path}"
+    host = url.replace("http://", "").replace("https://", "")
+    port = 9090
+    if ":" in host:
+        host, ps = host.split(":", 1)
+        port = int(ps)
     try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(5)
+        s.connect((host, port))
         if method == "GET":
-            r = urllib.request.urlopen(full_url, timeout=5)
-            return json.loads(r.read().decode())
+            s.sendall("GET {} HTTP/1.0\r\nHost: {}\r\nConnection: close\r\n\r\n".format(path, host).encode())
         elif method == "POST":
             body = json.dumps(data or {}).encode()
-            req = urllib.request.Request(full_url, data=body,
-                headers={"Content-Type": "application/json"}, method="POST")
-            r = urllib.request.urlopen(req, timeout=5)
-            return json.loads(r.read().decode())
-    except urllib.error.HTTPError as e:
-        logger.warning(f"guardd_api HTTP {e.code} {e.read().decode()[:100]}")
-    except urllib.error.URLError as e:
-        logger.warning(f"guardd_api 连接失败: {e.reason}")
-    except (json.JSONDecodeError, OSError) as e:
-        logger.warning(f"guardd_api 异常: {e}")
+            req = "POST {} HTTP/1.0\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n".format(path, host, len(body))
+            s.sendall(req.encode() + body)
+        resp = b""
+        while True:
+            chunk = s.recv(4096)
+            if not chunk: break
+            resp += chunk
+        s.close()
+        if b"\r\n\r\n" in resp:
+            return json.loads(resp.split(b"\r\n\r\n", 1)[1].decode())
+        return {}
+    except socket.timeout:
+        logger.warning("guardd_api {} {}://{}:{}{} -> timeout".format(method, "http", host, port, path))
+    except (socket.error, OSError) as e:
+        logger.warning("guardd_api {} {}://{}:{}{} -> {}".format(method, "http", host, port, path, e))
+    except json.JSONDecodeError as e:
+        logger.warning("guardd_api {} {}://{}:{}{} -> JSON fail: {}".format(method, "http", host, port, path, e))
     return {}
-
 
 class CommandStatus(str, Enum):
     QUEUED = "queued"
