@@ -185,11 +185,22 @@ function renderMachines(queueData, machineData) {
           <div style="font-weight:600;font-size:12px">${statusIcon} ${name}</div>
           <div style="font-size:10px;color:var(--text2)">${usedSlots}/${maxSlots} 槽位</div>
         </div>
-        <div style="display:flex;gap:4px;margin-bottom:4px">
+        <div style="display:grid;grid-template-columns:repeat(${Math.min(maxSlots,3)},1fr);gap:4px;margin-bottom:4px">
           ${Array.from({length: maxSlots}, (_, i) => {
             const slot = slots?.slots?.find(s => s.slot_id === i);
             const active2 = slot && slot.account_id;
-            return `<div style="width:28px;height:28px;border-radius:6px;background:${active2 ? '#22c55e' : 'var(--bg3)'};border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:8px;color:${active2 ? '#000' : 'var(--text2)'}">${active2 ? slot.account_id.slice(-3) : '∅'}</div>`;
+            if (!active2) {
+              return `<div style="background:var(--bg3);border-radius:6px;padding:6px;border:1px solid var(--border);text-align:center;font-size:9px;color:var(--text2)">空闲</div>`;
+            }
+            const platformIcon = slot.platform === 'xiaohongshu' ? '📕' : '🎵';
+            const nick = slot.nickname || slot.account_id;
+            return `<div style="background:#22c55e20;border-radius:6px;padding:6px;border:1px solid #22c55e">
+              <div style="font-size:9px;font-weight:600">${platformIcon} ${nick}</div>
+              <div style="font-size:8px;color:var(--text2)">${slot.account_id}</div>
+              ${slot.current_step ? `<div style="font-size:8px;color:var(--text2);margin-top:2px">🔧 ${slot.current_step}</div>` : ''}
+              ${slot.elapsed_sec ? `<div style="font-size:8px;color:var(--text2)">⏱ ${Math.floor(slot.elapsed_sec/60)}分</div>` : ''}
+              ${slot.blueprint ? `<div style="font-size:8px;color:var(--text2)">📋 ${slot.blueprint}</div>` : ''}
+            </div>`;
           }).join('')}
         </div>
         ${active ? `
@@ -273,14 +284,21 @@ function renderQueueDetail(queueData) {
         
         ${slots.length > 0 ? `
           <div style="display:grid;grid-template-columns:repeat(${Math.min(slots.length,3)},1fr);gap:4px;margin-bottom:6px">
-            ${slots.map(s => `
-              <div style="background:${s.account_id ? '#22c55e20' : 'var(--bg3)'};border-radius:4px;padding:6px;border:1px solid var(--border);font-size:9px">
-                <div style="font-weight:600">槽位${s.slot_id+1}</div>
-                <div>${s.account_id || '空闲'}</div>
-                ${s.current_step ? `<div style="color:var(--text2)">${s.current_step}</div>` : ''}
-                ${s.elapsed_sec ? `<div style="color:var(--text2)">${Math.floor(s.elapsed_sec/60)}分</div>` : ''}
-              </div>
-            `).join('')}
+            ${slots.map(s => {
+              if (!s.account_id) {
+                return '<div style=\"background:var(--bg3);border-radius:4px;padding:6px;border:1px solid var(--border);font-size:9px;color:var(--text2)\"><div style=\"font-weight:600\">槽位'+(s.slot_id+1)+'</div><div>空闲</div></div>';
+              }
+              const pIcon = s.platform === 'xiaohongshu' ? '📕' : '🎵';
+              const nick = s.nickname || s.account_id;
+              return '<div style=\"background:#22c55e20;border-radius:4px;padding:6px;border:1px solid #22c55e;font-size:9px\">'+
+                '<div style=\"font-weight:600\">槽位'+(s.slot_id+1)+'</div>'+
+                '<div>'+pIcon+' '+nick+'</div>'+
+                '<div style=\"color:var(--text2)\">'+s.account_id+'</div>'+
+                (s.current_step ? '<div style=\"color:var(--text2);margin-top:2px\">🔧 '+s.current_step+'</div>' : '')+
+                (s.blueprint ? '<div style=\"color:var(--text2)\">📋 '+s.blueprint+'</div>' : '')+
+                (s.elapsed_sec ? '<div style=\"color:var(--text2)\">⏱ '+Math.floor(s.elapsed_sec/60)+'分</div>' : '')+
+              '</div>';
+            }).join('')}
           </div>
         ` : ''}
         

@@ -1,4 +1,4 @@
-import{t as e}from"./index-D4oTmJhH.js";var t=null;async function n(t){t.innerHTML=`
+import{t as e}from"./index-CmNB3DzK.js";var t=null;async function n(t){t.innerHTML=`
     <div style="padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-weight:700;font-size:16px">🚀 联邦指挥台</div>
@@ -54,8 +54,14 @@ import{t as e}from"./index-D4oTmJhH.js";var t=null;async function n(t){t.innerHT
           <div style="font-weight:600;font-size:12px">${c?`🟢`:`🔴`} ${e}</div>
           <div style="font-size:10px;color:var(--text2)">${l}/${u} 槽位</div>
         </div>
-        <div style="display:flex;gap:4px;margin-bottom:4px">
-          ${Array.from({length:u},(e,t)=>{let r=n?.slots?.find(e=>e.slot_id===t),i=r&&r.account_id;return`<div style="width:28px;height:28px;border-radius:6px;background:${i?`#22c55e`:`var(--bg3)`};border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:8px;color:${i?`#000`:`var(--text2)`}">${i?r.account_id.slice(-3):`∅`}</div>`}).join(``)}
+        <div style="display:grid;grid-template-columns:repeat(${Math.min(u,3)},1fr);gap:4px;margin-bottom:4px">
+          ${Array.from({length:u},(e,t)=>{let r=n?.slots?.find(e=>e.slot_id===t);return r&&r.account_id?`<div style="background:#22c55e20;border-radius:6px;padding:6px;border:1px solid #22c55e">
+              <div style="font-size:9px;font-weight:600">${r.platform===`xiaohongshu`?`📕`:`🎵`} ${r.nickname||r.account_id}</div>
+              <div style="font-size:8px;color:var(--text2)">${r.account_id}</div>
+              ${r.current_step?`<div style="font-size:8px;color:var(--text2);margin-top:2px">🔧 ${r.current_step}</div>`:``}
+              ${r.elapsed_sec?`<div style="font-size:8px;color:var(--text2)">⏱ ${Math.floor(r.elapsed_sec/60)}分</div>`:``}
+              ${r.blueprint?`<div style="font-size:8px;color:var(--text2)">📋 ${r.blueprint}</div>`:``}
+            </div>`:`<div style="background:var(--bg3);border-radius:6px;padding:6px;border:1px solid var(--border);text-align:center;font-size:9px;color:var(--text2)">空闲</div>`}).join(``)}
         </div>
         ${i?`
           <div style="font-size:10px;color:var(--text);background:var(--bg3);border-radius:4px;padding:4px 6px;margin-top:4px">
@@ -95,14 +101,7 @@ import{t as e}from"./index-D4oTmJhH.js";var t=null;async function n(t){t.innerHT
         
         ${s.length>0?`
           <div style="display:grid;grid-template-columns:repeat(${Math.min(s.length,3)},1fr);gap:4px;margin-bottom:6px">
-            ${s.map(e=>`
-              <div style="background:${e.account_id?`#22c55e20`:`var(--bg3)`};border-radius:4px;padding:6px;border:1px solid var(--border);font-size:9px">
-                <div style="font-weight:600">槽位${e.slot_id+1}</div>
-                <div>${e.account_id||`空闲`}</div>
-                ${e.current_step?`<div style="color:var(--text2)">${e.current_step}</div>`:``}
-                ${e.elapsed_sec?`<div style="color:var(--text2)">${Math.floor(e.elapsed_sec/60)}分</div>`:``}
-              </div>
-            `).join(``)}
+            ${s.map(e=>{if(!e.account_id)return`<div style="background:var(--bg3);border-radius:4px;padding:6px;border:1px solid var(--border);font-size:9px;color:var(--text2)"><div style="font-weight:600">槽位`+(e.slot_id+1)+`</div><div>空闲</div></div>`;let t=e.platform===`xiaohongshu`?`📕`:`🎵`,n=e.nickname||e.account_id;return`<div style="background:#22c55e20;border-radius:4px;padding:6px;border:1px solid #22c55e;font-size:9px"><div style="font-weight:600">槽位`+(e.slot_id+1)+`</div><div>`+t+` `+n+`</div><div style="color:var(--text2)">`+e.account_id+`</div>`+(e.current_step?`<div style="color:var(--text2);margin-top:2px">🔧 `+e.current_step+`</div>`:``)+(e.blueprint?`<div style="color:var(--text2)">📋 `+e.blueprint+`</div>`:``)+(e.elapsed_sec?`<div style="color:var(--text2)">⏱ `+Math.floor(e.elapsed_sec/60)+`分</div>`:``)+`</div>`}).join(``)}
           </div>
         `:``}
         

@@ -41,11 +41,29 @@ class Executor:
         task["started_at"] = time.time()
         self.task_store.save(task)
 
-        # 获取槽位
+        # 获取槽位（含 nickname + platform）
         slot = None
         if self.slot_manager:
             try:
-                slot = self.slot_manager.acquire(account_id, identity_dir)
+                # 从任务参数或账号信息查询昵称和平台
+                nickname = task.get("nickname", "")
+                platform = task.get("platform", "")
+                if not platform and account_id:
+                    # 通过 account_id 推断平台
+                    platform = "xiaohongshu" if account_id.startswith("xhs_") else "douyin"
+                if not nickname:
+                    # 尝试从 profiles.json 读取昵称
+                    try:
+                        import json
+                        home = os.path.expanduser("~")
+                        pf = os.path.join(home, "workbuddy-agent-os", "agent-local", "tools", "matrix", "data", "profiles.json")
+                        if os.path.exists(pf):
+                            profiles = json.loads(open(pf).read())
+                            if account_id in profiles:
+                                nickname = profiles[account_id].get("nickname", "")
+                    except Exception:
+                        pass
+                slot = self.slot_manager.acquire(account_id, identity_dir, nickname, platform)
             except Exception as e:
                 task["status"] = STATUS_FAILED
                 task["error"] = str(e)

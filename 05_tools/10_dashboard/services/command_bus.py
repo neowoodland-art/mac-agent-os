@@ -1005,24 +1005,44 @@ class CommandBus:
                     bp_list = [bp_map.get(p, "douyin_read_profile") for p in sorted(platforms)]
                     merged["blueprint"] = ",".join(bp_list)
 
-                # 模板渲染：安全处理，缺失的模板变量用空字符串代替
-                try:
-                    cmd_line = template.format(ids=all_ids, ids_str=all_ids, **merged)
-                except KeyError:
-                    # 兼容旧代码：对 comment 等类型，缺失变量用空字符串
-                    safe_kw = {k: merged.get(k, "") for k in
-                              [p[1] for p in __import__("string").Formatter().parse(template) if p[1]]}
-                    safe_kw.update({"ids": all_ids, "ids_str": all_ids})
-                    cmd_line = template.format(**safe_kw)
-                if not cmd_line:
-                    errors.append({"account": all_ids, "message": f"不支持的操作: {cmd_type}"})
-                    continue
-                tasks.append({
-                    "machine": machine, "cmd_type": cmd_type,
-                    "ids_str": all_ids, "is_local": is_local,
-                    "cmd_line": cmd_line,
-                    "run_id": f"{cmd_type}_{now_ts}_{machine}",
-                })
+                # 任务拆解：interact/comment/collect 等交互任务拆成 per-account 子任务
+                # 这样每台机器的 guardd 调度队列中能看到每个账号的独立状态
+                if cmd_type in ("interact", "comment", "collect") and len(accts) > 1:
+                    for a in accts:
+                        aid = a["id"]
+                        try:
+                            cmd_line_a = template.format(ids=aid, ids_str=aid, **merged)
+                        except KeyError:
+                            safe_kw = {k: merged.get(k, "") for k in
+                                      [p[1] for p in __import__("string").Formatter().parse(template) if p[1]]}
+                            safe_kw.update({"ids": aid, "ids_str": aid})
+                            cmd_line_a = template.format(**safe_kw)
+                        tasks.append({
+                            "machine": machine, "cmd_type": cmd_type,
+                            "ids_str": aid, "is_local": is_local,
+                            "cmd_line": cmd_line_a,
+                            "run_id": f"{cmd_type}_{now_ts}_{machine}_{aid}",
+                            "nickname": a.get("nickname", ""),
+                            "platform": a.get("platform", "douyin"),
+                        })
+                else:
+                    # 普通任务（登录/单账号等）：一条命令包含所有账号
+                    try:
+                        cmd_line = template.format(ids=all_ids, ids_str=all_ids, **merged)
+                    except KeyError:
+                        safe_kw = {k: merged.get(k, "") for k in
+                                  [p[1] for p in __import__("string").Formatter().parse(template) if p[1]]}
+                        safe_kw.update({"ids": all_ids, "ids_str": all_ids})
+                        cmd_line = template.format(**safe_kw)
+                    if not cmd_line:
+                        errors.append({"account": all_ids, "message": f"不支持的操作: {cmd_type}"})
+                        continue
+                    tasks.append({
+                        "machine": machine, "cmd_type": cmd_type,
+                        "ids_str": all_ids, "is_local": is_local,
+                        "cmd_line": cmd_line,
+                        "run_id": f"{cmd_type}_{now_ts}_{machine}",
+                    })
 
         # 第三步：并行分发到各台机器
         dispatched_cmds = []

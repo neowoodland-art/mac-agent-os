@@ -28,12 +28,17 @@ class BrowserSlotManager:
         self.slots = [None] * max_slots  # list of dict or None
         self._lock = Lock()
 
-    def acquire(self, account_id: str, identity_dir: str) -> Optional[dict]:
+    def acquire(self, account_id: str, identity_dir: str, nickname: str = "",
+                platform: str = "douyin") -> Optional[dict]:
         """获取一个槽位，返回 slot_info dict
+        Args:
+            account_id: 账号ID (douyin_136)
+            identity_dir: 身份目录名
+            nickname: 账号昵称 (显示用)
+            platform: 平台 (douyin / xiaohongshu)
         Raises: AccountBusyError 如果账号已在其他槽位运行
         """
         with self._lock:
-            # 同账号不能同时在两个浏览器
             for s in self.slots:
                 if s and s["account_id"] == account_id:
                     raise AccountBusyError(f"账号 {account_id} 已在 slot {s['slot_id']} 运行")
@@ -43,6 +48,8 @@ class BrowserSlotManager:
                     info = {
                         "slot_id": i,
                         "account_id": account_id,
+                        "nickname": nickname,
+                        "platform": platform,
                         "browser_id": identity_dir,
                         "pid": None,
                         "blueprint": None,
@@ -181,17 +188,19 @@ class BrowserSlotManager:
             for i, s in enumerate(self.slots):
                 if s:
                     slots_info.append({
-                        "slot_id": i,
-                        "account_id": s["account_id"],
-                        "browser_id": s["browser_id"],
-                        "pid": s["pid"],
-                        "blueprint": s.get("blueprint"),
-                        "current_step": s.get("current_step"),
-                        "step_index": s.get("step_index", 0),
-                        "total_steps": s.get("total_steps", 0),
-                        "elapsed_sec": s.get("elapsed_sec", 0),
-                        "health": s.get("health", "unknown"),
-                    })
+                    "slot_id": i,
+                    "account_id": s["account_id"],
+                    "nickname": s.get("nickname", ""),
+                    "platform": s.get("platform", ""),
+                    "browser_id": s["browser_id"],
+                    "pid": s["pid"],
+                    "blueprint": s.get("blueprint"),
+                    "current_step": s.get("current_step"),
+                    "step_index": s.get("step_index", 0),
+                    "total_steps": s.get("total_steps", 0),
+                    "elapsed_sec": s.get("elapsed_sec", 0),
+                    "health": s.get("health", "unknown"),
+                })
             return {
                 "max": self.max_slots,
                 "used": sum(1 for s in self.slots if s is not None),
