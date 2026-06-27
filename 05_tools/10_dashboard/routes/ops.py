@@ -226,22 +226,27 @@ def api_ops_log(run_id: str):
 @router.get("/queue")
 def api_ops_queue(machine: str = None):
     """查看各机任务队列详情（含活跃任务、排队、槽位）"""
-    from services.command_bus import _guardd_api
+    from services.command_bus import _guardd_api, ORACLE_PATH
     machines = [machine] if machine else []
     if not machines:
         try:
             import yaml
-            from pathlib import Path
-            oracle = yaml.safe_load(Path(__import__("os").environ.get("AGENT_SYNC", str(Path.home() / "workbuddy-agent-os" / "agent-sync")) / "ORACLE.yaml").read_text())
+            oracle = yaml.safe_load(ORACLE_PATH.read_text())
             machines = list(oracle.get("machines", {}).keys())
-        except:
+        except Exception:
             machines = [__import__("utils.identity", fromlist=["resolve_hostname"]).resolve_hostname()]
     
     results = {}
     for m in machines:
         try:
             data = _guardd_api("GET", "/scheduler/tasks", machine=m)
-            results[m] = data if data else {"error": "guardd 不可达"}
+            if data:
+                results[m] = data
+            else:
+                # Fallback: get basic status
+                from services.command_bus import CommandBus
+                ms = CommandBus.get_machine_status(m)
+                results[m] = {"active": ms.get("active_task"), "error": "guardd scheduler 未响应"}
         except Exception as e:
             results[m] = {"error": str(e)}
     return {"machines": results}
