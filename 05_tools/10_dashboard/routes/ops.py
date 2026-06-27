@@ -223,7 +223,7 @@ def api_ops_log(run_id: str):
     return {"run_id": run_id, "log": "", "path": ""}
 
 
-@router.get(/queue)
+@router.get("/queue")
 def api_ops_queue(machine: str = None):
     """查看各机任务队列详情（含活跃任务、排队、槽位）"""
     from services.command_bus import _guardd_api
@@ -247,7 +247,7 @@ def api_ops_queue(machine: str = None):
     return {"machines": results}
 
 
-@router.post(/task/cancel)
+@router.post("/task/cancel")
 def api_ops_task_cancel(data: dict = {}):
     """取消任务 — 发送到对应机器的 guardd"""
     task_id = data.get("task_id", "")
@@ -259,7 +259,7 @@ def api_ops_task_cancel(data: dict = {}):
     return {"status": "ok", "task_id": task_id, "result": result}
 
 
-@router.post(/task/submit)
+@router.post("/task/submit")
 def api_ops_task_submit(data: dict = {}):
     """提交任务到调度器 — 发到目标机器的 guardd"""
     task = data.get("task", {})
