@@ -86,8 +86,8 @@ async function refreshView(container, silent = false) {
   try {
     // 并行获取所有数据
     const [queueData, machineData] = await Promise.all([
-      apiRequest('/api/ops/queue'),
-      apiRequest('/api/ops/machines'),
+      apiRequest('/ops/queue'),
+      apiRequest('/ops/machines'),
     ]);
 
     if (!silent) {
