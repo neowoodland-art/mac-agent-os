@@ -1432,6 +1432,14 @@ def _init_scheduler():
     recovered = _task_store.reset_unfinished()
     if recovered:
         logger.info(f'  🔄 恢复 {recovered} 个未完成任务')
+    
+    # 恢复排队中的任务到优先级队列
+    queued_tasks = _task_store.get_by_status("queued")
+    for qt in queued_tasks:
+        queue.push(qt)
+        logger.info(f'  📥 恢复排队任务: {qt["task_id"]}')
+    if queued_tasks:
+        logger.info(f'  ✅ 恢复 {len(queued_tasks)} 个排队任务到优先级队列')
     logger.info('  ✅ 调度引擎初始化完成')
     _heartbeat_reporter.send_to_dashboard()
     _heartbeat_reporter.write_local()
