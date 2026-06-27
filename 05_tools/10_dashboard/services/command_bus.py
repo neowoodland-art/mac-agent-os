@@ -240,8 +240,6 @@ class MachineSession:
     def preflight(self) -> dict:
         with self._lock:
             active = [c for c in self.commands if c.status.is_active]
-            # L3 不限制命令数（一个命令可能涉及多个身份→多个浏览器）
-            # 浏览器数限制由 L2 (mc/engine.py) 在开 Camoufox 前检查
             if not self.is_local and self.ssh_target:
                 try:
                     r = subprocess.run(
@@ -250,9 +248,11 @@ class MachineSession:
                         capture_output=True, text=True, timeout=8
                     )
                     if r.returncode != 0:
-                        return {"ok": False, "message": f"机器 {self.machine} SSH 不可达", "running": len(active)}
+                        logger.warning(f"  ⚠️ [{self.machine}] preflight SSH 不可达 (rc={r.returncode}), 仍然尝试发送")
+                        return {"ok": True, "message": "SSH 不可达但尝试发送", "running": len(active)}
                 except Exception as e:
-                    return {"ok": False, "message": f"机器 {self.machine} 连接失败: {e}", "running": len(active)}
+                    logger.warning(f"  ⚠️ [{self.machine}] preflight SSH 异常: {e}, 仍然尝试发送")
+                    return {"ok": True, "message": f"SSH 异常但尝试发送: {e}", "running": len(active)}
             return {"ok": True, "message": "就绪", "running": len(active)}
 
     def _clear_stale(self):
@@ -379,7 +379,9 @@ class MachineSession:
         return {"pid": cmd.pid, "log_path": str(log_path)}
 
     def _send_remote(self, cmd: Command) -> dict:
-        # try guardd scheduler first (v4.3.0)
+        logger.info("_send_remote: {} @ {}, accounts={}".format(cmd.run_id, self.machine, cmd.accounts))
+
+        # ── 路径1: guardd /scheduler/submit (新调度引擎) ──
         scheduler_task = {
             "task_id": cmd.run_id,
             "cmd_type": cmd.cmd_type,
@@ -397,13 +399,15 @@ class MachineSession:
             cmd.message = "sent to {} via scheduler".format(self.machine)
             self.commands.insert(0, cmd)
             self._trim_history()
+            logger.info("  ✅ {} -> scheduler accepted".format(cmd.run_id))
             return {"guardd": True, "scheduler": True, "machine": self.machine}
+        logger.info("  ⚠️ {} -> scheduler submit failed (result={}), trying old /task".format(cmd.run_id, guardd_result))
 
-        # fallback: construct remote shell command
+        # ── 路径2: guardd /task (旧API) ──
+        # 构造 shell 命令
         py_discover = 'PY=$(ls $HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3 2>/dev/null || which python3); '
         scripts_dir = "$AGENT_SYNC/05_tools/07_matrix/scripts"
         env_setup = "export AGENT_SYNC=\"$HOME/workbuddy-agent-os/agent-sync\"; export AGENT_LOCAL=\"$HOME/workbuddy-agent-os/agent-local\"; export MC_PYTHON=\"$PY\"; export PYTHONPATH={}:$PYTHONPATH; ".format(scripts_dir)
-
         if cmd.cmd_type == "nurture":
             accts = ",".join(cmd.accounts)
             _bp = cmd.params.get("blueprint") or "douyin_daily"
@@ -412,12 +416,8 @@ class MachineSession:
             full_cmd = "{} {} bash {} {} {} {}".format(py_discover, env_setup, wrapper, accts, _bp, _rd, cmd.run_id)
         else:
             full_cmd = "{} {} cd {} && $MC_PYTHON -m {}".format(py_discover, env_setup, scripts_dir, cmd.command_line)
-
-        # fallback: try old guardd /task API
         guardd_result = _guardd_api("POST", "/task", {
-            "cmd": full_cmd,
-            "run_id": cmd.run_id,
-            "machine": self.machine,
+            "cmd": full_cmd, "run_id": cmd.run_id, "machine": self.machine,
         }, machine=self.machine)
         if guardd_result.get("status") == "accepted":
             cmd.pid = guardd_result.get("pid")
@@ -426,32 +426,42 @@ class MachineSession:
             cmd.message = "sent to {} via guardd /task".format(self.machine)
             self.commands.insert(0, cmd)
             self._trim_history()
+            logger.info("  ✅ {} -> /task accepted".format(cmd.run_id))
             return {"pid": cmd.pid, "guardd": True, "machine": self.machine}
+        logger.info("  ⚠️ {} -> /task failed (result={}), trying SSH".format(cmd.run_id, guardd_result))
 
-        # fallback: SSH
+        # ── 路径3: SSH nohup ──
         if not self.ssh_target:
-            cmd.status = CommandStatus.PREFLIGHT_FAILED
+            cmd.status = CommandStatus.FAILED
             cmd.message = "machine {} guardd and SSH unavailable".format(self.machine)
+            logger.warning("  ❌ {} -> SSH target not available".format(cmd.run_id))
             return {"error": cmd.message}
 
-        logger.warning("guardd unavailable, fallback to SSH: {} @ {}".format(cmd.run_id, self.machine))
+        logger.warning("  🔌 {} -> fallback to SSH: {}".format(cmd.run_id, self.ssh_target))
         ssh_cmd = "nohup {} > /tmp/ops_{}.log 2>&1 &".format(full_cmd, cmd.run_id)
 
         try:
-            subprocess.run(
+            r = subprocess.run(
                 ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
                  self.ssh_target, ssh_cmd],
                 capture_output=True, text=True, timeout=15
             )
+            if r.returncode != 0:
+                logger.warning("  ❌ {} -> SSH returned code {}: {}".format(cmd.run_id, r.returncode, r.stderr[:200]))
+                cmd.status = CommandStatus.FAILED
+                cmd.message = "SSH failed (code {}): {}".format(r.returncode, r.stderr[:100])
+                return {"error": cmd.message}
             cmd.status = CommandStatus.DISPATCHING
             cmd.started_at = time.time()
-            cmd.message = "command sent via SSH"
+            cmd.message = "command sent via SSH: {}".format(self.ssh_target)
             self.commands.insert(0, cmd)
             self._trim_history()
-            return {"status": "sent"}
+            logger.info("  ✅ {} -> SSH sent OK".format(cmd.run_id))
+            return {"status": "sent", "target": self.ssh_target}
         except Exception as e:
             cmd.status = CommandStatus.FAILED
-            cmd.message = "remote send failed: {}".format(e)
+            cmd.message = "SSH send failed: {}".format(e)
+            logger.warning("  ❌ {} -> SSH exception: {}".format(cmd.run_id, e))
             return {"error": str(e)}
 
     def _remote_poll_result(self, cmd: Command) -> bool:
