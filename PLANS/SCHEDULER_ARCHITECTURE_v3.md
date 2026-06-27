@@ -696,30 +696,22 @@ Dashboard 实时显示三级进度:
 
 ### 12.1 需要你决策的议题
 
-#### 决策A：任务拆解位置
+#### 决策A：任务拆解位置 — ✅ 已决策
 
-**问题**: 用户提交"20个账号评论视频V"，拆成20条子任务的工作放在哪层？
+**结论**：选 **方案A — CommandBus 拆解**。
 
-| 方案 | 拆解位置 | 优点 | 缺点 |
-|:-----|:---------|:-----|:------|
-| **A（推荐）** | CommandBus | master有全局子任务视图，指挥台可直接展示各机完整时间线 | CommandBus 从薄变厚 |
-| B | guardd | guardd 逻辑内聚，CommandBus 保持薄 | master看不到子任务粒度 |
+CommandBus 负责"模板渲染+按机器分组+拆解"三位一体，master 有全局子任务视图。
+指挥台可直接展示各机每条子任务的进度，而不是"1条任务 20/20进度"。
 
-**我的建议**：选 **方案A**。原因是指挥台必须看到每条子任务的进度，不可能让20个账号的评论显示为"1条任务 20/20进度"。让 CommandBus 负责"模板渲染+按机器分组+拆解"三位一体。
+#### 决策B：Dashboard 读路径是否直连 guardd — ✅ 已决策
 
-#### 决策B：Dashboard 读路径是否直连 guardd
+**结论**：选 **方案C — 读写分离**。
 
-**问题**: 指挥台查询各机队列状态，走 CommandBus 还是直连各机 guardd？
+- **写路径**（提交任务）：Dashboard → CommandBus（做机器分组+模板渲染+拆解）→ guardd
+- **读路径**（查看队列）：Dashboard → 直连各机 guardd HTTP API
+- **取消/暂停操作**：Dashboard → 直连对应机器 guardd
 
-| 方案 | 读路径 | 写路径 | 优点 |
-|:-----|:-------|:-------|:-----|
-| **C（推荐）** | Dashboard→guardd(直连HTTP) | Dashboard→CommandBus→guardd | 读不依赖CommandBus，CommandBus宕机不影响查看 |
-| D | 全走 CommandBus | 全走 CommandBus | 统一入口，但CommandBus变成瓶颈 |
-
-**我的建议**：选 **方案C（读写分离）**。理由:
-- 读操作是查询类（GET /tasks, GET /heartbeat），直接调各机 guardd 简单高效
-- 写操作是命令类（POST /task, POST /cancel），需要 CommandBus 做机器分组和模板渲染
-- CommandBus 可以独立重启，不影响 Dashboard 查看队列
+CommandBus 宕机不影响看队列，但提交任务必须经过它。
 
 
 ### 12.2 我直接确认的决策
