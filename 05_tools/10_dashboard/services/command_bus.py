@@ -339,8 +339,29 @@ class MachineSession:
         self._trim_history()
         return {"pid": cmd.pid, "log_path": str(log_path)}
 
-    def _send_remote(self, cmd: Command) -> dict:
-        # ── 构造完整的 shell 命令（与 _send_local 一致，使用远程路径）──
+        def _send_remote(self, cmd: Command) -> dict:
+        # 优先通过远程机器的 guardd 调度引擎（v4.3.0）
+        scheduler_task = {
+            "task_id": cmd.run_id,
+            "cmd_type": cmd.cmd_type,
+            "accounts": cmd.accounts,
+            "blueprint": cmd.params.get("blueprint", ""),
+            "rounds": cmd.params.get("rounds", 1),
+            "priority": 0 if cmd.cmd_type in ("interact", "comment") else 1,
+            "params": cmd.params,
+            "command_line": cmd.command_line,
+        }
+        guardd_result = _guardd_api("POST", "/scheduler/submit", scheduler_task, machine=self.machine)
+        if guardd_result.get("status") == "accepted":
+            cmd.status = CommandStatus.DISPATCHING
+            cmd.started_at = time.time()
+            cmd.message = f"已通过 guardd 调度引擎发送到 {self.machine}"
+            self.commands.insert(0, cmd)
+            self._trim_history()
+            return {"guardd": True, "scheduler": True, "machine": self.machine}
+
+        # 降级：走旧版 /task（guardd 调度引擎不可用时）
+        # ── 構造完整的 shell 命令（与 _send_local 一致，使用远程路径）──
         py_discover = 'PY=$(ls $HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3 2>/dev/null || which python3); '
         scripts_dir = "$AGENT_SYNC/05_tools/07_matrix/scripts"
         env_setup = f"export AGENT_SYNC=\"$HOME/workbuddy-agent-os/agent-sync\"; export AGENT_LOCAL=\"$HOME/workbuddy-agent-os/agent-local\"; export MC_PYTHON=\"$PY\"; export PYTHONPATH={scripts_dir}:$PYTHONPATH; "
@@ -354,21 +375,8 @@ class MachineSession:
         else:
             full_cmd = f"{py_discover} {env_setup} cd {scripts_dir} && $MC_PYTHON -m {cmd.command_line}"
 
-        # 优先通过远程机器的 guardd HTTP API（guardd 自行管理日志和进程组）
+        # 降级：通过远程 guardd 旧 /task API
         guardd_result = _guardd_api("POST", "/task", {
-            "cmd": full_cmd,
-            "run_id": cmd.run_id,
-            "machine": self.machine,
-        }, machine=self.machine)
-        if guardd_result.get("status") == "accepted":
-            cmd.pid = guardd_result.get("pid")
-            cmd.status = CommandStatus.DISPATCHING
-            cmd.started_at = time.time()
-            cmd.message = f"已通过 guardd 发送到 {self.machine}"
-            self.commands.insert(0, cmd)
-            self._trim_history()
-            return {"pid": cmd.pid, "guardd": True, "machine": self.machine}
-
         # guardd 不可用 → 降级为 SSH（需要 nohup + 重定向保持后台运行）
         if not self.ssh_target:
             cmd.status = CommandStatus.PREFLIGHT_FAILED
