@@ -1,0 +1,184 @@
+"""
+scheduler.py — 调度引擎 (guardd 模块)
+
+职责:
+  - 主循环 run_cycle()，每15秒执行一轮
+  - 检查当前任务状态
+  - 从优先级队列取出下一个可执行任务
+  - 任务拆解（把群组任务拆成子任务）
+  - 依赖完成后通知下游
+"""
+import asyncio
+import logging
+import time
+from typing import Optional
+from modules.task_store import (
+    TaskStore, STATUS_PENDING, STATUS_QUEUED, STATUS_RUNNING,
+    STATUS_WAITING_DEP, STATUS_COMPLETED, STATUS_FAILED, TERMINAL_STATUSES
+)
+from modules.priority_queue import PriorityQueue
+from modules.slot_manager import BrowserSlotManager
+from modules.executor import Executor
+
+logger = logging.getLogger("guardd.scheduler")
+
+
+class Scheduler:
+    """调度引擎 — guardd 主循环"""
+
+    def __init__(self, task_store: TaskStore, priority_queue: PriorityQueue,
+                 slot_manager: BrowserSlotManager, executor: Executor):
+        self.task_store = task_store
+        self.queue = priority_queue
+        self.slot_manager = slot_manager
+        self.executor = executor
+        self.active_task: Optional[dict] = None
+        self.paused_task: Optional[dict] = None
+        self.loop_interval = 15  # 15秒
+
+    def run_cycle(self):
+        """主循环（每15秒执行一轮）"""
+        while True:
+            try:
+                self._check_active_task()
+                self._schedule_next()
+                self.slot_manager.check_health()
+            except Exception as e:
+                logger.error(f"调度循环异常: {e}")
+            time.sleep(self.loop_interval)
+
+    def submit_task(self, task: dict):
+        """提交一个新任务到调度器"""
+        task_id = task["task_id"]
+        priority = task.get("priority", 1)
+        status = task.get("status", STATUS_PENDING)
+
+        # 检查依赖
+        deps = task.get("depends_on", [])
+        if deps:
+            # 检查所有依赖是否已完成
+            all_done = True
+            for dep_id in deps:
+                dep = self.task_store.get(dep_id)
+                if not dep or dep.get("status") != STATUS_COMPLETED:
+                    all_done = False
+                    break
+            if not all_done:
+                task["status"] = STATUS_WAITING_DEP
+                self.task_store.save(task)
+                logger.info(f"  ⏳ [{task_id}] 等待依赖完成: {deps}")
+                return
+
+        task["status"] = STATUS_QUEUED
+        task["queued_at"] = time.time()
+        self.task_store.save(task)
+        self.queue.push(task)
+        logger.info(f"  📥 [{task_id}] 入队 (priority={priority})")
+
+        # 如果当前没有活跃任务，立即触发调度
+        if not self.active_task:
+            self._schedule_next()
+
+    def _check_active_task(self):
+        """检查当前活跃任务是否完成"""
+        if not self.active_task:
+            return
+
+        task_id = self.active_task["task_id"]
+        status = self.active_task.get("status", "")
+
+        if status not in TERMINAL_STATUSES:
+            return  # 还在运行
+
+        # 任务已完成
+        logger.info(f"  ✅ [{task_id}] 完成 (status={status})")
+        completed_task = self.active_task
+
+        # 通知依赖此任务的下游
+        self._notify_dependents(completed_task)
+
+        # 如果有被暂停的任务，恢复
+        if self.paused_task:
+            self.paused_task["status"] = STATUS_QUEUED
+            self.queue.push(self.paused_task)
+            self.paused_task = None
+            logger.info(f"  🔄 恢复被暂停的任务")
+
+        self.active_task = None
+
+    def _schedule_next(self):
+        """从队列取出下一个可执行任务"""
+        if self.active_task:
+            return  # 当前任务还在跑
+
+        # 检查是否有 P0（高优）任务
+        next_task_id = self.queue.pop_ready()
+        if not next_task_id:
+            return
+
+        next_task = self.task_store.get(next_task_id)
+        if not next_task:
+            return
+
+        # 检查槽位
+        if self.slot_manager:
+            account_id = next_task.get("accounts", [""])[0] if next_task.get("accounts") else ""
+            existing = self.slot_manager.find_account(account_id)
+            if existing:
+                # 账号已在其他槽位运行
+                next_task["status"] = STATUS_QUEUED
+                next_task["message"] = f"等待槽位释放: {account_id}"
+                self.task_store.save(next_task)
+                self.queue.push(next_task)  # 重新入队
+                logger.info(f"  ⏳ [{next_task_id}] 账号 {account_id} 忙，重新排队")
+                return
+
+        # 执行任务
+        self.active_task = next_task
+        next_task["status"] = STATUS_RUNNING
+        next_task["started_at"] = time.time()
+        self.task_store.save(next_task)
+        logger.info(f"  ▶️ [{next_task_id}] 开始执行")
+
+        # 异步执行（不阻塞主循环）
+        asyncio.run_coroutine_threadsafe(
+            self.executor.execute(next_task),
+            asyncio.get_event_loop()
+        )
+
+    def _notify_dependents(self, completed_task: dict):
+        """通知依赖此任务的下游任务"""
+        task_id = completed_task["task_id"]
+        dep_ids = self.task_store.find_dependents(task_id)
+
+        for dep_id in dep_ids:
+            dep = self.task_store.get(dep_id)
+            if not dep or dep.get("status") != STATUS_WAITING_DEP:
+                continue
+
+            # 检查被依赖任务是否全部完成
+            all_done = True
+            for d in dep.get("depends_on", []):
+                t = self.task_store.get(d)
+                if not t or t.get("status") != STATUS_COMPLETED:
+                    all_done = False
+                    break
+
+            if all_done:
+                # 依赖满足，入队
+                interval = dep.get("interval_after_dep", 0)
+                dep["scheduled_at"] = time.time() + interval
+                dep["status"] = STATUS_QUEUED
+                dep["message"] = f"依赖 {task_id} 已完成"
+                self.task_store.save(dep)
+                self.queue.push(dep)
+                logger.info(f"  📬 [{dep_id}] 依赖满足，入队 (delay={interval}s)")
+
+    def kill_active(self):
+        """终止当前活跃任务"""
+        if self.active_task:
+            self.executor.kill(self.active_task["task_id"])
+            self.active_task["status"] = STATUS_FAILED
+            self.active_task["error"] = "被用户取消"
+            self.task_store.save(self.active_task)
+            self.active_task = None
