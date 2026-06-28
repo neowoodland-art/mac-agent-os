@@ -1677,7 +1677,7 @@ class DouyinOps(PlatformOps):
           4. 再次检查右上角 → 有 user-info 则成功
         """
         page = self.page
-        await asyncio.sleep(2)  # 等页面稳定
+        await asyncio.sleep(6)  # 等页面稳定（抖音首页首次加载较慢）
 
         # ── 1. 检查当前登录状态 ──
         async def _has_avatar() -> bool:
@@ -2023,9 +2023,16 @@ class DouyinOps(PlatformOps):
         if "passport" not in current_url.lower() and "login" not in current_url.lower():
             print(f"  ✅ 登录成功! URL: {current_url[:60]}")
             return True
-        else:
-            print(f"  ⚠️ 登录后仍在登录页，可能需要手动处理")
-            return False
+        # 兜底：即使 URL 还在登录域，但如果右上角有用户头像也视为成功
+        try:
+            info = await page.query_selector('[data-e2e="user-info"]')
+            if info and await info.is_visible():
+                print("  ✅ 右上角检测到用户信息，登录成功")
+                return True
+        except:
+            pass
+        print(f"  ⚠️ 登录后仍在登录页，可能需要手动处理")
+        return False
 
     def get_action_summary(self) -> dict:
         """获取本次会话的操作统计"""
