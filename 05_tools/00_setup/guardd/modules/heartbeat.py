@@ -35,13 +35,35 @@ class HeartbeatReporter:
         self.dashboard_url = dashboard_url or "http://127.0.0.1:9988"
 
     def collect(self) -> dict:
-        """采集完整状态"""
+        """采集完整状态（v2: 含 per-slot 详细进度）"""
         slot_usage = self.slot_manager.get_usage() if self.slot_manager else {"max": 0, "used": 0, "slots": []}
 
-        # 收集任务状态
-        active = self.scheduler.active_task
+        # 收集任务状态（v2: active_tasks 字典，支持多 slot 并行）
+        active_tasks = list(self.scheduler.active_tasks.values()) if hasattr(self.scheduler, 'active_tasks') and self.scheduler.active_tasks else []
+        active_list = []
+        for t in active_tasks:
+            at = self._task_to_heartbeat(t)
+            if at:
+                active_list.append(at)
         queued = self.scheduler.queue.get_all() if hasattr(self.scheduler, 'queue') else []
         task_counts = self.task_store.count()
+
+        # 增强 slot 信息：从 slot_manager 获取每个浏览器的当前步骤/时间
+        slot_details = []
+        for s in slot_usage.get("slots", []):
+            if s.get("account_id"):
+                slot_details.append({
+                    "slot_id": s.get("slot_id"),
+                    "account_id": s.get("account_id"),
+                    "nickname": s.get("nickname", ""),
+                    "platform": s.get("platform", ""),
+                    "current_step": s.get("current_step", ""),
+                    "step_index": s.get("step_index", 0),
+                    "total_steps": s.get("total_steps", 0),
+                    "elapsed_sec": s.get("elapsed_sec", 0),
+                    "health": s.get("health", "healthy"),
+                    "pid": s.get("pid"),
+                })
 
         # 系统状态
         cpu_load = -1
@@ -56,9 +78,13 @@ class HeartbeatReporter:
             "status": "online",
             "last_seen": datetime.now(timezone.utc).isoformat(),
             "version": "4.3.0",
-            "slots": slot_usage,
+            "slots": {
+                "max": slot_usage.get("max", 3),
+                "used": slot_usage.get("used", 0),
+                "list": slot_details,
+            },
             "tasks": {
-                "active": self._task_to_heartbeat(active) if active else None,
+                "active": active_list,
                 "queued": [
                     {"task_id": q["task_id"], "priority": q.get("priority", 1),
                      "estimated_at": q.get("scheduled_at", 0)}
