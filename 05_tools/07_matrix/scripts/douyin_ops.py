@@ -1694,20 +1694,26 @@ class DouyinOps(PlatformOps):
         except:
             pass
 
-        # 5. 如果有二维码，找"手机号登录"标签并点击
-        if qr_visible:
-            for text in ["手机号登录", "手机登录", "短信登录", "验证码登录"]:
-                try:
-                    tab = await login_frame.query_selector(f"div:has-text('{text}'), span:has-text('{text}'), label:has-text('{text}')")
-                    if tab and await tab.is_visible():
-                        await tab.click()
-                        await asyncio.sleep(2)
-                        print(f"  ✅ 切换到 {text}")
-                        break
-                except:
-                    continue
+        # 5. 无论二维码是否可见，都尝试切换到"验证码登录"tab
+        # （录制确认：抖音登录页默认显示二维码，需手动切tab）
+        switched_tab = False
+        for text in ["手机号登录", "手机登录", "短信登录", "验证码登录"]:
+            try:
+                tab = await login_frame.query_selector(f"div:has-text('{text}'), span:has-text('{text}'), label:has-text('{text}')")
+                if tab and await tab.is_visible():
+                    await tab.click()
+                    await asyncio.sleep(3)  # 等 tab 切换动画 + 输入框渲染
+                    print(f"  ✅ 切换到 {text}")
+                    switched_tab = True
+                    break
+            except:
+                continue
 
-        # 6. 找手机号输入框并填入
+        if qr_visible and not switched_tab:
+            print("⚠️ 检测到二维码但无法自动切换到手机号登录")
+            return False
+
+        # 6. 找手机号输入框并填入（带重试）
         phone_filled = False
         phone_value = phone
         if not phone_value:
@@ -1731,21 +1737,25 @@ class DouyinOps(PlatformOps):
 
         print(f"  手机号: {phone_value or '默认'}")
 
-        # 尝试在 iframe 里找手机号输入框
+        # 尝试在 iframe 里找手机号输入框（带 3 次重试，防渲染延迟）
         phone_sel = "input[placeholder*='手机'], input[type='tel'], input[name='mobile'], input[id*='phone'], input[id*='mobile']"
-        for sel in [phone_sel, "input:first-of-type"]:
-            try:
-                inp = await login_frame.query_selector(sel)
-                if inp:
-                    await inp.click()
-                    await asyncio.sleep(0.5)
-                    await inp.fill(phone_value or "18912345678")
-                    await asyncio.sleep(1)
-                    phone_filled = True
-                    print(f"  ✅ 已填手机号: {phone_value or '默认'}")
-                    break
-            except:
-                continue
+        for retry in range(3):
+            for sel in [phone_sel, "input:first-of-type"]:
+                try:
+                    inp = await login_frame.query_selector(sel)
+                    if inp and await inp.is_visible():
+                        await inp.click()
+                        await asyncio.sleep(0.5)
+                        await inp.fill(phone_value or "18912345678")
+                        await asyncio.sleep(1)
+                        phone_filled = True
+                        print(f"  ✅ 已填手机号: {phone_value or '默认'}")
+                        break
+                except:
+                    continue
+            if phone_filled:
+                break
+            await asyncio.sleep(1)  # 重试前等 1 秒
 
         if not phone_filled:
             # fallback: 填第一个可见 input
