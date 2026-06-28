@@ -1707,20 +1707,22 @@ class DouyinOps(PlatformOps):
 
         print("  ⚠️ 未登录状态，检测登录弹窗...")
 
-        # ── 2. 查找登录弹窗（可能是 overlay 也可能是 iframe）──
+        # ── 2. 查找登录弹窗（优先找 iframe，因为手机号输入框在 iframe 内）──
         login_frame = page
+        panel = None
         try:
-            # 先看页面本身有没有弹窗
-            panel = await page.query_selector(SELECTORS.get("verify_panel", '[class*="verify"]'))
+            # 先检查 iframe（passport 登录域）
+            for f in page.frames:
+                url = f.url.lower()
+                if "passport" in url or "login" in url or "sso" in url:
+                    p = await f.query_selector(SELECTORS.get("verify_panel", '[class*="verify"]'))
+                    if p:
+                        panel = p
+                        login_frame = f
+                        break
+            # iframe 没找到 → 检查主页面（遮罩层）
             if not panel:
-                # 再检查 iframe
-                for f in page.frames:
-                    url = f.url.lower()
-                    if "passport" in url or "login" in url:
-                        panel = await f.query_selector(SELECTORS.get("verify_panel", '[class*="verify"]'))
-                        if panel:
-                            login_frame = f
-                            break
+                panel = await page.query_selector(SELECTORS.get("verify_panel", '[class*="verify"]'))
         except:
             pass
 
