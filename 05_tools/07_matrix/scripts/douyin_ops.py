@@ -505,7 +505,10 @@ class DouyinOps(PlatformOps):
         # dy_* 系列操作（read_profile 蓝图用）
         if op == "dy_goto_profile":
             await self.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
-            await asyncio.sleep(5)
+            logged_in = await self._ensure_logged_in()
+            if not logged_in:
+                print("⚠️ dy_goto_profile: 未能登录")
+            await asyncio.sleep(3)
             return OpResult(op, step_id, True, "profile", time.time()-t0)
 
         if op.startswith("dy_read_"):
@@ -1368,7 +1371,11 @@ class DouyinOps(PlatformOps):
         """AO_PROFILE: 进入个人主页，一次性采集全部字段"""
         t0 = time.time()
         await self.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
-        await asyncio.sleep(5)
+        # 检查登录状态，未登录时自动处理弹窗
+        logged_in = await self._ensure_logged_in()
+        if not logged_in:
+            print("⚠️ 未能登录，但仍尝试采集数据")
+        await asyncio.sleep(3)
         profile = await self.page.evaluate("""() => {
             const text = (document.body.innerText || '').trim();
             const title = (document.title || '').replace(' - 抖音', '').replace('的抖音', '').trim();
@@ -1646,7 +1653,132 @@ class DouyinOps(PlatformOps):
         full_text = f"{text} {code}" if code else text
         return await self.post_comment(full_text, step_id=step_id)
 
-    async def sms_login(self, phone: str = "", step_id: int = 0) -> bool:
+    async def _ensure_logged_in(self) -> bool:
+        """状态机：检查抖音登录状态，未登录则自动处理弹窗
+
+        流程:
+          1. 看右上角是否有 [data-e2e="user-info"] （已登录标志）
+          2. 如果已登录 → return True
+          3. 如果未登录：
+             a. 找登录弹窗（verify_panel）
+             b. 如果有一键登录按钮 → 点它
+             c. 如果有验证码输入框 → 切 tab → 调 sms_login
+             d. 如果无弹窗 → 点右上角「登录」触发弹窗
+          4. 再次检查右上角 → 有 user-info 则成功
+        """
+        page = self.page
+        await asyncio.sleep(2)  # 等页面稳定
+
+        # ── 1. 检查当前登录状态 ──
+        async def _has_avatar() -> bool:
+            """右上角有头像/用户信息 = 已登录"""
+            try:
+                # 方法1: data-e2e 用户信息区
+                info = await page.query_selector('[data-e2e="user-info"]')
+                if info and await info.is_visible():
+                    return True
+                # 方法2: 右上角头像区域（无 e2e 时的 fallback）
+                avatar = await page.query_selector('[class*="avatar"],[class*="Avatar"],[data-e2e*="avatar"]')
+                if avatar and await avatar.is_visible():
+                    return True
+                # 方法3: 页面文本不含"登录"按钮字样
+                has_login_btn = await page.query_selector('button:has-text("登录"), span:has-text("登录"), div:has-text("登录")')
+                if not has_login_btn:
+                    # 没有登录按钮 + 能拿到 user-info? 可能是变体
+                    return False
+                btn_visible = await has_login_btn.is_visible()
+                return not btn_visible
+            except:
+                return False
+
+        if await _has_avatar():
+            print("  ✅ 已登录")
+            return True
+
+        print("  ⚠️ 未登录状态，检测登录弹窗...")
+
+        # ── 2. 查找登录弹窗（可能是 overlay 也可能是 iframe）──
+        login_frame = page
+        try:
+            # 先看页面本身有没有弹窗
+            panel = await page.query_selector(SELECTORS.get("verify_panel", '[class*="verify"]'))
+            if not panel:
+                # 再检查 iframe
+                for f in page.frames:
+                    url = f.url.lower()
+                    if "passport" in url or "login" in url:
+                        panel = await f.query_selector(SELECTORS.get("verify_panel", '[class*="verify"]'))
+                        if panel:
+                            login_frame = f
+                            break
+        except:
+            pass
+
+        # ── 3. 处理弹窗 ──
+        if panel:
+            print("  📱 检测到登录弹窗")
+            # 3a. 检查是否是一键登录
+            try:
+                oneclick = await login_frame.query_selector('button:has-text("一键登录"), span:has-text("一键登录")')
+                if oneclick and await oneclick.is_visible():
+                    print("  ✅ 检测到一键登录 → 点击")
+                    await oneclick.click()
+                    await asyncio.sleep(5)
+                    if await _has_avatar():
+                        print("  ✅ 一键登录成功")
+                        return True
+                    # 一键登录可能跳到验证码页，继续走 sms
+            except:
+                pass
+
+            # 3b. 检查是否是验证码登录界面（有手机号输入框）
+            try:
+                phone_inp = await login_frame.query_selector(SELECTORS["verify_phone_input"])
+                if phone_inp and await phone_inp.is_visible():
+                    print("  📱 检测到验证码登录界面 → 调用 sms_login")
+                    return await self.sms_login(login_frame=login_frame)
+            except:
+                pass
+
+            # 3c. 如果既不是一键也不是验证码，尝试切到验证码 tab
+            try:
+                for text in ["验证码登录", "手机号登录", "短信登录"]:
+                    tab = await login_frame.query_selector(
+                        f'div:has-text("{text}"), span:has-text("{text}"), label:has-text("{text}")'
+                    )
+                    if tab and await tab.is_visible():
+                        await tab.click()
+                        await asyncio.sleep(3)
+                        print(f"  ✅ 切换到 {text}")
+                        return await self.sms_login(login_frame=login_frame)
+            except:
+                pass
+        else:
+            # ── 4. 无弹窗 → 主动触发登录 ──
+            print("  🔘 无登录弹窗，尝试点击登录按钮触发")
+            try:
+                login_btn = await page.query_selector(
+                    'button:has-text("登录"), span:has-text("登录"), [data-e2e*="login"]'
+                )
+                if login_btn and await login_btn.is_visible():
+                    await login_btn.click()
+                    await asyncio.sleep(3)
+                    # 递归检查弹窗
+                    return await self._ensure_logged_in()
+            except:
+                pass
+            print("  ❌ 找不到登录按钮或弹窗")
+            return False
+
+        # ── 5. 最终检查 ──
+        await asyncio.sleep(3)
+        if await _has_avatar():
+            print("  ✅ 已登录")
+            return True
+        print("  ❌ 登录失败")
+        return False
+
+    async def sms_login(self, phone: str = "", step_id: int = 0, login_frame=None) -> bool:
         """抖音 SMS 验证码登录（处理 passport iframe 登录页）
         
         Args:
@@ -1665,7 +1797,8 @@ class DouyinOps(PlatformOps):
             await asyncio.sleep(4)
 
         # 2. 查找登录 iframe（抖音护照登录页在 iframe 内）
-        login_frame = None
+        if login_frame is None:  # 未被 _ensure_logged_in 传入时才自己找
+            login_frame = None
         for attempt in range(5):
             frames = page.frames
             for f in frames:
