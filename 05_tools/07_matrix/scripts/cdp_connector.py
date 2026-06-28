@@ -233,9 +233,10 @@ class CDPConnector:
                 if cfg_path.exists():
                     with open(cfg_path) as _f:
                         _cfg = _y.safe_load(_f)
+                    cur_ident = self.identity_dir.rstrip('/')
                     for _a in _cfg.get("accounts", []):
-                        if _a.get("identity_dir", "").rstrip('/') == self.identity_dir.rstrip('/') or \
-                           _a.get("id") in self.identity_dir:
+                        a_ident = _a.get("identity_dir", "").replace("identities/", "").rstrip('/')
+                        if a_ident and (cur_ident.endswith('/' + a_ident) or cur_ident == a_ident):
                             _wp = _a.get("window_position")
                             if _wp and len(_wp) == 2:
                                 cfg_x, cfg_y = int(_wp[0]), int(_wp[1])
