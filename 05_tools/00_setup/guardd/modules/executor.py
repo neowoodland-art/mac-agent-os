@@ -31,6 +31,8 @@ class Executor:
         identity_dir = task.get("identity_dir", account_id)
 
         cmd = self._build_cmd(task)
+        logger.info(f"  ▶️ executor: task_id={task.get('task_id','')} accounts={task.get('accounts',[])} cmd_type={task.get('cmd_type','')}")
+        logger.info(f"  ▶️ cmd: {cmd[:200] if cmd else 'NONE'}")
         if not cmd:
             task["status"] = STATUS_FAILED
             task["error"] = "无法构建执行命令"

@@ -84,7 +84,7 @@ function registerGlobals(uid) {
     for (const url of urls) {
       for (const s of selected) {
         try {
-          const d = await apiRequest('/api/ops/run', {
+          const d = await apiRequest('/ops/run', {
             method: 'POST',
             body: JSON.stringify({type:'comment', accounts:[account], params:{url, direction}})
           });

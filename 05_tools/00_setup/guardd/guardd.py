@@ -1442,14 +1442,16 @@ _oracle_sync = None
 
 def _init_scheduler():
     """初始化调度引擎"""
-    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync, _account_monitor
+    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync, _account_monitor, _schedule_bridge, _schedule_bridge
     if _scheduler is not None:
         return
     logger = logging.getLogger('guardd')
     logger.info('  ⚙️ 初始化调度引擎 (v4.3.0)...')
     _task_store = TaskStore()
     from modules.account_monitor import AccountMonitor
+    from modules.schedule_bridge import ScheduleBridge
     _account_monitor = AccountMonitor()
+    _schedule_bridge = ScheduleBridge(_task_store, _scheduler, HOSTNAME)
     queue = PriorityQueue()
     _slot_manager = BrowserSlotManager(max_slots=3)
     _slot_manager.cleanup_orphans()
@@ -1595,6 +1597,7 @@ def _init_scheduler():
     
     # HeartbeatReporter
     from modules.account_monitor import AccountMonitor
+    from modules.schedule_bridge import ScheduleBridge
     _account_monitor = AccountMonitor()
     _heartbeat_reporter = HeartbeatReporter(
         _task_store, _slot_manager, _scheduler,
