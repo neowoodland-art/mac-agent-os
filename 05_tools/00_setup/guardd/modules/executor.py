@@ -111,6 +111,21 @@ class Executor:
                     return {"success": False, "error": task["error"]}
 
             exit_code = proc.wait()
+            # 即使 exit_code != 0，如果 profiles.json 有更新也视为成功
+            # （mc 命令可能因登录等待超时返回非0，但数据已采集）
+            if exit_code != 0 and task.get("cmd_type") in ("collect", "nurture"):
+                try:
+                    import json
+                    home = os.path.expanduser("~")
+                    pf = os.path.join(home, "workbuddy-agent-os", "agent-local", "tools", "matrix", "data", "profiles.json")
+                    if os.path.exists(pf):
+                        mtime = os.path.getmtime(pf)
+                        started = task.get("started_at", 0)
+                        if mtime >= started - 5:  # 允许 5 秒误差
+                            logger.info(f"  ✅ [{task_id}] profiles.json 已更新 (mtime={mtime:.0f} >= start={started:.0f})，标记为 completed")
+                            exit_code = 0
+                except Exception:
+                    pass
             success = exit_code == 0
             task["status"] = STATUS_COMPLETED if success else STATUS_FAILED
             task["completed_at"] = time.time()

@@ -313,7 +313,9 @@ class DouyinOps(PlatformOps):
 
         if op == "goto_home":
             await self.page.goto(HOME_URL, timeout=20000, wait_until="domcontentloaded")
-            await asyncio.sleep(3)
+            # 检查登录状态，未登录时自动处理弹窗
+            await self._ensure_logged_in()
+            await asyncio.sleep(2)
             return OpResult(op, step_id, True, "home", time.time()-t0)
 
         if op == "goto_url":
