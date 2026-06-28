@@ -186,9 +186,10 @@ export function createAccountSelector(container, opts = {}) {
         // 折叠体
         html += `<div id="${grpId}_body" style="display:block">`;
 
-        // 表头（精简）
+        // 表头（精简 + 新增身份列）
         html += `<div style="display:flex;align-items:center;padding:2px 6px;font-size:9px;color:var(--text2);border-bottom:1px solid var(--border);background:var(--bg2)">
           <div style="width:22px"><input type="checkbox" id="${grpId}_all" onchange="_toggleGroupAS('${uid}','${machine}')" title="全选本机" ${checkAll ? 'checked' : ''}></div>
+          <div style="width:70px;font-weight:400">📁 身份</div>
           <div style="width:95px;font-weight:400">📱 手机号</div>
           <div style="width:90px;font-weight:400">账号</div>
           <div style="flex:1;min-width:100px;font-weight:400">🎵 昵称</div>
@@ -204,8 +205,8 @@ export function createAccountSelector(container, opts = {}) {
           const bgColor = colorMap[colorKey] || '#ffffff';
           const borderLeft = `3px solid ${bgColor}`;
 
-          // 身份分隔行
-          html += `<div style="display:flex;align-items:center;padding:2px 6px;font-size:9px;background:${bgColor};border-left:${borderLeft};color:var(--text2)">
+          // 身份分隔行（简单分隔线，去掉颜色背景）
+          html += `<div style="display:flex;align-items:center;padding:1px 6px;font-size:8px;color:var(--text2);border-bottom:1px dotted var(--border);margin-top:1px">
             <span>📁 ${ident}</span>
             <span style="margin-left:8px">${accts.length} 个账号</span>
           </div>`;
@@ -219,15 +220,18 @@ export function createAccountSelector(container, opts = {}) {
             const aidEsc = a.id.replace(/'/g, "\\'");
 
             html += `<div class="as-row-${uid}" data-account="${a.id}" data-machine="${machine}" data-platform="${a.platform}"
-              style="display:flex;align-items:center;padding:3px 6px;font-size:11px;border-bottom:1px solid var(--border);cursor:pointer;border-left:${borderLeft}"
+              style="display:flex;align-items:center;padding:3px 6px;font-size:11px;border-bottom:1px solid var(--border);cursor:pointer"
               onclick="window._asToggleDetail('${uid}','${aidEsc}')">`;
 
             html += `<div style="width:22px"><input type="checkbox" class="as-cb-${uid}" value="${a.id}" data-plat="${a.platform}" data-machine="${machine}" ${checkAll ? 'checked' : ''} onclick="event.stopPropagation();_onASChange('${uid}')"></div>`;
-            // 📱手机号列（固定宽度，字体稍小以容纳完整11位号码）
+            // 身份列（新增）
+            const identShort = (a.identity_dir || a.id).length > 10 ? (a.identity_dir || a.id).slice(0,10)+'…' : (a.identity_dir || a.id);
+            html += `<div style="width:70px;font-size:9px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${a.identity_dir || a.id}">${identShort}</div>`;
+            // 📱手机号列
             html += `<div style="width:95px;font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${phone || '-'}</div>`;
-            // 账号列（固定宽度）
+            // 账号列
             html += `<div style="width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong>${a.id}</strong></div>`;
-            // 🎵昵称列（flex，保证有足够空间显示昵称）
+            // 🎵昵称列
             html += `<div style="flex:1;min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${platIcon} ${nick || '-'}</div>`;
             // 粉丝列
             html += `<div style="width:40px;text-align:right;font-size:10px">${fans || '-'}</div>`;

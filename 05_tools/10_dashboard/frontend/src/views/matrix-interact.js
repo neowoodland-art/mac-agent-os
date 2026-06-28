@@ -30,12 +30,10 @@ export async function loadView(container) {
           <button onclick="window._ia_selAll_${uid}()" style="background:var(--bg3);border:1px solid var(--border);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px">全选</button>
           <button onclick="window._ia_selNone_${uid}()" style="background:var(--bg3);border:1px solid var(--border);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px">清空</button>
         </div>
-        <!-- 三个 Tab -->
+        <!-- 两个 Tab -->
         <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:8px">
           <button class="ia_tab" data-tab="comment" onclick="window._ia_switchTab_${uid}('comment')"
-            style="padding:6px 16px;font-size:12px;cursor:pointer;border:none;border-bottom:2px solid var(--primary);background:transparent;color:var(--primary);font-weight:600">💬 定向评论</button>
-          <button class="ia_tab" data-tab="like" onclick="window._ia_switchTab_${uid}('like')"
-            style="padding:6px 16px;font-size:12px;cursor:pointer;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text2)">❤️ 点赞互动</button>
+            style="padding:6px 16px;font-size:12px;cursor:pointer;border:none;border-bottom:2px solid var(--primary);background:transparent;color:var(--primary);font-weight:600">💬 评论互动</button>
           <button class="ia_tab" data-tab="corpus" onclick="window._ia_switchTab_${uid}('corpus')"
             style="padding:6px 16px;font-size:12px;cursor:pointer;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text2)">📚 语料库</button>
         </div>
@@ -84,46 +82,83 @@ async function renderTab(uid, tab) {
   if (!body) return;
 
   if (tab === 'comment') renderCommentTab(uid, body);
-  else if (tab === 'like') renderLikeTab(uid, body);
   else if (tab === 'corpus') renderCorpusTab(uid, body);
 }
 
-// ── Tab 1: 定向评论 ─────────────────────────────────────
+// ── Tab 1: 评论互动（定向评论 + 点赞互动 合并）───────────
 
 function renderCommentTab(uid, body) {
   body.innerHTML = `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
-      <textarea id="ic_urls_${uid}" placeholder="视频链接（每行一个，支持多个）" rows="3"
-        style="flex:2;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;resize:vertical"></textarea>
-      <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px">
-        <div style="display:flex;gap:4px">
-          <select id="ic_strategy_${uid}" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
-            <option value="comment">💬 定向评论</option>
-            <option value="chain">🔗 三级接力</option>
-            <option value="hot">🔥 热评互动</option>
-          </select>
-          <select id="ic_dir_${uid}" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
-            <option value="">自动方向</option>
-            <option value="称赞">👍 称赞</option><option value="提问">🤔 提问</option>
-            <option value="共鸣">💗 共鸣</option><option value="感慨">😌 感慨</option>
-          </select>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <!-- 左 1/3：视频链接 -->
+      <div style="flex:1;min-width:160px;max-width:33%">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:2px">🔗 视频链接（每行一条）</div>
+        <textarea id="ic_urls_${uid}" placeholder="https://..." rows="10"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <!-- 右 2/3 -->
+      <div style="flex:2;min-width:350px">
+        <!-- 三列分类 -->
+        <div id="ic_corpus_checks_${uid}" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:6px">
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:5px">
+            <div style="font-weight:600;font-size:11px;margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:3px">🎯 通用</div>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value=""> 🎲 随机混合</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="food"> 🍜 美食探店</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="travel"> ✈️ 旅行打卡</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="tech"> 💻 科技数码</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="lifestyle"> 🌿 生活方式</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="emotion"> 💛 情感共鸣</label>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:5px">
+            <div style="font-weight:600;font-size:11px;margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:3px">🎯 定向</div>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="共情弹幕"> 💔 共情扎心弹幕</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="朱晓光主任"> 👨‍⚕️ 朱晓光主任</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="公众号约号"> 📱 公众号约号</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="捡漏绿通"> 💎 捡漏绿通</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="优势卖点"> ⭐ 优势卖点</label>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:5px">
+            <div style="font-weight:600;font-size:11px;margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:3px">💬 多轮对话</div>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="pain_fear"> 😰 怕疼怕手术</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="social_anxiety"> 😶 社恐不好意思</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="busy_worker"> 💼 上班族没时间</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="home_remedy"> 🧪 偏方没用过</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="elderly"> 👴 长辈不舒服</label>
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;padding:2px 0"><input type="checkbox" class="ic_cb_${uid}" value="general_health"> 🔄 综合对话</label>
+          </div>
         </div>
-        <div style="display:flex;gap:4px">
-          <select id="ic_corpus_${uid}" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
-            <option value="">🎲 随机语料</option>
-            <option value="food">🍜 美食</option><option value="travel">✈️ 旅行</option>
-            <option value="tech">💻 科技</option><option value="lifestyle">🌿 生活</option>
-            <option value="emotion">💛 情感</option>
-          </select>
-          <input id="ic_comment_${uid}" placeholder="或手动写评论" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+        <!-- 设置栏 -->
+        <div style="display:flex;flex-direction:column;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:6px 8px">
+          <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+            <select id="ic_strategy_${uid}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:10px">
+              <option value="comment">💬 定向评论</option>
+              <option value="chain">🔗 三级接力</option>
+              <option value="hot">🔥 热评互动</option>
+            </select>
+            <select id="ic_dir_${uid}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:10px" title="评论语气">
+              <option value="">🎯 自动</option>
+              <option value="称赞">👍 称赞</option><option value="提问">🤔 提问</option>
+              <option value="共鸣">💗 共鸣</option><option value="感慨">😌 感慨</option>
+            </select>
+            <span style="font-size:9px;color:var(--text2)">互动:</span>
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:10px"><input type="checkbox" id="il_likeVideo_${uid}" checked> ❤️点赞</label>
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:10px"><input type="checkbox" id="il_likeComment_${uid}"> 👍评论</label>
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:10px"><input type="checkbox" id="il_follow_${uid}"> 👤关注</label>
+            <label style="display:flex;align-items:center;gap:2px;cursor:pointer;font-size:10px"><input type="checkbox" id="il_collect_${uid}"> ⭐收藏</label>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+            <input id="ic_comment_${uid}" placeholder="自定义评论内容" style="flex:1;min-width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:10px">
+            <input id="ic_interval_${uid}" type="text" value="300-600" placeholder="间隔秒" style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:10px" title="每步间隔(秒)">
+            <span style="font-size:9px;color:var(--text2)">⌛</span>
+            <button onclick="window._ia_previewComment('${uid}')" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:3px;cursor:pointer;font-size:10px">🔍 预检</button>
+            <button onclick="window._ia_runComment('${uid}')" style="background:var(--primary);color:#fff;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600">🚀 执行</button>
+          </div>
         </div>
-        <button onclick="window._ia_runComment('${uid}')" style="background:var(--primary);color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">🚀 执行评论</button>
-        <button onclick="window._ia_previewComment('${uid}')" style="background:var(--bg3);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">🔍 预检</button>
       </div>
     </div>`;
 }
 
-// ── Tab 2: 点赞互动 ─────────────────────────────────────
+// ── Tab 2: 点赞互动（已合并到评论互动Tab，此函数保留为兼容）──
 
 function renderLikeTab(uid, body) {
   body.innerHTML = `
@@ -373,14 +408,17 @@ window._ia_runComment = async function(uid) {
   const urls = urlsText.split('\n').map(u => u.trim()).filter(Boolean);
   const strategy = document.getElementById(`ic_strategy_${uid}`)?.value || 'comment';
   const dir = document.getElementById(`ic_dir_${uid}`)?.value || '';
-  const corpus = document.getElementById(`ic_corpus_${uid}`)?.value || '';
+  // 多选语料：从 checkbox 组取所有勾选项，逗号拼接
+  const corpusCbs = document.querySelectorAll(`.ic_cb_${uid}:checked`);
+  const corpus = corpusCbs.length ? Array.from(corpusCbs).map(cb => cb.value).filter(Boolean).join(',') : '';
   const customText = document.getElementById(`ic_comment_${uid}`)?.value?.trim() || '';
+  const interval = document.getElementById(`ic_interval_${uid}`)?.value?.trim() || '300-600';
 
   const label = {comment:'定向评论', chain:'三级接力', hot:'热评互动'}[strategy] || strategy;
-  const detail = `策略: ${label}\n链接: ${urls.join('\n')}\n方向: ${dir || '自动'}\n语料: ${corpus || '随机'}\n自定义: ${customText || '无'}`;
+  const detail = `策略: ${label}\n链接: ${urls.join('\n')}\n方向: ${dir || '自动'}\n语料: ${corpus || '随机'}\n自定义: ${customText || '无'}\n间隔: ${interval}s`;
   if (!await confirmExecute(`${label} ${selected.length} 个账号 × ${urls.length} 个视频`, detail)) return;
 
-  log.textContent = `🚀 ${label} ${selected.length} 个账号...\n`;
+  log.textContent = `🚀 ${label} ${selected.length} 个账号，间隔 ${interval}s...\n`;
   // 按机器分组
   const byMachine = {};
   selected.forEach(s => {
@@ -398,7 +436,7 @@ window._ia_runComment = async function(uid) {
           body: JSON.stringify({
             type: 'interact',
             accounts: ids,
-            params: { url, strategy, direction: dir, corpus, rounds: 1 },
+            params: { url, strategy, direction: dir, corpus, rounds: 1, interval },
           }),
         });
         done++; ok += d.status === 'accepted' ? 1 : 0;
