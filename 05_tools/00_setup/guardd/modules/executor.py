@@ -141,9 +141,16 @@ class Executor:
         elif cmd_type in ("interact", "comment"):
             url = task.get("params", {}).get("url", "")
             direction = task.get("params", {}).get("direction", "")
-            return (f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} -m mc run "
-                    f"--accounts={accounts} --blueprints={blueprint} --rounds=1 "
-                    f"--url={url} --direction={direction}")
+            corpus = task.get("params", {}).get("corpus", "")
+            interval = task.get("interval", 0)
+            cmd = (f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} -m mc run "
+                   f"--accounts={accounts} --blueprints={blueprint} --rounds=1 "
+                   f"--url={url} --direction={direction}")
+            if interval:
+                cmd += f" --interval={interval}"
+            if corpus:
+                cmd += f" --corpus={corpus}"
+            return cmd
         elif cmd_type == "collect":
             return (f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} -m mc run "
                     f"--accounts={accounts} --blueprints={blueprint} --rounds=1")
