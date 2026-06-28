@@ -315,6 +315,23 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
         elif path == "/scheduler/submit":
             result = api_scheduler_submit(data)
             self._send_json(200, result)
+        elif path == "/task/pause":
+            _init_scheduler()
+            task_id = data.get("task_id", "")
+            ok = _scheduler.pause_task(task_id)
+            self._send_json(200, {"status": "ok" if ok else "error", "task_id": task_id})
+        elif path == "/task/resume":
+            _init_scheduler()
+            task_id = data.get("task_id", "")
+            ok = _scheduler.resume_task(task_id)
+            self._send_json(200, {"status": "ok" if ok else "error", "task_id": task_id})
+        elif path == "/queue/reorder":
+            _init_scheduler()
+            task_id = data.get("task_id", "")
+            new_priority = data.get("priority")
+            move_to_front = data.get("move_to_front", False)
+            ok = _scheduler.reorder_queue(task_id, new_priority, move_to_front)
+            self._send_json(200, {"status": "ok" if ok else "error", "task_id": task_id})
 
         elif path == "/scheduler/stop":
             from modules.task_store import STATUS_FAILED

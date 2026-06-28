@@ -303,6 +303,55 @@ class Scheduler:
                 self.queue.push(dep)
                 logger.info(f"  📤 [{dep_id}] 依赖满足, 入队执行")
 
+    def pause_task(self, task_id: str) -> bool:
+        """暂停一个运行中的任务"""
+        for slot_id, task in list(self.active_tasks.items()):
+            if task["task_id"] == task_id:
+                self.paused_tasks[slot_id] = task
+                self.active_tasks.pop(slot_id)
+                self.executor.kill(task_id)
+                task["status"] = STATUS_QUEUED
+                task["paused_at"] = time.time()
+                self.task_store.save(task)
+                logger.info(f"  ⏸️ [{task_id}] 已暂停 (slot {slot_id})")
+                return True
+        logger.warning(f"  ⏸️ [{task_id}] 未找到活跃任务")
+        return False
+
+    def resume_task(self, task_id: str) -> bool:
+        """恢复一个暂停的任务"""
+        for slot_id, task in list(self.paused_tasks.items()):
+            if task["task_id"] == task_id:
+                self.paused_tasks.pop(slot_id)
+                task["status"] = STATUS_QUEUED
+                self.queue.push(task)
+                task["resumed_at"] = time.time()
+                self.task_store.save(task)
+                logger.info(f"  ▶️ [{task_id}] 已恢复 (slot {slot_id})")
+                return True
+        logger.warning(f"  ▶️ [{task_id}] 未找到暂停任务")
+        return False
+
+    def reorder_queue(self, task_id: str, new_priority: int = None, move_to_front: bool = False) -> bool:
+        """重新排列队列: 改变优先级 或 移到队首"""
+        # 从队列移除
+        self.queue.remove(task_id)
+        # 从 task_store 获取
+        task = self.task_store.get(task_id)
+        if not task:
+            return False
+        if move_to_front:
+            task["priority"] = 0  # P0
+            task["scheduled_at"] = 0  # 立即
+        elif new_priority is not None:
+            task["priority"] = new_priority
+            task["reordered_at"] = time.time()
+        task["status"] = STATUS_QUEUED
+        self.task_store.save(task)
+        self.queue.push(task)
+        logger.info(f"  🔄 [{task_id}] 队列调整: priority={task.get('priority')} front={move_to_front}")
+        return True
+
     def kill_active(self):
         """终止所有活跃任务"""
         for slot_id, task in list(self.active_tasks.items()):

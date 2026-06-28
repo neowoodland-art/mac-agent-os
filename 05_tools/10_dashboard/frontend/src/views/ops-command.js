@@ -167,22 +167,42 @@ async function refreshView(container, silent = false) {
   }
 }
 
-function renderAlerts(queueData) {
+async function renderAlerts(queueData) {
   const el = document.getElementById('cmdAlerts');
   const list = document.getElementById('cmdAlertsList');
   if (!el || !list) return;
   const alerts = [];
   const machines = queueData?.machines || {};
+
+  // 机器级别告警
   for (const [name, status] of Object.entries(machines)) {
-    const active = status?.active || null;
     const counts = status?.counts || {};
-    if (status?.error) alerts.push(`[${name}] 🔴 不可达: ${status.error}`);
-    if (counts?.failed > 0) alerts.push(`[${name}] ❌ ${counts.failed} 个任务失败`);
-    if (active?.status === 'failed') alerts.push(`[${name}] ⛔ 任务失败: ${active.task_id}`);
+    if (status?.error) alerts.push({machine:name, level:'error', msg:`🔴 不可达: ${status.error}`});
+    if (counts?.failed > 0) alerts.push({machine:name, level:'warning', msg:`❌ ${counts.failed} 个任务失败`});
   }
+
+  // 账号健康告警（从 V2 API 获取）
+  try {
+    const summary = await apiRequest('/v2/status-summary');
+    if (summary.banned > 0) alerts.push({machine:'全域', level:'error', msg:`⛔ ${summary.banned} 个账号已封号`});
+    if (summary.cookie_expiring > 0) alerts.push({machine:'全域', level:'warning', msg:`🟡 ${summary.cookie_expiring} 个账号 Cookie 即将过期`});
+    if (summary.no_cookie > 0) alerts.push({machine:'全域', level:'info', msg:`🔴 ${summary.no_cookie} 个账号无 Cookie`});
+    if (summary.unknown > 0) alerts.push({machine:'全域', level:'info', msg:`⚪ ${summary.unknown} 个账号状态未知`});
+  } catch(e) {}
+
   if (alerts.length > 0) {
     el.style.display = 'block';
-    list.innerHTML = alerts.map(a => `<div style="padding:2px 0">${a}</div>`).join('');
+    const showP0 = document.querySelector('.cmdFilter[value="P0"]')?.checked ?? true;
+    const showP1 = document.querySelector('.cmdFilter[value="P1"]')?.checked ?? true;
+    const showP2 = document.querySelector('.cmdFilter[value="P2"]')?.checked ?? false;
+    list.innerHTML = alerts.map(a => {
+      const bg = a.level === 'error' ? '#fef2f2' : a.level === 'warning' ? '#fffbeb' : '#f8fafc';
+      const border = a.level === 'error' ? '#fecaca' : a.level === 'warning' ? '#fde68a' : '#e2e8f0';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;margin-bottom:2px;background:${bg};border:1px solid ${border};border-radius:4px;font-size:10px">
+        <span>[${a.machine}] ${a.msg}</span>
+        <button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:9px;color:var(--text2)">✕</button>
+      </div>`;
+    }).join('');
   } else {
     el.style.display = 'none';
   }
