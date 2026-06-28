@@ -85,6 +85,14 @@ class DouyinDetector(PlatformDetector):
         '[class*="unlogin"]',
     ]
 
+    # ── 验证弹窗 DOM 选择器（优先于文本匹配）──
+    VERIFY_PANEL_SEL = '.second-verify-panel, .uc-ui-verify_sms-verify'
+    VERIFY_INPUT_SEL = '.uc-ui-verify_sms-verify_input, input[placeholder*="验证码"]'
+    CAPTCHA_SEL = '.second-verify-mask, [class*="captcha"], [class*="slider"]'
+
+    # 验证弹窗文本特征（兜底用）
+    ONEKEY_TEXT = "一键登录"
+
     async def detect(self, page, account_id: str) -> str:
         """四重检测：DOM 锚点 → 页面文本 → 页面标题 → Cookie（仅辅助）"""
         # 1) DOM 锚点（最可靠 — 严格筛选以防误判）
@@ -133,10 +141,30 @@ class DouyinDetector(PlatformDetector):
 
     async def check_verify(self, page) -> str:
         """检测抖音验证弹窗 + 登录态丢失检测
-        使用文本关键词判断弹窗类型，不依赖固定 CSS class。
+        DOM 层级判断优先（SMS面板→一键登录→URL重定向→登录浮层→滑块），
+        文本关键词仅做兜底（降低广告弹窗误判）。
         Returns: 'none' / 'quick_login' / 'sms' / 'captcha' / 'login_required'
         """
-        # 一、检测登录态丢失：URL 是否被重定向到登录页
+        # 一、SMS 验证弹窗 DOM 检测（最精确）
+        #     检测特定验证码面板 class + 验证码输入框，同时存在才算 sms
+        try:
+            panel = page.locator(self.VERIFY_PANEL_SEL)
+            if await panel.count() > 0 and await panel.first.is_visible():
+                code_input = page.locator(self.VERIFY_INPUT_SEL)
+                if await code_input.count() > 0:
+                    return "sms"
+        except Exception:
+            pass
+
+        # 二、一键登录 DOM 检测（短期过期信号）
+        try:
+            onekey = page.locator(f'text="{self.ONEKEY_TEXT}"')
+            if await onekey.count() > 0 and await onekey.first.is_visible():
+                return "quick_login"
+        except Exception:
+            pass
+
+        # 三、检测登录态丢失：URL 被重定向到登录页
         try:
             cur_url = page.url
             if any(k in cur_url.lower() for k in ["passport", "/login/", "sso_login"]):
@@ -144,7 +172,7 @@ class DouyinDetector(PlatformDetector):
         except Exception:
             pass
 
-        # 二、检测页面内登录浮层（URL 不变但有登录弹窗覆盖页面的场景）
+        # 四、检测页面内登录浮层（URL 不变但有登录弹窗覆盖页面）
         try:
             for sel in self.LOGIN_OVERLAY_SELS:
                 cnt = await page.locator(sel).count()
@@ -155,16 +183,25 @@ class DouyinDetector(PlatformDetector):
         except Exception:
             pass
 
-        # 三、文本关键词检测弹窗类型
+        # 五、滑块/拼图验证 DOM 检测
+        try:
+            captcha = page.locator(self.CAPTCHA_SEL)
+            if await captcha.count() > 0 and await captcha.first.is_visible():
+                return "captcha"
+        except Exception:
+            pass
+
+        # 六、文本关键词检测（兜底，仅当前5步都未命中时触发）
+        #     文本匹配只使用高置信度组合，避免广告弹窗误判
         modal_text = await self._get_modal_text(page)
         if not modal_text:
             return "none"
 
+        if "验证码" in modal_text and "输入" in modal_text:
+            return "sms"
         if "一键登录" in modal_text:
             return "quick_login"
-        if "验证码" in modal_text or "短信验证" in modal_text:
-            return "sms"
-        if "登录" in modal_text and ("手机" in modal_text or "账号" in modal_text):
+        if "登录" in modal_text and ("账号" in modal_text or "密码" in modal_text):
             return "login_required"
         return "captcha"
 
