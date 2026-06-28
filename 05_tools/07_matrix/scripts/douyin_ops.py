@@ -71,7 +71,7 @@ SELECTORS = {
     "verify_get_code":      '.uc-ui-typography_descript, [class*="getCode"], button:has-text("获取验证码")',
     "verify_confirm":       '.uc-ui-verify_sms-verify_button.primary, .uc-ui-verify_sms-verify_b',
     "verify_cancel":        '.uc-ui-verify_sms-verify_button.second',
-    "verify_phone_input":   'input:not([type="hidden"])',
+    "verify_phone_input":   'input[placeholder*="手机"]',
 }
 
 # 键盘快捷键
