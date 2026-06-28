@@ -1,4 +1,4 @@
-import{t as e}from"./index-CMoGILrH.js";var t=null;async function n(t){t.innerHTML=`
+import{t as e}from"./index-DFxem3Fh.js";var t=null;async function n(t){t.innerHTML=`
     <div style="padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-weight:700;font-size:16px">🚀 联邦指挥台</div>

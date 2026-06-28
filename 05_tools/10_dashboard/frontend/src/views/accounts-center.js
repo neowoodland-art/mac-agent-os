@@ -146,12 +146,7 @@ function renderFilterBar() {
     machineSel.appendChild(opt);
   });
 
-  // 🔍 搜索按钮
-  const searchBtn = document.createElement('button');
-  searchBtn.textContent = '🔍 搜索';
-  searchBtn.style.cssText = 'padding:4px 12px;font-size:11px;background:var(--primary);color:#fff;border:none;border-radius:4px;cursor:pointer';
-
-  div.append(search, machineSel, platSel, statusSel, searchBtn);
+  div.append(search, machineSel, platSel, statusSel);
 
   // 计数
   const count = document.createElement('span');
@@ -161,15 +156,9 @@ function renderFilterBar() {
   div.appendChild(count);
 
   // ── 绑定事件 ──
-  // 下拉框 onchange → 自动筛选
   machineSel.onchange = doFilter;
   platSel.onchange = doFilter;
   statusSel.onchange = doFilter;
-  // 搜索按钮点击 → 筛选
-  searchBtn.onclick = doFilter;
-  // 搜索框回车也触发
-  search.onkeydown = (e) => { if (e.key === 'Enter') doFilter(); };
-  // 绑定筛选函数
   window._doAcctFilter = doFilter;
 
   // 用闭包存储引用
@@ -512,8 +501,9 @@ window._dtHistory = async (id) => {
 // ── 筛选逻辑 ──
 function doFilter() {
   const bar = document.querySelector('#acctFilterBar');
-  if (!bar) return;
+  if (!bar) { console.warn('doFilter: #acctFilterBar 不存在'); return; }
   const q = (bar._search?.value || '').toLowerCase();
+  console.log(`doFilter: q="${q}" machine=${bar._machine?.value} plat=${bar._plat?.value} status=${bar._status?.value}`);
   const machine = bar._machine?.value || '';
   const plat = bar._plat?.value || '';
   const status = bar._status?.value || '';
@@ -533,6 +523,7 @@ function doFilter() {
     if (detail && !show) detail.style.display = 'none';
     if (show) visible++;
   });
+  console.log(`doFilter: 结果 — ${visible}/${rows.length} 可见`);
 
   const count = document.querySelector('#acctCount');
   if (count) count.textContent = `共 ${visible}/${window._v2Accounts?.length || 0} 个`;

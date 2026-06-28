@@ -1436,23 +1436,26 @@ _task_store = None
 _slot_manager = None
 _scheduler = None
 _heartbeat_reporter = None
+_account_monitor = None
 _oracle_sync = None
 
 
 def _init_scheduler():
     """初始化调度引擎"""
-    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync
+    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync, _account_monitor
     if _scheduler is not None:
         return
     logger = logging.getLogger('guardd')
     logger.info('  ⚙️ 初始化调度引擎 (v4.3.0)...')
     _task_store = TaskStore()
+    from modules.account_monitor import AccountMonitor
+    _account_monitor = AccountMonitor()
     queue = PriorityQueue()
     _slot_manager = BrowserSlotManager(max_slots=3)
     _slot_manager.cleanup_orphans()
     executor = Executor(_task_store, _slot_manager)
     _scheduler = Scheduler(_task_store, queue, _slot_manager, executor)
-    _heartbeat_reporter = HeartbeatReporter(_task_store, _slot_manager, _scheduler, HOSTNAME, MACHINE_UID)
+    _heartbeat_reporter = HeartbeatReporter(_task_store, _slot_manager, _scheduler, HOSTNAME, MACHINE_UID, account_monitor=_account_monitor)
     _oracle_sync = OracleSync(_task_store)
     _oracle_sync.sync()
     recovered = _task_store.reset_unfinished()
@@ -1559,12 +1562,13 @@ _task_store = None
 _slot_manager = None
 _scheduler = None
 _heartbeat_reporter = None
+_account_monitor = None
 _oracle_sync = None
 
 
 def _init_scheduler():
     """初始化调度引擎（线程安全，可重复调）"""
-    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync
+    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync, _account_monitor
     
     if _scheduler is not None:
         return  # 已初始化
@@ -1590,10 +1594,13 @@ def _init_scheduler():
     _scheduler = Scheduler(_task_store, queue, _slot_manager, executor)
     
     # HeartbeatReporter
+    from modules.account_monitor import AccountMonitor
+    _account_monitor = AccountMonitor()
     _heartbeat_reporter = HeartbeatReporter(
         _task_store, _slot_manager, _scheduler,
         HOSTNAME, MACHINE_UID,
-        dashboard_url="http://127.0.0.1:9988"
+        dashboard_url="http://127.0.0.1:9988",
+        account_monitor=_account_monitor
     )
     
     # OracleSync

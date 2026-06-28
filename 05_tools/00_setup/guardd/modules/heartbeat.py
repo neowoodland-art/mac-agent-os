@@ -17,6 +17,7 @@ from pathlib import Path
 from modules.task_store import TaskStore
 from modules.slot_manager import BrowserSlotManager
 from modules.scheduler import Scheduler
+from modules.account_monitor import AccountMonitor
 
 logger = logging.getLogger("guardd.heartbeat")
 
@@ -26,13 +27,15 @@ class HeartbeatReporter:
 
     def __init__(self, task_store: TaskStore, slot_manager: BrowserSlotManager,
                  scheduler: Scheduler, hostname: str, machine_uid: str,
-                 dashboard_url: str = None):
+                 dashboard_url: str = None,
+                 account_monitor: AccountMonitor = None):
         self.task_store = task_store
         self.slot_manager = slot_manager
         self.scheduler = scheduler
         self.hostname = hostname
         self.machine_uid = machine_uid
         self.dashboard_url = dashboard_url or "http://127.0.0.1:9988"
+        self.account_monitor = account_monitor
 
     def collect(self) -> dict:
         """采集完整状态（v2: 含 per-slot 详细进度）"""
@@ -72,12 +75,21 @@ class HeartbeatReporter:
         except OSError:
             pass
 
+        # 采集每个账号的登录状态
+        account_status = {}
+        if self.account_monitor:
+            try:
+                account_status = self.account_monitor.collect_status()
+            except Exception as e:
+                logger.debug(f"账号状态采集失败: {e}")
+
         heartbeat = {
             "hostname": self.hostname,
             "machine_uid": self.machine_uid,
             "status": "online",
             "last_seen": datetime.now(timezone.utc).isoformat(),
             "version": "4.3.0",
+            "account_status": account_status,
             "slots": {
                 "max": slot_usage.get("max", 3),
                 "used": slot_usage.get("used", 0),
