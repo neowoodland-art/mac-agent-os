@@ -1497,7 +1497,7 @@ def api_scheduler_status():
     """HTTP API: 调度器状态"""
     _init_scheduler()
     return {
-        'active': _heartbeat_reporter._task_to_heartbeat(_scheduler.active_task) if _scheduler and _scheduler.active_task else None,
+        'active': list(_scheduler.active_tasks.values()) if _scheduler and _scheduler.active_tasks else [],
         'queue': _scheduler.queue.get_all() if _scheduler else [],
         'slots': _slot_manager.get_usage() if _slot_manager else {},
         'counts': _task_store.count() if _task_store else {},
@@ -1645,7 +1645,7 @@ def api_scheduler_status() -> dict:
     """HTTP API 入口：查询调度器状态"""
     _init_scheduler()
     return {
-        "active": _heartbeat_reporter._task_to_heartbeat(_scheduler.active_task) if _scheduler.active_task else None,
+        "active": list(_scheduler.active_tasks.values()) if _scheduler.active_tasks else [],
         "queue": _scheduler.queue.get_all(),
         "slots": _slot_manager.get_usage() if _slot_manager else {},
         "counts": _task_store.count() if _task_store else {},

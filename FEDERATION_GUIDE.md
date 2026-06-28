@@ -645,6 +645,7 @@ ensure_login(account, platform)
 | 账号被跳过（skipped） | L1 ensure_login 失败 | 检查 session cookie 是否有效 |
 | 执行卡住不动 | L1 SMS 验证弹窗 | 手动输入验证码或等超时 |
 
+---
 | 要找什么 | 路径 |
 |:---------|:-----|
 | 系统入口 | `~/workbuddy-agent-os/agent-sync/README.md` |

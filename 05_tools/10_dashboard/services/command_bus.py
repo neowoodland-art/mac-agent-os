@@ -7,12 +7,12 @@ command_bus.py — 统一命令传输层 v6
 
 核心机制:
   1. 路由层不拆解命令 — 传全部账号，由 MC 引擎按 identity 分组
-  2. 每台机器一个队列 — MachineSession.is_busy 判断是否可发新命令
-  3. 新命令 → 机器忙 → 排队等待（status=queued）
-  4. 当前命令完成 → 自动启动下一条
-  5. 强制停止 → cancel() 杀进程+清浏览器+启动下一条
-  6. MC 引擎内部 Semaphore(3) + identity 分组控制并发
-  7. 不同机器之间并行执行（互不影响）
+  2. 命令直接发到 guardd 调度器 — 不再排队串行化
+  3. guardd 调度器内部管理 3 个 slot 和优先级队列
+  4. MachineSession 仅做状态追踪和历史记录
+  5. 不同机器之间并行执行（互不影响）
+  6. 同一机器多任务并发由 guardd 调度器控制
+  7. 强制停止 → cancel() 杀进程+清浏览器
 
 架构:
   Dashboard → API → CommandBus → MachineSession(队列) → mc run → 引擎 → Camoufox
@@ -276,25 +276,18 @@ class MachineSession:
 
     def send(self, cmd: Command) -> dict:
         with self._lock:
-            # 先清理卡死的命令
             self._clear_stale()
 
-            # 机器已经在执行命令 → 排队
-            if self.is_busy:
-                cmd.status = CommandStatus.QUEUED
-                cmd.message = f"排队中（当前有任务在执行: {self.current_cmd.run_id}）"
-                self.queued_cmds.append(cmd)
-                self.commands.insert(0, cmd)
-                self._trim_history()
-                return {"status": "queued", "message": cmd.message, "run_id": cmd.run_id}
-
-            # 机器空闲 → 立即执行
+            # 直接发送到 guardd 调度器（不再排队串行化）
+            # guardd 调度器内部管理 3 个 slot 和优先级队列
             if self.is_local:
                 result = self._send_local(cmd)
             else:
                 result = self._send_remote(cmd)
             if "error" not in result:
                 self.current_cmd = cmd
+            self.commands.insert(0, cmd)
+            self._trim_history()
             return result
 
     def _send_local(self, cmd: Command) -> dict:
@@ -313,8 +306,6 @@ class MachineSession:
         if guardd_result.get("status") == "accepted":
             cmd.status = CommandStatus.DISPATCHING
             cmd.started_at = time.time()
-            self.commands.insert(0, cmd)
-            self._trim_history()
             return {"guardd": True, "scheduler": True}
 
         # guardd 调度引擎不可用，降级到旧版 /task 或 subprocess
@@ -331,8 +322,6 @@ class MachineSession:
             cmd.pid = guardd_result.get("pid")
             cmd.status = CommandStatus.DISPATCHING
             cmd.started_at = time.time()
-            self.commands.insert(0, cmd)
-            self._trim_history()
             return {"pid": cmd.pid, "guardd": True}
 
         # guardd 完全不可用时降级为 subprocess（向后兼容）
@@ -374,8 +363,6 @@ class MachineSession:
         cmd.pid = p.pid
         cmd.status = CommandStatus.DISPATCHING
         cmd.started_at = time.time()
-        self.commands.insert(0, cmd)
-        self._trim_history()
         return {"pid": cmd.pid, "log_path": str(log_path)}
 
     def _send_remote(self, cmd: Command) -> dict:
@@ -397,8 +384,6 @@ class MachineSession:
             cmd.status = CommandStatus.DISPATCHING
             cmd.started_at = time.time()
             cmd.message = "sent to {} via scheduler".format(self.machine)
-            self.commands.insert(0, cmd)
-            self._trim_history()
             logger.info("  ✅ {} -> scheduler accepted".format(cmd.run_id))
             return {"guardd": True, "scheduler": True, "machine": self.machine}
         logger.info("  ⚠️ {} -> scheduler submit failed (result={}), trying old /task".format(cmd.run_id, guardd_result))
@@ -424,8 +409,6 @@ class MachineSession:
             cmd.status = CommandStatus.DISPATCHING
             cmd.started_at = time.time()
             cmd.message = "sent to {} via guardd /task".format(self.machine)
-            self.commands.insert(0, cmd)
-            self._trim_history()
             logger.info("  ✅ {} -> /task accepted".format(cmd.run_id))
             return {"pid": cmd.pid, "guardd": True, "machine": self.machine}
         logger.info("  ⚠️ {} -> /task failed (result={}), trying SSH".format(cmd.run_id, guardd_result))
@@ -454,8 +437,6 @@ class MachineSession:
             cmd.status = CommandStatus.DISPATCHING
             cmd.started_at = time.time()
             cmd.message = "command sent via SSH: {}".format(self.ssh_target)
-            self.commands.insert(0, cmd)
-            self._trim_history()
             logger.info("  ✅ {} -> SSH sent OK".format(cmd.run_id))
             return {"status": "sent", "target": self.ssh_target}
         except Exception as e:

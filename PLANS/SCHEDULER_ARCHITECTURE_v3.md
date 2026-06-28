@@ -1281,3 +1281,167 @@ guardd.startup_recovery()
 - 去掉 poll 守卫线程
 - 去掉 CMD_POLL_STRATEGY
 - 只保留：按机器分组 + 模板渲染 + 投递到 guardd
+
+
+
+## 十一、深化讨论与勘误（2026-06-28）
+
+> 本节是对 §1-§10 的补充和修正，基于 2026-06-28 深度讨论后的结论。
+
+### 11.1 任务拆解位置（修正 §12.1 决策A）
+
+**原结论**（§12.1）：CommandBus 拆解。
+
+**修正结论**：CommandBus 按机器分组 + 模板渲染 → 投递**复合任务**到各机 guardd → **guardd 本地拆解为最小单元**。
+
+```
+CommandBus.dispatch()
+  ├─ 1. 按 ORACLE 分组（账号→机器映射）
+  ├─ 2. 模板渲染（生成完整命令字符串）
+  ├─ 3. 对每台机器生成一条**复合任务**
+  │    { accounts: [A,B,C], cmd_type, params, priority, interval }
+  └─ 4. POST /scheduler/submit → 各机 guardd
+       ↓
+guardd scheduler.submit_task()
+  ├─ 1. 收到复合任务
+  ├─ 2. 按账号拆成 N 个最小单元
+  │    task_unit = { account_id, operation, machine, priority, interval }
+  ├─ 3. 每个单元独立入队（带优先级+间隔参数）
+  └─ 4. 分配器按 slot 空闲情况逐个分配执行
+
+进度回传：
+  guardd 心跳（每15秒）→ 上报每个 slot 的当前进度
+  → Dashboard 聚合显示各机每个账号的细粒度状态
+```
+
+**理由**：
+- 减少 HTTP 请求（1 个复合任务 = 1 次，不是 N 次）
+- guardd 本地知道 slot 实时状态（Dashboard 不知道）
+- Heartbeat 回传细粒度进度，master 可见
+
+### 11.2 实施进度审计（对照 §9 和 §12.6）
+
+**§9 Phase 1 — guardd 调度引擎：**
+
+| 任务 | 状态 | 说明 |
+|:-----|:------|:------|
+| TaskStore (SQLite) | ✅ 已实现 | `guardd/modules/task_store.py` |
+| 优先级队列 | ✅ 已实现 | `guardd/modules/priority_queue.py` |
+| 浏览器槽位管理 | ✅ 已实现 | `guardd/modules/slot_manager.py` (3 slots) |
+| 调度主循环 | ⚠️ 部分实现 | `scheduler.py` 存在但**串行**（1 active_task），需改为并行 |
+| HTTP API 扩展 | ⚠️ 部分实现 | 有 `/scheduler/tasks` `/scheduler/submit` `/task/{id}/stop`，缺 `/task/{id}/pause` `/task/{id}/resume` |
+| 心跳增强 | ❌ 未实现 | 当前心跳没有 per-account 粒度 |
+
+**§9 Phase 2 — 联邦指挥台：**
+
+| 任务 | 状态 | 说明 |
+|:-----|:------|:------|
+| Dashboard 任务状态聚合 | ⚠️ 部分实现 | `ops-command.js` 已读取 `/ops/queue` 但字段路径有误（已修复） |
+| 指挥台前端骨架 | ⚠️ 部分实现 | 三机总览已有，9 轨道 slot 视图未实现 |
+| 任务手动调度 | ❌ 未实现 | 拖拽排序/暂停/恢复未实现 |
+| 告警中心 | ❌ 未实现 | 告警面板存在但功能不完整 |
+
+**§9 Phase 3 — 高级编排：** 均未开始。
+
+### 11.3 P0/P1/P2 优先级体系（补充 §6.4）
+
+§6.4 已有优先级标签设计，本节补充队列调度规则：
+
+| 等级 | 标识 | 队列 | 间隔参数 | 说明 |
+|:-----|:-----|:-----|:---------|:------|
+| P0 | 🔴 优先 | 高优队列 | interval=N秒(0=无间隔) | 定向评论、指定点赞。可插队 |
+| P1 | 🟢 日常 | 正常队列 | 无 | 定时任务、每日养号。正常排队 |
+| P2 | ⚪ 闲时 | 低优队列 | 无 | 批量采集、数据同步。有空位才执行 |
+
+**分配器优先级逻辑**：
+```
+1. 检查 P0 队列 → 有任务且符合间隔条件 → 分配
+2. P0 队列为空 → 检查 P1 队列 → 分配  
+3. P1 队列为空 → 检查 P2 队列 → 分配
+4. 所有队列为空 → slot 空闲等待
+```
+
+### 11.4 间隔执行（B 类任务补充 §5.1）
+
+§5.1 已有间隔设计，本节补充 3 slot 交错执行细节：
+
+```
+复合任务 { 20 accounts, interval=30-90, priority=P0 }
+  ↓ guardd 拆成 20 个单元，全部入 P0 队列（每个带 interval 参数）
+  
+分配器逻辑：
+  for each slot in [slot1, slot2, slot3]:
+    if slot.free:
+      task = P0_queue.pop()
+      if task.interval > 0:
+        last = task_group.last_completed_time
+        if now - last < task.interval:
+          continue  # 间隔未到，跳过，等下次循环
+      slot.assign(task)
+  
+  3 slot 交错流出:
+    slot1: 账号A(完成30s→)账号D(完成45s→)账号G
+    slot2: 账号B(完成60s→)账号E(完成35s→)账号H  
+    slot3: 账号C(完成50s→)账号F(完成40s→)账号I
+```
+
+### 11.5 评论互动参数（补充 §5.1 任务参数字段）
+
+互动任务复合任务的完整参数：
+
+```json
+{
+  "task_id": "interact_20260628_001",
+  "type": "interact",
+  "priority": "P0",
+  "accounts": ["douyin_136", "douyin_137"],
+  "interval": "30-90",
+  "params": {
+    "url": "https://www.douyin.com/video/xxx",
+    "direction": "称赞",
+    "blueprint": "interact_comment",
+    "corpus": "L2"
+  }
+}
+```
+
+### 11.6 联邦指挥台展示（引用 §6.2-§6.5，本节仅补充重点）
+
+§6.2-§6.5 已有详细设计，本节补充展示中缺少的信息：
+
+每个 slot 卡片当前只显示账号ID，需补充：
+- **手机号**（从 ORACLE 或 profiles.json 查）
+- **昵称**（从 profiles.json 查）
+- **当前操作 URL**（互动任务用）
+- **间隔倒计时**（B 类任务显示下一账号剩余时间）
+- **进度百分比**（当前步数/总步数）
+
+### 11.7 浏览器控制权（修正 §12.3 决策3 表述）
+
+§12.3 决策3 说"浏览器槽位上移"，造成误解。实际结论：
+
+- **mc engine** 自己控制 `max_browsers=3` 安全上限（不下放）
+- **guardd scheduler** 通过 `slot_manager.get_usage()` 感知剩余空位
+- **不需要** scheduler 下发放"开几个浏览器"的指令
+- engine 管上限，scheduler 尊重上限
+
+§12.3 原表述"上移"应理解为"新增 guardd 层的 slot 感知"，而非"从 engine 夺权"。
+
+### 11.8 §9 和 §12.6 改造顺序的合并
+
+以 §12.6 的详细版本为准，§9 的简述版标记为参考。更新如下：
+
+| Phase | 任务 | 工作量 | 状态 |
+|:------|:-----|:-------|:------|
+| **1a** | guardd modules/ 目录拆分 | 小 | ✅ 已完成 |
+| **1b** | TaskStore + PriorityQueue | 中 | ✅ 已完成 |
+| **1c** | 启动时孤儿浏览器清理 | 小 | ✅ 已完成 |
+| **1d** | BrowserSlotManager + 心跳增强 | 中 | ⚠️ slot 完成，心跳未增强 |
+| **1e** | 调度主循环去串行化 + Executor | 中 | ⚠️ 需改并行 |
+| **2a** | CommandBus 读写分离 + 复合任务投递 | 中 | ❌ |
+| **2b** | 指挥台前端（9 轨道 slot 视图）| 大 | ❌ |
+| **2c** | P0/P1/P2 优先级 + 间隔执行 | 中 | ❌ |
+| **3a** | 指挥台操作功能（取消/暂停/重排）| 大 | ❌ |
+| **3b** | ORACLE 定时任务同步 | 小 | ❌ |
+| **3c** | 告警中心 | 中 | ❌ |
+| **3d** | 任务超时熔断 + 自动恢复 | 中 | ❌ |
