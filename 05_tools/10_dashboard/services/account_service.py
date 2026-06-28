@@ -20,6 +20,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from typing import Optional
+from services.command_bus import _guardd_api
 from pathlib import Path
 
 logger = logging.getLogger("dashboard.account_service")
