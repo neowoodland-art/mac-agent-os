@@ -78,9 +78,15 @@ class Scheduler:
 
         task["status"] = STATUS_QUEUED
         task["queued_at"] = time.time()
+        # 保留间隔参数
+        interval = task.get("interval", 0)
+        if interval:
+            task["interval"] = interval
+            logger.info(f"  📥 [{task_id}] 入队 (priority={priority}, interval={interval}s)")
+        else:
+            logger.info(f"  📥 [{task_id}] 入队 (priority={priority})")
         self.task_store.save(task)
         self.queue.push(task)
-        logger.info(f"  📥 [{task_id}] 入队 (priority={priority})")
 
         # 如果有空闲 slot，立即尝试调度
         usage = self.slot_manager.get_usage() if self.slot_manager else {"used": 0, "max": 3}
@@ -196,14 +202,12 @@ class Scheduler:
         优先级: P0 > P1 > P2
         B 类任务: 检查间隔时间
         """
-        # 遍历队列，找到第一个符合条件（间隔/去重等）的任务
+        # 按优先级排序（P0=0最高，P1=1，P2=2），同优先级按入队时间
         candidates = self.queue.get_all()
+        candidates.sort(key=lambda c: (c.get("priority", 1), c.get("scheduled_at", 0)))
         for candidate in candidates:
-            task_id = candidate.get("task_id") or candidate
-            if isinstance(candidate, str):
-                task = self.task_store.get(candidate)
-            else:
-                task = self.task_store.get(task_id)
+            task_id = candidate.get("task_id")
+            task = self.task_store.get(task_id)
             if not task:
                 continue
 
@@ -212,10 +216,7 @@ class Scheduler:
                 continue
 
             # 从队列中移除
-            if isinstance(candidate, str):
-                self.queue.remove(candidate)
-            else:
-                self.queue.remove(task_id)
+            self.queue.remove(task_id)
             return task
 
         return None

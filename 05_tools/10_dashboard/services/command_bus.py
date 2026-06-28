@@ -299,6 +299,7 @@ class MachineSession:
             "blueprint": cmd.params.get("blueprint", ""),
             "rounds": cmd.params.get("rounds", 1),
             "priority": 0 if cmd.cmd_type in ("interact", "comment") else 1,
+            "interval": cmd.params.get("interval", 0),
             "params": cmd.params,
             "command_line": cmd.command_line,
         }
@@ -376,6 +377,7 @@ class MachineSession:
             "blueprint": cmd.params.get("blueprint", ""),
             "rounds": cmd.params.get("rounds", 1),
             "priority": 0 if cmd.cmd_type in ("interact", "comment") else 1,
+            "interval": cmd.params.get("interval", 0),
             "params": cmd.params,
             "command_line": cmd.command_line,
         }
@@ -1077,6 +1079,7 @@ class CommandBus:
                         "accounts": [acct],
                         "blueprint": cmd.params.get("blueprint", "interact_comment"),
                         "priority": 0,
+                        "interval": cmd.params.get("interval", 0),
                         "params": cmd.params,
                     }, machine=cmd.machine)
                     decomposed_count += 1
