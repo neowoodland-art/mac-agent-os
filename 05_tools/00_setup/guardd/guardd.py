@@ -281,6 +281,22 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error(f"/accounts/status 采集失败: {e}")
                 self._send_json(500, {"error": str(e)})
+        elif path == "/accounts/profiles":
+            try:
+                home = __import__("pathlib").Path.home()
+                pf = home / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+                if pf.exists():
+                    profiles = json.loads(pf.read_text())
+                else:
+                    profiles = {}
+                self._send_json(200, {
+                    "hostname": HOSTNAME,
+                    "machine_uid": MACHINE_UID,
+                    "profiles": profiles,
+                })
+            except Exception as e:
+                logger.error(f"/accounts/profiles 读取失败: {e}")
+                self._send_json(500, {"error": str(e)})
         else:
             self._send_json(404, {"error": "not_found"})
 

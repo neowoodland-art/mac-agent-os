@@ -262,14 +262,14 @@ class AccountService:
             mgr = MatrixManager()
             accounts = mgr.list_accounts()
 
-            # 合并 profiles.json
-            profiles_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
+            # 合并 profiles.json（通过 guardd API，对等原则）
             profiles = {}
-            if profiles_path.exists():
-                try:
-                    profiles = json.loads(profiles_path.read_text())
-                except Exception:
-                    pass
+            try:
+                data = _guardd_api("GET", "/accounts/profiles")
+                if isinstance(data, dict):
+                    profiles = data.get("profiles", {})
+            except Exception:
+                pass
 
             for acct in accounts:
                 aid = acct.get("id", "")
@@ -362,46 +362,21 @@ class AccountService:
         return data.get("accounts", {}) if isinstance(data, dict) else {}
 
     def _get_profile_for_account(self, account_id: str, machine: str) -> dict:
-        """从本地 profiles.json 和 fleet_collector 获取 profile 数据"""
-        # 先查本机 profiles.json
-        profiles_path = AGENT_LOCAL / "tools" / "matrix" / "data" / "profiles.json"
-        if profiles_path.exists():
-            try:
-                profiles = json.loads(profiles_path.read_text())
+        """通过 guardd HTTP API 获取账号 profile 数据（本机+远程统一路径，遵守联邦对等原则）"""
+        try:
+            data = _guardd_api("GET", "/accounts/profiles", machine=machine)
+            if isinstance(data, dict):
+                profiles = data.get("profiles", {})
                 p = profiles.get(account_id, {})
                 if p and p.get("nickname"):
                     return {
                         "nickname": p.get("nickname", ""),
-                        "fans": p.get("fans", ""),
+                        "fans": str(p.get("fans", "")),
                         "avatar": p.get("avatar", ""),
-                        "following": p.get("following", ""),
-                        "likes": p.get("likes", ""),
-                        "posts": p.get("posts", ""),
+                        "following": str(p.get("following", "")),
+                        "likes": str(p.get("likes", "")),
+                        "posts": str(p.get("posts", "")),
                     }
-            except Exception:
-                pass
-
-        # 降级到 fleet_collector 缓存
-        fleet_dir = AGENT_LOCAL / "runtime" / "fleet_collector"
-        if fleet_dir.exists():
-            for md in sorted(fleet_dir.iterdir()):
-                if not md.is_dir():
-                    continue
-                pf = md / "profiles.json"
-                if pf.exists():
-                    try:
-                        data = json.loads(pf.read_text())
-                        p = data.get(account_id, {}) or {}
-                        if p.get("nickname"):
-                            return {
-                                "nickname": p.get("nickname", ""),
-                                "fans": str(p.get("fans", "")),
-                                "avatar": p.get("avatar", ""),
-                                "following": str(p.get("following", "")),
-                                "likes": str(p.get("likes", "")),
-                                "posts": str(p.get("posts", "")),
-                            }
-                    except Exception:
-                        pass
-
+        except Exception:
+            pass
         return {"nickname": "", "fans": "", "following": "", "likes": "", "posts": "", "avatar": ""}
