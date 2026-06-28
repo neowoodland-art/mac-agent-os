@@ -506,9 +506,13 @@ class DouyinOps(PlatformOps):
         if op == "dy_goto_profile":
             await self.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
             logged_in = await self._ensure_logged_in()
-            if not logged_in:
+            if logged_in:
+                # 登录成功后重新导航到个人主页（弹窗改变了URL）
+                await self.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
+                await asyncio.sleep(3)
+            else:
                 print("⚠️ dy_goto_profile: 未能登录")
-            await asyncio.sleep(3)
+                await asyncio.sleep(3)
             return OpResult(op, step_id, True, "profile", time.time()-t0)
 
         if op.startswith("dy_read_"):
@@ -1373,9 +1377,13 @@ class DouyinOps(PlatformOps):
         await self.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
         # 检查登录状态，未登录时自动处理弹窗
         logged_in = await self._ensure_logged_in()
-        if not logged_in:
+        if logged_in:
+            # 登录成功后需要重新导航到个人主页（登录弹窗可能改变了页面URL）
+            await self.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
+            await asyncio.sleep(3)
+        else:
             print("⚠️ 未能登录，但仍尝试采集数据")
-        await asyncio.sleep(3)
+            await asyncio.sleep(3)
         profile = await self.page.evaluate("""() => {
             const text = (document.body.innerText || '').trim();
             const title = (document.title || '').replace(' - 抖音', '').replace('的抖音', '').trim();
