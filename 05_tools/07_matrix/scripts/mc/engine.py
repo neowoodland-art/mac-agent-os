@@ -376,10 +376,26 @@ class BatchEngine:
                 try:
                     await conn.page.locator('text="一键登录"').click(timeout=5000)
                     await asyncio.sleep(3)
-                    # 点完一键登录后可能的两种结果:
-                    # A) 直接登录成功 → 继续执行
-                    # B) 弹出短信验证码 → 下一轮钩子2会检测到 sms
-                    log.info(f"    ✅ [{account_id}] 已点击一键登录，继续执行")
+                    # 链式检查：点完一键登录后可能弹出短信验证码或仍需完整登录
+                    verify2 = await lsm.check_verify_dialog(conn.page)
+                    if verify2 == "sms":
+                        log.warning(f"    📱 [{account_id}] 一键登录后弹出短信验证码，自动处理...")
+                        await lsm.recover_sms(conn.page, account_id)
+                        log.info(f"    ✅ [{account_id}] 短信验证完毕，继续执行")
+                    elif verify2 == "login_required":
+                        log.warning(f"    🔑 [{account_id}] 一键登录后仍需完整登录，走恢复链")
+                        ok = await lsm.ensure_login(conn.page, account_id, platform)
+                        if ok:
+                            log.info(f"    ✅ [{account_id}] 登录成功，重试当前操作 [{sn}]")
+                            result = await ops.execute(op=op_name, args=sargs, step_id=sn)
+                            report.add_step(StepResult(op_name, sn, result.success, result.elapsed,
+                                                       "" if result.success else result.error))
+                            icon = "✅" if result.success else "❌"
+                            log.info(f"    {icon} [{sn:2d}] {op_name:18s} → {result.detail[:25]} (重试, {result.elapsed:.1f}s)")
+                        else:
+                            log.warning(f"    ❌ [{account_id}] 完整登录恢复失败，跳过当前操作 [{sn}]")
+                    else:
+                        log.info(f"    ✅ [{account_id}] 已点击一键登录，继续执行")
                 except Exception as e:
                     log.warning(f"    ⚠️ [{account_id}] 点击一键登录失败: {e}, 走完整恢复链")
                     ok = await lsm.ensure_login(conn.page, account_id, platform)

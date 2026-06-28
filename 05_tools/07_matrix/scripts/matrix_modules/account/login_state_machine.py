@@ -145,23 +145,23 @@ class DouyinDetector(PlatformDetector):
         return "unknown"
 
     async def check_verify(self, page) -> str:
-        """检测抖音验证弹窗 + 登录态丢失检测
-        DOM 层级判断优先（SMS面板→一键登录→URL重定向→登录浮层→滑块），
-        文本关键词仅做兜底（降低广告弹窗误判）。
+        """抖音验证弹窗检测 — 纯DOM选择器，从快到慢6步判断
+        恢复旧版v1.0稳定逻辑（DOM锚点优先），补充新版场景（一键登录+登录浮层）。
+        完全不依赖文本关键词匹配，杜绝广告弹窗误判。
         Returns: 'none' / 'quick_login' / 'sms' / 'captcha' / 'login_required'
         """
-        # 一、SMS 验证弹窗 DOM 检测（最精确）
-        #     检测特定验证码面板 class + 验证码输入框，同时存在才算 sms
+        # 一、SMS 验证弹窗 DOM 检测（最快最精确）
+        #     蒙层/面板存在 + 验证码输入框存在 → sms
         try:
-            panel = page.locator(self.VERIFY_PANEL_SEL)
-            if await panel.count() > 0 and await panel.first.is_visible():
-                code_input = page.locator(self.VERIFY_INPUT_SEL)
-                if await code_input.count() > 0:
+            has_panel = await page.locator(self.VERIFY_PANEL_SEL).count() > 0
+            if has_panel:
+                has_input = await page.locator(self.VERIFY_INPUT_SEL).count() > 0
+                if has_input:
                     return "sms"
         except Exception:
             pass
 
-        # 二、一键登录 DOM 检测（短期过期信号）
+        # 二、一键登录 DOM 检测（短期过期）
         try:
             onekey = page.locator(f'text="{self.ONEKEY_TEXT}"')
             if await onekey.count() > 0 and await onekey.first.is_visible():
@@ -169,7 +169,7 @@ class DouyinDetector(PlatformDetector):
         except Exception:
             pass
 
-        # 三、检测登录态丢失：URL 被重定向到登录页
+        # 三、URL 重定向到登录页
         try:
             cur_url = page.url
             if any(k in cur_url.lower() for k in ["passport", "/login/", "sso_login"]):
@@ -177,58 +177,24 @@ class DouyinDetector(PlatformDetector):
         except Exception:
             pass
 
-        # 四、检测页面内登录浮层（URL 不变但有登录弹窗覆盖页面）
+        # 四、页面内登录浮层（URL不变但有登录弹窗覆盖页面）
         try:
             for sel in self.LOGIN_OVERLAY_SELS:
                 cnt = await page.locator(sel).count()
-                if cnt > 0:
-                    vis = await page.locator(sel).first.is_visible()
-                    if vis:
-                        return "login_required"
+                if cnt > 0 and await page.locator(sel).first.is_visible():
+                    return "login_required"
         except Exception:
             pass
 
-        # 五、滑块/拼图验证 DOM 检测
+        # 五、兜底：有面板但无输入框 → captcha（旧版v1.0逻辑）
         try:
-            captcha = page.locator(self.CAPTCHA_SEL)
-            if await captcha.count() > 0 and await captcha.first.is_visible():
+            if await page.locator(self.VERIFY_PANEL_SEL).count() > 0:
                 return "captcha"
         except Exception:
             pass
 
-        # 六、文本关键词检测（兜底，仅当前5步都未命中时触发）
-        #     文本匹配只使用高置信度组合，避免广告弹窗误判
-        modal_text = await self._get_modal_text(page)
-        if not modal_text:
-            return "none"
-
-        if "验证码" in modal_text and "输入" in modal_text:
-            return "sms"
-        if "一键登录" in modal_text:
-            return "quick_login"
-        if "登录" in modal_text and ("账号" in modal_text or "密码" in modal_text):
-            return "login_required"
-        return "captcha"
-
-    async def _get_modal_text(self, page) -> str:
-        """读取当前页面最上层弹窗/覆盖层的可见文本。
-        使用宽泛选择器匹配各种弹窗容器，不依赖特定 class。
-        """
-        modal_sels = [
-            '[class*="modal"]', '[class*="dialog"]',
-            '[class*="overlay"]', '[class*="popup"]',
-            '[class*="login"]', '[class*="verify"]',
-        ]
-        for sel in modal_sels:
-            try:
-                el = page.locator(sel).first
-                if await el.count() > 0 and await el.is_visible():
-                    text = (await el.inner_text()).strip()
-                    if len(text) > 5:
-                        return text
-            except Exception:
-                continue
-        return ""
+        # 六、→ none
+        return "none"
 
     async def _check_dom_anchors(self, page, anchors: list) -> bool:
         for sel in anchors:
@@ -415,8 +381,20 @@ class SmsRecovery(RecoveryStep):
 
     async def run(self, page, platform: str, account_id: str,
                   log_func) -> bool:
-        # 抖音由 DouyinLoginRecovery 处理
+        # 抖音：调用 auto_verify 自动处理短信验证码弹窗
         if platform == "douyin":
+            log_func(f"  📱 [{account_id}] 抖音短信验证，自动处理...")
+            try:
+                from douyin_ops import DouyinOps
+                ops = DouyinOps(page)
+                ops.set_account_id(account_id)
+                ok = await ops.auto_verify()
+                if ok:
+                    log_func(f"  ✅ [{account_id}] 短信验证码处理成功")
+                    return True
+                log_func(f"  ⚠️ [{account_id}] auto_verify 返回 False")
+            except Exception as e:
+                log_func(f"  ❌ [{account_id}] auto_verify 异常: {e}")
             return False
 
         # 小红书：直接调用 xhs_login（6位验证码框专用版本）
