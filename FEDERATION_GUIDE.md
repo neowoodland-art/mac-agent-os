@@ -330,6 +330,44 @@ Dashboard → 联邦 → 一键同步：通过 SSH 在 3 台机器间执行 git 
 
 Dashboard → 联邦 → 对账检查：检查本机是否符合 ORACLE.yaml 宪法定义（蓝图、账号数、环境一致性）。
 
+### 5.4 联邦对等原则（强制约束）
+
+**核心思想：所有联邦机器完全对等，本机不特殊。**
+
+```
+Dashboard
+    ↓ HTTP POST /api/ops/run {type, accounts, params}
+    └─── CommandBus.dispatch()
+            ├─── 本机 → HTTP localhost:9090/...   ← guardd HTTP API
+            └─── 远程 → HTTP tailscale_ip:9090/... ← 同样的 guardd HTTP API
+```
+
+**硬约束：**
+
+1. **不允许本机短路优化** — Dashboard 对本机的操作必须走与远程完全相同的代码路径。禁止
+   - 绕过 guardd 直接读本地 filesystem
+   - 直接用 subprocess 调 mc CLI 代替 guardd API
+   - 直接从本地 override.yaml 读账号状态而不查 guardd `/accounts/status`
+
+2. **本机测试通 = 远程可用** — 一段代码在本机（chengzigedeAir）通过 guardd HTTP API 测试通过后，
+   在远程机器（5kechengdeAir、7kecheng）上直接可运行，不需要改任何代码。
+
+3. **唯一例外是地址解析** — 本机用 `localhost:9090`，远程用 `tailscale_ip:9090`，
+   这个区别是必要的，也是唯一的区别。这个解析统一由 `command_bus._guardd_api()` 处理，
+   业务代码不需要感知。
+
+4. **数据同步不走直连** — 远程机器的数据（账号状态、任务状态）通过 guardd HTTP API 获取，
+   不通过 SSH 直连文件、不通过 fleet_collector 拉取文件副本。所有跨机数据交互都经过 guardd。
+
+**设计检查清单（代码审查时使用）：**
+
+```
+□ Dashboard 对本机的操作是否走了 guardd HTTP API？
+□ 是否有绕过 guardd 直接本地操作的代码路径？
+□ 远程机器能否直接运行这段代码（地址解析除外）？
+□ 数据获取是否统一通过 guardd API 而不是文件直读？
+```
+
 ---
 
 ## 六、矩阵养号系统

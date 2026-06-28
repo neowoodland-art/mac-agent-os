@@ -1,5 +1,11 @@
 // __UNIQUE_TEST_MARKER_987654321__
 
+// ── router 导入（用于已迁移视图的动态加载）──
+import { tryLoadView } from './router.js';
+// 暴露到 window + module 级引用，防止 Vite tree-shake
+window._routerTryLoad = tryLoadView;
+window.tryLoadView = tryLoadView;
+
 // ── State ──
 const API = '';
 let currentView = 'productions';
@@ -53,7 +59,8 @@ loadStats();
 // 自动刷新已由各 migrated view 的 loadView 自行管理
 
 // ── Navigation ──
-function switchView(view) {
+// 使用 window.switchView 而非裸函数名，防止 Rollup scope hoisting 覆盖
+window.switchView = function(view) {
   // Plugin views → inline rendering
   if (view === 'plugin-matrix') { view = 'matrix-summary'; }
   currentView = view;
@@ -144,7 +151,8 @@ function switchView(view) {
     if (pv) pv.classList.remove('hidden');
   }
 
-  // 尝试加载已迁移视图（由 views/*.js 的 loadView 接管）
+  // 已迁移视图 → 动态加载（由 views/*.js 的 loadView 接管）
+  // window.tryLoadView 由 router.js 和本文件共同暴露
   if (window.tryLoadView) {
     window.tryLoadView(view);
   }
@@ -454,7 +462,8 @@ async function loadPlugins() {
     const S = (label, status) => `<span style="font-size:9px;margin-left:4px;padding:1px 5px;border-radius:3px;background:rgba(217,119,6,.12);color:#d97706;font-weight:500">${status}</span>`;
     const groups = {
       '矩阵': { icon: '📱', items: [
-        {view:'matrix-sms-proxy', label:'🪪 账号管理'},
+        {view:'matrix-accounts', label:'👤 账号管理'},
+        {view:'matrix-sms-proxy', label:'🪪 短信与代理'},
         {view:'matrix-nurture', label:'🏃 养号执行'},
         {view:'matrix-collect', label:'📡 信息采集'},
         {view:'matrix-publish', label:'📤 内容发布'},

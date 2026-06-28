@@ -267,6 +267,20 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
         elif path == "/scheduler/slots":
             status = api_scheduler_status()
             self._send_json(200, status.get("slots", {}))
+        elif path == "/accounts/status":
+            try:
+                from modules.account_monitor import AccountMonitor
+                monitor = AccountMonitor()
+                accts = monitor.collect_status()
+                self._send_json(200, {
+                    "hostname": HOSTNAME,
+                    "machine_uid": MACHINE_UID,
+                    "accounts": accts,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                })
+            except Exception as e:
+                logger.error(f"/accounts/status 采集失败: {e}")
+                self._send_json(500, {"error": str(e)})
         else:
             self._send_json(404, {"error": "not_found"})
 

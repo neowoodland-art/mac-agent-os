@@ -20,6 +20,9 @@ routes/ops.py — 统一操作执行路由 v5
    - logout:  登出
    - comment: 定向评论
    - like:    点赞
+
+修复记录:
+   2026-06-28: /api/ops/queue 改为 ThreadPoolExecutor 并行查询，避免远程超时堵塞
 """
 
 import logging
@@ -226,7 +229,11 @@ def api_ops_log(run_id: str):
 
 @router.get("/queue")
 def api_ops_queue(machine: str = None):
-    """查看各机任务队列详情（含活跃任务、排队、槽位）"""
+    """查看各机任务队列详情（含活跃任务、排队、槽位）
+
+    使用 ThreadPoolExecutor 并行查询所有机器，避免单机超时堵塞整体。
+    个别机器超时/离线不影响其他机器结果。
+    """
     from services.command_bus import _guardd_api, ORACLE_PATH
     machines = [machine] if machine else []
     if not machines:
@@ -236,20 +243,34 @@ def api_ops_queue(machine: str = None):
             machines = list(oracle.get("machines", {}).keys())
         except Exception:
             machines = [__import__("utils.identity", fromlist=["resolve_hostname"]).resolve_hostname()]
-    
+
     results = {}
-    for m in machines:
+
+    def query_machine(m):
+        """查询单台机器，返回 (machine_name, data)"""
         try:
             data = _guardd_api("GET", "/scheduler/tasks", machine=m)
             if data:
-                results[m] = data
+                return (m, data)
             else:
-                # Fallback: get basic status
                 from services.command_bus import CommandBus
                 ms = CommandBus.get_machine_status(m)
-                results[m] = {"active": ms.get("active_task"), "error": "guardd scheduler 未响应"}
+                return (m, {"active": ms.get("active_task"), "error": "guardd scheduler 未响应"})
         except Exception as e:
-            results[m] = {"error": str(e)}
+            return (m, {"error": str(e)})
+
+    # 并行查询所有机器（本机快，远程可能超时，但不阻塞彼此）
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    with ThreadPoolExecutor(max_workers=len(machines)) as pool:
+        futures = {pool.submit(query_machine, m): m for m in machines}
+        for future in as_completed(futures):
+            try:
+                m, data = future.result()
+                results[m] = data
+            except Exception as e:
+                m = futures[future]
+                results[m] = {"error": str(e)}
+
     return {"machines": results}
 
 
@@ -276,6 +297,7 @@ def api_ops_task_submit(data: dict = {}):
     result = _guardd_api("POST", "/scheduler/submit", task, machine=machine)
     return {"status": "accepted", "result": result}
 
+
 @router.post("/reset")
 def api_ops_reset(data: dict = {}):
     """重置所有机器：清空任务队列 + 重启 guardd"""
@@ -300,4 +322,3 @@ def api_ops_reset(data: dict = {}):
             results[m] = str(e)
     
     return {"status": "ok", "machines": results}
-

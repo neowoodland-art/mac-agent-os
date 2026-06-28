@@ -1,6 +1,11 @@
 /**
  * 联邦指挥台视图 (v4.3.0)
  * 显示三机实时状态 + 任务队列 + 浏览器槽位
+ *
+ * 修复记录:
+ *   2026-06-28: 修复字段路径 status?.tasks?.active → status?.active (后端无 tasks 嵌套层)
+ *   2026-06-28: 修复 status?.tasks?.queued → status?.queue (后端字段名为 queue)
+ *   2026-06-28: P0/P1/P2 优先级 checkbox 绑定实际过滤逻辑
  */
 
 import { apiRequest } from '../router.js';
@@ -41,9 +46,9 @@ export async function loadView(container) {
       <!-- 筛选栏 -->
       <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
         <span style="font-size:11px;color:var(--text2);font-weight:600">筛选:</span>
-        <label style="font-size:10px;color:var(--text2)"><input type="checkbox" class="cmdFilter" value="P0" checked> 🔴 优先任务</label>
-        <label style="font-size:10px;color:var(--text2)"><input type="checkbox" class="cmdFilter" value="P1" checked> 🟢 日常任务</label>
-        <label style="font-size:10px;color:var(--text2)"><input type="checkbox" class="cmdFilter" value="P2"> ⚪ 闲时任务</label>
+        <label style="font-size:10px;color:var(--text2)"><input type="checkbox" class="cmdFilter" value="P0" checked onchange="window._cmdRefresh()"> 🔴 优先任务</label>
+        <label style="font-size:10px;color:var(--text2)"><input type="checkbox" class="cmdFilter" value="P1" checked onchange="window._cmdRefresh()"> 🟢 日常任务</label>
+        <label style="font-size:10px;color:var(--text2)"><input type="checkbox" class="cmdFilter" value="P2" onchange="window._cmdRefresh()"> ⚪ 闲时任务</label>
         <span style="margin-left:12px;font-size:11px;color:var(--text2);font-weight:600">机器:</span>
         <select id="cmdMachineFilter" onchange="window._cmdRefresh()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 6px;border-radius:4px;font-size:10px">
           <option value="all">全部</option>
@@ -124,7 +129,6 @@ function stopAutoRefresh() {
 
 async function refreshView(container, silent = false) {
   try {
-    // 并行获取所有数据
     const [queueData, machineData, healthData] = await Promise.all([
       apiRequest('/ops/queue'),
       apiRequest('/ops/machines'),
@@ -162,7 +166,6 @@ function renderMachines(queueData, machineData) {
   const machines = queueData?.machines || {};
   const allMachineStatus = machineData?.machines || {};
   
-  // 更新机器筛选下拉
   const currentFilter = machineFilter.value;
   machineFilter.innerHTML = '<option value="all">全部</option>';
   
@@ -172,8 +175,8 @@ function renderMachines(queueData, machineData) {
     machineFilter.innerHTML += `<option value="${name}">${name}</option>`;
     
     const slots = status?.slots || {};
-    const active = status?.tasks?.active || null;
-    const counts = status?.tasks?.counts || {};
+    const active = status?.active || null;
+    const counts = status?.counts || {};
     const isOnline = !status?.error;
     const usedSlots = slots?.used || 0;
     const maxSlots = slots?.max || 3;
@@ -232,8 +235,8 @@ function renderAlerts(queueData) {
   const alerts = [];
   const machines = queueData?.machines || {};
   for (const [name, status] of Object.entries(machines)) {
-    const active = status?.tasks?.active || null;
-    const counts = status?.tasks?.counts || {};
+    const active = status?.active || null;
+    const counts = status?.counts || {};
     if (status?.error) alerts.push({machine:name, type:'error', msg:'不可达: '+status.error});
     if (active?.status === 'failed') alerts.push({machine:name, type:'failed', msg:'任务失败: '+active.task_id});
     if (counts?.failed > 0) alerts.push({machine:name, type:'failed_count', msg:counts.failed+' 个任务失败'});
@@ -251,20 +254,34 @@ function renderQueueDetail(queueData) {
   const filterValue = document.getElementById('cmdMachineFilter')?.value || 'all';
   const machines = queueData?.machines || {};
   
+  // 读取优先级过滤器状态
+  const showP0 = document.querySelector('.cmdFilter[value="P0"]')?.checked ?? true;
+  const showP1 = document.querySelector('.cmdFilter[value="P1"]')?.checked ?? true;
+  const showP2 = document.querySelector('.cmdFilter[value="P2"]')?.checked ?? false;
+  
   let html = '';
   for (const [name, status] of Object.entries(machines)) {
     if (filterValue !== 'all' && name !== filterValue) continue;
     
-    const active = status?.tasks?.active || null;
-    const queued = status?.tasks?.queued || [];
-    const counts = status?.tasks?.counts || {};
+    const active = status?.active || null;
+    const queued = status?.queue || [];
+    const counts = status?.counts || {};
     const slots = status?.slots?.slots || [];
+    
+    // 按优先级过滤队列（P0/P1/P2 checkbox）
+    const filteredQueued = queued.filter(q => {
+      if (q.priority === 0 && !showP0) return false;
+      if (q.priority === 1 && !showP1) return false;
+      if (q.priority === 2 && !showP2) return false;
+      if (q.priority == null && !showP1) return false;
+      return true;
+    });
     
     html += `
       <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border);margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <div style="font-weight:600;font-size:13px">${name}</div>
-          <div style="font-size:10px;color:var(--text2)">队列: ${queued.length} | 完成: ${counts.completed||0} | 失败: ${counts.failed||0}</div>
+          <div style="font-size:10px;color:var(--text2)">队列: ${filteredQueued.length} | 完成: ${counts.completed||0} | 失败: ${counts.failed||0}</div>
         </div>
         
         ${active ? `
@@ -302,9 +319,9 @@ function renderQueueDetail(queueData) {
           </div>
         ` : ''}
         
-        ${queued.length > 0 ? `
-          <div style="font-size:10px;color:var(--text2);margin-bottom:4px">⏳ 排队中 (${queued.length}) <span style="font-size:9px;color:var(--text2);margin-left:8px">(拖拽调整顺序功能开发中)</span></div>
-          ${queued.slice(0,10).map((q, qi) => {
+        ${filteredQueued.length > 0 ? `
+          <div style="font-size:10px;color:var(--text2);margin-bottom:4px">⏳ 排队中 (${filteredQueued.length}) <span style="font-size:9px;color:var(--text2);margin-left:8px">(拖拽调整顺序功能开发中)</span></div>
+          ${filteredQueued.slice(0,10).map((q, qi) => {
             const pri = q.priority === 0 ? '🔴' : q.priority === 1 ? '🟢' : '⚪';
             const label = q.priority === 0 ? 'P0优先' : q.priority === 1 ? 'P1日常' : 'P2闲时';
             return `<div style="font-size:10px;padding:2px 4px;background:var(--bg3);border-radius:3px;margin-bottom:2px;display:flex;justify-content:space-between">

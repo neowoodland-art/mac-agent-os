@@ -1,5 +1,10 @@
 /**
- * 账号管理视图（v3 — 自包含，带搜索/筛选/建号功能）
+ * 账号管理视图（v3 — 已废弃，由 accounts-center.js 替代）
+ *
+ * 导航已改为指向 accounts-center，此文件仅保留用于过渡兼容，
+ * 后续清理时移除本文件即可。
+ *
+ * @deprecated 使用 accounts-center.js 替代
  */
 export async function loadView(container) {
   container.innerHTML = '<div class="loading">⏳ 加载中...</div>';
@@ -36,22 +41,22 @@ export async function loadView(container) {
       let html = '<table style="width:100%;font-size:11px;border-collapse:collapse">';
       html += '<tr style="font-size:9px;color:var(--text2);border-bottom:1px solid var(--border)">'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">机器</th>'
-        + '<th style="padding:4px 6px;font-weight:400;text-align:left">📱手机号</th>'
+        + '<th style="padding:4px 6px;font-weight:400;text-align:left">手机号</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">身份</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">账号ID</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">平台</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">昵称</th>'
-        + '<th style="padding:4px 6px;font-weight:400;text-align:right" title="粉丝">👥</th>'
-        + '<th style="padding:4px 6px;font-weight:400;text-align:right" title="关注">👍</th>'
-        + '<th style="padding:4px 6px;font-weight:400;text-align:right" title="获赞">❤️</th>'
-        + '<th style="padding:4px 6px;font-weight:400;text-align:right" title="作品">📝</th>'
-        + '<th style="padding:4px 6px;font-weight:400;text-align:left">状态</th>'
+        + '<th style="padding:4px 6px;font-weight:400;text-align:right">粉丝</th>'
+        + '<th style="padding:4px 6px;font-weight:400;text-align:right">关注</th>'
+        + '<th style="padding:4px 6px;font-weight:400;text-align:right">获赞</th>'
+        + '<th style="padding:4px 6px;font-weight:400;text-align:right">作品</th>'
+        + '<th style="padding:4px 6px;font-weight:400;text-align:left">登录状态</th>'
         + '<th style="padding:4px 6px;font-weight:400;text-align:left">操作</th></tr>';
       machineOrder.filter(m => groups[m]).forEach(m => {
         groups[m].sort((a, b) => (a.phone || '').localeCompare(b.phone || ''));
         groups[m].forEach(a => {
-          const statusMap = { logged_in:'🟢已登录', remote:'🔵远程', expired:'🟡过期', no_cookie:'🔴无Cookie', disabled:'⚪禁用', banned:'🚫已封号' };
-          const s = statusMap[a.status] || a.status;
+          const statusMap = { logged_in:'已登录', expired:'已过期', no_cookie:'无Cookie', disabled:'已禁用', banned:'已封号', new:'新建' };
+          const s = statusMap[a.status] || (a.status === 'remote' ? '远程' : a.status);
           html += `<tr style="border-bottom:1px solid var(--border)" data-filter="${(a.id+a.phone+a.nickname+a.identity_dir+m).toLowerCase()}">`
             + `<td style="padding:3px 6px">${m === 'chengzigedeAir' ? '🖥️' : '☁️'}${m}</td>`
             + `<td style="padding:3px 6px;font-size:10px;color:var(--text2)">${a.phone || '-'}</td>`
@@ -92,6 +97,7 @@ export async function loadView(container) {
         <h2 style="font-size:18px;margin:0">👤 账号管理</h2>
         <div style="display:flex;gap:6px">
           <button onclick="window._showCreateAcct()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">+ 新建账号</button>
+          <button onclick="window._filterAcct()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🔄 刷新</button>
           <button onclick="try{window.switchView('matrix-sms-proxy')}catch(e){}" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">📡 短信与代理</button>
         </div>
       </div>

@@ -41,7 +41,7 @@ class PlatformDetector(ABC):
 
     @abstractmethod
     async def check_verify(self, page) -> str:
-        """检测验证弹窗 → 'none' / 'sms' / 'captcha'"""
+        """检测验证弹窗 → 'none' / 'quick_login' / 'sms' / 'captcha' / 'login_required'"""
         ...
 
 
@@ -75,9 +75,6 @@ class DouyinDetector(PlatformDetector):
         # 注意: 不用 'div:has-text("登录后")' — 太宽泛会匹配广告"登录后领取奖励"
     ]
 
-    # 验证弹窗选择器
-    VERIFY_PANEL_SEL = '.second-verify-panel'
-    VERIFY_INPUT_SEL = '.uc-ui-verify_sms-verify_input'
     # 页面内登录浮层选择器（URL 不变但弹窗覆盖页面的场景）
     LOGIN_OVERLAY_SELS = [
         '[class*="login-container"]',
@@ -136,7 +133,8 @@ class DouyinDetector(PlatformDetector):
 
     async def check_verify(self, page) -> str:
         """检测抖音验证弹窗 + 登录态丢失检测
-        Returns: 'none' / 'sms' / 'captcha' / 'login_required'
+        使用文本关键词判断弹窗类型，不依赖固定 CSS class。
+        Returns: 'none' / 'quick_login' / 'sms' / 'captcha' / 'login_required'
         """
         # 一、检测登录态丢失：URL 是否被重定向到登录页
         try:
@@ -146,7 +144,7 @@ class DouyinDetector(PlatformDetector):
         except Exception:
             pass
 
-        # 一.b 检测页面内登录浮层（URL 不变但有登录弹窗覆盖页面的场景）
+        # 二、检测页面内登录浮层（URL 不变但有登录弹窗覆盖页面的场景）
         try:
             for sel in self.LOGIN_OVERLAY_SELS:
                 cnt = await page.locator(sel).count()
@@ -157,15 +155,38 @@ class DouyinDetector(PlatformDetector):
         except Exception:
             pass
 
-        # 二、检测验证弹窗
-        try:
-            if await page.locator(self.VERIFY_PANEL_SEL).count() > 0:
-                if await page.locator(self.VERIFY_INPUT_SEL).count() > 0:
-                    return "sms"
-                return "captcha"
-        except Exception:
-            pass
-        return "none"
+        # 三、文本关键词检测弹窗类型
+        modal_text = await self._get_modal_text(page)
+        if not modal_text:
+            return "none"
+
+        if "一键登录" in modal_text:
+            return "quick_login"
+        if "验证码" in modal_text or "短信验证" in modal_text:
+            return "sms"
+        if "登录" in modal_text and ("手机" in modal_text or "账号" in modal_text):
+            return "login_required"
+        return "captcha"
+
+    async def _get_modal_text(self, page) -> str:
+        """读取当前页面最上层弹窗/覆盖层的可见文本。
+        使用宽泛选择器匹配各种弹窗容器，不依赖特定 class。
+        """
+        modal_sels = [
+            '[class*="modal"]', '[class*="dialog"]',
+            '[class*="overlay"]', '[class*="popup"]',
+            '[class*="login"]', '[class*="verify"]',
+        ]
+        for sel in modal_sels:
+            try:
+                el = page.locator(sel).first
+                if await el.count() > 0 and await el.is_visible():
+                    text = (await el.inner_text()).strip()
+                    if len(text) > 5:
+                        return text
+            except Exception:
+                continue
+        return ""
 
     async def _check_dom_anchors(self, page, anchors: list) -> bool:
         for sel in anchors:
@@ -995,7 +1016,7 @@ class LoginStateMachine:
         return ok
 
     async def check_verify_dialog(self, page) -> str:
-        """检测执行中的验证弹窗 → 'none' / 'sms' / 'captcha'"""
+        """检测执行中的验证弹窗 → 'none' / 'quick_login' / 'sms' / 'captcha'"""
         detector = self._detectors.get(self._platform, self._detectors["douyin"])
         return await detector.check_verify(page)
 

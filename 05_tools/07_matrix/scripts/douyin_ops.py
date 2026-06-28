@@ -1373,17 +1373,31 @@ class DouyinOps(PlatformOps):
             const text = (document.body.innerText || '').trim();
             const title = (document.title || '').replace(' - 抖音', '').replace('的抖音', '').trim();
             const uidM = text.match(/抖音号[：:]\\s*(\\S+)/);
-            const folM = text.match(/(\\d+(?:\\.\\d+)?[万w]?)\\s*关注/);
-            const fanM = text.match(/(\\d+(?:\\.\\d+)?[万w]?)\\s*粉丝/);
-            const likM = text.match(/(\\d+(?:\\.\\d+)?[万w]?)\\s*获赞/);
-            const posM = text.match(/作品\\s*(\\d+)/);
-            function e2e(s) { const el = document.querySelector('[data-e2e="'+s+'"]'); return el ? (el.textContent||'').trim() : ''; }
+            // 正则匹配两种顺序："数字 标签" 和 "标签 数字"
+            function extractNum(label) {
+                var m1 = text.match(new RegExp('(\\\\d+(?:\\\\.\\\\d+)?[万w]?)\\\\s*' + label));
+                if (m1) return m1[1];
+                var m2 = text.match(new RegExp(label + '\\\\s*(\\\\d+(?:\\\\.\\\\d+)?[万w]?)'));
+                if (m2) return m2[1];
+                return null;
+            }
+            const folM = extractNum('关注');
+            const fanM = extractNum('粉丝');
+            const likM = extractNum('获赞');
+            const posM = extractNum('作品');
+            // e2e 兜底：从原始文本中只提取数字部分
+            function e2eNum(s) {
+                var el = document.querySelector('[data-e2e="'+s+'"]');
+                if (!el) return null;
+                var m = (el.textContent||'').trim().match(/\\d+(?:\\.\\d+)?[万w]?/);
+                return m ? m[0] : null;
+            }
             return {
                 nickname: title, user_id: uidM ? uidM[1] : '?',
-                following: folM ? folM[1] : (e2e('user-info-follow')||'?'),
-                fans: fanM ? fanM[1] : (e2e('user-info-fans')||'?'),
-                likes: likM ? likM[1] : (e2e('user-info-like')||'?'),
-                posts: posM ? posM[1] : (e2e('user-tab-count')||'?'),
+                following: folM || (e2eNum('user-info-follow')||'?'),
+                fans: fanM || (e2eNum('user-info-fans')||'?'),
+                likes: likM || (e2eNum('user-info-like')||'?'),
+                posts: posM || (e2eNum('user-tab-count')||'?'),
                 bio: (e2e('user-bio') || '?').slice(0, 50),
             };
         }""")

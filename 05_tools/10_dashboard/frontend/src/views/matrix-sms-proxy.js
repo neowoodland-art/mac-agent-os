@@ -1,5 +1,12 @@
 /**
- * 短信与代理管理（v5 — 固定 ID 冲突问题）
+ * 短信与代理管理（已废弃，由 accounts-center.js 展开栏替代）
+ *
+ * 功能已合并到账号中心的展开详情栏：
+ *   📱 短信 → 展开栏「查看」按钮弹窗展示
+ *   🖧 代理 → 展开栏显示当前代理，点「编辑」修改
+ *   🔑 登录/采集 → 行内按钮
+ *
+ * @deprecated 使用 accounts-center.js 替代
  */
 export async function loadView(container) {
   container.innerHTML = '<div class="loading">⏳ 加载中...</div>';

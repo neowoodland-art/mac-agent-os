@@ -53,8 +53,15 @@ setInterval(() => { if (currentView === 'machines') loadMachines(); }, 10000);
 setInterval(() => { if (currentView === 'summary') loadSummary(); }, 30000);
 
 // ── Navigation ──
-function switchView(view) {
-  // Plugin views → inline rendering
+// 保存原生的 switchView（来自 inline.js），然后扩展
+const _origSwitchView = window.switchView;
+window.switchView = function(view) {
+  // 先调原函数（处理viewIds显隐 + tryLoadView）
+  if (typeof _origSwitchView === 'function') {
+    _origSwitchView(view);
+  }
+  
+  // Plugin views → inline rendering  
   if (view === 'plugin-matrix') { view = 'matrix-summary'; }
   currentView = view;
 
@@ -164,7 +171,7 @@ function _tryMigratedView(view) {
     // ── 只读仪表盘 ──
     'matrix-summary','machines','productions','assets','costs',
     // ── 功能完整的操作视图 ──
-    'matrix-interact','matrix-comment','matrix-collect','matrix-like','matrix-accounts','matrix-nurture','matrix-sms-proxy','matrix-blueprints','matrix-corpus','ops-command',
+    'accounts-center','matrix-interact','matrix-comment','matrix-collect','matrix-like','matrix-accounts','matrix-nurture','matrix-sms-proxy','matrix-blueprints','matrix-corpus','ops-command',
     // ── 录制标注 ──
     'ops-recorder',
     // ── 列表/管理视图 ──
@@ -691,10 +698,10 @@ async function loadPlugins() {
     const S = (label, status) => `<span style="font-size:9px;margin-left:4px;padding:1px 5px;border-radius:3px;background:rgba(217,119,6,.12);color:#d97706;font-weight:500">${status}</span>`;
     const groups = {
       '矩阵': { icon: '📱', items: [
-        {view:'matrix-accounts', label:'👤 账号管理'},
-        {view:'matrix-sms-proxy', label:'🪪 短信与代理'},
+        {view:'accounts-center', label:'👤 账号中心'},
+        // {view:'matrix-sms-proxy', label:'🪪 短信与代理'}, // 已合并到账号中心展开栏
+        // {view:'matrix-collect', label:'📡 信息采集'},      // 已合并到账号中心批量操作
         {view:'matrix-nurture', label:'🏃 养号执行'},
-        {view:'matrix-collect', label:'📡 信息采集'},
         {view:'matrix-publish', label:'📤 内容发布'},
         {view:'matrix-interact', label:'💬 评论互动'},
         {view:'matrix-blueprints', label:'📋 蓝图管理'},

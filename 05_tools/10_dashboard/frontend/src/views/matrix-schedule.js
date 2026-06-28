@@ -1,12 +1,15 @@
 /**
  * 定时任务视图（已迁移）
+ *
+ * 修复记录:
+ *   2026-06-28: di.tasks → di.schedules (API 返回 {"schedules": [...]}, 非 {"tasks": [...]})
  */
 export async function loadView(container) {
   container.innerHTML = '<div id="schedPanel" style="padding:20px"><div class="loading">⏳ 加载定时任务...</div></div>';
   try {
     const ri = await fetch('/api/matrix/schedules');
     const di = await ri.json();
-    const tasks = di.tasks || di || [];
+    const tasks = di.schedules || [];
     container.innerHTML = `
       <div style="padding:20px">
         <h2 style="font-size:18px;margin-bottom:12px">⏰ 定时任务</h2>

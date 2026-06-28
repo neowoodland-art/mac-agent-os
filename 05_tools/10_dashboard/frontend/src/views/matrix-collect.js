@@ -1,8 +1,15 @@
 /**
- * 信息采集视图（已迁移）
- * 使用共享账号选择器 + 登录/采集一体化
+ * 信息采集视图（已废弃，由 accounts-center.js 替代）
  *
- * 调用规范：
+ * 功能已合并到账号中心的批量操作栏：
+ *   📡 采集 → 批量选中后点「采集」按钮
+ *   🔑 登录 → 批量选中后点「登录」按钮
+ * 执行日志可在「执行历史」页面查看。
+ *
+ * @deprecated 使用 accounts-center.js 替代
+ */
+
+/* 调用规范：
  *   所有操作通过 POST /api/ops/run 统一入口
  *   {type:'collect', accounts:[...], params:{rounds:N}}
  *   → CommandBus CMD_REGISTRY 自动按账号平台选择蓝图
