@@ -86,9 +86,14 @@ class DouyinDetector(PlatformDetector):
     ]
 
     # ── 验证弹窗 DOM 选择器（优先于文本匹配）──
-    VERIFY_PANEL_SEL = '.second-verify-panel, .uc-ui-verify_sms-verify'
-    VERIFY_INPUT_SEL = '.uc-ui-verify_sms-verify_input, input[placeholder*="验证码"]'
-    CAPTCHA_SEL = '.second-verify-mask, [class*="captcha"], [class*="slider"]'
+    # 从录制数据验证:
+    #   sms弹窗容器: div.second-verify-mask (text="接收短信验证码返回为确保是本人操作抖音账")
+    #   获取验证码:  p.uc-ui-typography_description (text="获取验证码")
+    #   验证按钮:    div.uc-ui-verify_sms-verify_button (text="验证")
+    #   输入框:      input 无class/id (placeholder通常为"请输入验证码")
+    VERIFY_PANEL_SEL = '.second-verify-mask, .second-verify-panel, .uc-ui-verify_sms-verify'
+    VERIFY_INPUT_SEL = '.uc-ui-verify_sms-verify_input, input[placeholder*="验证码"], input[placeholder*="请输入验证码"]'
+    CAPTCHA_SEL = '[class*="captcha"], [class*="slider"], [class*="nc-"]'
 
     # 验证弹窗文本特征（兜底用）
     ONEKEY_TEXT = "一键登录"
