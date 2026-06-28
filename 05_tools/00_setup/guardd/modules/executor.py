@@ -13,7 +13,10 @@ import signal
 import subprocess
 import time
 from typing import Optional
+import logging
 from modules.task_store import TaskStore, STATUS_RUNNING, STATUS_COMPLETED, STATUS_FAILED
+
+logger = logging.getLogger("guardd.executor")
 
 
 class Executor:
@@ -128,7 +131,17 @@ class Executor:
             self._running_procs.pop(task_id, None)
 
     def _build_cmd(self, task: dict) -> Optional[str]:
-        """根据任务类型构建 shell 命令"""
+        """根据任务类型构建 shell 命令
+        优先使用 command_line（CommandBus 已渲染好的完整命令）
+        """
+        # 优先使用 command_line（最可靠，已经过 CommandBus 渲染）
+        cmd_line = task.get("command_line", "")
+        if cmd_line:
+            home = __import__("pathlib").Path.home()
+            scripts_dir = f"{home}/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts"
+            python_path = f"{home}/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+            return f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} -m {cmd_line}"
+
         cmd_type = task.get("cmd_type", "")
         accounts = ",".join(task.get("accounts", []))
         blueprint = task.get("blueprint", "")
