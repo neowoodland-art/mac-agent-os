@@ -1461,42 +1461,6 @@ def _run_heartbeat_cycle():
 
 
 
-def main():
-    logger.info(f"guardd v{version} 启动 — hostname={HOSTNAME} (持久模式)")
-
-    # 启动 HTTP 任务服务器（后台线程）
-    http_thread = threading.Thread(target=_run_http_server, daemon=True)
-    http_thread.start()
-
-    # 启动调度引擎（后台线程）
-    try:
-        _init_scheduler()
-        scheduler_thread = threading.Thread(target=_run_scheduler_loop, daemon=True)
-        scheduler_thread.start()
-        logger.info("  🔁 调度引擎后台线程已启动")
-    except Exception as e:
-        logger.warning(f"  调度引擎启动失败: {e} (不影响原有功能)")
-
-    # 先跑一轮心跳（含增强版）
-    _run_heartbeat_cycle()
-    try:
-        _run_enhanced_heartbeat()
-    except Exception as e:
-        logger.debug(f"  增强心跳首轮失败: {e}")
-
-    # 持续心跳循环（每 300 秒）
-    while True:
-        time.sleep(300)
-        _run_heartbeat_cycle()
-        try:
-            _run_enhanced_heartbeat()
-        except Exception as e:
-            logger.debug(f"  增强心跳失败: {e}")
-
-
-if __name__ == "__main__":
-    main()
-
 # ── 全局实例 ──
 _task_store = None
 _slot_manager = None
@@ -1504,6 +1468,9 @@ _scheduler = None
 _heartbeat_reporter = None
 _account_monitor = None
 _oracle_sync = None
+
+# 防止 _init_scheduler() 并发初始化（HTTP 线程和主线程竞态）
+_init_lock = threading.Lock()
 
 
 def _init_scheduler():
@@ -1513,54 +1480,65 @@ def _init_scheduler():
     if _scheduler is not None:
         return  # 已初始化
     
-    logger.info("  ⚙️ 初始化调度引擎 (v4.3.0)...")
+    if not _init_lock.acquire(blocking=False):
+        logger.warning("  ⏳ 另一线程正在初始化调度引擎，等待...")
+        _init_lock.acquire(blocking=True)  # 等初始化完成
+        _init_lock.release()
+        return
     
-    # TaskStore
-    _task_store = TaskStore()
-    logger.info(f"  📦 TaskStore 就绪 ({_task_store.count()})")
-    
-    # PriorityQueue
-    queue = PriorityQueue()
-    
-    # SlotManager
-    _slot_manager = BrowserSlotManager(max_slots=3)
-    _slot_manager.cleanup_orphans()
-    logger.info(f"  🖥️ SlotManager 就绪 ({_slot_manager.get_usage()['used']}/{_slot_manager.max_slots})")
-    
-    # Executor
-    executor = Executor(_task_store, _slot_manager)
-    
-    # Scheduler
-    _scheduler = Scheduler(_task_store, queue, _slot_manager, executor)
-    
-    # HeartbeatReporter
-    from modules.account_monitor import AccountMonitor
-    from modules.schedule_bridge import ScheduleBridge
-    _account_monitor = AccountMonitor()
-    _schedule_bridge = ScheduleBridge(_task_store, _scheduler, HOSTNAME)
-    _heartbeat_reporter = HeartbeatReporter(
-        _task_store, _slot_manager, _scheduler,
-        HOSTNAME, MACHINE_UID,
-        dashboard_url="http://127.0.0.1:9988",
-        account_monitor=_account_monitor
-    )
-    
-    # OracleSync
-    _oracle_sync = OracleSync(_task_store)
-    _oracle_sync.sync()
-    
-    # 恢复未完成任务
-    recovered = _task_store.reset_unfinished()
-    if recovered:
-        logger.info(f"  🔄 恢复 {recovered} 个未完成任务到队列")
-        for task in _task_store.get_by_status("queued"):
-            _scheduler.submit_task(task)
-    
-    logger.info("  ✅ 调度引擎初始化完成")
-    
-    # 发一轮心跳
-    _heartbeat_reporter.send_to_dashboard()
-    _heartbeat_reporter.write_local()
+    try:
+        logger.info("  ⚙️ 初始化调度引擎 (v4.3.0)...")
+        
+        # TaskStore
+        _task_store = TaskStore()
+        logger.info(f"  📦 TaskStore 就绪 ({_task_store.count()})")
+        
+        # PriorityQueue
+        queue = PriorityQueue()
+        
+        # SlotManager
+        _slot_manager = BrowserSlotManager(max_slots=3)
+        _slot_manager.cleanup_orphans()
+        logger.info(f"  🖥️ SlotManager 就绪 ({_slot_manager.get_usage()['used']}/{_slot_manager.max_slots})")
+        
+        # Executor
+        executor = Executor(_task_store, _slot_manager)
+        
+        # Scheduler
+        _scheduler = Scheduler(_task_store, queue, _slot_manager, executor)
+        
+        # HeartbeatReporter
+        from modules.account_monitor import AccountMonitor
+        from modules.schedule_bridge import ScheduleBridge
+        _account_monitor = AccountMonitor()
+        _schedule_bridge = ScheduleBridge(_task_store, _scheduler, HOSTNAME)
+        _heartbeat_reporter = HeartbeatReporter(
+            _task_store, _slot_manager, _scheduler,
+            HOSTNAME, MACHINE_UID,
+            dashboard_url="http://127.0.0.1:9988",
+            account_monitor=_account_monitor
+        )
+        
+        # OracleSync
+        _oracle_sync = OracleSync(_task_store)
+        _oracle_sync.sync()
+        
+        # 恢复未完成任务
+        recovered = _task_store.reset_unfinished()
+        if recovered:
+            logger.info(f"  🔄 恢复 {recovered} 个未完成任务到队列")
+            for task in _task_store.get_by_status("queued"):
+                _scheduler.submit_task(task)
+        
+        logger.info("  ✅ 调度引擎初始化完成")
+        
+        # 发一轮心跳
+        _heartbeat_reporter.send_to_dashboard()
+        _heartbeat_reporter.write_local()
+    except Exception as e:
+        logger.error(f"  ❌ 调度引擎初始化失败: {e}")
+    finally:
+        _init_lock.release()
 
 
 def _run_scheduler_loop():
@@ -1599,3 +1577,40 @@ def api_scheduler_status() -> dict:
         "slots": _slot_manager.get_usage() if _slot_manager else {},
         "counts": _task_store.count() if _task_store else {},
     }
+
+
+def main():
+    logger.info(f"guardd v{version} 启动 — hostname={HOSTNAME} (持久模式)")
+
+    # 先初始化调度引擎（确保全局变量就绪）
+    try:
+        _init_scheduler()
+        scheduler_thread = threading.Thread(target=_run_scheduler_loop, daemon=True)
+        scheduler_thread.start()
+        logger.info("  🔁 调度引擎后台线程已启动")
+    except Exception as e:
+        logger.warning(f"  调度引擎启动失败: {e} (不影响原有功能)")
+
+    # 初始化完成后才启动 HTTP 服务器（避免竞态）
+    http_thread = threading.Thread(target=_run_http_server, daemon=True)
+    http_thread.start()
+
+    # 先跑一轮心跳（含增强版）
+    _run_heartbeat_cycle()
+    try:
+        _run_enhanced_heartbeat()
+    except Exception as e:
+        logger.debug(f"  增强心跳首轮失败: {e}")
+
+    # 持续心跳循环（每 300 秒）
+    while True:
+        time.sleep(300)
+        _run_heartbeat_cycle()
+        try:
+            _run_enhanced_heartbeat()
+        except Exception as e:
+            logger.debug(f"  增强心跳失败: {e}")
+
+
+if __name__ == "__main__":
+    main()
