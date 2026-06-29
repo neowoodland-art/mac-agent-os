@@ -1460,87 +1460,6 @@ def _run_heartbeat_cycle():
 
 
 
-# ════════════════════════════════════════════════════════════
-# 调度引擎集成（v4.3.0 新增）
-# ════════════════════════════════════════════════════════════
-
-# ── 全局实例 ──
-_task_store = None
-_slot_manager = None
-_scheduler = None
-_heartbeat_reporter = None
-_account_monitor = None
-_oracle_sync = None
-
-
-def _init_scheduler():
-    """初始化调度引擎"""
-    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync, _account_monitor, _schedule_bridge, _schedule_bridge
-    if _scheduler is not None:
-        return
-    logger = logging.getLogger('guardd')
-    logger.info('  ⚙️ 初始化调度引擎 (v4.3.0)...')
-    _task_store = TaskStore()
-    from modules.account_monitor import AccountMonitor
-    from modules.schedule_bridge import ScheduleBridge
-    _account_monitor = AccountMonitor()
-    _schedule_bridge = ScheduleBridge(_task_store, _scheduler, HOSTNAME)
-    queue = PriorityQueue()
-    _slot_manager = BrowserSlotManager(max_slots=3)
-    _slot_manager.cleanup_orphans()
-    executor = Executor(_task_store, _slot_manager)
-    _scheduler = Scheduler(_task_store, queue, _slot_manager, executor)
-    _heartbeat_reporter = HeartbeatReporter(_task_store, _slot_manager, _scheduler, HOSTNAME, MACHINE_UID, account_monitor=_account_monitor)
-    _oracle_sync = OracleSync(_task_store)
-    _oracle_sync.sync()
-    recovered = _task_store.reset_unfinished()
-    if recovered:
-        logger.info(f'  🔄 恢复 {recovered} 个未完成任务')
-    
-    # 恢复排队中的任务到优先级队列
-    queued_tasks = _task_store.get_by_status("queued")
-    for qt in queued_tasks:
-        queue.push(qt)
-        logger.info(f'  📥 恢复排队任务: {qt["task_id"]}')
-    if queued_tasks:
-        logger.info(f'  ✅ 恢复 {len(queued_tasks)} 个排队任务到优先级队列')
-    logger.info('  ✅ 调度引擎初始化完成')
-    _heartbeat_reporter.send_to_dashboard()
-    _heartbeat_reporter.write_local()
-
-
-def _run_scheduler_loop():
-    """调度循环线程"""
-    _init_scheduler()
-    _scheduler.run_cycle()
-
-
-def _run_enhanced_heartbeat():
-    """增强版心跳"""
-    if _heartbeat_reporter is None:
-        _init_scheduler()
-    hb = _heartbeat_reporter.collect()
-    _heartbeat_reporter.write_local(hb)
-    _heartbeat_reporter.send_to_dashboard(hb)
-
-
-def api_scheduler_submit(task_json):
-    """HTTP API: 提交任务"""
-    _init_scheduler()
-    _scheduler.submit_task(task_json)
-    return {'status': 'accepted', 'task_id': task_json.get('task_id', '')}
-
-
-def api_scheduler_status():
-    """HTTP API: 调度器状态"""
-    _init_scheduler()
-    return {
-        'active': list(_scheduler.active_tasks.values()) if _scheduler and _scheduler.active_tasks else [],
-        'queue': _scheduler.queue.get_all() if _scheduler else [],
-        'slots': _slot_manager.get_usage() if _slot_manager else {},
-        'counts': _task_store.count() if _task_store else {},
-    }
-
 
 def main():
     logger.info(f"guardd v{version} 启动 — hostname={HOSTNAME} (持久模式)")
@@ -1578,20 +1497,6 @@ def main():
 if __name__ == "__main__":
     main()
 
-# ════════════════════════════════════════════════════════════
-# 模块 10：调度引擎集成（v4.3.0 新增）
-# ════════════════════════════════════════════════════════════
-# 与原 9 模块并行运行，不取代现有功能
-# ────────────────────────────────────────────────────────────
-
-from modules.task_store import TaskStore, STATUS_COMPLETED, STATUS_FAILED
-from modules.priority_queue import PriorityQueue
-from modules.slot_manager import BrowserSlotManager, AccountBusyError
-from modules.executor import Executor
-from modules.scheduler import Scheduler
-from modules.heartbeat import HeartbeatReporter
-from modules.oracle_sync import OracleSync
-
 # ── 全局实例 ──
 _task_store = None
 _slot_manager = None
@@ -1603,7 +1508,7 @@ _oracle_sync = None
 
 def _init_scheduler():
     """初始化调度引擎（线程安全，可重复调）"""
-    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync, _account_monitor
+    global _task_store, _slot_manager, _scheduler, _heartbeat_reporter, _oracle_sync, _account_monitor, _schedule_bridge
     
     if _scheduler is not None:
         return  # 已初始化
@@ -1632,6 +1537,7 @@ def _init_scheduler():
     from modules.account_monitor import AccountMonitor
     from modules.schedule_bridge import ScheduleBridge
     _account_monitor = AccountMonitor()
+    _schedule_bridge = ScheduleBridge(_task_store, _scheduler, HOSTNAME)
     _heartbeat_reporter = HeartbeatReporter(
         _task_store, _slot_manager, _scheduler,
         HOSTNAME, MACHINE_UID,

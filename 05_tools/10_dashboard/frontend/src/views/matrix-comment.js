@@ -86,7 +86,7 @@ function registerGlobals(uid) {
         try {
           const d = await apiRequest('/ops/run', {
             method: 'POST',
-            body: JSON.stringify({type:'comment', accounts:[account], params:{url, direction}})
+            body: JSON.stringify({type:'comment', accounts:[s.id], params:{url, direction: dir}})
           });
           results.push({ url, account: s.id, status: d.error ? '❌' : '✅', msg: d.error || (d.task_id || 'OK') });
         } catch (e) { results.push({ url, account: s.id, status: '❌', msg: e.message }); }

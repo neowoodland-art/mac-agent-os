@@ -1891,10 +1891,13 @@ class DouyinOps(PlatformOps):
                     if inp and await inp.is_visible():
                         await inp.click()
                         await asyncio.sleep(0.5)
-                        await inp.fill(phone_value or "18912345678")
+                        if not phone_value:
+                            print("❌ 未配置手机号，无法登录")
+                            return False
+                        await inp.fill(phone_value)
                         await asyncio.sleep(1)
                         phone_filled = True
-                        print(f"  ✅ 已填手机号: {phone_value or '默认'}")
+                        print(f"  ✅ 已填手机号: {phone_value}")
                         break
                 except:
                     continue
@@ -1907,8 +1910,11 @@ class DouyinOps(PlatformOps):
             try:
                 inputs = await login_frame.query_selector_all("input:visible")
                 if inputs and len(inputs) > 0:
+                    if not phone_value:
+                        print("❌ 未配置手机号，无法登录")
+                        return False
                     await inputs[0].click()
-                    await inputs[0].fill(phone_value or "18912345678")
+                    await inputs[0].fill(phone_value)
                     await asyncio.sleep(1)
                     phone_filled = True
             except:

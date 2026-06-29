@@ -146,6 +146,23 @@ class TaskStore:
                 count += 1
         return count
 
+    def get_group_last_completed(self, group_id: str) -> Optional[float]:
+        """获取某组任务最后一次完成的时间戳
+        
+        Args:
+            group_id: 任务组ID (decomposed_from 或 task_id)
+        Returns:
+            最后完成时间的 Unix 时间戳，没有完成过的返回 None
+        """
+        with self._lock:
+            last_time = None
+            for tid, task in self._mem.items():
+                if task.get("decomposed_from") == group_id or tid == group_id:
+                    last_completed = task.get("completed_at")
+                    if last_completed and (last_time is None or last_completed > last_time):
+                        last_time = last_completed
+            return last_time
+
     def all_tasks(self) -> List[dict]:
         with self._lock:
             return list(self._mem.values())
