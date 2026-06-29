@@ -300,23 +300,30 @@ def api_ops_task_submit(data: dict = {}):
 
 @router.post("/reset")
 def api_ops_reset(data: dict = {}):
-    """重置所有机器：清空任务队列 + 重启 guardd"""
+    """重置机器：清空任务队列 + 杀浏览器
+
+    Body:
+        machine: str — 指定机器名，不传则重置所有机器
+    """
     from services.command_bus import _guardd_api, ORACLE_PATH, HOSTNAME
-    import yaml, subprocess, time
+    import yaml
     
-    # Get all machines
-    machines = []
-    try:
-        oracle = yaml.safe_load(ORACLE_PATH.read_text())
-        machines = list(oracle.get("machines", {}).keys())
-    except:
-        machines = [HOSTNAME]
+    requested = data.get("machine", "")
+    if requested:
+        machines = [requested]
+    else:
+        # 重置所有机器
+        try:
+            oracle = yaml.safe_load(ORACLE_PATH.read_text())
+            machines = list(oracle.get("machines", {}).keys())
+        except:
+            machines = [HOSTNAME]
     
     results = {}
     for m in machines:
         try:
-            # Call guardd reset endpoint
-            r = _guardd_api("POST", "/scheduler/stop", {}, machine=m)
+            # 调用 guardd scheduler/reset（杀活跃+清队列+杀浏览器）
+            r = _guardd_api("POST", "/scheduler/reset", {}, machine=m)
             results[m] = "ok" if r else "no response"
         except Exception as e:
             results[m] = str(e)

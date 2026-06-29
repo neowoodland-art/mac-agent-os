@@ -54,6 +54,17 @@ export async function loadView(container) {
         <div id="cmdAlertsList"></div>
       </div>
 
+      <!-- 操作栏 -->
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;padding:6px 8px;background:var(--bg2);border-radius:8px;border:1px solid var(--border)">
+        <span style="font-size:11px;color:var(--text2);font-weight:600">🛠️ 管理:</span>
+        <select id="cmdResetMachine" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 6px;border-radius:4px;font-size:10px">
+          <option value="">全部机器</option>
+        </select>
+        <button onclick="window._cmdResetMachine()" style="background:rgba(220,38,38,.1);color:#ef4444;border:1px solid rgba(220,38,38,.3);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔄 初始化机器</button>
+        <button onclick="window._cmdResetAll()" style="background:rgba(220,38,38,.1);color:#ef4444;border:1px solid rgba(220,38,38,.3);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">⚠️ 重置全部</button>
+        <span id="cmdResetResult" style="font-size:10px;color:var(--text2)"></span>
+      </div>
+
       <!-- 9 轨道 slot 视图 -->
       <div id="cmdTrackGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"></div>
 
@@ -78,6 +89,35 @@ export async function loadView(container) {
       if (document.getElementById('cmdAutoRefresh')?.checked) startAutoRefresh(container);
       else stopAutoRefresh();
     };
+
+    // 初始化机器：杀活跃任务+清队列+杀浏览器
+    window._cmdResetMachine = async () => {
+      const sel = document.getElementById('cmdResetMachine');
+      const machine = sel?.value || '';
+      const msg = machine ? `确定初始化机器 ${machine}？\n将杀掉所有活跃任务和浏览器进程` : '请先选择要初始化的机器';
+      if (!machine) { alert(msg); return; }
+      if (!confirm(msg)) return;
+      const el = document.getElementById('cmdResetResult');
+      if (el) el.textContent = '⏳ 执行中...';
+      try {
+        const r = await apiRequest('/ops/reset', {method:'POST', body:JSON.stringify({machine})});
+        if (el) el.textContent = `✅ ${machine} 已初始化`;
+        refreshView(container);
+      } catch(e) { if (el) el.textContent = '❌ '+e.message; }
+    };
+
+    // 重置全部机器
+    window._cmdResetAll = async () => {
+      if (!confirm('⚠️ 确定重置全部机器？\n将杀掉所有机器的活跃任务和浏览器进程')) return;
+      const el = document.getElementById('cmdResetResult');
+      if (el) el.textContent = '⏳ 重置全部...';
+      try {
+        const r = await apiRequest('/ops/reset', {method:'POST', body:JSON.stringify({})});
+        if (el) el.textContent = `✅ 已重置 ${Object.keys(r.machines||{}).length} 台机器`;
+        refreshView(container);
+      } catch(e) { if (el) el.textContent = '❌ '+e.message; }
+    };
+
     window._cmdRefresh();
   }
 
@@ -154,6 +194,21 @@ async function refreshView(container, silent = false) {
     if (!silent) {
       const el = document.getElementById('cmdLastUpdate');
       if (el) el.textContent = `🕐 ${new Date().toLocaleTimeString()}`;
+    }
+
+    // 填充机器下拉（筛选 + 重置）
+    const machines = queueData?.machines || {};
+    const machineNames = Object.keys(machines);
+    for (const selId of ['cmdMachineFilter', 'cmdResetMachine']) {
+      const sel = document.getElementById(selId);
+      if (sel && sel.options.length <= 1) {
+        machineNames.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m;
+          sel.appendChild(opt);
+        });
+      }
     }
 
     renderAlerts(queueData);
