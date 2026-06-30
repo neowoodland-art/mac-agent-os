@@ -1306,10 +1306,16 @@ class DouyinOps(PlatformOps):
             if not phone:
                 return ''
             handler = ApiSMSHandler(phone=phone)
-            code = await handler.wait_for_code(timeout=120)
-            return code
+            code = await handler.wait(platform=self._account_id or "douyin", timeout=120)
+            if code:
+                self._reset_sms_failures()
+                return code
         except:
-            return ''
+            pass
+        # 走到这里说明 SMS 获取失败
+        if self._track_sms_failure():
+            self._mark_sms_failed()
+        return ''
 
     # ── 评论验证 ──────────────────────────────────────────────
 
@@ -2083,6 +2089,7 @@ class DouyinOps(PlatformOps):
             all_p[self._account_id] = {
                 **all_p.get(self._account_id, {}),
                 "status": "app_login_required",
+                "_status": "app_login_required",
                 "status_detail": "需使用抖音App登录，短信验证码方式已失效",
                 "platform": "douyin",
                 "updated": datetime.now().isoformat(),
@@ -2091,6 +2098,64 @@ class DouyinOps(PlatformOps):
             print(f"  📝 profiles.json 已更新: {self._account_id} → app_login_required")
         except Exception as e:
             print(f"  ⚠️ _mark_app_login_required 写入失败: {e}")
+
+    def _mark_sms_failed(self):
+        """标记账号为'短信接收失败' — 写入 profiles.json"""
+        if not self._account_id:
+            return
+        try:
+            from datetime import datetime
+            PROFILES_JSON.parent.mkdir(parents=True, exist_ok=True)
+            if PROFILES_JSON.exists():
+                all_p = json.loads(PROFILES_JSON.read_text())
+            else:
+                all_p = {}
+            all_p[self._account_id] = {
+                **all_p.get(self._account_id, {}),
+                "status": "sms_failed",
+                "_status": "sms_failed",
+                "status_detail": "多次短信验证码接收失败，请检查手机号或短信服务",
+                "platform": "douyin",
+                "updated": datetime.now().isoformat(),
+            }
+            PROFILES_JSON.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
+            print(f"  📝 profiles.json 已更新: {self._account_id} → sms_failed")
+        except Exception as e:
+            print(f"  ⚠️ _mark_sms_failed 写入失败: {e}")
+
+    _SMS_FAIL_FILE = Path(str(PROFILES_JSON.parent / "sms_failures.json"))
+
+    def _track_sms_failure(self) -> bool:
+        """记录一次短信接收失败，连续2次返回 True（触发标记）"""
+        if not self._account_id:
+            return False
+        try:
+            self._SMS_FAIL_FILE.parent.mkdir(parents=True, exist_ok=True)
+            fails = {}
+            if self._SMS_FAIL_FILE.exists():
+                fails = json.loads(self._SMS_FAIL_FILE.read_text())
+            acct = fails.get(self._account_id, {"count": 0})
+            acct["count"] = acct.get("count", 0) + 1
+            acct["last_attempt"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            fails[self._account_id] = acct
+            self._SMS_FAIL_FILE.write_text(json.dumps(fails, ensure_ascii=False, indent=2))
+            print(f"  📡 SMS 接收失败 #{acct['count']} [{self._account_id}]")
+            return acct["count"] >= 2
+        except:
+            return False
+
+    def _reset_sms_failures(self):
+        """SMS 成功后重置失败计数"""
+        if not self._account_id:
+            return
+        try:
+            if self._SMS_FAIL_FILE.exists():
+                fails = json.loads(self._SMS_FAIL_FILE.read_text())
+                if self._account_id in fails:
+                    del fails[self._account_id]
+                    self._SMS_FAIL_FILE.write_text(json.dumps(fails, ensure_ascii=False, indent=2))
+        except:
+            pass
 
     def get_action_summary(self) -> dict:
         """获取本次会话的操作统计"""

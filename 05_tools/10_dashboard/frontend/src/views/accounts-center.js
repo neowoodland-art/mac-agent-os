@@ -25,6 +25,8 @@ const STATUS_CFG = {
   no_cookie:       { color: '#ef4444', dot: '🔴', label: '无Cookie' },
   no_identity:     { color: '#8b8fa3', dot: '⚪', label: '未配置' },
   banned:          { color: '#000',    dot: '⚫', label: '已封号' },
+  app_login_required: { color: '#dc2626', dot: '📱', label: '需App登录' },
+  sms_failed:      { color: '#f97316', dot: '📵', label: '短信接收失败' },
   disabled:        { color: '#d1d5db', dot: '⬜', label: '已禁用' },
   no_session:      { color: '#f59e0b', dot: '🟠', label: 'Cookie无Session' },
   empty_cookie:    { color: '#f59e0b', dot: '🟠', label: 'Cookie为空' },
@@ -33,7 +35,7 @@ const STATUS_CFG = {
 };
 
 // 状态排序优先级（用于概要栏排序）
-const STATUS_ORDER = ['banned', 'no_cookie', 'cookie_expiring', 'no_session', 'empty_cookie', 'disabled', 'unknown', 'new', 'logged_in'];
+const STATUS_ORDER = ['banned', 'app_login_required', 'sms_failed', 'no_cookie', 'cookie_expiring', 'no_session', 'empty_cookie', 'disabled', 'unknown', 'new', 'logged_in'];
 
 // ── 主入口 ──
 export async function loadView(container) {

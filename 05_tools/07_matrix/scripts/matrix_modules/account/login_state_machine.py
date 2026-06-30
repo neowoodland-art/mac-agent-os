@@ -905,6 +905,7 @@ class DouyinLoginRecovery(RecoveryStep):
                     log_func(f"  ⏳ 等待验证码... ({elapsed}s / 240s)")
 
             log_func(f"  ❌ 验证码获取超时 (4分钟)")
+            self._track_sms_failure(account_id)
             return ""
         except Exception as e:
             log_func(f"  ❌ 获取验证码失败: {e}")
@@ -967,6 +968,40 @@ class DouyinLoginRecovery(RecoveryStep):
             pass
         return False
 
+    def _track_sms_failure(self, account_id: str):
+        """记录SMS失败到计数器文件（连续2次标记 sms_failed）"""
+        try:
+            import json
+            from pathlib import Path
+            home = Path.home()
+            fail_file = home / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "sms_failures.json"
+            fail_file.parent.mkdir(parents=True, exist_ok=True)
+            fails = {}
+            if fail_file.exists():
+                fails = json.loads(fail_file.read_text())
+            acct = fails.get(account_id, {"count": 0})
+            acct["count"] = acct.get("count", 0) + 1
+            acct["last_attempt"] = __import__("time").strftime("%Y-%m-%dT%H:%M:%S")
+            fails[account_id] = acct
+            fail_file.write_text(json.dumps(fails, ensure_ascii=False, indent=2))
+            if acct["count"] >= 2:
+                profiles = home / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+                if profiles.exists():
+                    all_p = json.loads(profiles.read_text())
+                else:
+                    all_p = {}
+                all_p[account_id] = {
+                    **all_p.get(account_id, {}),
+                    "status": "sms_failed",
+                    "_status": "sms_failed",
+                    "status_detail": "多次短信验证码接收失败，请检查手机号或短信服务",
+                    "platform": "douyin",
+                    "updated": __import__("datetime").datetime.now().isoformat(),
+                }
+                profiles.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
+        except:
+            pass
+
     def _write_app_login_flag(self, account_id: str):
         """标记账号为"需使用抖音App登录" — 写入 profiles.json"""
         try:
@@ -982,6 +1017,7 @@ class DouyinLoginRecovery(RecoveryStep):
             all_p[account_id] = {
                 **all_p.get(account_id, {}),
                 "status": "app_login_required",
+                "_status": "app_login_required",
                 "status_detail": "需使用抖音App登录，短信验证码方式已失效",
                 "platform": "douyin",
                 "updated": datetime.now().isoformat(),
