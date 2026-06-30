@@ -63,13 +63,12 @@ async def detect_once(phone: str, attempt: int, output_dir: str) -> dict:
             locale="zh-CN",
             os="windows",
             humanize=1.5,
-            viewport={"width": 1280, "height": 800},
         )
         browser = await fox.start()
         if browser.contexts:
             context = browser.contexts[0]
         else:
-            context = await browser.new_context()
+            context = await browser.new_context(viewport={"width": 1280, "height": 800})
         if context.pages:
             page = context.pages[0]
         else:
