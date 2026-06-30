@@ -128,7 +128,6 @@ class ApiSMSHandler(SMSHandler):
                     msg_time_str = msg.get("created_at") or msg.get("time") or msg.get("send_time") or ""
                     if msg_time_str:
                         try:
-                            from datetime import datetime
                             msg_ts = datetime.fromisoformat(msg_time_str.replace("Z", "+00:00")).timestamp()
                             if msg_ts <= after_time:
                                 continue
