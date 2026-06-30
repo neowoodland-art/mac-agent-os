@@ -58,15 +58,13 @@ async def detect_once(phone: str, attempt: int, output_dir: str) -> dict:
     try:
         # 启动 Camoufox（用临时身份，不污染现有cookie）
         log(f"[尝试 {attempt}] 启动 Camoufox 浏览器...")
-        import tempfile
-        tmp_profile = tempfile.mkdtemp(prefix="camoufox_detect_")
-        # 使用临时 profile（不污染任何已有账号的身份目录）
+        # 使用非持久化模式（Camoufox 自动创建临时 profile）
         fox = AsyncCamoufox(
             headless=False,
+            persistent_context=False,
             locale="zh-CN",
             os="windows",
             humanize=1.5,
-            from_options={"user_data_dir": tmp_profile, "ignore_profile": True},
         )
         browser = await fox.start()
         if browser.contexts:
