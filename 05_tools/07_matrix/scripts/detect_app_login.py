@@ -51,26 +51,28 @@ async def detect_once(phone: str, attempt: int, output_dir: str) -> dict:
         "error": None,
     }
 
-    from playwright.async_api import async_playwright
-    from camoufox import Camoufox
+    from camoufox.async_api import AsyncCamoufox
 
     screenshot_path = os.path.join(output_dir, f"login_attempt_{attempt}.png")
 
     try:
-        async with async_playwright() as p:
-            # 启动 Camoufox（用临时身份，不污染现有cookie）
-            log(f"[尝试 {attempt}] 启动 Camoufox 浏览器...")
-            browser = await p.firefox.launch(
-                headless=False,
-                args=["--disable-blink-features=AutomationControlled"]
-            )
-            context = await browser.new_context(
-                viewport={"width": 1280, "height": 800},
-                user_agent=(
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) "
-                    "Gecko/20100101 Firefox/120.0"
-                ),
-            )
+        # 启动 Camoufox（用临时身份，不污染现有cookie）
+        log(f"[尝试 {attempt}] 启动 Camoufox 浏览器...")
+        fox = AsyncCamoufox(
+            headless=False,
+            locale="zh-CN",
+            os="windows",
+            humanize=1.5,
+            viewport={"width": 1280, "height": 800},
+        )
+        browser = await fox.start()
+        if browser.contexts:
+            context = browser.contexts[0]
+        else:
+            context = await browser.new_context()
+        if context.pages:
+            page = context.pages[0]
+        else:
             page = await context.new_page()
 
             # ── 1. 导航到登录页 ──
