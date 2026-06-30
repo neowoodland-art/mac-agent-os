@@ -178,7 +178,7 @@ async def detect_once(phone: str, attempt: int, output_dir: str) -> dict:
             try:
                 from matrix_modules.account.sms.api import ApiSMSHandler
                 handler = ApiSMSHandler(phone=phone)
-                code = await handler.wait(platform="抖音登录", timeout=60, after_time=sms_start_time - 5)
+                code = await handler.wait(platform="抖音登录", timeout=90, after_time=sms_start_time - 5)
             except Exception as e:
                 log(f"SMS API 调用失败: {e}")
                 # 兜底：手动输入
