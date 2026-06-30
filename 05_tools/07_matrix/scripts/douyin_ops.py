@@ -115,6 +115,7 @@ class DouyinOps(PlatformOps):
             "collect": 0, "search": 0,
         }
         self._session_start = time.time()
+        self._app_login_required = False  # 标记：是否需要使用抖音App登录
 
     def set_account_id(self, aid: str):
         print(f"[set_account_id] id(self)={id(self)}, aid={aid}")
@@ -1260,6 +1261,19 @@ class DouyinOps(PlatformOps):
                 await self.page.keyboard.press('Enter')
 
             await self._wait(2)
+
+            # 6.5 检测"请使用抖音App登录"
+            try:
+                body_text = (await self.page.evaluate("document.body.innerText")) or ""
+                for keyword in ["请使用抖音App登录", "请使用抖音 APP", "请使用抖音app"]:
+                    if keyword in body_text:
+                        self.log(f"  ⛔ 检测到: {keyword} — 该账号需使用抖音App登录")
+                        self._app_login_required = True
+                        self._mark_app_login_required()
+                        return False
+            except:
+                pass
+
             dur = int((time.time() - t0) * 1000)
             await self._log_op(step_id, "AO_VERIFY", "auto", True, dur)
             self.log(f"  ✅ 验证完成")
@@ -2025,7 +2039,20 @@ class DouyinOps(PlatformOps):
             except:
                 continue
 
-        # 11. 等待登录结果（URL 变化 = 登录成功）
+        # 11. 检测"请使用抖音App登录"（验证码正确但账号需App登录）
+        await asyncio.sleep(3)
+        try:
+            body_text = (await page.evaluate("document.body.innerText")) or ""
+            for keyword in ["请使用抖音App登录", "请使用抖音 APP", "请使用抖音app"]:
+                if keyword in body_text:
+                    print(f"  ⛔ 检测到: {keyword} — 该账号需使用抖音App登录，短信已失效")
+                    self._app_login_required = True
+                    self._mark_app_login_required()
+                    return False
+        except:
+            pass
+
+        # 12. 等待登录结果（URL 变化 = 登录成功）
         await asyncio.sleep(5)
         current_url = page.url
         if "passport" not in current_url.lower() and "login" not in current_url.lower():
@@ -2041,6 +2068,29 @@ class DouyinOps(PlatformOps):
             pass
         print(f"  ⚠️ 登录后仍在登录页，可能需要手动处理")
         return False
+
+    def _mark_app_login_required(self):
+        """标记账号为"需使用抖音App登录" — 写入 profiles.json"""
+        if not self._account_id:
+            return
+        try:
+            from datetime import datetime
+            PROFILES_JSON.parent.mkdir(parents=True, exist_ok=True)
+            if PROFILES_JSON.exists():
+                all_p = json.loads(PROFILES_JSON.read_text())
+            else:
+                all_p = {}
+            all_p[self._account_id] = {
+                **all_p.get(self._account_id, {}),
+                "status": "app_login_required",
+                "status_detail": "需使用抖音App登录，短信验证码方式已失效",
+                "platform": "douyin",
+                "updated": datetime.now().isoformat(),
+            }
+            PROFILES_JSON.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
+            print(f"  📝 profiles.json 已更新: {self._account_id} → app_login_required")
+        except Exception as e:
+            print(f"  ⚠️ _mark_app_login_required 写入失败: {e}")
 
     def get_action_summary(self) -> dict:
         """获取本次会话的操作统计"""

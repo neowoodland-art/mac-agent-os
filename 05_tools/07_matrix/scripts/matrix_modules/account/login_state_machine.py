@@ -551,6 +551,17 @@ class DouyinLoginRecovery(RecoveryStep):
             pass
         await asyncio.sleep(1)
 
+        # 6.5 检测"请使用抖音App登录"（验证码正确但账号被禁SMS登录）
+        try:
+            body_text = (await page.evaluate("document.body.innerText")) or ""
+            for kw in ["请使用抖音App登录", "请使用抖音 APP", "请使用抖音app"]:
+                if kw in body_text:
+                    log_func(f"  ⛔ [{account_id}] 检测到: {kw} — 需使用抖音App登录")
+                    self._write_app_login_flag(account_id)
+                    return False
+        except:
+            pass
+
         # 7. 验证 — 导航到 user/self 确认登录（最多2次）
         for attempt in range(2):
             try:
@@ -955,6 +966,29 @@ class DouyinLoginRecovery(RecoveryStep):
         except:
             pass
         return False
+
+    def _write_app_login_flag(self, account_id: str):
+        """标记账号为"需使用抖音App登录" — 写入 profiles.json"""
+        try:
+            import json
+            from pathlib import Path
+            home = Path.home()
+            profiles = home / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+            profiles.parent.mkdir(parents=True, exist_ok=True)
+            if profiles.exists():
+                all_p = json.loads(profiles.read_text())
+            else:
+                all_p = {}
+            all_p[account_id] = {
+                **all_p.get(account_id, {}),
+                "status": "app_login_required",
+                "status_detail": "需使用抖音App登录，短信验证码方式已失效",
+                "platform": "douyin",
+                "updated": datetime.now().isoformat(),
+            }
+            profiles.write_text(json.dumps(all_p, ensure_ascii=False, indent=2))
+        except Exception as e:
+            pass
 
 
 class RecoveryChain:
