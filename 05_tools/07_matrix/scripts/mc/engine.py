@@ -290,14 +290,28 @@ class BatchEngine:
         steps = bp.get("steps", [])
         log.info(f"  📱 {account_id} ({platform}) → {blueprint_name} ({len(steps)}步)")
 
-        # 导航到该平台的首页
-        home_url = "https://www.xiaohongshu.com/explore" if platform == "xiaohongshu" else "https://www.douyin.com/"
-        try:
-            await conn.page.goto(home_url, timeout=30000, wait_until="domcontentloaded")
-            await asyncio.sleep(5)
-        except:
-            await conn.page.goto(home_url, timeout=60000, wait_until="load")
-            await asyncio.sleep(5)
+        # ── 平台区分：导航到不同入口再检测登录 ──
+        if platform == "xiaohongshu":
+            # 小红书：导航到 explore 首页，依赖 Cookie 检测
+            try:
+                await conn.page.goto("https://www.xiaohongshu.com/explore",
+                                     timeout=30000, wait_until="domcontentloaded")
+                await asyncio.sleep(5)
+            except:
+                await conn.page.goto("https://www.xiaohongshu.com/explore",
+                                     timeout=60000, wait_until="load")
+                await asyncio.sleep(5)
+        else:
+            # 抖音：导航到 user/self 强制触发登录弹窗（受保护页面，未登录必弹）
+            # 避免在首页等待弹窗随机出现导致检测不稳定
+            try:
+                await conn.page.goto("https://www.douyin.com/user/self",
+                                     timeout=30000, wait_until="domcontentloaded")
+                await asyncio.sleep(6)
+            except:
+                await conn.page.goto("https://www.douyin.com/user/self",
+                                     timeout=60000, wait_until="load")
+                await asyncio.sleep(6)
 
         # ── 钩子1: 登录状态检测（执行前确保登录）──
         from matrix_modules.account.login_state_machine import LoginStateMachine
