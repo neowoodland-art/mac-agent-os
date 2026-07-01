@@ -252,6 +252,7 @@ function renderTable(accounts, filterFn) {
         <button onclick="window._actSingle('${idEsc}','login')" class="row-btn" title="登录">🔑</button>
         <button onclick="window._actSingle('${idEsc}','nurture')" class="row-btn" title="养号">🏃</button>
         <button onclick="window._actSingle('${idEsc}','comment')" class="row-btn" title="评论">💬</button>
+        <button onclick="window._actSingle('${idEsc}','record')" class="row-btn" title="录制">🎬</button>
       </td></tr>`;
 
       // 展开详情行（初始隐藏）
@@ -581,6 +582,27 @@ window._actSingle = async (accountId, action) => {
   if (action === 'nurture') {
     // 养号弹窗
     showNurtureDialog([accountId]);
+    return;
+  }
+  if (action === 'record') {
+    // 录制 → 直接提交，走 CommandBus 五层架构
+    try {
+      const r = await fetch(`${BASE}/v2/accounts/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_ids: [accountId], action: 'record' }),
+      });
+      const d = await r.json();
+      if (d.status === 'ok') {
+        const machines = d.machines || [];
+        const machineName = machines.length > 0 ? machines[0].machine : '本机';
+        alert(`✅ 录制已启动\n   账号: ${accountId}\n   机器: ${machineName}\n\n   到该机器前操作浏览器:\n   按 \`·\` 标记步骤\n   按 Esc 结束录制`);
+      } else {
+        alert('❌ ' + (d.detail || '录制启动失败'));
+      }
+    } catch(e) {
+      alert('❌ ' + e.message);
+    }
     return;
   }
   // 采集/登录 → 直接提交

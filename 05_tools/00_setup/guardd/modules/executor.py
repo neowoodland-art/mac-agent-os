@@ -186,6 +186,10 @@ class Executor:
                     f"--accounts={accounts} --blueprints={blueprint} --rounds=1")
         elif cmd_type == "login":
             return (f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} -m mc smart-login {accounts}")
+        elif cmd_type == "record":
+            platform = task.get("params", {}).get("platform", "douyin")
+            return (f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} "
+                    f"-m mc record start --accounts={accounts} --platform={platform}")
         return None
 
     def _parse_and_update(self, task_id: str, account_id: str, browser_id: str, line: str):

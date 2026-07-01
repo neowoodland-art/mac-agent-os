@@ -56,6 +56,7 @@ export async function loadView(container) {
       let html = '<table style="width:100%;font-size:11px;border-collapse:collapse">';
       html += `<tr style="font-size:9px;color:var(--text2);border-bottom:1px solid var(--border)">
         <th style="padding:4px 6px;font-weight:400;text-align:left">账号</th>
+        <th style="padding:4px 6px;font-weight:400;text-align:left">机器</th>
         <th style="padding:4px 6px;font-weight:400;text-align:left">任务</th>
         <th style="padding:4px 6px;font-weight:400;text-align:right">时长</th>
         <th style="padding:4px 6px;font-weight:400;text-align:right">大小</th>
@@ -68,6 +69,7 @@ export async function loadView(container) {
         const s = statusMap[r.status] || r.status || '-';
         html += `<tr style="border-bottom:1px solid var(--border)" data-filter="${((r.account||'')+(r.task||'')+(r.note||'')).toLowerCase()}">
           <td style="padding:3px 6px"><strong>${r.account || '-'}</strong></td>
+          <td style="padding:3px 6px;font-size:10px">${r.machine ? '🖥️ ' + r.machine : '🖥️ 本机'}</td>
           <td style="padding:3px 6px;color:var(--text2)">${r.task || '-'}</td>
           <td style="padding:3px 6px;text-align:right">${fmtDuration(r.duration)}</td>
           <td style="padding:3px 6px;text-align:right;font-size:10px">${r.size ? (r.size / 1024 / 1024).toFixed(1) + 'MB' : '-'}</td>

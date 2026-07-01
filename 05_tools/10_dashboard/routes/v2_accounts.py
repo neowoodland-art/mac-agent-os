@@ -120,7 +120,7 @@ def api_v2_accounts_batch(data: dict):
     if not action:
         raise HTTPException(400, detail="action 必填")
 
-    valid_actions = ("collect", "login", "nurture", "comment")
+    valid_actions = ("collect", "login", "nurture", "comment", "record")
     if action not in valid_actions:
         raise HTTPException(400, detail=f"action 必须是 {valid_actions} 之一")
 

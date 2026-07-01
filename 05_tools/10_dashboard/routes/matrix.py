@@ -783,21 +783,25 @@ def api_matrix_screenshot(screenshot_path: str):
 
 @router.get("/record/list")
 def api_matrix_record_list():
-    """获取录制列表"""
-    record_dir = AGENT_LOCAL / "tools" / "matrix" / "recordings"
+    """获取录制列表（本机 + 联邦聚合）"""
+    from services.command_bus import _guardd_api, HOSTNAME as CB_HOSTNAME
+
+    seen = set()
     recordings = []
+
+    # 1. 本机录制
+    record_dir = AGENT_LOCAL / "tools" / "matrix" / "recordings"
     if record_dir.exists():
         for f in sorted(record_dir.glob("recording_*.json"), reverse=True):
             try:
                 raw = f.read_text(encoding="utf-8")
                 meta_end = raw.find('"steps"')
                 if meta_end > 0:
-                    import re
                     meta_json = raw[:meta_end].rstrip(',\n ') + '}'
                     meta = json.loads(meta_json).get("meta", {})
                 else:
                     meta = json.loads(raw).get("meta", {})
-                recordings.append({
+                rec = {
                     "name": f.stem,
                     "account": meta.get("account_id", "?"),
                     "platform": meta.get("platform", "?"),
@@ -805,9 +809,44 @@ def api_matrix_record_list():
                     "duration": meta.get("duration", 0),
                     "created": meta.get("created", ""),
                     "size_kb": round(f.stat().st_size / 1024, 1),
-                })
+                    "machine": HOSTNAME,
+                }
+                seen.add(f.stem)
+                recordings.append(rec)
             except:
-                recordings.append({"name": f.stem, "error": "parse_error"})
+                recordings.append({"name": f.stem, "error": "parse_error", "machine": HOSTNAME})
+
+    # 2. 远程机器录制（通过 guardd API）
+    try:
+        import yaml
+        oracle_path = AGENT_SYNC / "ORACLE.yaml"
+        if oracle_path.exists():
+            oracle_data = yaml.safe_load(oracle_path.read_text())
+            all_machines = list(oracle_data.get("machines", {}).keys())
+        else:
+            all_machines = ["5kechengdeAir", "7kecheng"]
+        for machine in all_machines:
+            if machine == HOSTNAME:
+                continue
+            try:
+                data = _guardd_api("GET", "/recordings", machine=machine)
+                if not data or not isinstance(data, dict):
+                    continue
+                remote_recs = data.get("recordings", [])
+                for r in remote_recs:
+                    rname = r.get("name", "").replace(".json", "")
+                    if rname not in seen:
+                        seen.add(rname)
+                        r["name"] = rname
+                        r.setdefault("machine", machine)
+                        recordings.append(r)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # 按时间倒序
+    recordings.sort(key=lambda x: x.get("created", ""), reverse=True)
     return {"recordings": recordings}
 
 

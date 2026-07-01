@@ -297,6 +297,32 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error(f"/accounts/profiles 读取失败: {e}")
                 self._send_json(500, {"error": str(e)})
+        elif path == "/recordings":
+            try:
+                home = __import__("pathlib").Path.home()
+                rec_dir = home / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "recordings"
+                rec_list = []
+                if rec_dir.exists():
+                    for f in sorted(rec_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+                        rec_list.append({
+                            "name": f.name,
+                            "size": f.stat().st_size,
+                            "mtime": f.stat().st_mtime,
+                            "machine": HOSTNAME,
+                        })
+                    # 读录制文件名时附上文件内容
+                    name = parsed.query.replace("name=", "") if "name=" in parsed.query else ""
+                    if name:
+                        rec_file = rec_dir / name
+                        if rec_file.exists():
+                            content = json.loads(rec_file.read_text())
+                            content["_machine"] = HOSTNAME
+                            self._send_json(200, {"recordings": rec_list, "detail": content})
+                            return
+                self._send_json(200, {"recordings": rec_list, "machine": HOSTNAME})
+            except Exception as e:
+                logger.error(f"/recordings 读取失败: {e}")
+                self._send_json(500, {"error": str(e)})
         else:
             self._send_json(404, {"error": "not_found"})
 

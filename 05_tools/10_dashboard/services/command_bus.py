@@ -838,6 +838,11 @@ CMD_REGISTRY = {
         "defaults": {"blueprint": "interact_comment", "rounds": 1, "direction": "", "corpus": ""},
         "required_params": ["url"],
     },
+    "record": {
+        "template": "mc record start --accounts={ids} --platform={platform}",
+        "single_account": True,
+        "defaults": {"platform": "douyin"},
+    },
 }
 
 
@@ -879,6 +884,12 @@ CMD_POLL_STRATEGY = {
         "timeout": 120,
         "check_process": False,
         "check_log_completed": ["已退出"],
+    },
+    "record": {
+        "grace_period": 15,
+        "timeout": 7200,
+        "check_process": True,
+        "check_log_completed": ["✅ 录制完成", "📦 录制包已保存"],
     },
 }
 DEFAULT_POLL_STRATEGY = {"grace_period": 30, "timeout": 600, "check_process": True, "check_log_completed": []}
