@@ -805,11 +805,13 @@ def api_matrix_record_list():
                     "name": f.stem,
                     "account": meta.get("account_id", "?"),
                     "platform": meta.get("platform", "?"),
+                    "machine": meta.get("machine", HOSTNAME),
+                    "phone": meta.get("phone", ""),
+                    "nickname": meta.get("nickname", ""),
                     "steps": meta.get("total_steps", 0),
                     "duration": meta.get("duration", 0),
                     "created": meta.get("created", ""),
                     "size_kb": round(f.stat().st_size / 1024, 1),
-                    "machine": HOSTNAME,
                 }
                 seen.add(f.stem)
                 recordings.append(rec)

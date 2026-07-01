@@ -56,26 +56,29 @@ export async function loadView(container) {
       let html = '<table style="width:100%;font-size:11px;border-collapse:collapse">';
       html += `<tr style="font-size:9px;color:var(--text2);border-bottom:1px solid var(--border)">
         <th style="padding:4px 6px;font-weight:400;text-align:left">账号</th>
+        <th style="padding:4px 6px;font-weight:400;text-align:left">昵称</th>
+        <th style="padding:4px 6px;font-weight:400;text-align:left">手机号</th>
         <th style="padding:4px 6px;font-weight:400;text-align:left">机器</th>
         <th style="padding:4px 6px;font-weight:400;text-align:left">任务</th>
         <th style="padding:4px 6px;font-weight:400;text-align:right">时长</th>
         <th style="padding:4px 6px;font-weight:400;text-align:right">大小</th>
         <th style="padding:4px 6px;font-weight:400;text-align:left">录制时间</th>
         <th style="padding:4px 6px;font-weight:400;text-align:left">状态</th>
-        <th style="padding:4px 6px;font-weight:400;text-align:left">备注</th>
       </tr>`;
       items.forEach(r => {
         const statusMap = { completed: '✅ 完成', running: '🔄 录制中', failed: '❌ 失败', pending: '⏳ 等待' };
         const s = statusMap[r.status] || r.status || '-';
-        html += `<tr style="border-bottom:1px solid var(--border)" data-filter="${((r.account||'')+(r.task||'')+(r.note||'')).toLowerCase()}">
+        const taskName = r.task || r.name || '-';
+        html += `<tr style="border-bottom:1px solid var(--border)" data-filter="${((r.account||'')+(r.nickname||'')+(r.phone||'')+(r.machine||'')).toLowerCase()}">
           <td style="padding:3px 6px"><strong>${r.account || '-'}</strong></td>
+          <td style="padding:3px 6px;font-size:10px;color:var(--text2)">${r.nickname || '-'}</td>
+          <td style="padding:3px 6px;font-size:10px;color:var(--text2)">${r.phone || '-'}</td>
           <td style="padding:3px 6px;font-size:10px">${r.machine ? '🖥️ ' + r.machine : '🖥️ 本机'}</td>
-          <td style="padding:3px 6px;color:var(--text2)">${r.task || '-'}</td>
+          <td style="padding:3px 6px;color:var(--text2)">${taskName}</td>
           <td style="padding:3px 6px;text-align:right">${fmtDuration(r.duration)}</td>
-          <td style="padding:3px 6px;text-align:right;font-size:10px">${r.size ? (r.size / 1024 / 1024).toFixed(1) + 'MB' : '-'}</td>
-          <td style="padding:3px 6px;font-size:10px;color:var(--text2)">${fmtTime(r.created_at || r.time)}</td>
+          <td style="padding:3px 6px;text-align:right;font-size:10px">${r.size_kb ? (r.size_kb / 1024).toFixed(2) + 'MB' : r.size ? (r.size / 1024 / 1024).toFixed(1) + 'MB' : '-'}</td>
+          <td style="padding:3px 6px;font-size:10px;color:var(--text2)">${fmtTime(r.created_at || r.time || r.created)}</td>
           <td style="padding:3px 6px;font-size:10px">${s}</td>
-          <td style="padding:3px 6px;font-size:10px;color:var(--text2);max-width:150px;overflow:hidden;text-overflow:ellipsis">${r.note || ''}</td>
         </tr>`;
       });
       html += '</table>';

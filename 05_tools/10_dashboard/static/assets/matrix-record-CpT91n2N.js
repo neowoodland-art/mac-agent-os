@@ -14,20 +14,22 @@ async function e(e){e.innerHTML=`<div class="loading">⏳ 加载中...</div>`;tr
         <div id="recTable" style="overflow-x:auto"></div>
       </div>`;function u(e){if(!e.length)return`<div style="font-size:12px;color:var(--text2);padding:20px;text-align:center">暂无录制记录</div>`;let t=`<table style="width:100%;font-size:11px;border-collapse:collapse">`;return t+=`<tr style="font-size:9px;color:var(--text2);border-bottom:1px solid var(--border)">
         <th style="padding:4px 6px;font-weight:400;text-align:left">账号</th>
+        <th style="padding:4px 6px;font-weight:400;text-align:left">昵称</th>
+        <th style="padding:4px 6px;font-weight:400;text-align:left">手机号</th>
         <th style="padding:4px 6px;font-weight:400;text-align:left">机器</th>
         <th style="padding:4px 6px;font-weight:400;text-align:left">任务</th>
         <th style="padding:4px 6px;font-weight:400;text-align:right">时长</th>
         <th style="padding:4px 6px;font-weight:400;text-align:right">大小</th>
         <th style="padding:4px 6px;font-weight:400;text-align:left">录制时间</th>
         <th style="padding:4px 6px;font-weight:400;text-align:left">状态</th>
-        <th style="padding:4px 6px;font-weight:400;text-align:left">备注</th>
-      </tr>`,e.forEach(e=>{let n={completed:`✅ 完成`,running:`🔄 录制中`,failed:`❌ 失败`,pending:`⏳ 等待`}[e.status]||e.status||`-`;t+=`<tr style="border-bottom:1px solid var(--border)" data-filter="${((e.account||``)+(e.task||``)+(e.note||``)).toLowerCase()}">
+      </tr>`,e.forEach(e=>{let n={completed:`✅ 完成`,running:`🔄 录制中`,failed:`❌ 失败`,pending:`⏳ 等待`}[e.status]||e.status||`-`,r=e.task||e.name||`-`;t+=`<tr style="border-bottom:1px solid var(--border)" data-filter="${((e.account||``)+(e.nickname||``)+(e.phone||``)+(e.machine||``)).toLowerCase()}">
           <td style="padding:3px 6px"><strong>${e.account||`-`}</strong></td>
+          <td style="padding:3px 6px;font-size:10px;color:var(--text2)">${e.nickname||`-`}</td>
+          <td style="padding:3px 6px;font-size:10px;color:var(--text2)">${e.phone||`-`}</td>
           <td style="padding:3px 6px;font-size:10px">${e.machine?`🖥️ `+e.machine:`🖥️ 本机`}</td>
-          <td style="padding:3px 6px;color:var(--text2)">${e.task||`-`}</td>
+          <td style="padding:3px 6px;color:var(--text2)">${r}</td>
           <td style="padding:3px 6px;text-align:right">${s(e.duration)}</td>
-          <td style="padding:3px 6px;text-align:right;font-size:10px">${e.size?(e.size/1024/1024).toFixed(1)+`MB`:`-`}</td>
-          <td style="padding:3px 6px;font-size:10px;color:var(--text2)">${c(e.created_at||e.time)}</td>
+          <td style="padding:3px 6px;text-align:right;font-size:10px">${e.size_kb?(e.size_kb/1024).toFixed(2)+`MB`:e.size?(e.size/1024/1024).toFixed(1)+`MB`:`-`}</td>
+          <td style="padding:3px 6px;font-size:10px;color:var(--text2)">${c(e.created_at||e.time||e.created)}</td>
           <td style="padding:3px 6px;font-size:10px">${n}</td>
-          <td style="padding:3px 6px;font-size:10px;color:var(--text2);max-width:150px;overflow:hidden;text-overflow:ellipsis">${e.note||``}</td>
         </tr>`}),t+=`</table>`,t}if(document.getElementById(`recTable`).innerHTML=u(a),window._filterRec=()=>{let e=(document.getElementById(`recSearch`)?.value||``).toLowerCase(),t=e?a.filter(t=>((t.account||``)+(t.task||``)+(t.note||``)+(t.id||``)).toLowerCase().includes(e)):a;document.getElementById(`recCount`).textContent=`共 ${t.length}/${a.length} 条`,document.getElementById(`recTable`).innerHTML=u(t)},o.total_recordings!==void 0||o.by_account){let e=document.createElement(`div`);e.style.cssText=`margin-top:10px;padding:10px;background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);font-size:11px`;let t=`<div style="font-weight:600;font-size:12px;margin-bottom:6px">📊 录制统计</div>`;o.by_account&&(t+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`,Object.entries(o.by_account).forEach(([e,n])=>{t+=`<span style="background:var(--bg3);padding:2px 8px;border-radius:4px;border:1px solid var(--border)">${e}: ${n}</span>`}),t+=`</div>`),e.innerHTML=t,document.querySelector(`#recTable`)?.parentElement?.appendChild(e)}}catch(t){e.innerHTML=`<div class="error">❌ ${t.message||t}</div>`}}export{e as loadView};

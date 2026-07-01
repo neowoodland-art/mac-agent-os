@@ -45,6 +45,9 @@ class RecordingSession:
         self._is_recording = False
         self._start_time = None
         self._js_listener_ready = False
+        self.machine = ""
+        self.phone = ""
+        self.nickname = ""
 
     async def start(self):
         """启动 Camoufox + 注入事件监听"""
@@ -61,6 +64,23 @@ class RecordingSession:
                 break
         if not acct_info:
             raise ValueError(f"账号 {self.account_id} 不存在")
+
+        # 保存元数据：机器名/手机号/昵称
+        import os
+        self.machine = os.uname().nodename
+        self.phone = acct_info.get("phone", "")
+        # 从 acct_info 或 profiles.json 找昵称
+        self.nickname = acct_info.get("nickname", "")
+        if not self.nickname:
+            try:
+                import json
+                pf = LOCAL_ROOT / "data" / "profiles.json"
+                if pf.exists():
+                    profiles = json.loads(pf.read_text())
+                    p = profiles.get(self.account_id, {})
+                    self.nickname = p.get("nickname", "")
+            except:
+                pass
 
         identity_dir_name = (acct_info.get("identity_dir") or acct_info.get("identity_hint") or self.account_id).replace("identities/", "")
         identity_dir = str(LOCAL_ROOT / "identities" / identity_dir_name)
@@ -474,6 +494,9 @@ class RecordingSession:
             "meta": {
                 "account_id": self.account_id,
                 "platform": self.platform,
+                "machine": self.machine,
+                "phone": self.phone,
+                "nickname": self.nickname,
                 "start_time": datetime.fromtimestamp(self._start_time).strftime("%H:%M:%S"),
                 "end_time": datetime.now().strftime("%H:%M:%S"),
                 "duration": round(time.time() - self._start_time, 1),
