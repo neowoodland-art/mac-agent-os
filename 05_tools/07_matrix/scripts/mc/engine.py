@@ -574,17 +574,28 @@ class BatchEngine:
             s_min, s_max = 15, 30
 
         # 3. 并行执行身份组（Semaphore 控制并发数 = max_browsers）
+        #    错峰启动：每个身份组之间随机延迟 stagger 范围
         sem = asyncio.Semaphore(self.max_browsers)
         all_reports = []
 
-        async def _run_one_group(ident, accts):
+        group_list = list(groups.items())
+
+        async def _run_one_group(ident, accts, delay: float = 0):
+            if delay > 0:
+                log.info(f"  ⏳ 错峰等待 {delay:.0f}s 后启动身份组 [{ident}]")
+                await asyncio.sleep(delay)
             async with sem:
                 log.info(f"\n  🖥️ 启动身份组 [{ident}]")
                 return await self._run_identity_group(accts)
 
-        group_list = list(groups.items())
-        tasks = [asyncio.create_task(_run_one_group(ident, accts))
-                 for ident, accts in group_list]
+        cumulative_delay = 0.0
+        tasks = []
+        for ident, accts in group_list:
+            tasks.append(asyncio.create_task(
+                _run_one_group(ident, accts, delay=cumulative_delay)
+            ))
+            stagger_sec = random.uniform(s_min, s_max)
+            cumulative_delay += stagger_sec
         for coro in asyncio.as_completed(tasks):
             group_reports = await coro
             all_reports.extend(group_reports)
