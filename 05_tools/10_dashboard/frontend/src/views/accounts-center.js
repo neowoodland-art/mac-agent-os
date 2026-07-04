@@ -184,6 +184,7 @@ function renderBatchBar() {
     <button data-action="collect" class="batch-btn" style="background:var(--primary);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📡 采集</button>
     <button data-action="login" class="batch-btn" style="background:var(--primary);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔑 登录</button>
     <button data-action="nurture" class="batch-btn" style="background:var(--primary);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🏃 养号</button>
+    <button data-action="smart_comment" class="batch-btn" style="background:#16a34a;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🤖 智能评论</button>
     <button data-action="comment" class="batch-btn" style="background:var(--primary);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">💬 评论</button>
     <button id="batchClearBtn" style="background:transparent;color:var(--text2);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;margin-left:auto">取消选择</button>
   `;
@@ -225,6 +226,7 @@ function renderTable(accounts, filterFn) {
     + '<th style="padding:4px 6px;font-weight:400;text-align:left">账号</th>'
     + '<th style="padding:4px 6px;font-weight:400;text-align:left">手机号</th>'
     + '<th style="padding:4px 6px;font-weight:400;text-align:left">昵称</th>'
+    + '<th style="padding:4px 6px;font-weight:400;text-align:left;width:55px">行业</th>'
     + '<th style="padding:4px 6px;font-weight:400;text-align:right">粉丝</th>'
     + '<th style="padding:4px 6px;font-weight:400;text-align:left">状态</th>'
     + '<th style="padding:4px 6px;font-weight:400;text-align:left">操作</th></tr></thead><tbody>';
@@ -236,15 +238,17 @@ function renderTable(accounts, filterFn) {
       const cfg = STATUS_CFG[st] || { dot: '⚪', label: st, color: '#8b8fa3' };
       const idEsc = a.id.replace(/'/g, "\\'");
       // data 属性用于筛选
-      const filterData = `${a.id} ${a.phone || ''} ${a.nickname || ''} ${a.identity_dir || ''} ${m}`.toLowerCase();
-
-      html += `<tr class="acct-row" data-filter="${filterData}" data-id="${a.id}" data-machine="${m}" data-platform="${a.platform}" data-status="${st}" style="border-bottom:1px solid var(--border);cursor:pointer" onclick="window._toggleDetail('${idEsc}')">`;
+      const industry = a.industry || 'general';
+      const filterData = `${a.id} ${a.phone || ''} ${a.nickname || ''} ${a.identity_dir || ''} ${m} ${industry}`.toLowerCase();
+ 
+      html += `<tr class="acct-row" data-filter="${filterData}" data-id="${a.id}" data-machine="${m}" data-platform="${a.platform}" data-status="${st}" data-industry="${industry}" style="border-bottom:1px solid var(--border);cursor:pointer" onclick="window._toggleDetail('${idEsc}')">`;
       html += `<td style="padding:3px 6px"><input type="checkbox" class="acct-cb" value="${a.id}" onchange="window._updateBatch()"></td>`;
       html += `<td style="padding:3px 6px;font-size:10px;color:var(--text2)">${m === 'chengzigedeAir' ? '🖥️' : '☁️'}${m}</td>`;
       html += `<td style="padding:3px 6px"><strong>${a.id}</strong></td>`;
       html += `<td style="padding:3px 6px;font-size:10px;color:var(--text2)">${a.phone || '-'}</td>`;
       const platIcon = a.platform === 'xiaohongshu' ? '📕' : '🎵';
       html += `<td style="padding:3px 6px">${platIcon} ${a.nickname || '-'}</td>`;
+      html += `<td style="padding:3px 6px;font-size:10px">${industry === 'health' ? '<span style="background:rgba(34,197,94,.15);color:#16a34a;padding:1px 5px;border-radius:3px">🏥健康</span>' : '<span style="color:var(--text2)">🌐通用</span>'}</td>`;
       html += `<td style="padding:3px 6px;text-align:right">${a.fans || '-'}</td>`;
       html += `<td style="padding:3px 6px;font-size:10px;white-space:nowrap"><span style="color:${cfg.color}">${cfg.dot}</span> ${cfg.label}</td>`;
       html += `<td style="padding:3px 6px;white-space:nowrap">
@@ -628,6 +632,13 @@ window._actSingle = async (accountId, action) => {
 async function handleBatchAction(action) {
   const ids = getSelectedIds();
   if (ids.length === 0) { alert('请先选择账号'); return; }
+
+  if (action === 'smart_comment') {
+    // 智能评论 → 跳转到评论页面（默认启用智能分析模式）
+    try { window.switchView('matrix-comment', { accounts: ids }); }
+    catch(e) { alert('评论页面不可用'); }
+    return;
+  }
 
   if (action === 'comment') {
     // 评论 → 跳转到评论页面，带入选中的账号

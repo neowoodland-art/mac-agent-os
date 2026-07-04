@@ -93,15 +93,20 @@ function buildCorpusPage(cats, scenes, groups, totalComments) {
   <div style="margin-top:18px">
 
     <!-- 单条添加 -->
-    <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border);margin-bottom:8px">
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border);margin-bottom:8px">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">✏️ 添加评论</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select id="corpusAddPlatform" style="width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+        <select id="corpusAddPlatform" style="width:100px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
           <option value="douyin">🎵 抖音</option>
           <option value="xiaohongshu">📕 小红书</option>
         </select>
-        <input id="corpusAddCategory" placeholder="分类名" style="width:100px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
-        <input id="corpusAddText" placeholder="评论内容" style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+        <input id="corpusAddCategory" placeholder="分类名" style="width:90px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+        <input id="corpusAddText" placeholder="评论内容" style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+        <div id="corpusAddAccessibleGroup" style="display:flex;gap:6px;font-size:10px;align-items:center">
+          <label><input type="checkbox" id="corpusAddAccessible" value="health"> 🏥大健康</label>
+          <label><input type="checkbox" id="corpusAddAccessible" value="finance"> 💰金融</label>
+          <label><input type="checkbox" id="corpusAddAccessible" value="general" checked> 🌐通用</label>
+        </div>
         <button class="btn btn-primary btn-sm" onclick="corpusAdd()" style="background:var(--primary);color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px">+ 添加</button>
         <span id="corpusAddResult" style="font-size:11px;color:var(--text2)"></span>
       </div>
@@ -181,6 +186,11 @@ content:
 
 /** 一维分类 — 按平台分组展示 categories */
 function render1D(cats) {
+  // 提取所有可用的 accessible 标签
+  const allAccessible = new Set();
+  cats.forEach(c => { if (c.accessible) c.accessible.forEach(a => allAccessible.add(a)); });
+  const accList = ['all', ...Array.from(allAccessible)];
+
   const groups = {};
   cats.forEach(c => {
     const p = c.platform === 'xiaohongshu' ? '📕 小红书' : '🎵 抖音';
@@ -193,9 +203,18 @@ function render1D(cats) {
     return '<div style="color:var(--text2);font-size:12px;padding:20px;text-align:center">暂无分类数据</div>';
   }
 
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px">
+  return `
+    <div id="corpusIndustryFilter" style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap">
+      ${accList.map(a => {
+        const label = a === 'all' ? '全部' : (a === 'health' ? '🏥 大健康' : (a === 'finance' ? '💰 金融' : (a === 'tech' ? '💻 科技' : (a === 'food' ? '🍔 美食' : a))));
+        return `<span class="ind-filter" data-ind="${a}"
+                onclick="window._corpusFilterIndustry('${a}')"
+                style="padding:2px 10px;border-radius:4px;cursor:pointer;font-size:11px;${a === 'all' ? 'background:var(--primary);color:#fff' : 'background:var(--bg3);color:var(--text2)'}">${label}</span>`;
+      }).join('')}
+    </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:10px">
     ${Object.entries(groups).map(([platform, items]) => `
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)">
+      <div class="corpus-platform-group" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:8px">${platform}
           <span style="font-size:10px;color:var(--text2);font-weight:400">（${items.length} 个分类）</span>
         </div>
@@ -203,18 +222,25 @@ function render1D(cats) {
           <thead>
             <tr>
               <th style="text-align:left;padding:4px 3px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500">分类</th>
+              <th style="padding:4px 3px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500">行业</th>
               <th style="padding:4px 3px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500">权重</th>
               <th style="padding:4px 3px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500">评论</th>
               <th style="padding:4px 3px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500">状态</th>
               <th style="padding:4px 3px;border-bottom:1px solid var(--border)"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="corpus-tbody">
             ${items.map(c => {
               const p = c.platform === 'xiaohongshu' ? 'xiaohongshu' : 'douyin';
               const name = escapeHtml(c.name);
-              return `<tr>
+              const acc = c.accessible || [];
+              const accTag = acc.length ? (acc.includes('*') || acc.includes('all') ? '🌐 通用' : acc.map(a => a === 'health' ? '🏥健康' : a).join(', ')) : '🌐 通用';
+              const accAttr = (acc.includes('*') || acc.includes('all')) ? 'general' : (acc[0] || 'general');
+              return `<tr class="corpus-row" data-accessible="${escapeHtml(accAttr)}">
                 <td style="padding:5px 3px;border-bottom:1px solid var(--border)"><strong>${name}</strong></td>
+                <td style="padding:5px 3px;border-bottom:1px solid var(--border);font-size:10px">
+                  <span style="background:${accAttr === 'health' ? 'rgba(34,197,94,.15)' : 'var(--bg3)'};color:${accAttr === 'health' ? '#16a34a' : 'var(--text2)'};padding:1px 5px;border-radius:3px">${accTag}</span>
+                </td>
                 <td style="padding:5px 3px;border-bottom:1px solid var(--border);text-align:center;color:var(--text2)">${c.weight || '-'}</td>
                 <td style="padding:5px 3px;border-bottom:1px solid var(--border);text-align:center">${c.count || 0}</td>
                 <td style="padding:5px 3px;border-bottom:1px solid var(--border);text-align:center">${c.enabled ? '<span style="color:var(--green)">✅</span>' : '<span style="color:var(--text2)">⏸</span>'}</td>
@@ -355,6 +381,7 @@ async function corpusAdd() {
   const category = document.getElementById('corpusAddCategory')?.value;
   const text = document.getElementById('corpusAddText')?.value;
   const result = document.getElementById('corpusAddResult');
+  const accessibles = Array.from(document.querySelectorAll('#corpusAddAccessible:checked')).map(cb => cb.value);
   if (!category || !text) { result.textContent = '❌ 请输入分类和评论'; return; }
   try {
     const r = await fetch('/api/matrix/corpus/add', {
@@ -570,4 +597,21 @@ function registerWindowFns() {
   window.corpusShowDetail = corpusShowDetail;
   window.corpusDetailAdd = corpusDetailAdd;
   window.corpusDetailDelete = corpusDetailDelete;
+  window._corpusFilterIndustry = _corpusFilterIndustry;
+}
+
+function _corpusFilterIndustry(ind) {
+  // 切换行业过滤标签高亮
+  document.querySelectorAll('.ind-filter').forEach(el => {
+    el.style.background = el.dataset.ind === ind ? 'var(--primary)' : 'var(--bg3)';
+    el.style.color = el.dataset.ind === ind ? '#fff' : 'var(--text2)';
+  });
+  // 显示/隐藏分类行
+  document.querySelectorAll('.corpus-row').forEach(row => {
+    if (ind === 'all') {
+      row.style.display = '';
+    } else {
+      row.style.display = row.dataset.accessible === ind ? '' : 'none';
+    }
+  });
 }

@@ -49,15 +49,20 @@ async function e(e){e.innerHTML=`<div class="loading">⏳ 加载语料库...</di
   <div style="margin-top:18px">
 
     <!-- 单条添加 -->
-    <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border);margin-bottom:8px">
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border);margin-bottom:8px">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">✏️ 添加评论</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select id="corpusAddPlatform" style="width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+        <select id="corpusAddPlatform" style="width:100px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
           <option value="douyin">🎵 抖音</option>
           <option value="xiaohongshu">📕 小红书</option>
         </select>
-        <input id="corpusAddCategory" placeholder="分类名" style="width:100px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
-        <input id="corpusAddText" placeholder="评论内容" style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+        <input id="corpusAddCategory" placeholder="分类名" style="width:90px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+        <input id="corpusAddText" placeholder="评论内容" style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+        <div id="corpusAddAccessibleGroup" style="display:flex;gap:6px;font-size:10px;align-items:center">
+          <label><input type="checkbox" id="corpusAddAccessible" value="health"> 🏥大健康</label>
+          <label><input type="checkbox" id="corpusAddAccessible" value="finance"> 💰金融</label>
+          <label><input type="checkbox" id="corpusAddAccessible" value="general" checked> 🌐通用</label>
+        </div>
         <button class="btn btn-primary btn-sm" onclick="corpusAdd()" style="background:var(--primary);color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px">+ 添加</button>
         <span id="corpusAddResult" style="font-size:11px;color:var(--text2)"></span>
       </div>
@@ -128,9 +133,15 @@ content:
     </div>
 
   </div>
-</div>`}function n(e){let t={};return e.forEach(e=>{let n=e.platform===`xiaohongshu`?`📕 小红书`:`🎵 抖音`;t[n]||(t[n]=[]),t[n].push(e)}),Object.keys(t).length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px">
-    ${Object.entries(t).map(([e,t])=>`
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)">
+</div>`}function n(e){let t=new Set;e.forEach(e=>{e.accessible&&e.accessible.forEach(e=>t.add(e))});let n=[`all`,...Array.from(t)],r={};return e.forEach(e=>{let t=e.platform===`xiaohongshu`?`📕 小红书`:`🎵 抖音`;r[t]||(r[t]=[]),r[t].push(e)}),Object.keys(r).length?`
+    <div id="corpusIndustryFilter" style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap">
+      ${n.map(e=>`<span class="ind-filter" data-ind="${e}"
+                onclick="window._corpusFilterIndustry('${e}')"
+                style="padding:2px 10px;border-radius:4px;cursor:pointer;font-size:11px;${e===`all`?`background:var(--primary);color:#fff`:`background:var(--bg3);color:var(--text2)`}">${e===`all`?`全部`:e===`health`?`🏥 大健康`:e===`finance`?`💰 金融`:e===`tech`?`💻 科技`:e===`food`?`🍔 美食`:e}</span>`).join(``)}
+    </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:10px">
+    ${Object.entries(r).map(([e,t])=>`
+      <div class="corpus-platform-group" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:8px">${e}
           <span style="font-size:10px;color:var(--text2);font-weight:400">（${t.length} 个分类）</span>
         </div>
@@ -138,15 +149,19 @@ content:
           <thead>
             <tr>
               <th style="text-align:left;padding:4px 3px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500">分类</th>
+              <th style="padding:4px 3px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500">行业</th>
               <th style="padding:4px 3px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500">权重</th>
               <th style="padding:4px 3px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500">评论</th>
               <th style="padding:4px 3px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500">状态</th>
               <th style="padding:4px 3px;border-bottom:1px solid var(--border)"></th>
             </tr>
           </thead>
-          <tbody>
-            ${t.map(e=>{let t=e.platform===`xiaohongshu`?`xiaohongshu`:`douyin`,n=h(e.name);return`<tr>
+          <tbody class="corpus-tbody">
+            ${t.map(e=>{let t=e.platform===`xiaohongshu`?`xiaohongshu`:`douyin`,n=h(e.name),r=e.accessible||[],i=r.length?r.includes(`*`)||r.includes(`all`)?`🌐 通用`:r.map(e=>e===`health`?`🏥健康`:e).join(`, `):`🌐 通用`,a=r.includes(`*`)||r.includes(`all`)?`general`:r[0]||`general`;return`<tr class="corpus-row" data-accessible="${h(a)}">
                 <td style="padding:5px 3px;border-bottom:1px solid var(--border)"><strong>${n}</strong></td>
+                <td style="padding:5px 3px;border-bottom:1px solid var(--border);font-size:10px">
+                  <span style="background:${a===`health`?`rgba(34,197,94,.15)`:`var(--bg3)`};color:${a===`health`?`#16a34a`:`var(--text2)`};padding:1px 5px;border-radius:3px">${i}</span>
+                </td>
                 <td style="padding:5px 3px;border-bottom:1px solid var(--border);text-align:center;color:var(--text2)">${e.weight||`-`}</td>
                 <td style="padding:5px 3px;border-bottom:1px solid var(--border);text-align:center">${e.count||0}</td>
                 <td style="padding:5px 3px;border-bottom:1px solid var(--border);text-align:center">${e.enabled?`<span style="color:var(--green)">✅</span>`:`<span style="color:var(--text2)">⏸</span>`}</td>
@@ -192,7 +207,7 @@ content:
       <div style="font-size:11px;margin-top:6px;opacity:.7">
         在 YAML 的 content 段中添加 round_N 即可启用多轮语料
       </div>
-    </div>`}function o(e){document.querySelectorAll(`.corpus-tab`).forEach(t=>{let n=t.dataset.tab===e;t.style.background=n?`var(--primary)`:`var(--bg3)`,t.style.color=n?`#fff`:`var(--text2)`,t.style.fontWeight=n?`600`:`400`}),document.querySelectorAll(`.corpus-tab-content`).forEach(t=>{t.style.display=t.id===`corpusTab${e}`?``:`none`})}async function s(){let e=document.getElementById(`corpusAddPlatform`)?.value,t=document.getElementById(`corpusAddCategory`)?.value,n=document.getElementById(`corpusAddText`)?.value,r=document.getElementById(`corpusAddResult`);if(!t||!n){r.textContent=`❌ 请输入分类和评论`;return}try{let i=await(await fetch(`/api/matrix/corpus/add`,{method:`POST`,headers:{"Content-Type":`application/json`},body:JSON.stringify({platform:e,category:t,text:n})})).json();i.status===`ok`?(r.textContent=`✅ 已添加`,document.getElementById(`corpusAddText`).value=``,m()):r.textContent=`❌ `+(i.error||`添加失败`)}catch(e){r.textContent=`❌ `+e.message}}async function c(){let e=document.getElementById(`corpusBatchPlatform`)?.value,t=document.getElementById(`corpusBatchCategory`)?.value,n=document.getElementById(`corpusBatchTexts`),r=document.getElementById(`corpusBatchResult`);if(!t||!n?.value.trim()){r.textContent=`❌ 请输入分类名和评论内容`;return}let i=n.value.split(`
+    </div>`}function o(e){document.querySelectorAll(`.corpus-tab`).forEach(t=>{let n=t.dataset.tab===e;t.style.background=n?`var(--primary)`:`var(--bg3)`,t.style.color=n?`#fff`:`var(--text2)`,t.style.fontWeight=n?`600`:`400`}),document.querySelectorAll(`.corpus-tab-content`).forEach(t=>{t.style.display=t.id===`corpusTab${e}`?``:`none`})}async function s(){let e=document.getElementById(`corpusAddPlatform`)?.value,t=document.getElementById(`corpusAddCategory`)?.value,n=document.getElementById(`corpusAddText`)?.value,r=document.getElementById(`corpusAddResult`);if(Array.from(document.querySelectorAll(`#corpusAddAccessible:checked`)).map(e=>e.value),!t||!n){r.textContent=`❌ 请输入分类和评论`;return}try{let i=await(await fetch(`/api/matrix/corpus/add`,{method:`POST`,headers:{"Content-Type":`application/json`},body:JSON.stringify({platform:e,category:t,text:n})})).json();i.status===`ok`?(r.textContent=`✅ 已添加`,document.getElementById(`corpusAddText`).value=``,m()):r.textContent=`❌ `+(i.error||`添加失败`)}catch(e){r.textContent=`❌ `+e.message}}async function c(){let e=document.getElementById(`corpusBatchPlatform`)?.value,t=document.getElementById(`corpusBatchCategory`)?.value,n=document.getElementById(`corpusBatchTexts`),r=document.getElementById(`corpusBatchResult`);if(!t||!n?.value.trim()){r.textContent=`❌ 请输入分类名和评论内容`;return}let i=n.value.split(`
 `).filter(e=>e.trim());r.textContent=`⏳ 导入 `+i.length+` 条...`;try{let a=await(await fetch(`/api/matrix/corpus/batch-add`,{method:`POST`,headers:{"Content-Type":`application/json`},body:JSON.stringify({platform:e,category:t,texts:i})})).json();a.status===`ok`?(r.textContent=`✅ 成功导入 `+a.added+` 条`,n.value=``,m()):r.textContent=`❌ `+(a.detail||a.error)}catch(e){r.textContent=`❌ `+e.message}}function l(){navigator.clipboard.writeText(`# 语料库模板 v2.0
 # 分类 + 评论（一维）
 categories:
@@ -239,4 +254,4 @@ content:
           <span style="flex:1;font-size:12px">${h(n.text)}</span>
           <span style="cursor:pointer;color:var(--red);font-size:14px;opacity:.5"
                 onclick="corpusDetailDelete('${e}','${h(t)}',${i})">✕</span>
-        </div>`}).join(``)}).catch(e=>{let t=document.getElementById(`corpusDetailBody`);t&&(t.innerHTML=`<div style="color:var(--red);text-align:center;padding:20px">❌ ${h(e.message)}</div>`)})}async function f(){let e=document.getElementById(`corpusDetailAddText`);if(!e||!e.value.trim())return;let t=(e.closest(`div[style*="fixed"]`)?.querySelector(`span`)?.textContent||``).replace(`📚 `,``).split(`/`),n=t[0]||`douyin`,r=t[1]||``;try{(await(await fetch(`/api/matrix/corpus/add`,{method:`POST`,headers:{"Content-Type":`application/json`},body:JSON.stringify({platform:n,category:r,text:e.value.trim()})})).json()).status===`ok`&&(e.value=``,d(n,r),m())}catch(e){alert(e.message)}}async function p(e,t,n){if(n===-1){alert(`模板暂不支持看板删除，请使用 CLI`);return}if(confirm(`删除第 ${n+1} 条评论？`))try{(await(await fetch(`/api/matrix/corpus/delete`,{method:`POST`,headers:{"Content-Type":`application/json`},body:JSON.stringify({platform:e,category:t,index:n})})).json()).status===`ok`&&(document.querySelector(`div[style*="fixed"]`)?.remove(),u=!1,d(e,t),m())}catch(e){alert(e.message)}}async function m(){let t=document.getElementById(`view-dynamic`);if(!t)return;let n=document.querySelector(`.corpus-tab.active`)?.dataset?.tab||`1d`;await e(t),o(n)}function h(e){return typeof e==`string`?e.replace(/&/g,`&amp;`).replace(/</g,`&lt;`).replace(/>/g,`&gt;`).replace(/"/g,`&quot;`).replace(/'/g,`&#039;`):String(e||``)}function g(){window._corpusFnsRegistered||(window._corpusFnsRegistered=!0,window.switchCorpusTab=o,window.corpusAdd=s,window.corpusBatchImport=c,window.copyCorpusTemplate=l,window.corpusShowDetail=d,window.corpusDetailAdd=f,window.corpusDetailDelete=p)}export{e as loadView};
+        </div>`}).join(``)}).catch(e=>{let t=document.getElementById(`corpusDetailBody`);t&&(t.innerHTML=`<div style="color:var(--red);text-align:center;padding:20px">❌ ${h(e.message)}</div>`)})}async function f(){let e=document.getElementById(`corpusDetailAddText`);if(!e||!e.value.trim())return;let t=(e.closest(`div[style*="fixed"]`)?.querySelector(`span`)?.textContent||``).replace(`📚 `,``).split(`/`),n=t[0]||`douyin`,r=t[1]||``;try{(await(await fetch(`/api/matrix/corpus/add`,{method:`POST`,headers:{"Content-Type":`application/json`},body:JSON.stringify({platform:n,category:r,text:e.value.trim()})})).json()).status===`ok`&&(e.value=``,d(n,r),m())}catch(e){alert(e.message)}}async function p(e,t,n){if(n===-1){alert(`模板暂不支持看板删除，请使用 CLI`);return}if(confirm(`删除第 ${n+1} 条评论？`))try{(await(await fetch(`/api/matrix/corpus/delete`,{method:`POST`,headers:{"Content-Type":`application/json`},body:JSON.stringify({platform:e,category:t,index:n})})).json()).status===`ok`&&(document.querySelector(`div[style*="fixed"]`)?.remove(),u=!1,d(e,t),m())}catch(e){alert(e.message)}}async function m(){let t=document.getElementById(`view-dynamic`);if(!t)return;let n=document.querySelector(`.corpus-tab.active`)?.dataset?.tab||`1d`;await e(t),o(n)}function h(e){return typeof e==`string`?e.replace(/&/g,`&amp;`).replace(/</g,`&lt;`).replace(/>/g,`&gt;`).replace(/"/g,`&quot;`).replace(/'/g,`&#039;`):String(e||``)}function g(){window._corpusFnsRegistered||(window._corpusFnsRegistered=!0,window.switchCorpusTab=o,window.corpusAdd=s,window.corpusBatchImport=c,window.copyCorpusTemplate=l,window.corpusShowDetail=d,window.corpusDetailAdd=f,window.corpusDetailDelete=p,window._corpusFilterIndustry=_)}function _(e){document.querySelectorAll(`.ind-filter`).forEach(t=>{t.style.background=t.dataset.ind===e?`var(--primary)`:`var(--bg3)`,t.style.color=t.dataset.ind===e?`#fff`:`var(--text2)`}),document.querySelectorAll(`.corpus-row`).forEach(t=>{e===`all`?t.style.display=``:t.style.display=t.dataset.accessible===e?``:`none`})}export{e as loadView};
