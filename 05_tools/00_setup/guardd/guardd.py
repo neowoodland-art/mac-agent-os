@@ -1599,7 +1599,8 @@ def api_scheduler_status() -> dict:
     _init_scheduler()
     return {
         "active": list(_scheduler.active_tasks.values()) if _scheduler.active_tasks else [],
-        "queue": _scheduler.queue.get_all(),
+        "queue": _scheduler.get_all_queued(),
+        "queue_sizes": _scheduler.queue_sizes() if _scheduler else {},
         "slots": _slot_manager.get_usage() if _slot_manager else {},
         "counts": _task_store.count() if _task_store else {},
     }

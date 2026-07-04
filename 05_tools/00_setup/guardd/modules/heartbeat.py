@@ -48,7 +48,7 @@ class HeartbeatReporter:
             at = self._task_to_heartbeat(t)
             if at:
                 active_list.append(at)
-        queued = self.scheduler.queue.get_all() if hasattr(self.scheduler, 'queue') else []
+        queued = self.scheduler.get_all_queued() if hasattr(self.scheduler, 'get_all_queued') else []
         task_counts = self.task_store.count()
 
         # 增强 slot 信息：从 slot_manager 获取每个浏览器的当前步骤/时间
