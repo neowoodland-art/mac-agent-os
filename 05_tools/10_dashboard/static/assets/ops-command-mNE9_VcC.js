@@ -1,4 +1,4 @@
-import{t as e}from"./index-BKzPl-uu.js";var t=null,n=[];async function r(t){try{n=(await e(`/v2/accounts`)).accounts||[]}catch{n=[]}t.innerHTML=`
+import{t as e}from"./index-Dc0PUEM9.js";var t=null,n=[];async function r(t){try{n=(await e(`/v2/accounts`)).accounts||[]}catch{n=[]}t.innerHTML=`
     <div style="padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-weight:700;font-size:16px">🚀 联邦指挥台</div>

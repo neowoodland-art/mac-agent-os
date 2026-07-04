@@ -18,7 +18,7 @@ command_bus.py — 统一命令传输层 v6
   Dashboard → API → CommandBus → MachineSession(队列) → mc run → 引擎 → Camoufox
 """
 
-import asyncio, copy, json, logging, os, socket, subprocess, sys, time, threading, urllib.request, urllib.error
+import asyncio, copy, json, logging, os, shlex, socket, subprocess, sys, time, threading, urllib.request, urllib.error
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -1064,7 +1064,7 @@ class CommandBus:
                         tasks.append({
                             "machine": machine, "cmd_type": "comment",
                             "ids_str": aid, "is_local": is_local,
-                            "cmd_line": f'mc task comment --account={aid} --url={url} --comment="{comment}"',
+                            "cmd_line": f'mc task comment --account={shlex.quote(aid)} --url={shlex.quote(url)} --comment={shlex.quote(comment)} -y',
                             "run_id": f"smart_comment_{int(time.time())}_{machine}_{aid}",
                             "priority": 0,  # P0
                             "nickname": a.get("nickname", ""),

@@ -280,14 +280,19 @@ function registerGlobals(uid) {
         })
       });
       // 显示进度日志
-      const machines = resp?.machines || {};
+      const machines = resp?.per_machine || {};
       let log = '';
+
+      // wait=False 时 per_machine 可能为空，从 commands 状态推断
+      const hasMachines = Object.keys(machines).length > 0;
       for (const [m, data] of Object.entries(machines)) {
         const okc = data?.success || 0;
         const failc = data?.failed || 0;
         log += `🖥 ${m}: ✅${okc} ❌${failc}\n`;
       }
-      resultEl.textContent = log || `✅ 已分发 ${count} 条评论任务 (P0)`;
+      // 如果有 commands 但没有 machines，说明已提交但未等待完成
+      const cmdCount = resp?.commands?.length || 0;
+      resultEl.textContent = (hasMachines && log) || (cmdCount > 0 ? `✅ 已提交 ${cmdCount} 条评论任务 (P0)，正在排队执行...` : `✅ 已分发 ${count} 条评论任务 (P0)`);
     } catch (e) {
       resultEl.textContent = `❌ 执行失败: ${e.message}`;
     }
