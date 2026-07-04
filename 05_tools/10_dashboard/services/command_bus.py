@@ -1013,6 +1013,7 @@ class CommandBus:
                     errors.append({"account": all_ids, "message": "smart_comment 需要 urls 参数"})
                     continue
                 direction = params.get("direction", "praise")
+                corpus_category = params.get("corpus_category", "")
                 try:
                     from services.video_analyzer import VideoAnalyzer
                     import asyncio
@@ -1021,6 +1022,9 @@ class CommandBus:
                     profiles = _load_profiles()
                     first_account = accts[0]["id"] if accts else ""
                     account_industry = profiles.get(first_account, {}).get("industry", None)
+                    # 如果用户指定了语料分类，限制分析器只从该分类选评论
+                    if corpus_category:
+                        account_industry = corpus_category
                     results = asyncio.run(analyzer.analyze_batch(
                         urls, account_industry=account_industry, direction=direction
                     ))

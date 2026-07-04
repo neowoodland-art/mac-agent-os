@@ -704,7 +704,9 @@ async function loadPlugins() {
         {view:'matrix-nurture', label:'🏃 养号执行'},
         {view:'matrix-publish', label:'📤 内容发布'},
         {view:'matrix-interact', label:'💬 评论互动'},
+        {view:'matrix-comment', label:'💬 定向评论'},
         {view:'matrix-blueprints', label:'📋 蓝图管理'},
+        {view:'matrix-like', label:'❤️ 收藏点赞'},
         // {view:'matrix-login', label:'🔑 登录管理'}, // 已合并到信息采集
         {view:'matrix-schedule', label:'⏱ 定时任务'},
         {view:'ops-recorder', label:'🎬 录制标注'},

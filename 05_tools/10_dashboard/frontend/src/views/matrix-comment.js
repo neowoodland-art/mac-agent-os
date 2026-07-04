@@ -25,10 +25,7 @@ export async function loadView(container, params) {
         <!-- 标题 -->
         <div style="font-weight:600;font-size:14px;margin-bottom:10px">
           💬 定向评论
-          <span style="font-size:10px;color:var(--text2);font-weight:400">
-            <label style="margin:0 8px"><input type="radio" name="mode_${_uid}" value="smart" checked onchange="window._sc_modeChange('${_uid}')"> 智能分析</label>
-            <label style="margin:0 8px"><input type="radio" name="mode_${_uid}" value="direct" onchange="window._sc_modeChange('${_uid}')"> 直接执行</label>
-          </span>
+          <span style="font-size:10px;color:var(--text2);font-weight:400">分析预览后手动分发，或一键分析+自动分发</span>
         </div>
 
         <!-- 账号选择 -->
@@ -38,17 +35,22 @@ export async function loadView(container, params) {
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
           <textarea id="urls_${_uid}" placeholder="视频链接（每行一个，支持多个）" rows="3"
                     style="flex:2;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;resize:vertical"></textarea>
-          <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px">
+          <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:160px">
             <select id="dir_${_uid}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
               <option value="praise">👍 称赞</option>
               <option value="question">🤔 提问</option>
               <option value="empathy">💗 共鸣</option>
               <option value="agree">✅ 认同</option>
             </select>
-            <button id="btn_analyze_${_uid}" onclick="window._sc_analyze('${_uid}')"
-                    style="background:var(--primary);color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px">🔍 分析视频</button>
-            <button id="btn_go_${_uid}" onclick="window._sc_go('${_uid}')"
-                    style="background:#16a34a;color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;display:none">🚀 确认分发</button>
+            <select id="corpus_${_uid}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
+              <option value="">🌐 自动匹配</option>
+            </select>
+            <div style="display:flex;gap:4px">
+              <button id="btn_analyze_${_uid}" onclick="window._sc_analyze('${_uid}')"
+                      style="flex:1;background:var(--primary);color:#fff;border:none;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px">🔍 分析预览</button>
+              <button id="btn_go_${_uid}" onclick="window._sc_go('${_uid}')"
+                      style="flex:1;background:#16a34a;color:#fff;border:none;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px">🚀 一键执行</button>
+            </div>
           </div>
         </div>
 
@@ -84,6 +86,18 @@ export async function loadView(container, params) {
     if (el) el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
   }
 
+  // 填充语料分类下拉
+  const corpusSel = document.getElementById(`corpus_${_uid}`);
+  if (corpusSel) {
+    const corpusCats = _allCorpusCategories;
+    corpusCats.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      opt.textContent = `${c.name} (${(c.accessible||[]).join(',')||'通用'})`;
+      corpusSel.appendChild(opt);
+    });
+  }
+
   // 如果是从账号中心带过来的账号参数
   if (params && params.accounts && _selector) {
     setTimeout(() => {
@@ -113,6 +127,7 @@ function registerGlobals(uid) {
     const selected = _selector?.getSelected() || [];
     const urlsText = document.getElementById(`urls_${u}`)?.value;
     const direction = document.getElementById(`dir_${u}`)?.value || 'praise';
+    const corpusCategory = document.getElementById(`corpus_${u}`)?.value || '';
     const resultEl = document.getElementById(`result_${u}`);
     const previewEl = document.getElementById(`preview_${u}`);
 
@@ -136,6 +151,7 @@ function registerGlobals(uid) {
           params: {
             urls,
             direction,
+            corpus_category: corpusCategory || undefined,
             preview: true
           }
         })
@@ -230,11 +246,12 @@ function registerGlobals(uid) {
     }
   };
 
-  // 直接执行模式（旧 comment 类型）
+  // 一键执行模式：分析+自动分发（不预览）
   window[`_sc_go`] = async (u) => {
     const selected = _selector?.getSelected() || [];
     const urlsText = document.getElementById(`urls_${u}`)?.value;
     const dir = document.getElementById(`dir_${u}`)?.value;
+    const corpus = document.getElementById(`corpus_${u}`)?.value || '';
     const resultEl = document.getElementById(`result_${u}`);
 
     if (!urlsText || !urlsText.trim()) { resultEl.textContent = '请填写至少一个视频链接'; return; }
@@ -242,28 +259,38 @@ function registerGlobals(uid) {
     if (!selected.length) { resultEl.textContent = '请先选择账号'; return; }
 
     const count = selected.length * urls.length;
-    const detail = `账号: ${selected.map(s => s.id).slice(0, 5).join(', ')}${selected.length > 5 ? '...' : ''}\n视频: ${urls.join('\n')}\n方式: 直接执行（不分析）`;
-    const ok = await confirmExecute(`即将用 ${selected.length} 个账号评论 ${urls.length} 个视频`, detail);
+    const details = `账号 ${selected.length} 个 · 视频 ${urls.length} 个\n方向: ${dir} · 语料: ${corpus || '自动'}`;
+    const ok = await confirmExecute(`即将一键分析并分发 ${count} 条评论`, details);
     if (!ok) { resultEl.textContent = '已取消'; return; }
 
-    resultEl.textContent = `⏳ ${count} 个任务...`;
-    let okCount = 0;
-    for (const url of urls) {
-      for (const s of selected) {
-        try {
-          await apiRequest('/ops/run', {
-            method: 'POST',
-            body: JSON.stringify({
-              type: 'comment',
-              accounts: [s.id],
-              params: { url, direction: dir }
-            })
-          });
-          okCount++;
-        } catch (e) { /* ignore single failure */ }
+    resultEl.textContent = `⏳ 分析 ${urls.length} 个视频并分发到 ${selected.length} 个账号...`;
+
+    try {
+      const resp = await apiRequest('/ops/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'smart_comment',
+          accounts: selected.map(s => s.id),
+          params: {
+            urls,
+            direction: dir,
+            corpus_category: corpus || undefined,
+            preview: false
+          }
+        })
+      });
+      // 显示进度日志
+      const machines = resp?.machines || {};
+      let log = '';
+      for (const [m, data] of Object.entries(machines)) {
+        const okc = data?.success || 0;
+        const failc = data?.failed || 0;
+        log += `🖥 ${m}: ✅${okc} ❌${failc}\n`;
       }
+      resultEl.textContent = log || `✅ 已分发 ${count} 条评论任务 (P0)`;
+    } catch (e) {
+      resultEl.textContent = `❌ 执行失败: ${e.message}`;
     }
-    resultEl.textContent = `✅ ${okCount}/${count} 已提交`;
   };
 }
 
