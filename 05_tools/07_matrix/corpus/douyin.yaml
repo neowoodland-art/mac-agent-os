@@ -157,6 +157,7 @@ categories:
     weight: 30
     enabled: true
     label: 共情弹幕
+    accessible: ["health"]
     tags: ["douyin", "medical"]
     comments:
     - 坐一天班屁股跟针扎似的，谁懂啊！
@@ -176,6 +177,7 @@ categories:
     weight: 30
     enabled: true
     label: 朱晓光主任
+    accessible: ["health"]
     tags: ["douyin", "medical"]
     comments:
     - 朱晓光主任yyds，终于不用再遭罪了
@@ -193,6 +195,7 @@ categories:
     weight: 25
     enabled: true
     label: 公众号约号
+    accessible: ["health"]
     tags: ["douyin", "medical"]
     comments:
     - 搜苏州济世璞真功重号约就行了，不用傻排队

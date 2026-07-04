@@ -47,14 +47,19 @@ CONFIG_DIR = TOOL_DIR / "config"
 PROJECT_ROOT = TOOL_DIR.parent.parent.parent
 PROFILES_PATH = PROJECT_ROOT / "agent-local/tools/matrix/data/profiles.json"
 
-# ── 关键词 → 方向 映射 ──────────────────────────────────────────
-KEYWORD_CATEGORY_MAP = [
-    (["科技", "数码", "手机"], ["称赞", "提问"]),
-    (["美食", "做饭", "菜"], ["称赞", "共鸣"]),
-    (["旅游", "风景", "旅行"], ["称赞", "提问"]),
-    (["情感", "生活", "感悟"], ["共鸣", "安慰"]),
-    (["知识", "科普", "教育"], ["提问", "补充"]),
-]
+# ── 行业关键词映射 ──────────────────────────────────────────
+# 每个行业的关键词列表，用于匹配视频标题 → 判断视频所属行业
+INDUSTRY_TAGS = {
+    "medical":   ["医生","医院","药","健康","养生","中医","体检","症状","治疗",
+                  "康复","营养","饮食","锻炼","专家","手术","门诊","看病","诊断",
+                  "痔疮","肛肠","肠胃","胃镜","肠镜"],
+    "finance":   ["股票","基金","理财","投资","经济","A股","财经","金融","保险"],
+    "tech":      ["手机","数码","电脑","科技","AI","人工智能","评测","机器人"],
+    "food":      ["美食","做饭","菜谱","餐厅","好吃","探店","烹饪","烘焙"],
+}
+
+# ── 通用方向（用于万能兜底，不匹配任何行业时使用）──
+UNIVERSAL_DIRECTIONS = ["称赞", "提问", "共鸣"]
 
 # 方向名称 → 实际分类名称（兼容两个平台已有的分类）
 DIRECTION_TO_CATEGORY = {
@@ -543,25 +548,9 @@ class CorpusManager:
 
     @staticmethod
     def _extract_first_keyword(video_title: str) -> Optional[str]:
-        """从视频标题中提取第一个匹配的关键词"""
-        for keywords, _ in KEYWORD_CATEGORY_MAP:
-            for kw in keywords:
-                if kw in video_title:
-                    return kw
-        # fallback: 取标题第一个有意义的词
-        words = re.findall(r'[\w\u4e00-\u9fff]{2,}', video_title)
+        """从视频标题中提取第一个有意义的词（不含纯数字和标点）"""
+        words = re.findall(r'[\u4e00-\u9fff]{2,}', video_title)
         return words[0] if words else ""
-
-    @staticmethod
-    def _match_keywords(video_title: str) -> list:
-        """根据视频标题匹配关键词，返回匹配到的方向列表"""
-        matched_directions = []
-        for keywords, directions in KEYWORD_CATEGORY_MAP:
-            for kw in keywords:
-                if kw in video_title:
-                    matched_directions.extend(directions)
-                    break  # 一个关键词组只匹配一次
-        return matched_directions
 
     def _get_comment_from_categories(self, category_names: list, platform: str = None,
                                       allow_templates: bool = True) -> Optional[str]:
@@ -607,92 +596,121 @@ class CorpusManager:
             return random.choice(all_comments)
         return None
 
+    # ── 行业 + 万能双池匹配 ──────────────────────────────
+
+    def _get_account_industry(self, account_id: str) -> str:
+        """从 profiles.json 读取账号的行业标记，无标记返回 general"""
+        persona = self.get_persona(account_id)
+        if persona and persona.get("industry"):
+            return persona["industry"]
+        # 从 profiles.json 直接读 industry 字段
+        try:
+            if PROFILES_PATH.exists():
+                raw = json.loads(PROFILES_PATH.read_text())
+                profile = raw.get(account_id, {})
+                ind = profile.get("industry", "general")
+                return ind
+        except Exception:
+            pass
+        return "general"
+
+    @staticmethod
+    def _classify_video(video_title: str) -> str:
+        """根据视频标题判断所属行业
+        Returns:
+            行业名（medical / finance / tech / food），都不匹配返回 "general"
+        """
+        if not video_title:
+            return "general"
+        for industry, tags in INDUSTRY_TAGS.items():
+            for tag in tags:
+                if tag in video_title:
+                    return industry
+        return "general"
+
+    def _pick_comment(self, industry: str, account_industry: str, direction: str) -> Optional[str]:
+        """根据视频行业和账号行业选评论
+
+        核心规则:
+          - 账号行业匹配视频行业 → 从行业语料取（需 YAML 中该分类有 accessible 标记）
+          - 不匹配 → 从万能池取（称赞/提问/共鸣）
+        """
+        # 尝试从匹配行业 + 方向的分类取
+        cat = DIRECTION_TO_CATEGORY.get(direction, direction)
+        if industry == account_industry and industry != "general":
+            # 行业匹配 → 从该行业的分类取
+            # 行业分类命名规则: {行业}_{方向}, 如 medical_赞美
+            industry_cat = f"{industry}_{cat}"
+            candidates = []
+            for p in ["douyin", "xiaohongshu"]:
+                data = self._load(p)
+                for cname, info in data.get("categories", {}).items():
+                    if cname != industry_cat:
+                        continue
+                    if not info.get("enabled", True):
+                        continue
+                    accessible = info.get("accessible", [])
+                    if accessible != "*" and account_industry not in accessible:
+                        continue
+                    candidates.extend(info.get("comments", []))
+            if candidates:
+                return random.choice(candidates)
+
+        # 万能池: 从通用方向取
+        cat = DIRECTION_TO_CATEGORY.get(direction, direction)
+        candidates = []
+        for p in ["douyin", "xiaohongshu"]:
+            data = self._load(p)
+            for cname, info in data.get("categories", {}).items():
+                if cname != f"万能{cat}" and cname != cat:
+                    continue
+                accessible = info.get("accessible", "*")
+                if accessible != "*" and account_industry not in accessible:
+                    continue
+                if not info.get("enabled", True):
+                    continue
+                candidates.extend(info.get("comments", []))
+        if candidates:
+            return random.choice(candidates)
+        return None
+
     def get_comment_for_video(
         self,
         video_title: str,
         direction: str = None,
         account_id: str = None,
     ) -> Optional[str]:
-        """根据视频标题（和可选方向/账号人设）从语料库中匹配一条评论
+        """根据视频标题和账号行业，从语料库匹配评论
 
-        Args:
-            video_title: 视频标题文本
-            direction:   可选，指定方向，如 "称赞"/"提问"/"共鸣"/"补充"
-            account_id:  可选，账号 ID，用于根据人设的 comment_style 优先选择方向
-
-        Returns:
-            匹配到的评论文本，或 None
+        流程:
+          1. 判断视频行业（从标题关键词）
+          2. 取账号行业（从 profiles.json）
+          3. 两行业匹配 → 从行业语料池取
+          4. 不匹配 → 从万能池取
+          5. 兜底 → 随机通用评论
         """
-        # 0) 有人设 → 优先用人设的 comment_style 作为方向
-        persona = None
-        if account_id:
-            persona = self.get_persona(account_id)
-            if persona and not direction:
-                # 如果未指定 direction，用人设的第一个 comment_style
-                styles = persona.get("comment_style", [])
-                if styles:
-                    # 先用 comment_style 去匹配，最后 fallback 到随机
-                    pass  # 后面有具体逻辑
+        if not direction:
+            direction = random.choice(UNIVERSAL_DIRECTIONS)
 
-        # 1) 从标题匹配关键词，得到方向列表
-        matched_directions = self._match_keywords(video_title)
+        account_industry = self._get_account_industry(account_id) if account_id else "general"
+        video_industry = self._classify_video(video_title)
 
-        # 2) 如果用户指定了 direction，优先使用
-        if direction and direction in DIRECTION_TO_CATEGORY:
-            if direction in matched_directions:
-                matched_directions.remove(direction)
-            matched_directions = [direction] + matched_directions
-        elif direction:
-            pass
+        log.info(f"  📋 视频行业={video_industry} 账号行业={account_industry} 方向={direction}")
 
-        # 2.5) 如果有人设且未指定 direction，把人设的 comment_style 优先排列
-        if persona and not direction:
-            styles = persona.get("comment_style", [])
-            # 把人设风格中在 matched_directions 里的提到最前面
-            for style in reversed(styles):
-                if style in matched_directions:
-                    matched_directions.remove(style)
-                    matched_directions = [style] + matched_directions
-                elif style in DIRECTION_TO_CATEGORY:
-                    # 人设风格虽未匹配到关键词，也尝试作为候选方向
-                    matched_directions = [style] + matched_directions
+        # 尝试行业池匹配
+        if video_industry == account_industry and account_industry != "general":
+            comment = self._pick_comment(video_industry, account_industry, direction)
+            if comment:
+                log.info(f"  ✅ 行业池匹配: {comment[:40]}")
+                return comment
 
-        # 3) 有匹配的方向 → 尝试依次取对应分类的评论
-        if matched_directions:
-            for d in matched_directions:
-                cat = DIRECTION_TO_CATEGORY.get(d)
-                if not cat:
-                    continue
-                kw = self._extract_first_keyword(video_title)
-                # 有关键词 → 可用模板（含 {keyword} 替换）
-                if kw:
-                    comment = self._get_comment_from_categories([cat], allow_templates=True)
-                    if comment:
-                        return comment.replace("{keyword}", kw)
-                # 无关键词 → 只用成品评论（不含模板）
-                comment = self._get_comment_from_categories([cat], allow_templates=False)
-                if comment:
-                    return comment
+        # 万能池
+        comment = self._pick_comment("general", account_industry, direction)
+        if comment:
+            log.info(f"  ✅ 万能池: {comment[:40]}")
+            return comment
 
-        # 4) 没有语料匹配 → fallback: 尝试 AI 生成
-        ai = self._get_ai_generator()
-        if ai.available:
-            try:
-                # 同步上下文执行异步 AI 调用
-                comment = asyncio.run(
-                    ai.generate_comment(
-                        video_title=video_title,
-                        direction=direction or (persona.get("comment_style", [""])[0] if persona else "称赞"),
-                        persona=persona,
-                    )
-                )
-                if comment:
-                    log.info("  🤖 AI 生成评论: %s", comment[:40])
-                    return comment
-            except Exception as exc:
-                log.warning("  ⚠️  AI 生成失败: %s", exc)
-
-        # 5) 最后兜底 → 随机返回一条
+        # 兜底
         comment = self._get_random_comment()
         if comment and "{keyword}" in comment:
             kw = self._extract_first_keyword(video_title)
