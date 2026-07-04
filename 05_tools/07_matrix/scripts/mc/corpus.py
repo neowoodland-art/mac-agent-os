@@ -446,6 +446,7 @@ class CorpusManager:
                     "enabled": info.get("enabled", True),
                     "count": count,
                     "label": info.get("label", name),
+                    "accessible": info.get("accessible", []),
                 })
         return result
 

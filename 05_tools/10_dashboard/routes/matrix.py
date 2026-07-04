@@ -56,6 +56,7 @@ def api_matrix_accounts():
                 acct["following"] = profile.get("following", acct.get("following", ""))
                 acct["likes"] = profile.get("likes", acct.get("likes", ""))
                 acct["posts"] = profile.get("posts", acct.get("posts", ""))
+                acct["industry"] = profile.get("industry", "general")
                 # 合并封号状态：profiles.json 中的 status 覆盖通用状态
                 pstatus = profile.get("status", "")
                 if pstatus == "banned":
@@ -1215,6 +1216,7 @@ def api_matrix_corpus_category(platform: str = "douyin", category: str = ""):
             "label": cat.get("label", category),
             "weight": cat.get("weight", 10),
             "enabled": cat.get("enabled", True),
+            "accessible": cat.get("accessible", []),
             "comments": cat.get("comments", []),
             "templates": cat.get("templates", []),
         }
