@@ -1029,17 +1029,38 @@ class CommandBus:
                     errors.append({"account": all_ids, "message": f"视频分析失败: {e}"})
                     continue
 
+                # 预览模式：只分析不分发，返回分析结果
+                is_preview = params.get("preview", False)
+                if is_preview:
+                    preview = {}
+                    for url, data in results.items():
+                        preview[url] = {
+                            "title": data.get("title", ""),
+                            "description": data.get("description", ""),
+                            "industry": data.get("industry", "general"),
+                            "tags": data.get("tags", []),
+                            "comment": data.get("comment", ""),
+                        }
+                    logger.info(f"  👁️ 预览模式: {len(preview)} 个视频分析完成")
+                    # 直接返回预览数据，不入 tasks
+                    return {"status": "ok", "preview": preview}
+                
+                # 使用自定义评论（用户在前端修改后传回）
+                custom_comments = params.get("comments", {})
+                
                 # 每个账号 × 每个 URL = 最小任务单元
                 for a in accts:
                     aid = a["id"]
                     for url_data in results.values():
-                        comment = url_data.get("comment", "")
+                        url = url_data.get("url", "")
+                        # 优先使用用户的预编辑评论
+                        comment = custom_comments.get(url) or url_data.get("comment", "")
                         if not comment:
                             continue
                         tasks.append({
                             "machine": machine, "cmd_type": "comment",
                             "ids_str": aid, "is_local": is_local,
-                            "cmd_line": f'mc task comment --account={aid} --url={url_data.get("url", "")} --comment="{comment}"',
+                            "cmd_line": f'mc task comment --account={aid} --url={url} --comment="{comment}"',
                             "run_id": f"smart_comment_{int(time.time())}_{machine}_{aid}",
                             "priority": 0,  # P0
                             "nickname": a.get("nickname", ""),
