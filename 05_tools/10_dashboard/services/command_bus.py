@@ -166,6 +166,20 @@ class Command:
 
 _ORACLE_MACHINES = None
 
+def _load_profiles() -> dict:
+    """加载 profiles.json 获取账号行业标记"""
+    import json
+    try:
+        from pathlib import Path
+        profiles_path = Path.home() / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+        if profiles_path.exists():
+            with open(profiles_path) as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
 def _get_machine_info(machine_name: str) -> dict:
     global _ORACLE_MACHINES
     if _ORACLE_MACHINES is None:
@@ -843,6 +857,11 @@ CMD_REGISTRY = {
         "single_account": True,
         "defaults": {"platform": "douyin"},
     },
+    "smart_comment": {
+        "master_only": True,
+        "required_params": ["urls"],
+        "single_account": True,
+    },
 }
 
 
@@ -987,6 +1006,46 @@ class CommandBus:
                         "cmd_line": f"mc run --accounts={ids_str} --blueprints={bp} --rounds={r} --mix --interval=45-90",
                         "run_id": f"{cmd_type}_{now_ts}_{machine}_{platform}",
                     })
+            elif cmd_type == "smart_comment":
+                # 智能评论：先分析视频，再按账号拆解
+                urls = params.get("urls", [])
+                if not urls:
+                    errors.append({"account": all_ids, "message": "smart_comment 需要 urls 参数"})
+                    continue
+                direction = params.get("direction", "praise")
+                try:
+                    from services.video_analyzer import VideoAnalyzer
+                    import asyncio
+                    analyzer = VideoAnalyzer(max_concurrent=2)
+                    # 获取该机器上账号的行业（取第一个账号的行业做匹配）
+                    profiles = _load_profiles()
+                    first_account = accts[0]["id"] if accts else ""
+                    account_industry = profiles.get(first_account, {}).get("industry", None)
+                    results = asyncio.run(analyzer.analyze_batch(
+                        urls, account_industry=account_industry, direction=direction
+                    ))
+                except Exception as e:
+                    logger.error(f"  视频分析失败: {e}")
+                    errors.append({"account": all_ids, "message": f"视频分析失败: {e}"})
+                    continue
+
+                # 每个账号 × 每个 URL = 最小任务单元
+                for a in accts:
+                    aid = a["id"]
+                    for url_data in results.values():
+                        comment = url_data.get("comment", "")
+                        if not comment:
+                            continue
+                        tasks.append({
+                            "machine": machine, "cmd_type": "comment",
+                            "ids_str": aid, "is_local": is_local,
+                            "cmd_line": f'mc task comment --account={aid} --url={url_data.get("url", "")} --comment="{comment}"',
+                            "run_id": f"smart_comment_{int(time.time())}_{machine}_{aid}",
+                            "priority": 0,  # P0
+                            "nickname": a.get("nickname", ""),
+                            "platform": a.get("platform", "douyin"),
+                        })
+                        logger.info(f"  📝 [{aid}] → 评论: {comment[:40]}...")
             else:
                 # 从操作注册表读取模板
                 cmd_config = CMD_REGISTRY.get(cmd_type)

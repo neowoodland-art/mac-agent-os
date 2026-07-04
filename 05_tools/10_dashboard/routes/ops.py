@@ -39,14 +39,15 @@ def api_ops_run(data: dict = {}):
     统一操作执行入口
 
     请求体:
-      type: str       — 操作类型 (nurture/collect/login/logout/comment/like)
+      type: str       — 操作类型 (nurture/collect/login/logout/comment/like/smart_comment)
       accounts: [str] — 账号ID列表
       params: dict    — 操作特定参数（可选）
         blueprint: str  — 蓝图名（nurture 用，不传则自动检测）
         rounds: int     — 轮数（nurture 用，默认 10）
         phone: str      — 手机号（collect 用）
         url: str        — 视频链接（comment/like 用）
-        direction: str  — 评论方向（comment 用）
+        urls: [str]     — 视频链接列表（smart_comment 用）
+        direction: str  — 评论方向（praise/question/empathy）
         machine: str    — 强制指定目标机器
         dry_run: bool   — 仅预览不执行
     """
@@ -56,7 +57,7 @@ def api_ops_run(data: dict = {}):
         params = data.get("params", {})
 
         if not op_type:
-            return {"status": "error", "message": "type 必填 (nurture/collect/login/logout/comment/like)"}
+            return {"status": "error", "message": "type 必填 (nurture/collect/login/logout/comment/like/smart_comment)"}
         if not accounts:
             return {"status": "error", "message": "accounts 必填"}
 
