@@ -136,13 +136,13 @@ class Scheduler:
             self._release_slot(slot_id)
 
     def _release_slot(self, slot_id: int):
-        """释放 slot + 账号 + 检查是否有 P0 等待"""
+        """释放 slot + 所有账号 + 检查是否有 P0 等待"""
         task = self.active_tasks.pop(slot_id, None)
         if task:
-            account_id = (task.get("accounts") or [""])[0]
-            if account_id and account_id in self.account_slots:
-                del self.account_slots[account_id]
-                logger.info(f"  🔓 slot {slot_id} 释放账号 {account_id}")
+            for acct in (task.get("accounts") or []):
+                if acct and acct in self.account_slots:
+                    del self.account_slots[acct]
+                    logger.info(f"  🔓 slot {slot_id} 释放账号 {acct}")
 
         # 如果有 P0 等待这个 slot，推入优先队列
         if slot_id in self.paused_slots and self.paused_slots[slot_id]:
@@ -205,9 +205,9 @@ class Scheduler:
                     continue
                 if not self._check_interval(task):
                     continue
-                # 跳过 busy 账号
+                # 跳过 busy 账号（检查 ALL accounts，不仅是 accounts[0]）
                 accounts = task.get("accounts", [])
-                if accounts and accounts[0] in self.account_slots:
+                if any(acct in self.account_slots for acct in accounts):
                     continue
                 queue.remove(task_id)
                 return task
@@ -219,11 +219,13 @@ class Scheduler:
         task["status"] = STATUS_RUNNING
         task["started_at"] = time.time()
         task["slot_id"] = slot_id
-        account_id = (task.get("accounts") or [""])[0]
-        if account_id:
-            self.account_slots[account_id] = slot_id
+        # 锁定 ALL accounts（不仅是 accounts[0]），防止同一账号跨 slot 重复执行
+        for acct in (task.get("accounts") or []):
+            if acct:
+                self.account_slots[acct] = slot_id
         self.task_store.save(task)
-        logger.info(f"  ▶️ [{task['task_id'][:30]}] slot {slot_id} 开始 (account={account_id})")
+        accts_str = ",".join(task.get("accounts", []))
+        logger.info(f"  ▶️ [{task['task_id'][:30]}] slot {slot_id} 开始 (accounts={accts_str})")
 
         try:
             import threading

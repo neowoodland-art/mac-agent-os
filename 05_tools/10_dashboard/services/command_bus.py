@@ -997,15 +997,19 @@ class CommandBus:
                     p = a.get("platform", "douyin")
                     plat_groups.setdefault(p, []).append(a)
                 for platform, plat_accts in plat_groups.items():
-                    ids_str = ",".join(a["id"] for a in plat_accts)
                     bp = params.get("blueprint") or {"douyin": "douyin_daily", "xiaohongshu": "xhs_daily"}.get(platform, "douyin_daily")
                     r = params.get("rounds", 10)
-                    tasks.append({
-                        "machine": machine, "cmd_type": cmd_type,
-                        "ids_str": ids_str, "is_local": is_local,
-                        "cmd_line": f"mc run --accounts={ids_str} --blueprints={bp} --rounds={r} --mix --interval=45-90",
-                        "run_id": f"{cmd_type}_{now_ts}_{machine}_{platform}",
-                    })
+                    # 拆解：每个账号生成独立任务（让 guardd 3 slot 并行执行）
+                    for a in plat_accts:
+                        aid = a["id"]
+                        tasks.append({
+                            "machine": machine, "cmd_type": cmd_type,
+                            "ids_str": aid, "is_local": is_local,
+                            "nickname": a.get("nickname", ""),
+                            "platform": a.get("platform", "douyin"),
+                            "cmd_line": f"mc run --accounts={aid} --blueprints={bp} --rounds={r} --mix --interval=45-90",
+                            "run_id": f"{cmd_type}_{now_ts}_{machine}_{aid}",
+                        })
             elif cmd_type == "smart_comment":
                 # 智能评论：先分析视频，再按账号拆解
                 urls = params.get("urls", [])
