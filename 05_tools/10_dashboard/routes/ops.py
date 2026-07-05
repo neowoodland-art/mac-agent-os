@@ -330,3 +330,136 @@ def api_ops_reset(data: dict = {}):
             results[m] = str(e)
     
     return {"status": "ok", "machines": results}
+
+
+import re as _re
+
+def _extract_title(share_text: str) -> str:
+    """从抖音分享文案中提取视频标题"""
+    if not share_text:
+        return ""
+    # 格式: "2.38 复制打开抖音，看看【「作者」的作品】标题文字#话题 https://..."
+    m = _re.search(r'】(.+?)(?:#|https?://)', share_text)
+    if m:
+        return m.group(1).strip()
+    # 兜底: 取 "看看【..." 之后到 # 或 URL 之前的内容  
+    m2 = _re.search(r'看看【.*?】(.+?)(?:#|https?://)', share_text)
+    if m2:
+        return m2.group(1).strip()
+    return share_text[:80].strip()
+
+
+@router.post("/import-topics")
+def api_import_topics(data: dict = {}):
+    """从外部 API 导入今日热门视频列表"""
+    import urllib.request as _urq
+    import json as _js
+
+    api_url = (data.get("api_url") or "").strip()
+    if not api_url:
+        return {"status": "error", "message": "api_url 必填"}
+    page = int(data.get("page", 1))
+    page_size = int(data.get("page_size", 100))
+
+    # 查询已成功评论的 ID 列表（去重用）
+    commented_ids = set()
+    try:
+        from services.command_bus import _load_batch_logs
+        for log in _load_batch_logs():
+            for vid in (log.get("video_ids") or []):
+                commented_ids.add(str(vid))
+    except Exception:
+        pass
+
+    try:
+        full_url = f"{api_url}?page={page}&pageSize={page_size}"
+        resp = _urq.urlopen(full_url, timeout=15)
+        body = _js.loads(resp.read().decode())
+    except Exception as e:
+        return {"status": "error", "message": f"请求外部 API 失败: {e}"}
+
+    raw_items = body.get("data", {}).get("items", [])
+    items = []
+    for item in raw_items:
+        url = (item.get("share_url") or "").strip()
+        if not url:
+            continue
+        vid = str(item.get("id", ""))
+        title = _extract_title(item.get("share_text", ""))
+        items.append({
+            "id": vid,
+            "url": url,
+            "title": title,
+            "author": item.get("nickname", "") or item.get("name", ""),
+            "completed": item.get("completion_status", 0) == 1,
+            "already_commented": vid in commented_ids,
+        })
+
+    return {
+        "status": "ok",
+        "items": items,
+        "total": len(items),
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+_BATCH_LOG_DIR = None
+
+def _get_batch_log_dir():
+    global _BATCH_LOG_DIR
+    if _BATCH_LOG_DIR is None:
+        from pathlib import Path
+        _BATCH_LOG_DIR = Path.home() / "workbuddy-agent-os" / "agent-local" / "runtime" / "commands" / "batches"
+        _BATCH_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    return _BATCH_LOG_DIR
+
+
+@router.post("/batch-log")
+def api_batch_log_save(data: dict = {}):
+    """保存一批任务的执行记录"""
+    import json, threading, time
+    log_dir = _get_batch_log_dir()
+    batch_id = data.get("batch_id", f"batch_{int(time.time())}")
+    log_entry = {
+        "batch_id": batch_id,
+        "time": data.get("time", time.strftime("%Y-%m-%d %H:%M:%S")),
+        "type": data.get("type", "smart_comment"),
+        "total": data.get("total", 0),
+        "video_count": data.get("video_count", 0),
+        "account_count": data.get("account_count", 0),
+        "urls": data.get("urls", []),
+        "video_ids": data.get("video_ids", []),
+        "direction": data.get("direction", ""),
+        "interval": data.get("interval", ""),
+        "machine_counts": data.get("machine_counts", {}),
+    }
+    today = time.strftime("%Y-%m-%d")
+    log_file = log_dir / f"{today}.jsonl"
+    with threading.Lock():
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+    return {"status": "ok", "batch_id": batch_id}
+
+
+@router.get("/batch-logs")
+def api_batch_logs_list(limit: int = 50):
+    """获取执行记录列表（最新 N 条）"""
+    import json
+    log_dir = _get_batch_log_dir()
+    if not log_dir.exists():
+        return {"logs": []}
+    entries = []
+    for f in sorted(log_dir.glob("*.jsonl"), reverse=True):
+        lines = f.read_text(encoding="utf-8").strip().split("\n")
+        for line in reversed(lines):
+            if line.strip():
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+            if len(entries) >= limit:
+                break
+        if len(entries) >= limit:
+            break
+    return {"logs": entries}

@@ -1018,24 +1018,38 @@ class CommandBus:
                     continue
                 direction = params.get("direction", "praise")
                 corpus_category = params.get("corpus_category", "")
-                try:
-                    from services.video_analyzer import VideoAnalyzer
-                    import asyncio
-                    analyzer = VideoAnalyzer(max_concurrent=2)
-                    # 获取该机器上账号的行业（取第一个账号的行业做匹配）
-                    profiles = _load_profiles()
-                    first_account = accts[0]["id"] if accts else ""
-                    account_industry = profiles.get(first_account, {}).get("industry", None)
-                    # 如果用户指定了语料分类，限制分析器只从该分类选评论
-                    if corpus_category:
-                        account_industry = corpus_category
-                    results = asyncio.run(analyzer.analyze_batch(
-                        urls, account_industry=account_industry, direction=direction
-                    ))
-                except Exception as e:
-                    logger.error(f"  视频分析失败: {e}")
-                    errors.append({"account": all_ids, "message": f"视频分析失败: {e}"})
-                    continue
+                
+                # 跳过分析模式：使用传入的标题直接匹配语料，无需开浏览器
+                skip_analysis = params.get("skip_analysis", False)
+                titles_map = params.get("titles", {})  # {url: "标题文本"}
+                if skip_analysis and titles_map:
+                    results = {}
+                    for url in urls:
+                        results[url] = {
+                            "url": url,
+                            "title": titles_map.get(url, ""),
+                            "industry": "general",
+                            "comment": "",
+                        }
+                else:
+                    try:
+                        from services.video_analyzer import VideoAnalyzer
+                        import asyncio
+                        analyzer = VideoAnalyzer(max_concurrent=2)
+                        # 获取该机器上账号的行业（取第一个账号的行业做匹配）
+                        profiles = _load_profiles()
+                        first_account = accts[0]["id"] if accts else ""
+                        account_industry = profiles.get(first_account, {}).get("industry", None)
+                        # 如果用户指定了语料分类，限制分析器只从该分类选评论
+                        if corpus_category:
+                            account_industry = corpus_category
+                        results = asyncio.run(analyzer.analyze_batch(
+                            urls, account_industry=account_industry, direction=direction
+                        ))
+                    except Exception as e:
+                        logger.error(f"  视频分析失败: {e}")
+                        errors.append({"account": all_ids, "message": f"视频分析失败: {e}"})
+                        continue
 
                 # 预览模式：只分析不分发，返回分析结果
                 is_preview = params.get("preview", False)
@@ -1251,6 +1265,23 @@ class CommandBus:
         total_failed = sum(pm["failed"] for pm in per_machine.values())
         total_accounts = sum(len(pm["accounts"]) for pm in per_machine.values())
 
+        # 写入 batch log（smart_comment 专用，非预览模式）
+        if cmd_type == "smart_comment" and not dry_run and not params.get("preview"):
+            try:
+                _save_batch_log(
+                    batch_id=params.get("decomposed_from", f"smart_comment_{now_ts}"),
+                    urls=params.get("urls", []),
+                    video_ids=params.get("video_ids", []),
+                    direction=params.get("direction", ""),
+                    interval=params.get("interval", ""),
+                    total=len(dispatched_cmds),
+                    account_count=len(accts),
+                    video_count=len(params.get("urls", [])),
+                    machine_counts=per_machine if per_machine else {},
+                )
+            except Exception:
+                pass
+
         return {
             "status": "completed" if (wait and all_terminal) else ("accepted" if not dry_run else "plan"),
             "total_accounts": total_accounts or None,
@@ -1414,3 +1445,62 @@ def cleanup_stale_commands() -> int:
         if session.current_cmd and session.current_cmd.status.is_terminal:
             session._start_next()
     return count
+
+
+# ── Batch Log（执行记录持久化）─────────────────────────────
+
+_BATCH_LOG_DIR = None
+
+def _get_batch_log_dir():
+    global _BATCH_LOG_DIR
+    if _BATCH_LOG_DIR is None:
+        _BATCH_LOG_DIR = AGENT_LOCAL / "runtime" / "commands" / "batches"
+        _BATCH_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    return _BATCH_LOG_DIR
+
+
+def _save_batch_log(batch_id: str, urls: list, video_ids: list,
+                     direction: str, interval: str, total: int,
+                     account_count: int, video_count: int,
+                     machine_counts: dict):
+    """保存一批任务的执行记录到 JSONL"""
+    import json, threading, time
+    log_entry = {
+        "batch_id": batch_id,
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "type": "smart_comment",
+        "total": total,
+        "video_count": video_count,
+        "account_count": account_count,
+        "urls": urls[:20],  # 只存前20个，避免文件太大
+        "video_ids": video_ids[:20],
+        "direction": direction,
+        "interval": interval,
+        "machine_counts": machine_counts,
+    }
+    today = time.strftime("%Y-%m-%d")
+    log_file = _get_batch_log_dir() / f"{today}.jsonl"
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+
+def _load_batch_logs(limit: int = 50) -> list:
+    """读取执行记录（最新 N 条）"""
+    import json
+    log_dir = _get_batch_log_dir()
+    if not log_dir.exists():
+        return []
+    entries = []
+    for f in sorted(log_dir.glob("*.jsonl"), reverse=True):
+        lines = f.read_text(encoding="utf-8").strip().split("\n")
+        for line in reversed(lines):
+            if line.strip():
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+            if len(entries) >= limit:
+                break
+        if len(entries) >= limit:
+            break
+    return entries
