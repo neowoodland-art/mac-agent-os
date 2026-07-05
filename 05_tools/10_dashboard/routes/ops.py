@@ -260,13 +260,6 @@ def api_ops_queue(machine: str = None):
         except Exception as e:
             return (m, {"error": str(e)})
 
-    # 只看本机（远程离线时不拖慢）
-    local_only = params.get("local_only", False)
-    if local_only:
-        machines = [__import__("utils.identity", fromlist=["resolve_hostname"]).resolve_hostname()]
-        data = _guardd_api("GET", "/scheduler/tasks")
-        return {"machines": {machines[0]: data or {"error": "未响应"}}}
-
     # 并行查询所有机器（本机快，远程可能超时，但不阻塞彼此）
     from concurrent.futures import ThreadPoolExecutor, as_completed
     with ThreadPoolExecutor(max_workers=len(machines)) as pool:
