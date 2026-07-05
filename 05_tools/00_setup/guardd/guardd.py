@@ -1549,11 +1549,12 @@ def _init_scheduler():
         _oracle_sync = OracleSync(_task_store)
         _oracle_sync.sync()
         
-        # 恢复未完成任务
+        # 恢复未完成任务（始终恢复 ALL queued 任务，不局限于 recovered>0）
         recovered = _task_store.reset_unfinished()
-        if recovered:
-            logger.info(f"  🔄 恢复 {recovered} 个未完成任务到队列")
-            for task in _task_store.get_by_status("queued"):
+        queued_tasks = _task_store.get_by_status("queued")
+        if queued_tasks:
+            logger.info(f"  🔄 恢复 {len(queued_tasks)} 个排队任务到队列 (含 {recovered} 个从 running 重置)")
+            for task in queued_tasks:
                 _scheduler.submit_task(task)
         
         logger.info("  ✅ 调度引擎初始化完成")

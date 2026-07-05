@@ -45,6 +45,8 @@ export async function loadView(container, params) {
             <select id="corpus_${_uid}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
               <option value="">🌐 自动匹配</option>
             </select>
+            <input id="interval_${_uid}" type="text" placeholder="间隔秒数 (如 60-180)" value="60-180"
+                   style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px;width:100%;box-sizing:border-box">
             <div style="display:flex;gap:4px">
               <button id="btn_analyze_${_uid}" onclick="window._sc_analyze('${_uid}')"
                       style="flex:1;background:var(--primary);color:#fff;border:none;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px">🔍 分析预览</button>
@@ -227,6 +229,8 @@ function registerGlobals(uid) {
     const resultEl = document.getElementById(`result_${u}`);
     resultEl.textContent = `⏳ 正在分发 ${count} 条任务...`;
 
+    const intervalVal = document.getElementById(`interval_${u}`)?.value || '60-180';
+
     try {
       const resp = await apiRequest('/ops/run', {
         method: 'POST',
@@ -237,6 +241,7 @@ function registerGlobals(uid) {
             urls: Object.keys(comments),
             comments,
             direction: document.getElementById(`dir_${u}`)?.value || 'praise',
+            interval: intervalVal,
           }
         })
       });
@@ -263,6 +268,8 @@ function registerGlobals(uid) {
     const ok = await confirmExecute(`即将一键分析并分发 ${count} 条评论`, details);
     if (!ok) { resultEl.textContent = '已取消'; return; }
 
+    const intervalVal = document.getElementById(`interval_${u}`)?.value || '60-180';
+
     resultEl.textContent = `⏳ 分析 ${urls.length} 个视频并分发到 ${selected.length} 个账号...`;
 
     try {
@@ -275,6 +282,7 @@ function registerGlobals(uid) {
             urls,
             direction: dir,
             corpus_category: corpus || undefined,
+            interval: intervalVal,
             preview: false
           }
         })
