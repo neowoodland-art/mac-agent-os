@@ -182,6 +182,36 @@ class BrowserSlotManager:
         except Exception as e:
             print(f"  [SlotManager] 清理异常: {e}")
 
+    def check_processes(self):
+        """逐 slot 检查 PID 存活状态（5 秒线程调用）"""
+        with self._lock:
+            for s in self.slots:
+                if not s or not s.get("pid"):
+                    continue
+                pid = s["pid"]
+                alive = True
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    alive = False
+                if alive:
+                    s["health"] = "healthy"
+                    s["last_heartbeat"] = time.time()
+                else:
+                    s["health"] = "crashed"
+                    s["pid"] = None
+                    s["account_id"] = None
+
+    def track_loop(self, interval: float = 5.0):
+        """后台线程：每 5 秒检查一次所有 slot 的进程存活"""
+        logger = __import__("logging").getLogger("guardd.slot_manager")
+        while True:
+            try:
+                self.check_processes()
+            except Exception as e:
+                logger.error(f"track_loop 异常: {e}")
+            __import__("time").sleep(interval)
+
     def get_usage(self) -> dict:
         with self._lock:
             slots_info = []

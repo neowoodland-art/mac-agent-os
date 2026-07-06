@@ -631,55 +631,9 @@ def _save_local_versions(versions):
 # ────────────────────────────────────────────────────────────
 
 def module_heartbeat():
-    """采集系统状态并写入 heartbeat.json"""
+    """采集系统状态并写入 heartbeat.json（精简版：只传在线状态 + slot 状态）"""
     status_dir = DIR_STATUS / HOSTNAME
     status_dir.mkdir(parents=True, exist_ok=True)
-
-    # 采集 CPU 负载
-    try:
-        load_avg = os.getloadavg()
-        cpu_load = round(load_avg[0], 2)  # 1 分钟负载
-    except OSError:
-        cpu_load = -1
-
-    # 采集内存使用 (macOS: vm_stat)
-    memory_info = {"total_gb": 0, "used_gb": 0, "percent": 0}
-    try:
-        result = subprocess.run(
-            ["vm_stat"],
-            capture_output=True, text=True, timeout=5
-        )
-        total_mem = 0
-        page_size = 4096
-        for line in result.stdout.split("\n"):
-            if "page size of" in line:
-                m = re.search(r"page size of (\d+)", line)
-                if m:
-                    page_size = int(m.group(1))
-            if "Pages free" in line:
-                m = re.search(r"Pages free:\s+(\d+)", line)
-                if m:
-                    free_pages = int(m.group(1))
-            if "Pages active" in line:
-                m = re.search(r"Pages active:\s+(\d+)", line)
-                if m:
-                    active_pages = int(m.group(1))
-            if "Pages wired" in line:
-                m = re.search(r"Pages wired down:\s+(\d+)", line)
-                if m:
-                    wired_pages = int(m.group(1))
-    except (subprocess.SubprocessError, FileNotFoundError):
-        pass
-
-    # 磁盘使用
-    disk_info = {"total_gb": 0, "used_gb": 0, "available_gb": 0}
-    try:
-        st = os.statvfs(str(Path.home()))
-        disk_info["total_gb"] = round(st.f_blocks * st.f_frsize / 1e9, 1)
-        disk_info["available_gb"] = round(st.f_bavail * st.f_frsize / 1e9, 1)
-        disk_info["used_gb"] = round(disk_info["total_gb"] - disk_info["available_gb"], 1)
-    except OSError:
-        pass
 
     # 读取上次 last_run.json 中的 current_task
     last_run = _read_json(LAST_RUN_FILE)
@@ -687,20 +641,29 @@ def module_heartbeat():
     if last_run:
         current_task = last_run.get("current_task")
 
+    # 采集 slot 状态（精简版）
+    slot_info = {"used": 0, "max": 3, "slots": []}
+    if _slot_manager:
+        try:
+            full = _slot_manager.get_usage()
+            slot_info["used"] = full.get("used", 0)
+            slot_info["max"] = full.get("max", 3)
+            for s in full.get("slots", []):
+                slot_info["slots"].append({
+                    "id": s.get("account_id", ""),
+                    "pid": s.get("pid"),
+                    "health": s.get("health", "unknown"),
+                    "elapsed": s.get("elapsed_sec", 0),
+                })
+        except Exception:
+            pass
+
     heartbeat = {
         "hostname": HOSTNAME,
         "version": version,
-        "role": "workstation",
-        "os": f"macOS {os.uname().release} ({os.uname().machine})",
-        "cpu": {
-            "arch": os.uname().machine,
-            "load_1m": cpu_load,
-        },
-        "memory": memory_info,
-        "disk": disk_info,
+        "online": True,
         "last_seen": datetime.now(timezone.utc).isoformat(),
-        "status": "online",
-        "guardd_version": version,
+        "slots": slot_info,
         "current_task": current_task,
     }
 
@@ -732,7 +695,7 @@ def module_heartbeat():
     # ── 记录心跳事件到 events/ ──
     _write_machine_event("heartbeat", {"cpu": cpu_load, "disk_avail": disk_info.get("available_gb", 0)})
 
-    logger.info(f"  心跳已上报 — CPU load={cpu_load}, 磁盘可用={disk_info['available_gb']}G")
+    logger.info(f"  心跳已上报 — slots:{slot_info['used']}/{slot_info['max']} 在线")
 
     # ── 确保 MACHINE.yaml 存在（首次运行时自动创建）──
     _ensure_machine_identity()
@@ -1677,6 +1640,11 @@ def main():
         scheduler_thread = threading.Thread(target=_run_scheduler_loop, daemon=True)
         scheduler_thread.start()
         logger.info("  🔁 调度引擎后台线程已启动")
+        # 5 秒进程追踪线程（独立于调度 cycle，更灵敏）
+        if _slot_manager:
+            track_thread = threading.Thread(target=_slot_manager.track_loop, args=(5.0,), daemon=True)
+            track_thread.start()
+            logger.info("  🔁 进程追踪线程已启动（每 5 秒检测 PID 存活）")
     except Exception as e:
         logger.warning(f"  调度引擎启动失败: {e} (不影响原有功能)")
 
