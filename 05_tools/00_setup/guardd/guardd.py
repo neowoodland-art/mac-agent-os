@@ -1622,11 +1622,46 @@ def api_scheduler_submit(task_json: dict) -> dict:
 
 
 def api_scheduler_status() -> dict:
-    """HTTP API 入口：查询调度器状态"""
+    """HTTP API 入口：查询调度器状态
+
+    每次调用先实时检查所有浏览器进程是否活着（os.kill pid 空信号），
+    确保看板看到的是当前真实状态，不依赖 15 秒周期。
+    """
     _init_scheduler()
+    # 实时进程检测 — 每次 API 调用都查，0 延时
+    if _slot_manager:
+        try:
+            for s_info in _slot_manager.get_usage().get("slots", []):
+                pid = s_info.get("pid")
+                if pid:
+                    try:
+                        os.kill(pid, 0)  # 空信号，仅测存活
+                        s_info["health"] = "healthy"
+                    except OSError:
+                        s_info["health"] = "crashed"
+                        s_info["pid"] = None  # 已死，清掉 PID
+        except Exception:
+            pass
+    # 同步清理 scheduler 中已死的活跃任务
+    if _scheduler and _scheduler.active_tasks:
+        for slot_id, task in list(_scheduler.active_tasks.items()):
+            slot_pid = None
+            if _slot_manager:
+                slots_info = _slot_manager.get_usage().get("slots", [])
+                s_info = next((s for s in slots_info if s.get("slot_id") == slot_id), None)
+                if s_info:
+                    slot_pid = s_info.get("pid")
+            # 如果 slot 有 PID 但进程已死，或 slot 已释放但 active_tasks 还有 → 强制释放
+            if slot_pid is None and task.get("status") in ("running",):
+                # PID 不存在 → 进程已崩溃 → 标记失败
+                logger.warning(f"  ⚰️ [{task['task_id'][:30]}] 进程已死，强制释放 slot {slot_id}")
+                task["status"] = "failed"
+                task["error"] = "进程已崩溃"
+                task["completed_at"] = time.time()
+                _scheduler._release_slot(slot_id)
     return {
-        "active": list(_scheduler.active_tasks.values()) if _scheduler.active_tasks else [],
-        "queue": _scheduler.get_all_queued(),
+        "active": list(_scheduler.active_tasks.values()) if _scheduler and _scheduler.active_tasks else [],
+        "queue": _scheduler.get_all_queued() if _scheduler else [],
         "queue_sizes": _scheduler.queue_sizes() if _scheduler else {},
         "slots": _slot_manager.get_usage() if _slot_manager else {},
         "counts": _task_store.count() if _task_store else {},
