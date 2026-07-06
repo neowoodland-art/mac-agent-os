@@ -416,6 +416,27 @@ def _get_batch_log_dir():
     return _BATCH_LOG_DIR
 
 
+@router.post("/clear-all")
+def api_ops_clear_all(data: dict = {}):
+    """清空所有机器的所有任务（杀死运行中 + 清空队列 + 重置状态）"""
+    from services.command_bus import _guardd_api, ORACLE_PATH
+    import yaml
+    try:
+        oracle = yaml.safe_load(ORACLE_PATH.read_text())
+        machines = list(oracle.get("machines", {}).keys())
+    except Exception:
+        machines = [__import__("utils.identity", fromlist=["resolve_hostname"]).resolve_hostname()]
+
+    results = {}
+    for m in machines:
+        try:
+            r = _guardd_api("POST", "/scheduler/clear-all", machine=m)
+            results[m] = r.get("status", "error")
+        except Exception as e:
+            results[m] = str(e)
+    return {"status": "ok", "machines": results}
+
+
 @router.post("/collect-p2")
 def api_ops_collect_p2(data: dict = {}):
     """提交 P2 级别采集任务（填空闲 slot 用）"""

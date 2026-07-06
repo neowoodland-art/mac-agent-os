@@ -45,6 +45,8 @@ export async function loadView(container) {
         <button onclick="window._cmdResetAll()" style="background:rgba(220,38,38,.1);color:#ef4444;border:1px solid rgba(220,38,38,.3);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">⚠️ 重置全部</button>
         <span style="margin-left:auto"></span>
         <button onclick="window._cmdCollectP2()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">📥 一键P2采集</button>
+        <span style="border-left:1px solid var(--border);margin:0 4px"></span>
+        <button onclick="window._cmdClearAll()" style="background:rgba(220,38,38,.1);color:#ef4444;border:1px solid rgba(220,38,38,.3);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">🧹 清空队列</button>
         <span id="cmdResetResult" style="font-size:10px;color:var(--text2)"></span>
       </div>
 
@@ -81,6 +83,22 @@ function registerGlobals(container) {
     if (el) el.textContent = '⏳';
     try { const r = await apiRequest('/ops/reset', {method:'POST', body:JSON.stringify({})}); if (el) el.textContent = `✅ 已重置 ${Object.keys(r.machines||{}).length} 台`; refreshView(container); } catch(e) { if (el) el.textContent = '❌ '+e.message; }
   };
+  window._cmdClearAll = async () => {
+    if (!confirm('🧹 确认清空所有队列？\n将杀掉所有正在运行的任务 + 清空所有排队任务 + 还原环境')) return;
+    const resultEl = document.getElementById('cmdResetResult');
+    if (resultEl) resultEl.textContent = '⏳';
+    try {
+      const r = await apiRequest('/ops/clear-all', { method: 'POST', body: '{}' });
+      const results = r.machines || {};
+      const ok = Object.values(results).filter(v => v === 'ok').length;
+      const fail = Object.values(results).filter(v => v !== 'ok').length;
+      if (resultEl) resultEl.textContent = `✅ ${ok}台成功${fail ? ` ❌${fail}台失败` : ''}`;
+      setTimeout(() => window._cmdRefresh(), 2000);
+    } catch(e) {
+      if (resultEl) resultEl.textContent = `❌ ${e.message}`;
+    }
+  };
+
   window._cmdCollectP2 = async (accounts) => {
     // 如果没有传 accounts，从 _accountCache 获取所有账号
     const ids = accounts && accounts.length ? accounts : _accountCache.map(a => a.id).filter(Boolean);

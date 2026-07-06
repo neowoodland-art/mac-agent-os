@@ -81,6 +81,12 @@ class PriorityQueue:
         with self._lock:
             return len(self._heap)
 
+    def clear(self):
+        """清空队列"""
+        with self._lock:
+            self._heap.clear()
+            self._task_map.clear()
+
     def get_all(self) -> List[dict]:
         """返回所有队列中的任务信息（含 accounts/cmd_type 等字段）"""
         with self._lock:

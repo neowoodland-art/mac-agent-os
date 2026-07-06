@@ -258,6 +258,18 @@ class Scheduler:
         self.active_tasks.clear()
         self.account_slots.clear()
 
+    def clear_all(self):
+        """清空所有队列 + 杀死活跃任务，完全还原"""
+        self.kill_active()
+        # 清空内存队列
+        for q in [self.queue_priority, self.queue_normal, self.queue_filler]:
+            q.clear()
+        # 清空 task_store 中所有 queued/pending 状态的任务
+        for t in self.task_store.get_by_status("queued"):
+            self.task_store.remove(t["task_id"])
+        if self.slot_manager:
+            self.slot_manager.cleanup_orphans()
+
     def queue_sizes(self) -> dict:
         return {
             "priority": self.queue_priority.size(),

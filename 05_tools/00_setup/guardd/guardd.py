@@ -260,6 +260,10 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             self._send_json(200, _get_tasks())
         elif path == "/scheduler/tasks":
             self._send_json(200, api_scheduler_status())
+        elif path == "/scheduler/clear-all":
+            _init_scheduler()
+            _scheduler.clear_all()
+            self._send_json(200, {"status": "ok", "message": "所有任务已清空"})
         elif path == "/scheduler/queue":
             from modules.priority_queue import PriorityQueue
             status = api_scheduler_status()
