@@ -264,9 +264,11 @@ class Scheduler:
         # 清空内存队列
         for q in [self.queue_priority, self.queue_normal, self.queue_filler]:
             q.clear()
-        # 清空 task_store 中所有 queued/pending 状态的任务
-        for t in self.task_store.get_by_status("queued"):
-            self.task_store.remove(t["task_id"])
+        # 将 task_store 中所有 queued/pending 状态的任务标记为 cancelled
+        for status in ("queued", "pending"):
+            for t in self.task_store.get_by_status(status):
+                t["status"] = "cancelled"
+                self.task_store.save(t)
         if self.slot_manager:
             self.slot_manager.cleanup_orphans()
 
