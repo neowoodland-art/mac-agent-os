@@ -1070,9 +1070,6 @@ class CommandBus:
                 # 使用自定义评论（用户在前端修改后传回）
                 custom_comments = params.get("comments", {})
                 
-                # 批次ID：同组任务共享，供 guardd 做间隔检查
-                decomposed_from = f"smart_comment_{now_ts}_{machine}"
-                
                 # 导入 CorpusManager（延迟导入，避免循环依赖）
                 import sys as _sys
                 _scripts_dir = str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts")
@@ -1108,8 +1105,6 @@ class CommandBus:
                             "priority": 0,  # P0
                             "nickname": a.get("nickname", ""),
                             "platform": a.get("platform", "douyin"),
-                            "decomposed_from": decomposed_from,
-                            "interval": params.get("interval", "60-180"),
                         })
                         logger.info(f"  📝 [{aid}] → 评论: {comment[:40]}...")
             else:
@@ -1178,9 +1173,9 @@ class CommandBus:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         def _do_send(t):
-            # 合并 task-specific 字段到 params（decomposed_from, interval 等）
+            # 合并 task-specific 字段到 params
             merged_params = dict(params)
-            for extra_key in ("decomposed_from", "interval", "nickname", "platform"):
+            for extra_key in ("nickname", "platform"):
                 if extra_key in t:
                     merged_params[extra_key] = t[extra_key]
             return cls._execute_one(

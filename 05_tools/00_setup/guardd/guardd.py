@@ -1530,8 +1530,34 @@ def _init_scheduler():
         # Executor
         executor = Executor(_task_store, _slot_manager)
         
-        # Scheduler
-        _scheduler = Scheduler(_task_store, queue, _slot_manager, executor)
+        # Scheduler（传入 on_task_event 回调用于状态推送）
+        def _on_task_event(event_type, task):
+            """任务状态变化时推送事件到 Dashboard"""
+            try:
+                payload = {
+                    "event": event_type,
+                    "machine": HOSTNAME,
+                    "task_id": task.get("task_id", ""),
+                    "cmd_type": task.get("cmd_type", ""),
+                    "accounts": task.get("accounts", []),
+                    "slot_id": task.get("slot_id"),
+                    "status": task.get("status", ""),
+                    "time": datetime.now(timezone.utc).isoformat(),
+                }
+                # 推送给本机 Dashboard
+                import urllib.request as _urq
+                import json as _js
+                req = _urq.Request(
+                    "http://127.0.0.1:9988/api/push/task-event",
+                    data=_js.dumps(payload).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                _urq.urlopen(req, timeout=3)
+            except Exception:
+                pass  # Dashboard 不在线不影响执行
+
+        _scheduler = Scheduler(_task_store, queue, _slot_manager, executor, on_task_event=_on_task_event)
         
         # HeartbeatReporter
         from modules.account_monitor import AccountMonitor

@@ -62,8 +62,7 @@ export async function loadView(container, params) {
             <select id="corpus_${_uid}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
               <option value="">🌐 自动匹配</option>
             </select>
-            <input id="interval_${_uid}" type="text" placeholder="间隔秒数 (如 60-180)" value="60-180"
-                   style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px;width:100%;box-sizing:border-box">
+
             <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);cursor:pointer">
               <input id="skipAnalysis_${_uid}" type="checkbox" checked>
               ⏭ 跳过分析（导入热帖时默认开启）
@@ -298,13 +297,11 @@ function registerGlobals(uid) {
 
     const resultEl = document.getElementById(`result_${u}`);
     resultEl.textContent = `⏳ 正在分发 ${count} 条任务...`;
-    const intervalVal = document.getElementById(`interval_${u}`)?.value || '60-180';
-
     try {
       const resp = await apiRequest('/ops/run', {
         method: 'POST', body: JSON.stringify({
           type: 'smart_comment', accounts: selected.map(s => s.id),
-          params: { urls: Object.keys(comments), comments, direction: document.getElementById(`dir_${u}`)?.value || 'praise', interval: intervalVal }
+          params: { urls: Object.keys(comments), comments, direction: document.getElementById(`dir_${u}`)?.value || 'praise' }
         })
       });
       resultEl.textContent = `✅ 已分发 ${count} 条评论任务 (P0)`;
@@ -321,7 +318,6 @@ function registerGlobals(uid) {
     const dir = document.getElementById(`dir_${u}`)?.value;
     const corpus = document.getElementById(`corpus_${u}`)?.value || '';
     const skipAnalysis = document.getElementById(`skipAnalysis_${u}`)?.checked;
-    const intervalVal = document.getElementById(`interval_${u}`)?.value || '60-180';
     const resultEl = document.getElementById(`result_${u}`);
 
     if (!urlsText || !urlsText.trim()) { resultEl.textContent = '请填写至少一个视频链接'; return; }
@@ -329,7 +325,7 @@ function registerGlobals(uid) {
     if (!selected.length) { resultEl.textContent = '请先选择账号'; return; }
 
     const count = selected.length * urls.length;
-    const details = `账号 ${selected.length} 个 · 视频 ${urls.length} 个\n方向: ${dir} · 间隔: ${intervalVal}${skipAnalysis ? ' · ⏭ 跳过分析' : ''}`;
+    const details = `账号 ${selected.length} 个 · 视频 ${urls.length} 个\n方向: ${dir}${skipAnalysis ? ' · ⏭ 跳过分析' : ''}`;
     const ok = await confirmExecute(`即将${skipAnalysis?'':'分析并'}分发 ${count} 条评论`, details);
     if (!ok) { resultEl.textContent = '已取消'; return; }
 
@@ -341,7 +337,7 @@ function registerGlobals(uid) {
           type: 'smart_comment', accounts: selected.map(s => s.id),
           params: {
             urls, direction: dir, corpus_category: corpus || undefined,
-            interval: intervalVal, preview: false,
+            preview: false,
             skip_analysis: skipAnalysis && Object.keys(_importedTitles).length > 0,
             titles: skipAnalysis ? _importedTitles : {},
             video_ids: urls.map(u => ''),  // 前端没有 video_id，传空数组
@@ -389,7 +385,7 @@ async function _loadBatchLogs(uid) {
               </div>
             </div>
             <div style="display:none;padding:4px 8px;margin-bottom:4px;font-size:9px;color:var(--text2);background:var(--bg3);border-radius:0 0 4px 4px">
-              <div>方向: ${log.direction||'-'} · 间隔: ${log.interval||'-'}</div>
+              <div>方向: ${log.direction||'-'}</div>
               <div>视频: ${(log.urls||[]).slice(0,5).map(u => u.slice(0,40)).join('; ')}${(log.urls||[]).length>5?'...':''}</div>
             </div>`;
           }).join('')}

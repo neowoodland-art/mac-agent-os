@@ -463,3 +463,38 @@ def api_batch_logs_list(limit: int = 50):
         if len(entries) >= limit:
             break
     return {"logs": entries}
+
+
+# ── 任务状态推送（guardd → Dashboard）───────────────
+
+_TASK_EVENTS = []  # 内存环形缓冲，保存最近 200 条
+_MAX_EVENTS = 200
+
+supported_plugins = {}
+
+
+@router.post("/push/task-event")
+def api_push_task_event(data: dict = {}):
+    """接收 guardd 推送的任务状态变化事件"""
+    global _TASK_EVENTS
+    event = {
+        "event": data.get("event", "unknown"),
+        "machine": data.get("machine", ""),
+        "task_id": data.get("task_id", ""),
+        "cmd_type": data.get("cmd_type", ""),
+        "accounts": data.get("accounts", []),
+        "slot_id": data.get("slot_id"),
+        "status": data.get("status", ""),
+        "time": data.get("time", ""),
+        "received_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    _TASK_EVENTS.append(event)
+    if len(_TASK_EVENTS) > _MAX_EVENTS:
+        _TASK_EVENTS = _TASK_EVENTS[-_MAX_EVENTS:]
+    return {"status": "ok"}
+
+
+@router.get("/task-events")
+def api_task_events(limit: int = 50):
+    """获取最近的任务事件列表（供前端轮询/实时展示）"""
+    return {"events": _TASK_EVENTS[-limit:]}

@@ -89,26 +89,40 @@ class Executor:
             max_execution_sec = task.get("max_execution_sec", 7200)
             start_time = time.time()
 
-            # 实时读取输出
-            while True:
-                line = proc.stdout.readline()
-                if not line and proc.poll() is not None:
-                    break
-                if line:
-                    text = line.decode("utf-8", errors="replace").strip()
-                    log_lines.append(text)
-                    self._parse_and_update(task_id, account_id, identity_dir, text)
+            import select as _select
 
-                # 超时检查
-                if time.time() - start_time > max_execution_sec:
+            # 实时读取输出（非阻塞版，避免 readline 卡死）
+            while True:
+                # 超时检查 — 每轮都执行，不依赖是否有输出
+                elapsed = time.time() - start_time
+                if elapsed > max_execution_sec:
                     try:
                         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
                     except Exception:
                         proc.kill()
                     task["status"] = STATUS_FAILED
-                    task["error"] = f"超时 ({max_execution_sec}s)"
+                    task["error"] = f"超时 ({max_execution_sec:.0f}s)"
+                    task["completed_at"] = time.time()
                     self.task_store.save(task)
+                    logger.warning(f"  ⏰ [{task_id}] 超时 ({elapsed:.0f}s > {max_execution_sec}s)")
                     return {"success": False, "error": task["error"]}
+
+                # 非阻塞读 stdout（最多等 2 秒）
+                r, _, _ = _select.select([proc.stdout], [], [], 2.0)
+                if r:
+                    line = proc.stdout.readline()
+                    if not line:
+                        # EOF → 进程已关闭 stdout
+                        if proc.poll() is not None:
+                            break
+                        continue
+                    text = line.decode("utf-8", errors="replace").strip()
+                    log_lines.append(text)
+                    self._parse_and_update(task_id, account_id, identity_dir, text)
+                else:
+                    # 2 秒无输出 → 检查进程是否还活着
+                    if proc.poll() is not None:
+                        break
 
             exit_code = proc.wait()
             # 即使 exit_code != 0，如果 profiles.json 有更新也视为成功
