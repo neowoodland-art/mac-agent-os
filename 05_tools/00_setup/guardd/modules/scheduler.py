@@ -290,7 +290,7 @@ class Scheduler:
         p1_list.sort(key=lambda x: x.get("queued_at", 0))
 
         result = []
-        p0_i, p1_i = 0, 0
+        p0_i, p1_i, p2_i = 0, 0, 0
         last_p0 = True  # 从 P1 开始交替（P0 永远跟在 P1 后面）
 
         while p0_i < len(p0_list) or p1_i < len(p1_list):
@@ -299,11 +299,25 @@ class Scheduler:
                 p1_list[p1_i]["queue"] = "P1"
                 result.append(p1_list[p1_i])
                 p1_i += 1
+                last_p0 = False
             elif p1_i >= len(p1_list):
-                # 只剩 P0
-                p0_list[p0_i]["queue"] = "P0"
-                result.append(p0_list[p0_i])
-                p0_i += 1
+                # 只剩 P0 → 用 P2 作间隔
+                if last_p0 and p2_i < len(p2_list):
+                    p2_list[p2_i]["queue"] = "P2"
+                    result.append(p2_list[p2_i])
+                    p2_i += 1
+                    last_p0 = False
+                else:
+                    p0_list[p0_i]["queue"] = "P0"
+                    result.append(p0_list[p0_i])
+                    p0_i += 1
+                    last_p0 = True
+                    # P0 后面没 P1 → 补一个 P2 作间隔
+                    if p2_i < len(p2_list):
+                        p2_list[p2_i]["queue"] = "P2"
+                        result.append(p2_list[p2_i])
+                        p2_i += 1
+                        last_p0 = False
             elif last_p0:
                 # 上次取了 P0，这次取 P1（交替）
                 p1_list[p1_i]["queue"] = "P1"
@@ -317,9 +331,9 @@ class Scheduler:
                 p0_i += 1
                 last_p0 = True
 
-        # P2 全部附加末尾
-        for item in p2_list:
-            item["queue"] = "P2"
-            result.append(item)
+        # 剩余的 P2 附加末尾
+        for i in range(p2_i, len(p2_list)):
+            p2_list[i]["queue"] = "P2"
+            result.append(p2_list[i])
 
         return result
