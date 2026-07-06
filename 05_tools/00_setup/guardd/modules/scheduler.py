@@ -172,8 +172,8 @@ class Scheduler:
                 elif _p == 1:
                     p1_assigned += 1
 
-        # 交替策略：P0 已多于 P1 时优先取 P1，否则优先取 P0
-        prefer_p1 = (p0_assigned > p1_assigned) and self.queue_normal.size() > 0
+        # 交替策略：P0 >= P1 时优先取 P1（P0 永远跟在 P1 后面）
+        prefer_p1 = (p0_assigned >= p1_assigned) and self.queue_normal.size() > 0
 
         if prefer_p1:
             queue_order = [
@@ -274,9 +274,9 @@ class Scheduler:
 
     def queue_sizes(self) -> dict:
         return {
-            "priority": self.queue_priority.size(),
-            "normal": self.queue_normal.size(),
-            "filler": self.queue_filler.size(),
+            "priority": len(self.queue_priority.get_all()),
+            "normal": len(self.queue_normal.get_all()),
+            "filler": len(self.queue_filler.get_all()),
         }
 
     def get_all_queued(self) -> list:
@@ -291,7 +291,7 @@ class Scheduler:
 
         result = []
         p0_i, p1_i = 0, 0
-        last_p0 = False  # 上一次取了 P0？
+        last_p0 = True  # 从 P1 开始交替（P0 永远跟在 P1 后面）
 
         while p0_i < len(p0_list) or p1_i < len(p1_list):
             if p0_i >= len(p0_list):
