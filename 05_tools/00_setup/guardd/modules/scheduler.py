@@ -9,6 +9,7 @@ scheduler.py — 调度引擎 v4（简化版）
   5. _pop_next 增加 task_store 状态校验，过期自动清除
 """
 import logging
+import threading
 import time
 from typing import Optional
 from modules.task_store import (
@@ -41,6 +42,7 @@ class Scheduler:
 
         self.loop_interval = 15
         self.max_slots = slot_manager.max_slots if slot_manager else 3
+        self._schedule_lock = threading.Lock()
 
     # ═══════════════════════════════════════════════════════
     # 主循环
@@ -61,6 +63,10 @@ class Scheduler:
     # ═══════════════════════════════════════════════════════
 
     def submit_task(self, task: dict):
+        with self._schedule_lock:
+            self._submit_task_inner(task)
+
+    def _submit_task_inner(self, task: dict):
         task_id = task["task_id"]
         task["status"] = STATUS_QUEUED
         task["queued_at"] = time.time()
@@ -135,6 +141,10 @@ class Scheduler:
     # ═══════════════════════════════════════════════════════
 
     def _schedule_all_slots(self):
+        with self._schedule_lock:
+            self._schedule_all_inner()
+
+    def _schedule_all_inner(self):
         usage = self.slot_manager.get_usage() if self.slot_manager else {"max": self.max_slots, "used": 0, "slots": []}
         max_s = usage.get("max", self.max_slots)
 

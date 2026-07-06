@@ -88,13 +88,27 @@ class Executor:
 
             max_execution_sec = task.get("max_execution_sec", 7200)
             start_time = time.time()
+            last_output_time = time.time()
 
             import select as _select
 
             # 实时读取输出（非阻塞版，避免 readline 卡死）
             while True:
                 # 超时检查 — 每轮都执行，不依赖是否有输出
-                elapsed = time.time() - start_time
+                now = time.time()
+                elapsed = now - start_time
+                # 浏览器启动超时：60 秒无输出则认为浏览器启动失败
+                if elapsed > 60 and (now - last_output_time) > 60:
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                    except Exception:
+                        proc.kill()
+                    task["status"] = STATUS_FAILED
+                    task["error"] = "浏览器启动超时（60秒无输出）"
+                    task["completed_at"] = time.time()
+                    self.task_store.save(task)
+                    logger.warning(f"  ⏰ [{task_id}] 浏览器启动超时（60秒无输出）")
+                    return {"success": False, "error": "浏览器启动超时"}
                 if elapsed > max_execution_sec:
                     try:
                         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
@@ -118,6 +132,7 @@ class Executor:
                         continue
                     text = line.decode("utf-8", errors="replace").strip()
                     log_lines.append(text)
+                    last_output_time = time.time()
                     self._parse_and_update(task_id, account_id, identity_dir, text)
                 else:
                     # 2 秒无输出 → 检查进程是否还活着
