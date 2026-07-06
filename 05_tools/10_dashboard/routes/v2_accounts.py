@@ -24,10 +24,12 @@ router = APIRouter(prefix="/api/v2", tags=["v2_accounts"])
 
 
 def _get_svc():
-    """获取 AccountService 实例（延迟导入避免启动加载开销）"""
-    sys.path.insert(0, str(_THIS_DIR))
-    from services.account_service import AccountService
-    return AccountService()
+    """获取 AccountService 实例（延迟导入，单例缓存）"""
+    if not hasattr(_get_svc, "_instance"):
+        sys.path.insert(0, str(_THIS_DIR))
+        from services.account_service import AccountService
+        _get_svc._instance = AccountService()
+    return _get_svc._instance
 
 
 # ═══════════════════════════════════════════════════════════
