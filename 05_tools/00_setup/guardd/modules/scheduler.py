@@ -86,8 +86,13 @@ class Scheduler:
         logger.info(f"  📥 [{task_id[:30]}] 入队 P0")
 
     def _has_free_slot(self) -> bool:
-        usage = self.slot_manager.get_usage() if self.slot_manager else {"used": 0, "max": 3}
-        return usage.get("used", 0) < usage.get("max", 3)
+        """检查是否有空闲 slot。使用 active_tasks 长度作为主要依据，
+        避免 executor 线程尚未调用 acquire() 时的竞态条件。"""
+        # active_tasks 是同步设置的（在 _assign_task 中），比 slot_manager 更准确
+        active_count = len(self.active_tasks)
+        max_s = self.max_slots
+        free = active_count < max_s
+        return free
 
     # ═══════════════════════════════════════════════════════
     # 活跃任务检查
@@ -118,6 +123,12 @@ class Scheduler:
                 if acct and acct in self.account_slots:
                     del self.account_slots[acct]
                     logger.info(f"  🔓 slot {slot_id} 释放账号 {acct}")
+                # 同步释放 slot_manager
+                if self.slot_manager:
+                    try:
+                        self.slot_manager.release_by_account(acct)
+                    except Exception:
+                        pass
 
     # ═══════════════════════════════════════════════════════
     # Slot 分配
