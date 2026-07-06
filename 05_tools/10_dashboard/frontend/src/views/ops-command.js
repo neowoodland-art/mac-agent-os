@@ -195,9 +195,6 @@ function renderMachines(queueData) {
     const counts = status?.counts || {};
     const queue = status?.queue || [];
     const queueSizes = status?.queue_sizes || {};
-    const p0queue = queue.filter(q => q.queue === 'P0');
-    const p1queue = queue.filter(q => q.queue === 'P1');
-    const p2queue = queue.filter(q => q.queue === 'P2');
     const isOpen = _machineOpenState[name] !== false; // 默认展开
 
     html += `<details ${isOpen ? 'open' : ''} style="margin-bottom:8px;background:var(--bg2);border-radius:10px;border:1px solid var(--border);overflow:hidden">
@@ -267,14 +264,16 @@ function renderMachines(queueData) {
     html += `</div>`;
 
     // 队列
-    const allQ = [...p0queue, ...p1queue, ...p2queue];
-    if (allQ.length) {
-      html += `<div style="font-size:10px;font-weight:600;margin-bottom:4px">📋 排队 (${allQ.length})`;
-      if (p0queue.length) html += ` <span style="color:#ef4444;font-weight:400">🔴P0=${p0queue.length}</span>`;
-      if (p1queue.length) html += ` <span style="color:#22c55e;font-weight:400">🟢P1=${p1queue.length}</span>`;
-      if (p2queue.length) html += ` <span style="color:var(--text2);font-weight:400">⚪P2=${p2queue.length}</span>`;
+    const p0count = queue.filter(q => q.queue === 'P0').length;
+    const p1count = queue.filter(q => q.queue === 'P1').length;
+    const p2count = queue.filter(q => q.queue === 'P2').length;
+    if (queue.length) {
+      html += `<div style="font-size:10px;font-weight:600;margin-bottom:4px">📋 排队 (${queue.length})`;
+      if (p0count) html += ` <span style="color:#ef4444;font-weight:400">🔴P0=${p0count}</span>`;
+      if (p1count) html += ` <span style="color:#22c55e;font-weight:400">🟢P1=${p1count}</span>`;
+      if (p2count) html += ` <span style="color:var(--text2);font-weight:400">⚪P2=${p2count}</span>`;
       html += `</div><div style="font-size:9px">`;
-      allQ.slice(0, 15).forEach(t => {
+      queue.slice(0, 15).forEach(t => {
         const label = t.queue === 'P0' ? '🔴' : t.queue === 'P1' ? '🟢' : '⚪';
         const tid = t.task_id || '';
         const tt = tid.includes('nurture') ? '养号' : tid.includes('comment') || tid.includes('smart') ? '评论' : tid.includes('collect') ? '采集' : tid.includes('like') ? '点赞' : '';
@@ -291,7 +290,7 @@ function renderMachines(queueData) {
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_escapeHtml(display)}</span>
         </div>`;
       });
-      if (allQ.length > 15) html += `<div style="color:var(--text2);padding:2px 4px;font-size:9px">...还有 ${allQ.length-15} 个</div>`;
+      if (queue.length > 15) html += `<div style="color:var(--text2);padding:2px 4px;font-size:9px">...还有 ${queue.length-15} 个</div>`;
       html += `</div>`;
     } else {
       html += `<div style="font-size:9px;color:var(--text2);padding:2px 0">📋 队列为空</div>`;
