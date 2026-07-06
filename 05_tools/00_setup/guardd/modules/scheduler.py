@@ -144,38 +144,57 @@ class Scheduler:
             self._assign_task(slot_id, task)
 
     def _pop_next(self, slot_id: int) -> Optional[dict]:
-        """从优先级队列取下一个可用任务，跳过 busy 账号和过期条目。"""
-        # 从内存队列取（优先）
-        for queue, _ in [
-            (self.queue_priority, "P0"),
-            (self.queue_normal, "P1"),
-            (self.queue_filler, "P2"),
-        ]:
+        """取下一个可用任务，按 P0/P1 交替规则，跳过 busy 账号和过期条目。
+
+        交替规则: 不让两个 P0 相邻。如果上一个 slot 取了 P0，这个 slot 优先取 P1。
+        """
+        # 判断前一个 slot 取了什么（决定当前是否交替）
+        prev_is_p0 = False
+        for sid in range(slot_id):
+            _t = self.active_tasks.get(sid)
+            if _t:
+                _p = _t.get("priority")
+                if _p == 0:
+                    prev_is_p0 = True
+                    break
+
+        # 确定取队列的顺序
+        if prev_is_p0 and self.queue_normal.size() > 0:
+            # 前一个 slot 是 P0，优先取 P1（交替）
+            queue_order = [
+                (self.queue_normal, "P1"),
+                (self.queue_priority, "P0"),
+                (self.queue_filler, "P2"),
+            ]
+        else:
+            queue_order = [
+                (self.queue_priority, "P0"),
+                (self.queue_normal, "P1"),
+                (self.queue_filler, "P2"),
+            ]
+
+        for queue, _ in queue_order:
             candidates = queue.get_all()
-            candidates.sort(key=lambda c: (c.get("priority", 1), c.get("queued_at", 0)))
+            candidates.sort(key=lambda c: c.get("queued_at", 0))
 
             for candidate in candidates:
                 accounts = candidate.get("accounts", [])
-                # 跳过忙账号
                 if any(acct in self.account_slots for acct in accounts):
                     continue
 
                 task_id = candidate["task_id"]
 
-                # 校验 task_store 中的状态 — 避免内存队列与持久化不同步
+                # 校验 task_store 状态
                 stored = self.task_store.get(task_id)
                 if not stored:
-                    # 任务已从 task_store 移除（过期），从内存队列清除
                     queue.remove(task_id)
-                    logger.warning(f"  ⏭ [{task_id[:30]}] 过期条目已清除（task_store 无记录）")
+                    logger.warning(f"  ⏭ [{task_id[:30]}] 过期清除（无记录）")
                     continue
                 if stored.get("status") not in (STATUS_QUEUED, STATUS_PENDING):
-                    # 状态已变（被取消/已完成），从内存队列清除
                     queue.remove(task_id)
-                    logger.info(f"  ⏭ [{task_id[:30]}] 过期条目已清除（status={stored.get('status')}）")
+                    logger.info(f"  ⏭ [{task_id[:30]}] 过期清除（status={stored.get('status')}）")
                     continue
 
-                # 取出任务，不在内存队列中保留
                 removed = queue.remove(task_id)
                 if not removed:
                     continue
