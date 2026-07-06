@@ -230,13 +230,23 @@ class Scheduler:
         p0_p1 = [t for t in all_queued if t.get("priority") in (0, 1)]
         p0_p1.sort(key=lambda t: t.get("queued_at", 0))
 
-        # 从虚拟队列中取，跳过 busy 账号
+        # 从虚拟队列中取，跳过 busy 账号和过期条目
         for candidate in p0_p1:
+            # 校验任务状态：跳过 task_store 中已不是 queued 的过期条目
+            task_id = candidate["task_id"]
+            stored = self.task_store.get(task_id)
+            if not stored or stored.get("status") not in ("queued",):
+                # 过期条目从内存队列清除
+                if candidate.get("priority") == 0:
+                    self.queue_priority.remove(task_id)
+                else:
+                    self.queue_normal.remove(task_id)
+                continue
+
             accounts = candidate.get("accounts", [])
             if any(acct in self.account_slots for acct in accounts):
                 continue
 
-            task_id = candidate["task_id"]
             # 从相应队列中移除
             if candidate.get("priority") == 0:
                 self.queue_priority.remove(task_id)
