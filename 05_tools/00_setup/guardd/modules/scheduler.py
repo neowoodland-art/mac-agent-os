@@ -266,9 +266,46 @@ class Scheduler:
         }
 
     def get_all_queued(self) -> list:
+        """返回排队队列（P0/P1 交替排序，P2 附加末尾）"""
+        p0_list = self.queue_priority.get_all()
+        p1_list = self.queue_normal.get_all()
+        p2_list = self.queue_filler.get_all()
+
+        # 按 queued_at 排序后交替合并
+        p0_list.sort(key=lambda x: x.get("queued_at", 0))
+        p1_list.sort(key=lambda x: x.get("queued_at", 0))
+
         result = []
-        for q, label in [(self.queue_priority, "P0"), (self.queue_normal, "P1"), (self.queue_filler, "P2")]:
-            for item in q.get_all():
-                item["queue"] = label
-                result.append(item)
+        p0_i, p1_i = 0, 0
+        last_p0 = False  # 上一次取了 P0？
+
+        while p0_i < len(p0_list) or p1_i < len(p1_list):
+            if p0_i >= len(p0_list):
+                # 只剩 P1
+                p1_list[p1_i]["queue"] = "P1"
+                result.append(p1_list[p1_i])
+                p1_i += 1
+            elif p1_i >= len(p1_list):
+                # 只剩 P0
+                p0_list[p0_i]["queue"] = "P0"
+                result.append(p0_list[p0_i])
+                p0_i += 1
+            elif last_p0:
+                # 上次取了 P0，这次取 P1（交替）
+                p1_list[p1_i]["queue"] = "P1"
+                result.append(p1_list[p1_i])
+                p1_i += 1
+                last_p0 = False
+            else:
+                # 上次取了 P1 或刚开始，取 P0
+                p0_list[p0_i]["queue"] = "P0"
+                result.append(p0_list[p0_i])
+                p0_i += 1
+                last_p0 = True
+
+        # P2 全部附加末尾
+        for item in p2_list:
+            item["queue"] = "P2"
+            result.append(item)
+
         return result
