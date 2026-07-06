@@ -39,6 +39,8 @@ class PriorityQueue:
                 "accounts": task.get("accounts", []),
                 "cmd_type": task.get("cmd_type", ""),
                 "queued_at": task.get("queued_at", 0),
+                "command_line": task.get("command_line", ""),
+                "blueprint": task.get("blueprint", ""),
             }
 
     def pop_ready(self, now: float = None) -> Optional[str]:
@@ -102,5 +104,7 @@ class PriorityQueue:
                     "accounts": info.get("accounts", []),
                     "cmd_type": info.get("cmd_type", ""),
                     "queued_at": info.get("queued_at", 0),
+                    "command_line": info.get("command_line", ""),
+                    "blueprint": info.get("blueprint", ""),
                 })
             return result
