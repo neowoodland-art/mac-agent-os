@@ -1,4 +1,4 @@
-import{n as e,t}from"./index-CZlkPzZP.js";import{t as n}from"./account-selector-D87mja1n.js";var r=null;async function i(e){let i=(e.id||`interact`).replace(/-/g,`_`),o=await t(`/matrix/accounts`),s=Array.isArray(o)?o:o.accounts||[];e.innerHTML=`
+import{n as e,t}from"./index-CEdAx6uB.js";import{t as n}from"./account-selector-D87mja1n.js";var r=null;async function i(e){let i=(e.id||`interact`).replace(/-/g,`_`),o=await t(`/matrix/accounts`),s=Array.isArray(o)?o:o.accounts||[];e.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:4px">💬 评论互动 <span style="font-size:10px;color:var(--text2);font-weight:400">定向评论 / 三级接力 / 点赞 / 语料库</span></div>

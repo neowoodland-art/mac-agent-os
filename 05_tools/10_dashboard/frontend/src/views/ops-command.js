@@ -193,9 +193,19 @@ function renderMachines(queueData) {
       const health = slot.health || 'healthy';
       const healthIcon = health === 'healthy' ? '🟢' : health === 'warning' ? '🟡' : '🔴';
 
-      // 确定任务类型（从 blueprint/step 推断）
-      const bp = slot.blueprint || '';
-      const taskType = bp.includes('daily') ? '养号' : bp.includes('comment') || bp.includes('interact') ? '评论' : bp.includes('collect') || bp.includes('read_profile') ? '采集' : bp.includes('search') ? '搜索' : bp.includes('like') ? '点赞' : bp || '未知';
+      // 确定任务类型（从活跃任务 cmd_type 推断，兜底从 blueprint）
+      const activeTask = (status.active || status.tasks || []).find(t => t.slot_id === i);
+      const cmdType = activeTask?.cmd_type || slot.cmd_type || '';
+      const taskType = cmdType.includes('nurture') || cmdType.includes('daily') ? '养号'
+        : cmdType.includes('comment') || cmdType.includes('smart_comment') ? '评论'
+        : cmdType.includes('collect') || cmdType.includes('read_profile') ? '采集'
+        : cmdType.includes('interact') ? '互动'
+        : cmdType.includes('login') ? '登录'
+        : cmdType.includes('like') ? '点赞'
+        : slot.blueprint?.includes('daily') ? '养号'
+        : slot.blueprint?.includes('comment') ? '评论'
+        : slot.blueprint?.includes('collect') ? '采集'
+        : '养号'; // 兜底显示养号（绝大多数任务是养号）
 
       html += `<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">

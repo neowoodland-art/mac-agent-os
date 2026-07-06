@@ -1,4 +1,4 @@
-import{t as e}from"./index-CZlkPzZP.js";var t=null,n=[],r=[],i={};async function a(t){try{r=(await e(`/v2/accounts`)).accounts||[]}catch{r=[]}t.innerHTML=`
+import{t as e}from"./index-CEdAx6uB.js";var t=null,n=[],r=[],i={};async function a(t){try{r=(await e(`/v2/accounts`)).accounts||[]}catch{r=[]}t.innerHTML=`
     <div style="padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-weight:700;font-size:16px">🚀 联邦指挥台</div>
@@ -33,25 +33,25 @@ import{t as e}from"./index-CZlkPzZP.js";var t=null,n=[],r=[],i={};async function
         <span style="margin-left:auto;font-size:10px;color:var(--text2)">P0:${d?.priority||0} P1:${d?.normal||0}</span>
       </summary>
       <div style="padding:8px 12px">
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">`;for(let e=0;e<c;e++){let t=o.find(t=>t.slot_id===e)||{},n=t.account_id||``;if(!n){r+=`<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">`;for(let e=0;e<c;e++){let n=o.find(t=>t.slot_id===e)||{},i=n.account_id||``;if(!i){r+=`<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80px">
           <div style="font-size:18px;opacity:0.2">○</div>
           <div style="font-size:10px;color:var(--text2)">Slot ${e+1}</div>
           <div style="font-size:9px;color:var(--text2)">空闲</div>
-        </div>`;continue}let i=m(n),a=t.nickname||i.nickname||``,s=i.phone||``,c=t.browser_id||i.identity_dir||``,l=(t.platform||i.platform||``)===`xiaohongshu`?`📕`:`🎵`,u=t.step_index||0,d=t.total_steps||0,f=t.health||`healthy`,p=f===`healthy`?`🟢`:f===`warning`?`🟡`:`🔴`,g=t.blueprint||``,_=g.includes(`daily`)?`养号`:g.includes(`comment`)||g.includes(`interact`)?`评论`:g.includes(`collect`)||g.includes(`read_profile`)?`采集`:g.includes(`search`)?`搜索`:g.includes(`like`)?`点赞`:g||`未知`;r+=`<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">
+        </div>`;continue}let a=m(i),s=n.nickname||a.nickname||``,c=a.phone||``,l=n.browser_id||a.identity_dir||``,u=(n.platform||a.platform||``)===`xiaohongshu`?`📕`:`🎵`,d=n.step_index||0,f=n.total_steps||0,p=n.health||`healthy`,g=p===`healthy`?`🟢`:p===`warning`?`🟡`:`🔴`,_=(t.active||t.tasks||[]).find(t=>t.slot_id===e)?.cmd_type||n.cmd_type||``,v=_.includes(`nurture`)||_.includes(`daily`)?`养号`:_.includes(`comment`)||_.includes(`smart_comment`)?`评论`:_.includes(`collect`)||_.includes(`read_profile`)?`采集`:_.includes(`interact`)?`互动`:_.includes(`login`)?`登录`:_.includes(`like`)?`点赞`:n.blueprint?.includes(`daily`)?`养号`:n.blueprint?.includes(`comment`)?`评论`:n.blueprint?.includes(`collect`)?`采集`:`养号`;r+=`<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-          <span style="font-weight:600;font-size:11px">${l} ${n}</span>
-          <span style="font-size:9px">${p}</span>
+          <span style="font-weight:600;font-size:11px">${u} ${i}</span>
+          <span style="font-size:9px">${g}</span>
         </div>
-        ${a?`<div style="font-size:9px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤 ${a}</div>`:``}
-        ${s?`<div style="font-size:9px;color:var(--text2)">📱 ${s}</div>`:``}
-        ${c?`<div style="font-size:8px;color:var(--text2)">🔑 ${c}</div>`:``}
-        <div style="margin-top:3px;font-size:10px;font-weight:500;color:${_===`评论`?`#ef4444`:_===`养号`?`#22c55e`:`#8b8fa3`}">${_===`评论`?`🔴`:_===`养号`?`🟢`:`⚪`} ${_}</div>
-        ${t.current_step?`<div style="font-size:8px;color:var(--text2);margin-top:1px">🔧 ${t.current_step}</div>`:``}
-        ${t.elapsed_sec?`<div style="font-size:8px;color:var(--text2)">⏱ ${h(t.elapsed_sec)}</div>`:``}
-        ${d>0?`
+        ${s?`<div style="font-size:9px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤 ${s}</div>`:``}
+        ${c?`<div style="font-size:9px;color:var(--text2)">📱 ${c}</div>`:``}
+        ${l?`<div style="font-size:8px;color:var(--text2)">🔑 ${l}</div>`:``}
+        <div style="margin-top:3px;font-size:10px;font-weight:500;color:${v===`评论`?`#ef4444`:v===`养号`?`#22c55e`:`#8b8fa3`}">${v===`评论`?`🔴`:v===`养号`?`🟢`:`⚪`} ${v}</div>
+        ${n.current_step?`<div style="font-size:8px;color:var(--text2);margin-top:1px">🔧 ${n.current_step}</div>`:``}
+        ${n.elapsed_sec?`<div style="font-size:8px;color:var(--text2)">⏱ ${h(n.elapsed_sec)}</div>`:``}
+        ${f>0?`
         <div style="margin-top:4px">
-          <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text2)"><span>步骤 ${u}/${d}</span><span>${Math.round(u/(d||1)*100)}%</span></div>
-          <div style="height:3px;background:var(--bg2);border-radius:2px;margin-top:2px"><div style="height:100%;width:${Math.min(100,u/(d||1)*100)}%;background:#22c55e;border-radius:2px"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text2)"><span>步骤 ${d}/${f}</span><span>${Math.round(d/(f||1)*100)}%</span></div>
+          <div style="height:3px;background:var(--bg2);border-radius:2px;margin-top:2px"><div style="height:100%;width:${Math.min(100,d/(f||1)*100)}%;background:#22c55e;border-radius:2px"></div></div>
         </div>`:``}
       </div>`}r+=`</div>`;let v=[...f,...p,...g];v.length?(r+=`<div style="font-size:10px;font-weight:600;margin-bottom:4px">📋 排队 (${v.length})`,f.length&&(r+=` <span style="color:#ef4444;font-weight:400">🔴P0=${f.length}</span>`),p.length&&(r+=` <span style="color:#22c55e;font-weight:400">🟢P1=${p.length}</span>`),g.length&&(r+=` <span style="color:var(--text2);font-weight:400">⚪P2=${g.length}</span>`),r+=`</div><div style="font-size:9px">`,v.slice(0,15).forEach(e=>{let t=e.queue===`P0`?`🔴`:e.queue===`P1`?`🟢`:`⚪`,n=e.task_id||``,i=n.includes(`nurture`)?`养号`:n.includes(`comment`)||n.includes(`smart`)?`评论`:n.includes(`collect`)?`采集`:n.includes(`like`)?`点赞`:``,a=n.split(`_`),o=a.length>1?a.slice(-1)[0]:``;r+=`<div style="display:flex;gap:4px;padding:2px 4px;border-bottom:1px solid var(--border)">
           <span style="min-width:16px">${t}</span>
