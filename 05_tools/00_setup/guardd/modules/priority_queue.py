@@ -21,7 +21,7 @@ class PriorityQueue:
         self._lock = Lock()
 
     def push(self, task: dict) -> None:
-        """推入任务"""
+        """推入任务，保留 accounts/cmd_type 等关键字段"""
         task_id = task["task_id"]
         priority = task.get("priority", 1)
         scheduled_at = task.get("scheduled_at", 0) or 0
@@ -33,7 +33,13 @@ class PriorityQueue:
         item = (priority, scheduled_at, task_id)
         with self._lock:
             heapq.heappush(self._heap, item)
-            self._task_map[task_id] = item
+            self._task_map[task_id] = {
+                "priority": priority,
+                "scheduled_at": scheduled_at,
+                "accounts": task.get("accounts", []),
+                "cmd_type": task.get("cmd_type", ""),
+                "queued_at": task.get("queued_at", 0),
+            }
 
     def pop_ready(self, now: float = None) -> Optional[str]:
         """取出到时间且优先级最高的任务，返回 task_id"""
@@ -76,10 +82,19 @@ class PriorityQueue:
             return len(self._heap)
 
     def get_all(self) -> List[dict]:
-        """返回所有队列中的任务信息（不改变队列）"""
+        """返回所有队列中的任务信息（含 accounts/cmd_type 等字段）"""
         with self._lock:
-            return [
-                {"task_id": tid, "priority": p, "scheduled_at": s}
-                for p, s, tid in self._heap
-                if self._task_map.get(tid) is not None
-            ]
+            result = []
+            for p, s, tid in self._heap:
+                info = self._task_map.get(tid)
+                if info is None:
+                    continue
+                result.append({
+                    "task_id": tid,
+                    "priority": info.get("priority", p),
+                    "scheduled_at": info.get("scheduled_at", s),
+                    "accounts": info.get("accounts", []),
+                    "cmd_type": info.get("cmd_type", ""),
+                    "queued_at": info.get("queued_at", 0),
+                })
+            return result

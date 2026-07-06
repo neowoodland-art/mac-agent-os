@@ -260,9 +260,9 @@ function renderMachines(queueData) {
         const label = t.queue === 'P0' ? '🔴' : t.queue === 'P1' ? '🟢' : '⚪';
         const tid = t.task_id || '';
         const tt = tid.includes('nurture') ? '养号' : tid.includes('comment') || tid.includes('smart') ? '评论' : tid.includes('collect') ? '采集' : tid.includes('like') ? '点赞' : '';
-        // 从 task_id 提取账号名（例如 nurture_xxx_douyin_133 → douyin_133）
-        const parts = tid.split('_');
-        const acctId = parts.length > 1 ? parts.slice(-1)[0] : '';
+        // 使用 t.accounts 字段（由 PriorityQueue 直接存储）
+        const acctsList = t.accounts || [];
+        const acctId = acctsList.length > 0 ? acctsList[0] : '';
         const info = _acctInfo(acctId);
         const phone = info.phone || '';
         const nick = info.nickname || '';

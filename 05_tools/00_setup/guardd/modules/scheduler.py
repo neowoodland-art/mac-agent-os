@@ -157,21 +157,25 @@ class Scheduler:
     def _pop_next(self, slot_id: int) -> Optional[dict]:
         """取下一个可用任务，按 P0/P1 交替规则，跳过 busy 账号和过期条目。
 
-        交替规则: 不让两个 P0 相邻。如果上一个 slot 取了 P0，这个 slot 优先取 P1。
+        交替规则: 优先取 P0，但已分配的 P0 数量>=P1 时取 P1，
+        确保 P0 和 P1 交替执行，不会 3 个 slot 全跑 P0。
         """
-        # 判断前一个 slot 取了什么（决定当前是否交替）
-        prev_is_p0 = False
+        # 统计本轮已分配给前几个 slot 的 P0/P1 数量
+        p0_assigned = 0
+        p1_assigned = 0
         for sid in range(slot_id):
             _t = self.active_tasks.get(sid)
             if _t:
                 _p = _t.get("priority")
                 if _p == 0:
-                    prev_is_p0 = True
-                    break
+                    p0_assigned += 1
+                elif _p == 1:
+                    p1_assigned += 1
 
-        # 确定取队列的顺序
-        if prev_is_p0 and self.queue_normal.size() > 0:
-            # 前一个 slot 是 P0，优先取 P1（交替）
+        # 交替策略：P0 已多于 P1 时优先取 P1，否则优先取 P0
+        prefer_p1 = (p0_assigned > p1_assigned) and self.queue_normal.size() > 0
+
+        if prefer_p1:
             queue_order = [
                 (self.queue_normal, "P1"),
                 (self.queue_priority, "P0"),
