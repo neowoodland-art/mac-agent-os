@@ -238,15 +238,18 @@ function renderMachines(queueData) {
       allQ.slice(0, 15).forEach(t => {
         const label = t.queue === 'P0' ? '🔴' : t.queue === 'P1' ? '🟢' : '⚪';
         const tid = t.task_id || '';
-        // 从 task_id 推断任务类型
         const tt = tid.includes('nurture') ? '养号' : tid.includes('comment') || tid.includes('smart') ? '评论' : tid.includes('collect') ? '采集' : tid.includes('like') ? '点赞' : '';
-        // 提取账号名
+        // 从 task_id 提取账号名（例如 nurture_xxx_douyin_133 → douyin_133）
         const parts = tid.split('_');
-        const acct = parts.length > 1 ? parts.slice(-1)[0] : '';
+        const acctId = parts.length > 1 ? parts.slice(-1)[0] : '';
+        const info = _acctInfo(acctId);
+        const phone = info.phone || '';
+        const nick = info.nickname || '';
+        const display = acctId ? `${acctId}${phone?' '+phone:''}${nick?' '+nick:''}` : tid.slice(0,30);
         html += `<div style="display:flex;gap:4px;padding:2px 4px;border-bottom:1px solid var(--border)">
           <span style="min-width:16px">${label}</span>
           <span style="color:var(--text2);min-width:40px">${tt||'?'}</span>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${acct ? acct : tid.slice(0,30)}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_escapeHtml(display)}</span>
         </div>`;
       });
       if (allQ.length > 15) html += `<div style="color:var(--text2);padding:2px 4px;font-size:9px">...还有 ${allQ.length-15} 个</div>`;
@@ -276,6 +279,10 @@ function _acctInfo(accountId) {
   const a = _accountCache.find(x => x.id === accountId) || {};
   const o = _accountCache.find(x => x.phone === accountId) || {};
   return a.id ? a : o;
+}
+function _escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function _timeStr(sec) {
   if (!sec || sec <= 0) return '';
