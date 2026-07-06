@@ -1,26 +1,34 @@
+#!/usr/bin/env python3
 """
 executor.py — 任务执行器 (guardd 模块 同步版)
 
 职责:
   - 调 mc run / mc interact 等命令
   - 实时解析 stdout 提取进度
-  - 超时控制
+  - 超时控制（含 60 秒无输出检测）
   - 执行结果写入 task_store
+  - shell=False（不再通过 /bin/sh 启动，避免僵尸 shell PID）
 """
 import os
 import re
+import shlex
 import signal
 import subprocess
 import time
+from pathlib import Path
 from typing import Optional
 import logging
 from modules.task_store import TaskStore, STATUS_RUNNING, STATUS_COMPLETED, STATUS_FAILED
 
 logger = logging.getLogger("guardd.executor")
 
+HOME = Path.home()
+SCRIPTS_DIR = HOME / "workbuddy-agent-os" / "agent-sync" / "05_tools" / "07_matrix" / "scripts"
+PYTHON_PATH = HOME / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3"
+
 
 class Executor:
-    """任务执行器（同步版本）"""
+    """任务执行器（同步版本，shell=False）"""
 
     def __init__(self, task_store: TaskStore, slot_manager=None):
         self.task_store = task_store
@@ -33,37 +41,34 @@ class Executor:
         account_id = task.get("accounts", [""])[0] if task.get("accounts") else ""
         identity_dir = task.get("identity_dir", account_id)
 
-        cmd = self._build_cmd(task)
-        logger.info(f"  ▶️ executor: task_id={task.get('task_id','')} accounts={task.get('accounts',[])} cmd_type={task.get('cmd_type','')}")
-        logger.info(f"  ▶️ cmd: {cmd[:200] if cmd else 'NONE'}")
-        if not cmd:
+        cmd_info = self._build_cmd(task)
+        if not cmd_info:
             task["status"] = STATUS_FAILED
             task["error"] = "无法构建执行命令"
             self.task_store.save(task)
             return {"success": False, "error": "无法构建执行命令"}
 
+        logger.info(f"  ▶️ executor: task_id={task.get('task_id','')} accounts={task.get('accounts',[])} cmd_type={task.get('cmd_type','')}")
+        logger.info(f"  ▶️ cmd: {' '.join(cmd_info['args'])[:200] if cmd_info.get('args') else 'NONE'}")
+
         task["status"] = STATUS_RUNNING
         task["started_at"] = time.time()
         self.task_store.save(task)
 
-        # 获取槽位（含 nickname + platform）
+        # 获取槽位
         slot = None
         if self.slot_manager:
             try:
-                # 从任务参数或账号信息查询昵称和平台
                 nickname = task.get("nickname", "")
                 platform = task.get("platform", "")
                 if not platform and account_id:
-                    # 通过 account_id 推断平台
                     platform = "xiaohongshu" if account_id.startswith("xhs_") else "douyin"
                 if not nickname:
-                    # 尝试从 profiles.json 读取昵称
                     try:
                         import json
-                        home = os.path.expanduser("~")
-                        pf = os.path.join(home, "workbuddy-agent-os", "agent-local", "tools", "matrix", "data", "profiles.json")
-                        if os.path.exists(pf):
-                            profiles = json.loads(open(pf).read())
+                        pf = HOME / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+                        if pf.exists():
+                            profiles = json.loads(pf.read_text())
                             if account_id in profiles:
                                 nickname = profiles[account_id].get("nickname", "")
                     except Exception:
@@ -77,8 +82,11 @@ class Executor:
 
         log_lines = []
         try:
+            # shell=False：直接启动 python3 -m ...，不经过 /bin/sh
             proc = subprocess.Popen(
-                cmd, shell=True,
+                cmd_info["args"],
+                cwd=cmd_info.get("cwd"),
+                env=cmd_info.get("env"),
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 preexec_fn=os.setsid
             )
@@ -92,12 +100,12 @@ class Executor:
 
             import select as _select
 
-            # 实时读取输出（非阻塞版，避免 readline 卡死）
+            # 实时读取输出（非阻塞版）
             while True:
-                # 超时检查 — 每轮都执行，不依赖是否有输出
                 now = time.time()
                 elapsed = now - start_time
-                # 浏览器启动超时：60 秒无输出则认为浏览器启动失败
+
+                # 浏览器启动超时：60 秒无输出则认为启动失败
                 if elapsed > 60 and (now - last_output_time) > 60:
                     try:
                         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
@@ -109,6 +117,7 @@ class Executor:
                     self.task_store.save(task)
                     logger.warning(f"  ⏰ [{task_id}] 浏览器启动超时（60秒无输出）")
                     return {"success": False, "error": "浏览器启动超时"}
+
                 if elapsed > max_execution_sec:
                     try:
                         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
@@ -121,12 +130,10 @@ class Executor:
                     logger.warning(f"  ⏰ [{task_id}] 超时 ({elapsed:.0f}s > {max_execution_sec}s)")
                     return {"success": False, "error": task["error"]}
 
-                # 非阻塞读 stdout（最多等 2 秒）
                 r, _, _ = _select.select([proc.stdout], [], [], 2.0)
                 if r:
                     line = proc.stdout.readline()
                     if not line:
-                        # EOF → 进程已关闭 stdout
                         if proc.poll() is not None:
                             break
                         continue
@@ -135,23 +142,19 @@ class Executor:
                     last_output_time = time.time()
                     self._parse_and_update(task_id, account_id, identity_dir, text)
                 else:
-                    # 2 秒无输出 → 检查进程是否还活着
                     if proc.poll() is not None:
                         break
 
             exit_code = proc.wait()
-            # 即使 exit_code != 0，如果 profiles.json 有更新也视为成功
-            # （mc 命令可能因登录等待超时返回非0，但数据已采集）
             if exit_code != 0 and task.get("cmd_type") in ("collect", "nurture"):
                 try:
                     import json
-                    home = os.path.expanduser("~")
-                    pf = os.path.join(home, "workbuddy-agent-os", "agent-local", "tools", "matrix", "data", "profiles.json")
-                    if os.path.exists(pf):
-                        mtime = os.path.getmtime(pf)
+                    pf = HOME / "workbuddy-agent-os" / "agent-local" / "tools" / "matrix" / "data" / "profiles.json"
+                    if pf.exists():
+                        mtime = pf.stat().st_mtime
                         started = task.get("started_at", 0)
-                        if mtime >= started - 5:  # 允许 5 秒误差
-                            logger.info(f"  ✅ [{task_id}] profiles.json 已更新 (mtime={mtime:.0f} >= start={started:.0f})，标记为 completed")
+                        if mtime >= started - 5:
+                            logger.info(f"  ✅ [{task_id}] profiles.json 已更新 (mtime={mtime:.0f} >= start={started:.0f})")
                             exit_code = 0
                 except Exception:
                     pass
@@ -174,74 +177,79 @@ class Executor:
                 self.slot_manager.release(slot["browser_id"])
             self._running_procs.pop(task_id, None)
 
-    def _build_cmd(self, task: dict) -> Optional[str]:
-        """根据任务类型构建 shell 命令
-        优先使用 command_line（CommandBus 已渲染好的完整命令）
-        """
-        # 优先使用 command_line（最可靠，已经过 CommandBus 渲染）
+    def _build_cmd(self, task: dict) -> Optional[dict]:
+        """构建执行命令（返回 args/cwd/env 字典，shell=False）"""
+        scripts_dir = str(SCRIPTS_DIR)
+        python_path = str(PYTHON_PATH)
+        env = os.environ.copy()
+        env["PYTHONPATH"] = f"{scripts_dir}:{env.get('PYTHONPATH', '')}"
+
         cmd_line = task.get("command_line", "")
         if cmd_line:
-            home = __import__("pathlib").Path.home()
-            scripts_dir = f"{home}/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts"
-            python_path = f"{home}/.workbuddy/binaries/python/envs/agent-os/bin/python3"
-            return f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} -m {cmd_line}"
+            # command_line 形如: mc task comment --account=X --url=Y -y
+            # 也有旧格式: mc run --accounts=X --blueprints=Y ...
+            args = [python_path, "-m"] + shlex.split(cmd_line)
+            return {"args": args, "cwd": scripts_dir, "env": env}
 
         cmd_type = task.get("cmd_type", "")
         accounts = ",".join(task.get("accounts", []))
         blueprint = task.get("blueprint", "")
         rounds = task.get("rounds", 1)
-        home = __import__("pathlib").Path.home()
-        scripts_dir = f"{home}/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts"
-        python_path = f"{home}/.workbuddy/binaries/python/envs/agent-os/bin/python3"
 
         if cmd_type == "nurture":
-            return (f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} -m mc run "
-                    f"--accounts={accounts} --blueprints={blueprint} --rounds={rounds} --mix --interval=45-90")
+            args = [python_path, "-m", "mc", "run",
+                    f"--accounts={accounts}", f"--blueprints={blueprint}",
+                    f"--rounds={rounds}", "--mix", "--interval=45-90"]
+            return {"args": args, "cwd": scripts_dir, "env": env}
         elif cmd_type in ("interact", "comment"):
             url = task.get("params", {}).get("url", "")
             direction = task.get("params", {}).get("direction", "")
-            corpus = task.get("params", {}).get("corpus", "")
+            args = [python_path, "-m", "mc", "run",
+                    f"--accounts={accounts}", f"--blueprints={blueprint}",
+                    "--rounds=1", f"--url={url}", f"--direction={direction}"]
             interval = task.get("interval", 0)
-            cmd = (f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} -m mc run "
-                   f"--accounts={accounts} --blueprints={blueprint} --rounds=1 "
-                   f"--url={url} --direction={direction}")
             if interval:
-                cmd += f" --interval={interval}"
-            if corpus:
-                cmd += f" --corpus={corpus}"
-            return cmd
+                args.append(f"--interval={interval}")
+            return {"args": args, "cwd": scripts_dir, "env": env}
         elif cmd_type == "collect":
-            return (f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} -m mc run "
-                    f"--accounts={accounts} --blueprints={blueprint} --rounds=1")
+            args = [python_path, "-m", "mc", "run",
+                    f"--accounts={accounts}", f"--blueprints={blueprint}", "--rounds=1"]
+            return {"args": args, "cwd": scripts_dir, "env": env}
         elif cmd_type == "login":
-            return (f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} -m mc smart-login {accounts}")
+            args = [python_path, "-m", "mc", "smart-login", accounts]
+            return {"args": args, "cwd": scripts_dir, "env": env}
         elif cmd_type == "record":
             platform = task.get("params", {}).get("platform", "douyin")
-            return (f"cd {scripts_dir} && PYTHONPATH={scripts_dir} {python_path} "
-                    f"-m mc record start --accounts={accounts} --platform={platform}")
+            args = [python_path, "-m", "mc", "record", "start",
+                    f"--accounts={accounts}", f"--platform={platform}"]
+            return {"args": args, "cwd": scripts_dir, "env": env}
         return None
 
     def _parse_and_update(self, task_id: str, account_id: str, browser_id: str, line: str):
         """解析一行日志，更新任务/槽位进度"""
         if not self.slot_manager:
             return
-        m = re.search(r"📱\s+(\S+)\s+", line)
+        # 更新 step
+        for pattern, step_name in [
+            (r"(?:正在|开始|执行)\s*([\u4e00-\u9fa5_]+)", None),
+            (r"step:\s*(\S+)", None),
+        ]:
+            m = re.search(pattern, line)
+            if m:
+                self.slot_manager.update_step(browser_id, m.group(1))
+                break
+        # 更新 step_index（从 blueprint progress 提取）
+        m = re.search(r"(?:步骤|step)\s*(\d+)\s*[/|]\s*(\d+)", line)
         if m:
-            blueprint = m.group(1)
-            self.slot_manager.update_step(browser_id, f"start:{blueprint}", 0)
-        m = re.search(r"([✅❌])\s+\[\s*(\d+)\]\s+(\S+)\s*→", line)
-        if m:
-            step_index = int(m.group(2))
-            step_name = m.group(3)
-            self.slot_manager.update_step(browser_id, step_name, step_index)
-        if "📊" in line:
-            self.slot_manager.update_step(browser_id, "completed")
+            self.slot_manager.update_step(browser_id, line[:40],
+                                          step_index=int(m.group(1)), total_steps=int(m.group(2)))
 
-    def kill(self, task_id: str):
-        """强制终止任务"""
+    def kill(self, task_id: str) -> bool:
         proc = self._running_procs.get(task_id)
         if proc:
             try:
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
             except Exception:
                 proc.kill()
+            return True
+        return False
