@@ -205,7 +205,7 @@ class Scheduler:
                     queue.remove(task_id)
                     logger.warning(f"  ⏭ [{task_id[:30]}] 过期清除（无记录）")
                     continue
-                if stored.get("status") not in (STATUS_QUEUED, STATUS_PENDING):
+                if stored.get("status") != STATUS_QUEUED:
                     queue.remove(task_id)
                     logger.info(f"  ⏭ [{task_id[:30]}] 过期清除（status={stored.get('status')}）")
                     continue

@@ -718,8 +718,8 @@ def module_heartbeat():
     # 不再写入 cross_machine/machines/{UID}/heartbeat.json，避免 Git 污染。
     # Dashboard 通过 guardd 的反向连接推送获取心跳。
     #
-    # ── 记录心跳事件到 events/ ──
-    _write_machine_event("heartbeat", {"cpu": cpu_load, "disk_avail": disk_info.get("available_gb", 0)})
+    # 记录心跳事件
+    _write_machine_event("heartbeat", {"slots": f"{slot_info['used']}/{slot_info['max']}"})
 
     logger.info(f"  心跳已上报 — slots:{slot_info['used']}/{slot_info['max']} 在线")
 
