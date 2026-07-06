@@ -260,10 +260,6 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             self._send_json(200, _get_tasks())
         elif path == "/scheduler/tasks":
             self._send_json(200, api_scheduler_status())
-        elif path == "/scheduler/clear-all":
-            _init_scheduler()
-            _scheduler.clear_all()
-            self._send_json(200, {"status": "ok", "message": "所有任务已清空"})
         elif path == "/scheduler/queue":
             from modules.priority_queue import PriorityQueue
             status = api_scheduler_status()
@@ -423,6 +419,13 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             for p in ["camoufox", "firefox", "mc run"]:
                 os.system('pkill -f ' + p + ' 2>/dev/null')
             self._send_json(200, {"status": "ok", "message": "reset: tasks killed, browsers killed, queue cleared"})
+
+        elif path == "/scheduler/clear-all":
+            """清空所有任务（杀死运行中 + 清空队列 + 清空 task_store）"""
+            _init_scheduler()
+            if _scheduler:
+                _scheduler.clear_all()
+            self._send_json(200, {"status": "ok", "message": "所有任务已清空"})
 
         else:
             self._send_json(404, {"error": "not_found"})
