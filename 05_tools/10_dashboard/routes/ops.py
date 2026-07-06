@@ -332,6 +332,7 @@ def api_ops_reset(data: dict = {}):
     return {"status": "ok", "machines": results}
 
 
+import time as _time
 import re as _re
 
 def _extract_title(share_text: str) -> str:
@@ -486,7 +487,7 @@ def api_push_task_event(data: dict = {}):
         "slot_id": data.get("slot_id"),
         "status": data.get("status", ""),
         "time": data.get("time", ""),
-        "received_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "received_at": _time.strftime("%Y-%m-%d %H:%M:%S"),
     }
     _TASK_EVENTS.append(event)
     if len(_TASK_EVENTS) > _MAX_EVENTS:
