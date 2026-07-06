@@ -7043,63 +7043,8 @@ async function refreshMachineHealth() {
   } catch(e) {}
 }
 
-// 加载历史执行记录
-async function loadExecutionHistory() {
-  try {
-    const r = await fetch('/api/ops/status');
-    const d = await r.json();
-    const cmds = d.commands || (Array.isArray(d) ? d : []);
-    const el = document.getElementById('execHistory');
-    if (!el) return;
-    if (!cmds.length) {
-      el.innerHTML = '<div style="color:var(--text2);font-size:11px;padding:8px">暂无执行记录</div>';
-      return;
-    }
-    var stats = { total: cmds.length, completed: 0, failed: 0, running: 0 };
-    var byMachine = {};
-    var terminal = ['completed','failed','timed_out','crashed','cancelled'];
-    for (var i = 0; i < cmds.length; i++) {
-      var c = cmds[i];
-      var s = c.status || '?';
-      if (s === 'completed') stats.completed++;
-      else if (terminal.indexOf(s) >= 0) stats.failed++;
-      else stats.running++;
-      var mach = c.machine || '?';
-      if (!byMachine[mach]) byMachine[mach] = { total:0, ok:0, fail:0 };
-      byMachine[mach].total++;
-      if (s === 'completed') byMachine[mach].ok++;
-      else if (terminal.indexOf(s) >= 0) byMachine[mach].fail++;
-    }
-    var html = '<div style="display:flex;gap:12px;margin-bottom:6px;font-size:11px">';
-    html += '<span>📊 总数: '+stats.total+'</span>';
-    html += '<span style="color:var(--green)">✅ 成功: '+stats.completed+'</span>';
-    html += '<span style="color:var(--red)">❌ 失败: '+stats.failed+'</span>';
-    html += '<span style="color:var(--blue)">⏳ 运行中: '+stats.running+'</span>';
-    html += '</div><div style="font-size:10px">';
-    for (var mach in byMachine) {
-      var s = byMachine[mach];
-      var rate = s.total > 0 ? Math.round(s.ok / s.total * 100) : 0;
-      html += '<div style="margin:2px 0">  '+mach+': '+s.ok+'/'+s.total+' ('+rate+'%) '+Array(Math.round(rate/10)+1).join('█')+Array(10-Math.round(rate/10)+1).join('░')+'</div>';
-    }
-    html += '</div>';
-    html += '<div style="font-size:10px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px"><div style="color:var(--text2);margin-bottom:2px">最近执行:</div>';
-    for (var i = 0; i < Math.min(5, cmds.length); i++) {
-      var c = cmds[i];
-      var accts = c.accounts ? c.accounts.join(',') : (c.account || '?');
-      var icon = c.status === 'completed' ? '✅' : c.status === 'running' ? '⏳' : c.status === 'dispatching' ? '📡' : '❌';
-      html += '<div>'+icon+' '+c.machine+' '+accts+': '+(c.message || c.status)+' ('+c.elapsed_sec+'s)</div>';
-    }
-    html += '</div>';
-    el.innerHTML = html;
-  } catch(e) {
-    var el = document.getElementById('execHistory');
-    if (el) el.innerHTML = '<div style="color:var(--text2);font-size:11px">❌ 加载失败: '+e.message+'</div>';
-  }
-}
-
 // 增加自动刷新
 window.refreshMachineHealth = refreshMachineHealth;
-window.loadExecutionHistory = loadExecutionHistory;
 
 // ── 冲突解决：确保内部调用使用最终版本（来自后被导入的模块）──
 // 这些函数在其他模块中有覆盖定义，这里将本地引用指向最终版本
