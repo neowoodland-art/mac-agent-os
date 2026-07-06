@@ -58,6 +58,15 @@ loadPlugins();
 loadStats();
 // 自动刷新已由各 migrated view 的 loadView 自行管理
 
+// 浏览器刷新时从 URL hash 恢复当前视图
+(function() {
+  var hash = window.location.hash.replace('#', '');
+  if (hash) {
+    // 延后执行，等插件和统计加载完成
+    setTimeout(function() { window.switchView(hash); }, 100);
+  }
+})();
+
 // ── Navigation ──
 // 使用 window.switchView 而非裸函数名，防止 Rollup scope hoisting 覆盖
 window.switchView = function(view) {
@@ -156,7 +165,18 @@ window.switchView = function(view) {
   if (window.tryLoadView) {
     window.tryLoadView(view);
   }
+
+  // URL hash 同步：支持浏览器刷新后回到当前页
+  window.location.hash = view;
 }
+
+// 监听 hash 变化（支持浏览器后退/前进）
+window.addEventListener('hashchange', function() {
+  var hash = window.location.hash.replace('#', '');
+  if (hash && hash !== currentView) {
+    window.switchView(hash);
+  }
+});
 
 // ── Stats ──
 async function loadStats() {
