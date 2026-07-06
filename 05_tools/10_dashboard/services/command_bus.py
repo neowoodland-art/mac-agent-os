@@ -323,10 +323,10 @@ class MachineSession:
             cmd.started_at = time.time()
             return {"guardd": True, "scheduler": True}
 
-        # guardd 调度引擎不可用，降级到旧版 /task 或 subprocess
-        scripts_dir = AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"
-        python_path = f"{Path.home()}/.workbuddy/binaries/python/envs/agent-os/bin/python3"
-        full_shell_cmd = f"cd {scripts_dir} && PYTHONPATH='{scripts_dir}' {python_path} -m {cmd.command_line}"
+        logger.warning(f"  ❌ {cmd.run_id} -> scheduler submit failed: {guardd_result}")
+        cmd.status = CommandStatus.FAILED
+        cmd.error = "guardd scheduler 不可用"
+        return {"guardd": False, "error": "guardd scheduler 不可用"}
 
         guardd_result = _guardd_api("POST", "/task", {
             "cmd": full_shell_cmd,
