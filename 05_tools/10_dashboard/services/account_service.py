@@ -49,7 +49,7 @@ class AccountService:
         self._oracle_loaded = 0
         # 远程状态缓存 {machine_name: {"accounts": {...}, "cached_at": ts}}
         self._remote_cache = {}
-        self._cache_ttl = 30  # 秒
+        self._cache_ttl = 300  # 秒（5 分钟）
 
     # ═══════════════════════════════════════════════════════════
     # 公开 API
