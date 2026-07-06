@@ -312,7 +312,7 @@ class MachineSession:
             "accounts": cmd.accounts,
             "blueprint": cmd.params.get("blueprint", ""),
             "rounds": cmd.params.get("rounds", 1),
-            "priority": 0 if cmd.cmd_type in ("interact", "comment") else 1,
+            "priority": cmd.params.get("priority", 0 if cmd.cmd_type in ("interact", "comment") else 1),
             "interval": cmd.params.get("interval", 0),
             "params": cmd.params,
             "command_line": cmd.command_line,
@@ -390,7 +390,7 @@ class MachineSession:
             "accounts": cmd.accounts,
             "blueprint": cmd.params.get("blueprint", ""),
             "rounds": cmd.params.get("rounds", 1),
-            "priority": 0 if cmd.cmd_type in ("interact", "comment") else 1,
+            "priority": cmd.params.get("priority", 0 if cmd.cmd_type in ("interact", "comment") else 1),
             "interval": cmd.params.get("interval", 0),
             "params": cmd.params,
             "command_line": cmd.command_line,
@@ -1148,6 +1148,7 @@ class CommandBus:
                             "run_id": f"{cmd_type}_{now_ts}_{machine}_{aid}",
                             "nickname": a.get("nickname", ""),
                             "platform": a.get("platform", "douyin"),
+                            "priority": params.get("priority", 1),
                         })
                 else:
                     # 普通任务（登录/单账号等）：一条命令包含所有账号
@@ -1175,7 +1176,7 @@ class CommandBus:
         def _do_send(t):
             # 合并 task-specific 字段到 params
             merged_params = dict(params)
-            for extra_key in ("nickname", "platform"):
+            for extra_key in ("nickname", "platform", "priority"):
                 if extra_key in t:
                     merged_params[extra_key] = t[extra_key]
             return cls._execute_one(

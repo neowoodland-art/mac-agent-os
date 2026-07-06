@@ -43,6 +43,8 @@ export async function loadView(container) {
         <select id="cmdResetMachine" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 6px;border-radius:4px;font-size:10px"><option value="">全部机器</option></select>
         <button onclick="window._cmdResetMachine()" style="background:rgba(220,38,38,.1);color:#ef4444;border:1px solid rgba(220,38,38,.3);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔄 初始化机器</button>
         <button onclick="window._cmdResetAll()" style="background:rgba(220,38,38,.1);color:#ef4444;border:1px solid rgba(220,38,38,.3);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">⚠️ 重置全部</button>
+        <span style="margin-left:auto"></span>
+        <button onclick="window._cmdCollectP2()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px">📥 一键P2采集</button>
         <span id="cmdResetResult" style="font-size:10px;color:var(--text2)"></span>
       </div>
 
@@ -79,6 +81,24 @@ function registerGlobals(container) {
     if (el) el.textContent = '⏳';
     try { const r = await apiRequest('/ops/reset', {method:'POST', body:JSON.stringify({})}); if (el) el.textContent = `✅ 已重置 ${Object.keys(r.machines||{}).length} 台`; refreshView(container); } catch(e) { if (el) el.textContent = '❌ '+e.message; }
   };
+  window._cmdCollectP2 = async (accounts) => {
+    // 如果没有传 accounts，从 _accountCache 获取所有账号
+    const ids = accounts && accounts.length ? accounts : _accountCache.map(a => a.id).filter(Boolean);
+    if (!ids.length) { alert('⚠️ 没有可采集的账号'); return; }
+    const ok = await confirm(`提交 ${ids.length} 个账号的 P2 采集任务`);
+    if (!ok) return;
+    const resultEl = document.getElementById('cmdResetResult');
+    if (resultEl) resultEl.textContent = '⏳';
+    try {
+      const r = await apiRequest('/ops/collect-p2', {
+        method: 'POST', body: JSON.stringify({ accounts: ids })
+      });
+      if (resultEl) resultEl.textContent = r.status === 'ok' ? `✅ 已提交 ${r.total} 个 P2 采集任务` : `❌ ${r.message}`;
+    } catch(e) {
+      if (resultEl) resultEl.textContent = `❌ ${e.message}`;
+    }
+  };
+
   window._cmdStop = async (machine, taskId) => {
     if (!confirm(`停止 ${taskId}?`)) return;
     try { await apiRequest('/ops/task/cancel', {method:'POST', body:JSON.stringify({task_id:taskId, machine:machine})}); refreshView(container); } catch(e) { alert('❌ '+e.message); }
@@ -223,6 +243,7 @@ function renderMachines(queueData) {
           <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text2)"><span>步骤 ${stepIdx}/${totalSteps}</span><span>${Math.round(stepIdx/(totalSteps||1)*100)}%</span></div>
           <div style="height:3px;background:var(--bg2);border-radius:2px;margin-top:2px"><div style="height:100%;width:${Math.min(100,stepIdx/(totalSteps||1)*100)}%;background:#22c55e;border-radius:2px"></div></div>
         </div>` : ''}
+        <button onclick="window._cmdCollectP2(['${_escapeHtml(acctId)}'])" style="margin-top:4px;background:var(--bg2);border:1px dashed var(--border);color:var(--text2);padding:2px 6px;border-radius:3px;cursor:pointer;font-size:8px;width:100%;text-align:center">⚪ 采集</button>
       </div>`;
     }
     html += `</div>`;

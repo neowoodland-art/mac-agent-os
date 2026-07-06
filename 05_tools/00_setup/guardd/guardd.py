@@ -269,18 +269,44 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             self._send_json(200, status.get("slots", {}))
         elif path == "/accounts/status":
             try:
-                from modules.account_monitor import AccountMonitor
-                monitor = AccountMonitor()
-                accts = monitor.collect_status()
+                # 从 task_store 推断账号状态（不走 cookies.sqlite）
+                accounts = {}
+                if _task_store:
+                    recent = _task_store.get_recent_by_account(limit=1)
+                    for aid, last_task in recent.items():
+                        ts = last_task.get("status", "")
+                        if ts == "completed":
+                            accounts[aid] = "verified"
+                        elif ts == "failed":
+                            err = (last_task.get("error") or "").lower()
+                            if "login" in err or "cookie" in err or "auth" in err or "登录" in err:
+                                accounts[aid] = "need_login"
+                            else:
+                                accounts[aid] = "failed"
+                        else:
+                            accounts[aid] = "unknown"
+                    # 补充：从 ORACLE 账号列表补全 unknown
+                    try:
+                        import yaml
+                        oracle_path = AGENT_SYNC / "ORACLE.yaml"
+                        if oracle_path.exists():
+                            oracle = yaml.safe_load(oracle_path.read_text())
+                            for entry in oracle.get("accounts", []):
+                                for plat, aid in entry.get("platforms", {}).items():
+                                    if aid not in accounts:
+                                        accounts[aid] = "unknown"
+                    except Exception:
+                        pass
                 self._send_json(200, {
                     "hostname": HOSTNAME,
                     "machine_uid": MACHINE_UID,
-                    "accounts": accts,
+                    "accounts": accounts,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "source": "task_store",
                 })
             except Exception as e:
                 logger.error(f"/accounts/status 采集失败: {e}")
-                self._send_json(500, {"error": str(e)})
+                self._send_json(200, {"error": str(e), "accounts": {}})
         elif path == "/accounts/profiles":
             try:
                 home = __import__("pathlib").Path.home()

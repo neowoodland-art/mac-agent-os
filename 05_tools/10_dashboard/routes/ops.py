@@ -416,6 +416,28 @@ def _get_batch_log_dir():
     return _BATCH_LOG_DIR
 
 
+@router.post("/collect-p2")
+def api_ops_collect_p2(data: dict = {}):
+    """提交 P2 级别采集任务（填空闲 slot 用）"""
+    accounts = data.get("accounts", [])
+    if not accounts:
+        return {"status": "error", "message": "accounts 必填"}
+    from services.command_bus import CommandBus
+    try:
+        result = CommandBus.dispatch("collect", accounts, {
+            "priority": 2,
+            "blueprint": data.get("blueprint", "douyin_read_profile"),
+            "rounds": 1,
+        })
+        return {
+            "status": "ok",
+            "total": len(accounts),
+            "detail": result,
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/batch-log")
 def api_batch_log_save(data: dict = {}):
     """保存一批任务的执行记录"""
