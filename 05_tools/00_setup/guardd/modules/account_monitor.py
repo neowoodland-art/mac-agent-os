@@ -33,27 +33,35 @@ OVERRIDE_PATH = AGENT_LOCAL / "tools" / "matrix" / "config" / "accounts.override
 
 
 class AccountMonitor:
-    """本机账号登录状态实时采集器"""
+    """本机账号登录状态实时采集器（60 秒缓存）"""
 
     def __init__(self):
         self._identities_root = MATRIX_IDENTITIES
         self._override_path = OVERRIDE_PATH
+        self._cache = {}          # {account_id: status}
+        self._cache_time = 0      # 上次缓存时间
+        self._cache_ttl = 60      # 秒
 
     def collect_status(self) -> dict:
-        """采集本机所有账号的登录状态
-
-        读取 override.yaml 中的账号列表，逐一检查 cookie。
-        如果 override.yaml 不存在，降级到扫描 identities/ 目录。
-
-        Returns:
-            {account_id: status_string, ...}
-        """
+        """采集本机所有账号的登录状态（带 60 秒缓存）"""
+        import time as _t
+        now = _t.time()
+        if self._cache and now - self._cache_time < self._cache_ttl:
+            return dict(self._cache)
         accounts = self._get_local_accounts()
         result = {}
         for account_id, identity_hint in accounts.items():
             status = self._check_login_status(identity_hint)
             result[account_id] = status
+        self._cache = result
+        self._cache_time = now
         return result
+
+    def get_cached_status(self, account_id: str) -> str:
+        """快速查某个账号的登录状态（只走缓存，不读盘）"""
+        if self._cache and account_id in self._cache:
+            return self._cache[account_id]
+        return "unknown"
 
     def _get_local_accounts(self) -> dict:
         """获取本机账号列表 {account_id: identity_hint}"""
