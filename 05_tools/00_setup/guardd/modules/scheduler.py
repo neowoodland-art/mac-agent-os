@@ -42,7 +42,7 @@ class Scheduler:
 
         self.loop_interval = 15
         self.max_slots = slot_manager.max_slots if slot_manager else 3
-        self._schedule_lock = threading.Lock()
+        self._schedule_lock = threading.RLock()
 
     # ═══════════════════════════════════════════════════════
     # 主循环
