@@ -1,4 +1,4 @@
-import{t as e}from"./index-DLNqiJ5s.js";var t=null,n={completed:`✅`,failed:`❌`,crashed:`💥`,cancelled:`⏸️`,timed_out:`⏰`,running:`🟢`,dispatching:`📡`,queued:`⏳`,preflighting:`🔍`,preflight_failed:`🔍❌`};async function r(e){let t=`cmd_`+Math.random().toString(36).slice(2,6);e.innerHTML=`
+import{t as e}from"./index-BrmUk1i6.js";var t=null,n={completed:`✅`,failed:`❌`,crashed:`💥`,cancelled:`⏸️`,timed_out:`⏰`,running:`🟢`,dispatching:`📡`,queued:`⏳`,preflighting:`🔍`,preflight_failed:`🔍❌`};async function r(e){let t=`cmd_`+Math.random().toString(36).slice(2,6);e.innerHTML=`
     <div style="padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <h2 style="font-size:18px;margin:0">🎯 命令与任务</h2>

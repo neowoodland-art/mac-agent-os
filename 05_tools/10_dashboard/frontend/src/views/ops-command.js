@@ -186,7 +186,14 @@ function renderMachines(queueData) {
   const machines = queueData?.machines || {};
 
   let html = '';
-  for (const [name, status] of Object.entries(machines)) {
+  const machineOrder = ['chengzigedeAir', '5kechengdeAir', '7kecheng'];
+  const sortedNames = Object.keys(machines).sort((a, b) => {
+    const ia = machineOrder.indexOf(a);
+    const ib = machineOrder.indexOf(b);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+  });
+  for (const name of sortedNames) {
+    const status = machines[name];
     const isOnline = !status?.error;
     const slots = status?.slots || {};
     const slotList = (Array.isArray(slots) ? slots : (slots.slots || slots.list || []));
