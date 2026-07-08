@@ -461,7 +461,7 @@ class BatchEngine:
         import subprocess as _sp
         while True:
             try:
-                out = _sp.run("pgrep -f camoufox | wc -l", shell=True, capture_output=True, text=True, timeout=5)
+                out = _sp.run("pgrep camoufox | wc -l", shell=True, capture_output=True, text=True, timeout=5)
                 count = int(out.stdout.strip() or 0)
             except:
                 count = 0
