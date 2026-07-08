@@ -59,9 +59,13 @@ export async function loadView(container, params) {
               <option value="empathy">💗 共鸣</option>
               <option value="agree">✅ 认同</option>
             </select>
-            <select id="corpus_${_uid}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
-              <option value="">🌐 自动匹配</option>
-            </select>
+            <details style="font-size:10px;margin:2px 0">
+              <summary style="cursor:pointer;color:var(--text2)">📂 语料分类（可多选）</summary>
+              <div id="corpusList_${_uid}" style="margin-top:4px;max-height:120px;overflow-y:auto;background:var(--bg3);border-radius:4px;padding:4px">
+                <label style="display:flex;align-items:center;gap:4px;padding:2px 4px;cursor:pointer;font-size:10px"><input type="checkbox" class="corpus-cb-${_uid}" value="" checked onchange="window._sc_updateCorpus('${_uid}')"> 🌐 自动匹配</label>
+              </div>
+            </details>
+            <input id="corpusInput_${_uid}" type="hidden" value="">
 
             <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);cursor:pointer">
               <input id="skipAnalysis_${_uid}" type="checkbox" checked>
@@ -111,16 +115,22 @@ export async function loadView(container, params) {
     if (el) el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
   }
 
-  // 填充语料分类
-  const corpusSel = document.getElementById(`corpus_${_uid}`);
-  if (corpusSel) {
+  // 填充语料分类（多选 checkboxes）
+  const corpusList = document.getElementById(`corpusList_${_uid}`);
+  if (corpusList) {
     _allCorpusCategories.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.name;
-      opt.textContent = `${c.name} (${(c.accessible||[]).join(',')||'通用'})`;
-      corpusSel.appendChild(opt);
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 4px;cursor:pointer;font-size:10px';
+      label.innerHTML = `<input type="checkbox" class="corpus-cb-${_uid}" value="${c.name}" onchange="window._sc_updateCorpus('${_uid}')"> ${c.name} (${(c.accessible||[]).join(',')||'通用'})`;
+      corpusList.appendChild(label);
     });
   }
+  // 初始化 corpusInput
+  window._sc_updateCorpus = (u) => {
+    const checked = document.querySelectorAll(`.corpus-cb-${u}:checked`);
+    const vals = Array.from(checked).map(cb => cb.value).filter(v => v);
+    document.getElementById(`corpusInput_${u}`).value = vals.join(',');
+  };
 
   // 加载执行记录
   _loadBatchLogs(_uid);
@@ -240,7 +250,7 @@ function registerGlobals(uid) {
     const selected = _selector?.getSelected() || [];
     const urlsText = document.getElementById(`urls_${u}`)?.value;
     const direction = document.getElementById(`dir_${u}`)?.value || 'praise';
-    const corpusCategory = document.getElementById(`corpus_${u}`)?.value || '';
+    const corpusCategory = document.getElementById(`corpusInput_${u}`)?.value || '';
     const resultEl = document.getElementById(`result_${u}`);
     const previewEl = document.getElementById(`preview_${u}`);
 
