@@ -81,6 +81,10 @@ class Executor:
                 return {"success": False, "error": str(e)}
 
         log_lines = []
+        # 任务日志文件
+        log_path = HOME / "workbuddy-agent-os" / "agent-local" / "runtime" / "guardd" / "tasks" / f"{task_id}.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_fh = open(log_path, "w", encoding="utf-8")
         try:
             # shell=False：直接启动 python3 -m ...，不经过 /bin/sh
             proc = subprocess.Popen(
@@ -139,6 +143,8 @@ class Executor:
                         continue
                     text = line.decode("utf-8", errors="replace").strip()
                     log_lines.append(text)
+                    log_fh.write(text + "\n")
+                    log_fh.flush()
                     last_output_time = time.time()
                     self._parse_and_update(task_id, account_id, identity_dir, text)
                 else:
@@ -176,6 +182,10 @@ class Executor:
             if slot:
                 self.slot_manager.release(slot["browser_id"])
             self._running_procs.pop(task_id, None)
+            try:
+                log_fh.close()
+            except Exception:
+                pass
 
     def _build_cmd(self, task: dict) -> Optional[dict]:
         """构建执行命令（返回 args/cwd/env 字典，shell=False）"""
