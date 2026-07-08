@@ -238,6 +238,7 @@ class MatrixPlugin(AgentOSPlugin):
 
         # 执行
         env = os.environ.copy()
+        env['MC_FORWARDED_FROM_AGENTOS'] = '1'
         env['PYTHONPATH'] = f"{SCRIPTS_DIR}:{env.get('PYTHONPATH', '')}"
         env['AGENT_SYNC'] = str(SCRIPTS_DIR.parent.parent)
         env['AGENT_LOCAL'] = str(Path.home() / "workbuddy-agent-os" / "agent-local")
@@ -570,6 +571,7 @@ class MatrixPlugin(AgentOSPlugin):
         mc_argv = [python, '-m', 'mc', cmd_name] + self._get_rest_args(cmd_name)
 
         env = os.environ.copy()
+        env['MC_FORWARDED_FROM_AGENTOS'] = '1'
         env['PYTHONPATH'] = f"{SCRIPTS_DIR}:{env.get('PYTHONPATH', '')}"
         env['AGENT_SYNC'] = str(SCRIPTS_DIR.parent.parent)
         env['AGENT_LOCAL'] = str(Path.home() / "workbuddy-agent-os" / "agent-local")

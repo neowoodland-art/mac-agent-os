@@ -1792,7 +1792,15 @@ _AGENTOS_DOMAIN_MAP = {
 
 
 def _try_forward_to_agentos(args):
-    """尝试将 mc 命令转发到 agentos"""
+    """尝试将 mc 命令转发到 agentos
+    
+    防递归：如果已经在 agentos 转发链中（环境变量标记），直接跳过。
+    避免 mc → agentos → mc → agentos → ... 无限循环。
+    """
+    if os.environ.get("MC_FORWARDED_FROM_AGENTOS"):
+        return
+    # 设置环境变量标记，防止子进程（agentos）再转发回 mc
+    os.environ["MC_FORWARDED_FROM_AGENTOS"] = "1"
     import subprocess, sys
     from pathlib import Path
     
