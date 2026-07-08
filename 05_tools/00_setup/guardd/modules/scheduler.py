@@ -10,6 +10,7 @@ scheduler.py — 调度引擎 v4（简化版）
 """
 import logging
 import threading
+from threading import RLock
 import time
 from typing import Optional
 from modules.task_store import (
@@ -42,7 +43,7 @@ class Scheduler:
 
         self.loop_interval = 15
         self.max_slots = slot_manager.max_slots if slot_manager else 3
-        self._schedule_lock = threading.RLock()
+        self._schedule_lock = RLock()
 
     # ═══════════════════════════════════════════════════════
     # 主循环
