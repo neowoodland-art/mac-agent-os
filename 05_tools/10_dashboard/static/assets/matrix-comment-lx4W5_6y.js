@@ -1,4 +1,4 @@
-import{n as e,t}from"./index-BrmUk1i6.js";import{t as n}from"./account-selector-D87mja1n.js";var r=null,i=``,a=[],o={},s=localStorage.getItem(`_sc_api_url`)||`https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1`;async function c(e,c){i=e.id||`sc`,o={},e.innerHTML=`
+import{n as e,t}from"./index-BiOrQjGQ.js";import{t as n}from"./account-selector-D87mja1n.js";var r=null,i=``,a=[],o={},s=localStorage.getItem(`_sc_api_url`)||`https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1`;async function c(e,c){i=e.id||`sc`,o={},e.innerHTML=`
     <div style="padding:16px">
       <!-- 主面板 -->
       <div style="background:var(--bg2);border-radius:10px;padding:14px;border:1px solid var(--border)">
@@ -72,11 +72,17 @@ import{n as e,t}from"./index-BrmUk1i6.js";import{t as n}from"./account-selector-
             </div>
           </div>
           <div id="importList_${e}" style="max-height:320px;overflow-y:auto;font-size:10px">
-            ${a.map(e=>{let t=e.completed||e.already_commented;return`<label style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-bottom:1px solid var(--border);cursor:${t?`not-allowed`:`pointer`};opacity:${t?.5:1}">
+            ${a.map(e=>{let t=e.completed||e.already_commented,n=(e.tags||[]).length?`#`+(e.tags||[]).slice(0,3).join(` #`):``,r=e.created_at?e.created_at.slice(5,16):``;return`<label style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-bottom:1px solid var(--border);cursor:${t?`not-allowed`:`pointer`};opacity:${t?.5:1}">
                 <input type="checkbox" class="import-cb" data-url="${d(e.url)}" data-title="${d(e.title||``)}" data-id="${e.id}" ${t?`disabled`:``} ${t?``:`checked`}>
-                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d((e.title||``).slice(0,50))}</span>
-                <span style="color:var(--text2);min-width:60px;text-align:right">${e.author||``}</span>
-                <span style="font-size:9px;color:${e.already_commented?`#16a34a`:`var(--text2)`}">${e.already_commented?`✅已评`:e.completed?`☑已完成`:``}</span>
+                <div style="flex:1;overflow:hidden;min-width:0">
+                  <div style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d((e.title||``).slice(0,55))}</div>
+                  <div style="font-size:8px;color:var(--text2);margin-top:1px">
+                    ${d(e.author||``)}
+                    ${n?`<span style="margin-left:4px">${d(n)}</span>`:``}
+                    ${r?`<span style="margin-left:4px">${d(r)}</span>`:``}
+                  </div>
+                </div>
+                <span style="font-size:9px;color:${e.already_commented?`#16a34a`:`var(--text2)`};white-space:nowrap">${e.already_commented?`✅已评`:e.completed?`☑已完成`:``}</span>
               </label>`}).join(``)}
           </div>
         </div>`}catch(e){r.innerHTML=`<div class="error">❌ 加载失败: ${e.message}</div>`}},window._sc_toggleAll=(e,t)=>{document.querySelectorAll(`#importList_${e} .import-cb:not(:disabled)`).forEach(e=>e.checked=t)},window._sc_importSelected=e=>{let t=document.querySelectorAll(`#importList_${e} .import-cb:checked`);if(!t.length){alert(`请先勾选要导入的视频`);return}let n=[];o={},t.forEach(e=>{n.push(e.dataset.url),o[e.dataset.url]=e.dataset.title}),document.getElementById(`urls_${e}`).value=n.join(`

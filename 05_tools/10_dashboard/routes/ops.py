@@ -387,11 +387,16 @@ def api_import_topics(data: dict = {}):
             continue
         vid = str(item.get("id", ""))
         title = _extract_title(item.get("share_text", ""))
+        # 从 share_text 提取话题标签
+        share_text = item.get("share_text", "")
+        tags = _re.findall(r'#([^#\s]+)', share_text)
         items.append({
             "id": vid,
             "url": url,
             "title": title,
             "author": item.get("nickname", "") or item.get("name", ""),
+            "tags": tags[:5],  # 最多5个标签
+            "created_at": item.get("created_at", ""),
             "completed": item.get("completion_status", 0) == 1,
             "already_commented": vid in commented_ids,
         })

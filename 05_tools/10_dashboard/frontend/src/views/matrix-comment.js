@@ -191,11 +191,19 @@ function registerGlobals(uid) {
           <div id="importList_${u}" style="max-height:320px;overflow-y:auto;font-size:10px">
             ${items.map(item => {
               const disabled = item.completed || item.already_commented;
-              return `<label style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-bottom:1px solid var(--border);cursor:${disabled?'not-allowed':'pointer'};opacity:${disabled?0.5:1}">
+              const tagStr = (item.tags||[]).length ? '#' + (item.tags||[]).slice(0,3).join(' #') : '';
+              const timeStr = item.created_at ? item.created_at.slice(5,16) : '';
+              return `<label style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-bottom:1px solid var(--border);cursor:${disabled?'not-allowed':'pointer'};opacity:${disabled?0.5:1}">
                 <input type="checkbox" class="import-cb" data-url="${escapeHtml(item.url)}" data-title="${escapeHtml(item.title || '')}" data-id="${item.id}" ${disabled?'disabled':''} ${!disabled?'checked':''}>
-                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml((item.title||'').slice(0,50))}</span>
-                <span style="color:var(--text2);min-width:60px;text-align:right">${item.author||''}</span>
-                <span style="font-size:9px;color:${item.already_commented?'#16a34a':'var(--text2)'}">${item.already_commented?'✅已评':item.completed?'☑已完成':''}</span>
+                <div style="flex:1;overflow:hidden;min-width:0">
+                  <div style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml((item.title||'').slice(0,55))}</div>
+                  <div style="font-size:8px;color:var(--text2);margin-top:1px">
+                    ${escapeHtml(item.author||'')}
+                    ${tagStr ? `<span style="margin-left:4px">${escapeHtml(tagStr)}</span>` : ''}
+                    ${timeStr ? `<span style="margin-left:4px">${escapeHtml(timeStr)}</span>` : ''}
+                  </div>
+                </div>
+                <span style="font-size:9px;color:${item.already_commented?'#16a34a':'var(--text2)'};white-space:nowrap">${item.already_commented?'✅已评':item.completed?'☑已完成':''}</span>
               </label>`;
             }).join('')}
           </div>
