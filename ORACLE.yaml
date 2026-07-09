@@ -135,6 +135,11 @@ accounts:
   assigned_machine: chengzigedeAir
   platforms:
     xiaohongshu: xhs_13382501975
+- phone: '15343405900'
+  assigned_machine: 5kechengdeAir
+  platforms:
+    douyin: douyin_15343405900
+  identity: douyin_15343405900
 tasks:
 - name: nurture_morning
   schedule: 30 9 * * *

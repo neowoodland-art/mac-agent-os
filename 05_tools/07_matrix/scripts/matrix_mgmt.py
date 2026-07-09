@@ -119,7 +119,16 @@ class MatrixManager:
         config_file = identity_path / "config.yaml"
         if not config_file.exists():
             config_file.write_text(
-                yaml.dump({"window": [702, 783], "screen": {"width": 702, "height": 783}}, default_flow_style=False),
+                yaml.dump({
+                    "window": [702, 783],
+                    "screen": {"width": 702, "height": 783},
+                    "identity": {
+                        "name": identity_dir_name,
+                        "platform": data.get("platform", "douyin"),
+                        "created_at": datetime.now().isoformat(),
+                        "notes": data.get("notes", ""),
+                    },
+                }, default_flow_style=False),
                 encoding="utf-8",
             )
 
@@ -1042,6 +1051,21 @@ class MatrixManager:
                 "notes": ovr.get("notes", acct.get("notes", "")),
             }
             my_accounts.append(merged)
+
+        # 兜底: 如果 registry 不存在（accounts_registry.yaml 已废弃），
+        # 直接用 override 作为本机账号列表
+        if not my_accounts and override_map:
+            for oid, ovr_acct in override_map.items():
+                identity_hint = ovr_acct.get("identity_dir", ovr_acct.get("identity_hint", oid)).replace("identities/", "")
+                my_accounts.append({
+                    "id": oid,
+                    "platform": ovr_acct.get("platform", "douyin"),
+                    "phone_mask": ovr_acct.get("phone", ""),
+                    "assigned_machine": local_hostname,
+                    "identity_hint": identity_hint,
+                    "enabled": ovr_acct.get("enabled", True),
+                    "notes": ovr_acct.get("notes", ""),
+                })
 
         # 兜底: 扫描本地 accounts.yaml，把本机有身份目录的账号都写进去
         # 每台机器独立声明，不查其他机器的数据（WPRA 读聚合时再处理重复）

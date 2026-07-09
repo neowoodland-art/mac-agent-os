@@ -99,6 +99,9 @@ class Executor:
             self._running_procs[task_id] = proc
 
             max_execution_sec = task.get("max_execution_sec", 7200)
+            cmd_type = task.get("cmd_type", "")
+            # 登录任务允许更长静默等待（5分钟），给用户留够扫码/输手机号的时间
+            idle_timeout = 300 if cmd_type in ("login", "smart-login") else 60
             start_time = time.time()
             last_output_time = time.time()
 
@@ -109,8 +112,8 @@ class Executor:
                 now = time.time()
                 elapsed = now - start_time
 
-                # 浏览器启动超时：60 秒无输出则认为启动失败
-                if elapsed > 60 and (now - last_output_time) > 60:
+                # 浏览器启动超时：登录任务 5 分钟无输出，其他任务 60 秒无输出
+                if elapsed > idle_timeout and (now - last_output_time) > idle_timeout:
                     try:
                         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
                     except Exception:

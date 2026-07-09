@@ -16,6 +16,11 @@ FILE_DIR = Path(__file__).resolve().parent.parent
 AGENT_SYNC = Path(os.environ.get("AGENT_SYNC", str(Path.home() / "workbuddy-agent-os" / "agent-sync")))
 AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL", str(Path.home() / "workbuddy-agent-os" / "agent-local")))
 
+# agent-os 统一 venv Python 路径（用于本地和远程 SSH 执行）
+PYTHON = str(Path.home() / ".workbuddy" / "binaries" / "python" / "envs" / "agent-os" / "bin" / "python3")
+# 远程机器的 Python 路径（动态替换 home 目录）
+REMOTE_PYTHON = "$HOME/.workbuddy/binaries/python/envs/agent-os/bin/python3"
+
 from utils.identity import resolve_hostname
 
 HOSTNAME = resolve_hostname()
@@ -408,9 +413,13 @@ async def api_matrix_create_account(data: dict):
                     if not changed:
                         # 新账号添加到 ORACLE
                         plat = data.get("platform", "")
+                        # identity 目录名：若传了 identity_dir 则取最后一段，否则用 aid
+                        raw_id_dir = data.get("identity_dir", aid)
+                        identity_name = raw_id_dir.replace("identities/", "")
                         oracle.setdefault("accounts", []).append({
                             "phone": data.get("phone", ""),
                             "assigned_machine": owner_machine,
+                            "identity": identity_name,
                             "platforms": {plat: aid},
                         })
                     oracle_path.write_text(yaml.dump(oracle, default_flow_style=False, allow_unicode=True, sort_keys=False))
@@ -431,26 +440,30 @@ async def api_matrix_create_account(data: dict):
                     plat = data.get("platform", "")
                     phone = data.get("phone", "")
                     identity_dir = data.get("identity_dir", f"identities/{aid}")
-                    # SSH 到远程机器创建账号
+                    # SSH 到远程机器创建账号（使用远程机器自己的 Python 路径）
                     remote_cmd = (
-                        f"cd {AGENT_SYNC}/05_tools/07_matrix/scripts && "
-                        f"PYTHONPATH='{AGENT_SYNC}/05_tools/07_matrix/scripts' "
-                        f"{PYTHON} -c "
+                        f"cd ~/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts && "
+                        f"PYTHONPATH=\"$HOME/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts\" "
+                        f"{REMOTE_PYTHON} -c "
                         f"\"from matrix_mgmt import MatrixManager; "
                         f"mgr = MatrixManager(); "
                         f"mgr.create_account({{'id':'{aid}','platform':'{plat}',"
                         f"'phone':'{phone}','identity_dir':'{identity_dir}','enabled':True}})\""
                     )
                     try:
-                        subprocess.run(
+                        r = subprocess.run(
                             ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
                              f"{remote_user}@{remote_ip}", remote_cmd],
                             capture_output=True, text=True, timeout=30
                         )
+                        if r.returncode != 0:
+                            logger.warning(f"远程创建账号 {aid} 失败 (stderr): {r.stderr.strip()}")
+                        else:
+                            logger.info(f"远程账号 {aid} 已在 {owner_machine} 创建成功")
                     except subprocess.TimeoutExpired:
-                        pass  # 远程创建超时不阻断主流程
-                    except Exception:
-                        pass
+                        logger.warning(f"远程创建账号 {aid} 超时 (30s)")
+                    except Exception as e:
+                        logger.warning(f"远程创建账号 {aid} 异常: {e}")
 
         return {"status": "ok"}
     except Exception as e:

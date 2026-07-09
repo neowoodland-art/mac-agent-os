@@ -148,7 +148,13 @@ function renderFilterBar() {
     machineSel.appendChild(opt);
   });
 
-  div.append(search, machineSel, platSel, statusSel);
+  // ── 新建账号按钮 ──
+  const createBtn = document.createElement('button');
+  createBtn.textContent = '+ 新建账号';
+  createBtn.style.cssText = 'background:var(--primary);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600';
+  createBtn.onclick = showCreateAccountDialog;
+
+  div.append(search, machineSel, platSel, statusSel, createBtn);
 
   // 计数
   const count = document.createElement('span');
@@ -794,6 +800,96 @@ async function refreshView() {
   } catch(e) {
     wrap.innerHTML = `<div class="error">❌ ${e.message || e}</div>`;
   }
+}
+
+
+// ── 新建账号弹窗 ──
+function showCreateAccountDialog() {
+  // 已有机器列表（不重复 + 本机排第一）
+  const accts = window._v2Accounts || [];
+  const machines = [...new Set(accts.map(a => a.owner_machine).filter(Boolean))];
+  const primaryMachine = 'chengzigedeAir';
+  const sorted = [primaryMachine, ...machines.filter(m => m !== primaryMachine)];
+  const machineOpts = sorted.map(m => `<option value="${m}">${m === primaryMachine ? '🖥️ 本机 ' + m : '☁️ ' + m}</option>`).join('');
+
+  // 重复检测
+  const checkDup = (plat, phone) => accts.find(a => a.platform === plat && a.phone === phone && a.enabled !== false);
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center';
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border-radius:12px;padding:20px;max-width:380px;width:90%">
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px">+ 新建账号</div>
+      <div style="display:grid;gap:6px;font-size:12px">
+        <label>目标机器 <select id="newAcctMachine" style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">${machineOpts}</select></label>
+        <label>平台 <select id="newAcctPlat" onchange="window._updateCreateAcctId()" style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
+          <option value="douyin">🎵 抖音</option><option value="xiaohongshu">📕 小红书</option></select></label>
+        <label>手机号 <input id="newAcctPhone" oninput="window._updateCreateAcctId()" placeholder="手机号" autocomplete="off" style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px"></label>
+        <label>账号ID <input id="newAcctId" readonly style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:4px;font-size:10px"></label>
+        <div id="newAcctDupWarning" style="font-size:11px;color:#f59e0b;display:none">⚠️ 该手机号已有同类账号</div>
+        <div id="newAcctResult" style="font-size:11px;display:none"></div>
+      </div>
+      <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:12px">
+        <button onclick="this.closest('div[style]').parentElement.remove()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 16px;font-size:12px;cursor:pointer">取消</button>
+        <button id="newAcctOk" style="background:var(--primary);color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:12px;cursor:pointer">✅ 创建</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  window._updateCreateAcctId = () => {
+    const plat = document.getElementById('newAcctPlat')?.value || 'douyin';
+    const phone = document.getElementById('newAcctPhone')?.value?.trim() || '';
+    const prefix = plat === 'douyin' ? 'douyin_' : 'xhs_';
+    document.getElementById('newAcctId').value = phone ? prefix + phone : '';
+    const warn = document.getElementById('newAcctDupWarning');
+    if (phone && checkDup(plat, phone)) { warn.style.display = 'block'; }
+    else { warn.style.display = 'none'; }
+  };
+
+  document.getElementById('newAcctOk').onclick = async () => {
+    const id = document.getElementById('newAcctId').value.trim();
+    const plat = document.getElementById('newAcctPlat').value;
+    const phone = document.getElementById('newAcctPhone').value.trim();
+    const machine = document.getElementById('newAcctMachine').value;
+    const resultEl = document.getElementById('newAcctResult');
+
+    if (!id) { alert('请先输入手机号'); return; }
+    if (checkDup(plat, phone)) {
+      if (!confirm('⚠️ 该手机号已有 "' + plat + '" 账号，确定仍创建？')) return;
+    }
+
+    const btn = document.getElementById('newAcctOk');
+    btn.textContent = '⏳ 创建中...'; btn.disabled = true;
+
+    try {
+      const r = await fetch('/api/matrix/accounts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, platform: plat, phone, owner_machine: machine, enabled: true }),
+      });
+      const d = await r.json();
+      if (d.status === 'ok') {
+        resultEl.style.display = 'block';
+        resultEl.style.color = 'var(--green)';
+        resultEl.innerHTML = '✅ 账号 <strong>' + id + '</strong> 已创建';
+        // 2 秒后关闭弹窗并刷新
+        setTimeout(() => {
+          overlay.remove();
+          refreshView();
+        }, 2000);
+      } else {
+        resultEl.style.display = 'block';
+        resultEl.style.color = 'var(--red)';
+        resultEl.innerHTML = '❌ ' + (d.detail || d.message || '创建失败');
+        btn.textContent = '✅ 创建'; btn.disabled = false;
+      }
+    } catch(e) {
+      resultEl.style.display = 'block';
+      resultEl.style.color = 'var(--red)';
+      resultEl.innerHTML = '❌ ' + e.message;
+      btn.textContent = '✅ 创建'; btn.disabled = false;
+    }
+  };
 }
 
 
