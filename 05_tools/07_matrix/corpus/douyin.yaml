@@ -5,148 +5,264 @@ categories:
     enabled: true
     label: 赞美评论
     comments:
-    - 这个观点很新颖，学习了
-    - 说得真是振聋发聩
-    - 干货满满，感谢分享
-    - 条理清晰，逻辑严密
-    - 每一句话都说到了心坎里
-    - 太有深度了，值得反复看
-    - 这是我今天看到最好的内容
-    - 说得太好了，完全认同
-    - 高质量的分享，收藏了
-    - 看完受益匪浅，谢谢博主
-    - 这个角度很独特，佩服
-    - 讲得透彻，深入浅出
-    - 好内容，必须支持一下
-    - 博主很有想法，关注了
-    - 这个分析很到位
+    - text: 这个观点很新颖，学习了
+      role: sharer
+    - text: 说得真是振聋发聩
+      role: sharer
+    - text: 干货满满，感谢分享
+      role: sharer
+    - text: 条理清晰，逻辑严密
+      role: sharer
+    - text: 每一句话都说到了心坎里
+      role: sympathizer
+    - text: 太有深度了，值得反复看
+      role: sharer
+    - text: 这是我今天看到最好的内容
+      role: sharer
+    - text: 说得太好了，完全认同
+      role: sympathizer
+    - text: 高质量的分享，收藏了
+      role: filler
+    - text: 看完受益匪浅，谢谢博主
+      role: sharer
+    - text: 这个角度很独特，佩服
+      role: sharer
+    - text: 讲得透彻，深入浅出
+      role: sharer
+    - text: 好内容，必须支持一下
+      role: filler
+    - text: 博主很有想法，关注了
+      role: filler
+    - text: 这个分析很到位
+      role: sharer
     templates:
-    - 关于{keyword}的观点很到位
-    - 感谢分享{keyword}的心得
-    - 说得太好了，{keyword}这部分启发很大
-    - 对{keyword}的分析很透彻
-    - "{keyword}这个角度很新颖"
-    - 看完对{keyword}有了新的认识
-    - "{keyword}说得真不错"
+    - text: 关于{keyword}的观点很到位
+      role: sharer
+    - text: 感谢分享{keyword}的心得
+      role: sharer
+    - text: 说得太好了，{keyword}这部分启发很大
+      role: sharer
+    - text: 对{keyword}的分析很透彻
+      role: sharer
+    - text: '{keyword}这个角度很新颖'
+      role: sharer
+    - text: 看完对{keyword}有了新的认识
+      role: sharer
+    - text: '{keyword}说得真不错'
+      role: sharer
+
   共鸣:
     weight: 20
     enabled: true
     label: 共鸣评论
     comments:
-    - 太真实了，说的就是我
-    - 我也是这么想的
-    - 说出了我的心声
-    - 这段话我要截图保存
-    - 笑着笑着就沉默了
-    - 太有同感了
-    - 终于有人说出这个了
-    - 看到最后破防了
-    - 这就是生活啊
-    - 说得太对了
-    - 感觉在说我本人
-    - 同一个世界同一个感受
-    - 经历过的人才懂
-    - 说到心坎里了
-    - 泪目了
+    - text: 太真实了，说的就是我
+      role: sympathizer
+    - text: 我也是这么想的
+      role: sympathizer
+    - text: 说出了我的心声
+      role: sympathizer
+    - text: 这段话我要截图保存
+      role: sympathizer
+    - text: 笑着笑着就沉默了
+      role: sympathizer
+    - text: 太有同感了
+      role: sympathizer
+    - text: 终于有人说出这个了
+      role: sympathizer
+    - text: 看到最后破防了
+      role: sympathizer
+    - text: 这就是生活啊
+      role: sympathizer
+    - text: 说得太对了
+      role: sympathizer
+    - text: 感觉在说我本人
+      role: sympathizer
+    - text: 同一个世界同一个感受
+      role: sympathizer
+    - text: 经历过的人才懂
+      role: sympathizer
+    - text: 说到心坎里了
+      role: sympathizer
+    - text: 泪目了
+      role: sympathizer
     templates:
-    - 看到{keyword}想起了自己
-    - "{keyword}真的太真实了"
-    - 说到{keyword}我也有同感
-    - "{keyword}的经历我也有过"
+    - text: 看到{keyword}想起了自己
+      role: sufferer
+    - text: '{keyword}真的太真实了'
+      role: sympathizer
+    - text: 说到{keyword}我也有同感
+      role: sympathizer
+    - text: '{keyword}的经历我也有过'
+      role: sufferer
+
   提问:
     weight: 15
     enabled: true
     label: 提问互动
     comments:
-    - 请问这是在哪里？
-    - 能分享一下具体方法吗？
-    - 新手想问一下怎么入门
-    - 这个需要什么工具？
-    - 有教程吗？想学
-    - 大概需要多长时间？
-    - 这个操作难不难？
-    - 求推荐入门级的
-    - 有没有什么注意事项？
-    - 这个效果能持续多久？
-    - 可以说一下详细步骤吗？
-    - 一般多少钱？
-    - 在哪里可以买到？
-    - 和其他的比有什么优势？
-    - 适合新手吗？
+    - text: 请问这是在哪里？
+      role: questioner
+    - text: 能分享一下具体方法吗？
+      role: questioner
+    - text: 新手想问一下怎么入门
+      role: questioner
+    - text: 这个需要什么工具？
+      role: questioner
+    - text: 有教程吗？想学
+      role: questioner
+    - text: 大概需要多长时间？
+      role: questioner
+    - text: 这个操作难不难？
+      role: questioner
+    - text: 求推荐入门级的
+      role: questioner
+    - text: 有没有什么注意事项？
+      role: questioner
+    - text: 这个效果能持续多久？
+      role: questioner
+    - text: 可以说一下详细步骤吗？
+      role: questioner
+    - text: 一般多少钱？
+      role: questioner
+    - text: 在哪里可以买到？
+      role: questioner
+    - text: 和其他的比有什么优势？
+      role: questioner
+    - text: 适合新手吗？
+      role: questioner
     templates:
-    - '{keyword}具体怎么操作？'
-    - 能详细讲讲{keyword}吗？
-    - '{keyword}难不难学？'
-    - 求推荐{keyword}的入门教程
-    - '{keyword}大概需要多少钱？'
+    - text: '{keyword}具体怎么操作？'
+      role: questioner
+    - text: 能详细讲讲{keyword}吗？
+      role: questioner
+    - text: '{keyword}难不难学？'
+      role: questioner
+    - text: 求推荐{keyword}的入门教程
+      role: questioner
+    - text: '{keyword}大概需要多少钱？'
+      role: questioner
+
   感慨:
     weight: 15
     enabled: true
     label: 生活感慨
     comments:
-    - 生活不易，且行且珍惜
-    - 每个人都有自己的故事
-    - 看得我热泪盈眶
-    - 这就是生活啊
-    - 人间真实
-    - 时间过得真快
-    - 岁月静好
-    - 满满的回忆
-    - 这就是成长吧
-    - 谁的生活不是一地鸡毛
-    - 平平淡淡才是真
-    - 生活总会越来越好的
-    - 珍惜当下
-    - 有感而发
-    - 一切都是最好的安排
+    - text: 生活不易，且行且珍惜
+      role: sympathizer
+    - text: 每个人都有自己的故事
+      role: sympathizer
+    - text: 看得我热泪盈眶
+      role: sympathizer
+    - text: 这就是生活啊
+      role: sympathizer
+    - text: 人间真实
+      role: sympathizer
+    - text: 时间过得真快
+      role: sympathizer
+    - text: 岁月静好
+      role: sympathizer
+    - text: 满满的回忆
+      role: sympathizer
+    - text: 这就是成长吧
+      role: sympathizer
+    - text: 谁的生活不是一地鸡毛
+      role: sympathizer
+    - text: 平平淡淡才是真
+      role: sympathizer
+    - text: 生活总会越来越好的
+      role: sympathizer
+    - text: 珍惜当下
+      role: sympathizer
+    - text: 有感而发
+      role: sympathizer
+    - text: 一切都是最好的安排
+      role: sympathizer
     templates:
-    - 看到{keyword}想起了自己的经历
-    - "{keyword}真的让人感慨"
-    - 时间过得真快，{keyword}都变了
+    - text: 看到{keyword}想起了自己的经历
+      role: sufferer
+    - text: '{keyword}真的让人感慨'
+      role: sympathizer
+    - text: 时间过得真快，{keyword}都变了
+      role: sympathizer
+
   客观:
     weight: 10
     enabled: true
     label: 客观评价
     comments:
-    - 比较客观
-    - 抛开立场看，说得有道理
-    - 中肯的评价
-    - 理性分析，值得一读
-    - 实事求是
-    - 这个观点比较中立
-    - 有数据有真相
-    - 客观公正
-    - 不吹不黑
-    - 说得很实在
-    - 理性和感性都有
-    - 分析得比较全面
-    - 值得思考的问题
-    - 站在不同角度看问题
+    - text: 比较客观
+      role: skeptic
+    - text: 抛开立场看，说得有道理
+      role: skeptic
+    - text: 中肯的评价
+      role: skeptic
+    - text: 理性分析，值得一读
+      role: skeptic
+    - text: 实事求是
+      role: skeptic
+    - text: 这个观点比较中立
+      role: skeptic
+    - text: 有数据有真相
+      role: skeptic
+    - text: 客观公正
+      role: skeptic
+    - text: 不吹不黑
+      role: skeptic
+    - text: 说得很实在
+      role: skeptic
+    - text: 理性和感性都有
+      role: skeptic
+    - text: 分析得比较全面
+      role: skeptic
+    - text: 值得思考的问题
+      role: questioner
+    - text: 站在不同角度看问题
+      role: skeptic
     templates:
-    - 关于{keyword}的分析很客观
-    - 理性的声音，{keyword}这部分说得好
-    - 从客观角度看{keyword}确实如此
+    - text: 关于{keyword}的分析很客观
+      role: skeptic
+    - text: 理性的声音，{keyword}这部分说得好
+      role: skeptic
+    - text: 从客观角度看{keyword}确实如此
+      role: skeptic
+
   幽默:
     weight: 10
     enabled: true
     label: 幽默评论
     comments:
-    - 哈哈哈哈笑死
-    - 有才，这评论比视频还精彩
-    - 笑不活了家人们
-    - 你要把我笑死
-    - 这届网友太有才了
-    - 笑出腹肌了
-    - 承包了我今天的笑点
-    - 你是懂幽默的
-    - 一边笑一边给你点赞
-    - 论幽默还是你强
-    - 笑死了哈哈哈
-    - 这评论有毒
+    - text: 哈哈哈哈笑死
+      role: filler
+    - text: 有才，这评论比视频还精彩
+      role: filler
+    - text: 笑不活了家人们
+      role: filler
+    - text: 你要把我笑死
+      role: filler
+    - text: 这届网友太有才了
+      role: filler
+    - text: 笑出腹肌了
+      role: filler
+    - text: 承包了我今天的笑点
+      role: filler
+    - text: 你是懂幽默的
+      role: filler
+    - text: 一边笑一边给你点赞
+      role: filler
+    - text: 论幽默还是你强
+      role: filler
+    - text: 笑死了哈哈哈
+      role: filler
+    - text: 这评论有毒
+      role: filler
     templates:
-    - '{keyword}这个梗笑死我了'
-    - 哈哈哈哈{keyword}太有才了
-    - "{keyword}还能这样？笑死"
+    - text: '{keyword}这个梗笑死我了'
+      role: filler
+    - text: 哈哈哈哈{keyword}太有才了
+      role: filler
+    - text: '{keyword}还能这样？笑死'
+      role: filler
 
   # ═══════════════════════════════════════════════════════════════
   # 🏥 肛肠专科语料（2026-06-28 新增）
@@ -160,18 +276,30 @@ categories:
     accessible: ["health"]
     tags: ["douyin", "medical"]
     comments:
-    - 坐一天班屁股跟针扎似的，谁懂啊！
-    - 吃顿火锅一时爽，厕所出来就想给嘴一巴掌
-    - 痔疮犯了坐立难安，开会的时候扭来扭去像长了虫子
-    - 不好意思去医院，硬扛了仨月，我真服了自己这个老六
-    - 各种药膏买了一抽屉，钱花了屁用没有，纯纯大冤种
-    - 大医院排队排到怀疑人生，请一天假还不够折腾的
-    - 疼到凌晨四点还搁那数羊，第二天还要爬起来搬砖
-    - 每次上厕所跟上刑一样，完事儿腿都是软的
-    - 听说要手术直接腿软，怕疼星人当场就想跑路
-    - 反复发作真的破防了，这玩意儿就跟渣男一样甩不掉
-    - 久坐党太难了，屁股和工位锁死了属于是
-    - 社恐人一想到去肛肠科，脚趾已经抠出三室一厅了
+    - text: 坐一天班屁股跟针扎似的，谁懂啊！
+      role: sufferer
+    - text: 吃顿火锅一时爽，厕所出来就想给嘴一巴掌
+      role: sufferer
+    - text: 痔疮犯了坐立难安，开会的时候扭来扭去像长了虫子
+      role: sufferer
+    - text: 不好意思去医院，硬扛了仨月，我真服了自己这个老六
+      role: sufferer
+    - text: 各种药膏买了一抽屉，钱花了屁用没有，纯纯大冤种
+      role: sufferer
+    - text: 大医院排队排到怀疑人生，请一天假还不够折腾的
+      role: sufferer
+    - text: 疼到凌晨四点还搁那数羊，第二天还要爬起来搬砖
+      role: sufferer
+    - text: 每次上厕所跟上刑一样，完事儿腿都是软的
+      role: sufferer
+    - text: 听说要手术直接腿软，怕疼星人当场就想跑路
+      role: sufferer
+    - text: 反复发作真的破防了，这玩意儿就跟渣男一样甩不掉
+      role: sufferer
+    - text: 久坐党太难了，屁股和工位锁死了属于是
+      role: sufferer
+    - text: 社恐人一想到去肛肠科，脚趾已经抠出三室一厅了
+      role: sufferer
 
   朱晓光主任:
     weight: 30
@@ -180,16 +308,26 @@ categories:
     accessible: ["health"]
     tags: ["douyin", "medical"]
     comments:
-    - 朱晓光主任yyds，终于不用再遭罪了
-    - 朱主任手法是真的轻，怕疼星人狂喜！
-    - 身边好几个朋友都是找朱晓光看好的
-    - 朱主任问诊贼耐心，啥都给你讲明白
-    - 听朱主任的科普，才知道以前踩了多少坑
-    - 朱晓光技术真的顶，老肛瘘都给我整好了
-    - 朱主任说话挺温和，不会让你觉得尴尬
-    - 找朱晓光看过的都懂，恢复期确实短
-    - 朱主任的号我得蹲一下，口碑太好了
-    - 苏州肛泰朱晓光，看肛肠我是真服气
+    - text: 朱晓光主任yyds，终于不用再遭罪了
+      role: expert_ref
+    - text: 朱主任手法是真的轻，怕疼星人狂喜！
+      role: expert_ref
+    - text: 身边好几个朋友都是找朱晓光看好的
+      role: expert_ref
+    - text: 朱主任问诊贼耐心，啥都给你讲明白
+      role: expert_ref
+    - text: 听朱主任的科普，才知道以前踩了多少坑
+      role: expert_ref
+    - text: 朱晓光技术真的顶，老肛瘘都给我整好了
+      role: expert_ref
+    - text: 朱主任说话挺温和，不会让你觉得尴尬
+      role: expert_ref
+    - text: 找朱晓光看过的都懂，恢复期确实短
+      role: expert_ref
+    - text: 朱主任的号我得蹲一下，口碑太好了
+      role: expert_ref
+    - text: 苏州肛泰朱晓光，看肛肠我是真服气
+      role: expert_ref
 
   公众号约号:
     weight: 25
@@ -198,45 +336,47 @@ categories:
     accessible: ["health"]
     tags: ["douyin", "medical"]
     comments:
-    - 搜苏州济世璞真功重号约就行了，不用傻排队
-    - 公号苏州济世璞真直接约，到点去看不用等
-    - 想约号的宝子去苏州济世璞真看看，贼方便
-    - 线上就能挂号，搜苏州济世璞真，懒人福音
-    - 不用现场排队，功重号苏州济世璞真搞定一切
-    - 苏州济世璞真，线上约好直接去，省时buff叠满
-    - 公号搜苏州济世璞真，里面有朱主任的号
-    - 别再傻傻去排了，苏州济世璞真约一下不香吗
-    - 约朱主任的号走苏州济世璞真，绿通懂的都懂
-    - 苏州济世璞真，主打一个省事，按点去就行
+    - text: 在哪预约朱晓光的号？
+      role: questioner
+    - text: 求助，朱晓光的号在哪挂？
+      role: questioner
+    - text: 刚关注公众号，怎么约朱晓光？
+      role: questioner
+    - text: 公众号叫什么，怎么预约？
+      role: questioner
+    - text: 求公众号名字，我要去挂号
+      role: questioner
+    - text: 在哪个平台能挂到朱主任的号？
+      role: questioner
+    - text: 公众号是苏州肛泰吗，直接约就行？
+      role: questioner
+    - text: 想知道怎么约朱晓光，在线等挺急的
+      role: questioner
+    - text: 挂朱主任的号要提前几天？
+      role: questioner
+    - text: 公众号预约流程复复杂吗？
+      role: questioner
 
-  捡漏绿通:
-    weight: 25
+  术后恢复:
+    weight: 15
     enabled: true
-    label: 捡漏绿通
+    label: 术后恢复
+    accessible: ["health"]
     tags: ["douyin", "medical"]
     comments:
-    - 大医院挂不上的号，公号苏州济世璞真里头能捡漏朱晓光，悄悄说
-    - 朱晓光主任多点出诊，不挤大医院，苏州济世璞真就是绿通
-    - 挖到宝了，苏州济世璞真里头一堆专家，朱主任的号也能约
-    - 别再死磕大医院排队了，苏州济世璞真约朱主任不香吗
-    - 这个小众渠道我只告诉你，苏州济世璞真，专家绿通懂的都懂
-    - 大医院人挤人，苏州济世璞真线上捡漏，省心不是一星半点
-    - 朱晓光主任的号在这边好约多了，苏州济世璞真yyds
-    - 这算不算隐藏福利？苏州济世璞真能约到朱主任，还不咋排队
-
-  优势卖点:
-    weight: 25
-    enabled: true
-    label: 优势卖点
-    tags: ["douyin", "medical"]
-    comments:
-    - 专科医院就是专门搞这个的，苏州肛泰没踩雷
-    - 独立诊室真的救命，社恐人狠狠爱住了
-    - 线上约好再去，不用请假排半天队，打工人狂喜
-    - 朱主任术后还会跟进关心你，不是看完了就不管了
-    - 微创恢复快，不耽误上班，这个太重要了
-    - 隐私保护做得好，不用担心碰到熟人尴尬
-    - 朱主任科普干货多，关注了能避开好多坑
-    - 老肛肠患者表示，终于遇到个靠谱的了
-
-
+    - text: 做完手术第三天，已经能下地走了，比想象中轻松
+      role: sharer
+    - text: 术后注意饮食真的重要，我吃了三天粥了
+      role: sharer
+    - text: 听医生的按时换药，恢复得很快
+      role: sharer
+    - text: 术后一周了，感觉一天比一天好
+      role: sharer
+    - text: 最难熬的是术后第一晚，后面就好多了
+      role: sufferer
+    - text: 建议大家听医嘱，别学我提前下地
+      role: sharer
+    - text: 术后半个月，终于能正常坐了，感动
+      role: sharer
+    - text: 恢复期饮食清淡，人都瘦了，也算因祸得福
+      role: sharer

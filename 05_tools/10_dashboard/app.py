@@ -1023,6 +1023,9 @@ app.include_router(ops_router)
 from routes.v2_accounts import router as v2_accounts_router
 app.include_router(v2_accounts_router)
 
+from routes.comment_workbench import router as comment_workbench_router
+app.include_router(comment_workbench_router)
+
 @app.get("/api/workflow/nodes")
 def api_workflow_nodes():
     """返回所有节点类型（按分类）"""

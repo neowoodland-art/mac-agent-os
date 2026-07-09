@@ -17,14 +17,10 @@ YAML 格式:
       enabled: true
       label: "赞美评论"
       comments:
-        - "讲得太好了，受益匪浅！"
-        - "这个观点很新颖，学习了"
-    搞笑:
-      weight: 20
-      enabled: true
-      label: "搞笑评论"
-      comments:
-        - "笑死我了哈哈哈哈哈"
+        - text: "讲得太好了，受益匪浅！"
+          role: sharer
+        - text: "这个观点很新颖，学习了"
+          role: sharer
 """
 import asyncio
 import json
@@ -190,22 +186,59 @@ class AIGenerator:
         direction: str = "称赞",
         persona: dict = None,
     ) -> Optional[str]:
-        """根据视频标题和方向生成评论
-
-        Args:
-            video_title: 视频标题
-            video_desc:  视频描述（可选）
-            direction:   评论方向（称赞/提问/共鸣/补充/搞笑）
-            persona:     账号人设字典（可选）
-
-        Returns:
-            生成的评论文本，失败返回 None
-        """
+        """根据视频标题和方向生成评论"""
         if not self.available:
             log.debug("  ⏭️  AI 生成跳过（未配置 API key）")
             return None
 
         prompt = self._build_prompt(video_title, video_desc, direction, persona)
+        text = await self._call_api(prompt)
+        return text
+
+    async def generate_comment_by_role(
+        self,
+        video_title: str,
+        video_desc: str = "",
+        role: str = "sharer",
+        role_label: str = "分享型",
+        is_long: bool = False,
+    ) -> Optional[str]:
+        """根据视频 + 角色生成评论（含长评模式）
+
+        Args:
+            video_title: 视频标题
+            video_desc: 视频描述
+            role: 角色标识（sharer/questioner/sympathizer/skeptic/sufferer/filler/expert_ref）
+            role_label: 角色中文标签
+            is_long: 是否生成讲故事的长评
+        """
+        if not self.available:
+            return None
+
+        length_desc = "写一条50~200字的故事型评论，像在分享亲身经历，有细节有情感" if is_long else "写一条10~30字的短评论，自然口语化"
+        role_desc_map = {
+            "sharer": "你是一个热心分享的人，在评论区分享自己的经验或观点",
+            "questioner": "你是一个好奇的提问者，对视频内容感兴趣并追问细节",
+            "sympathizer": "你是一个善于共情的人，表达理解、安慰和支持",
+            "skeptic": "你是一个理性客观的人，对内容保持审慎和独立思考",
+            "sufferer": "你是一个有相同经历的人，讲述自己遇到的类似问题",
+            "filler": "你是一个普通用户，用简短的话互动",
+            "expert_ref": "你是一个有经验的人，推荐特定的专家或方案",
+        }
+        role_hint = role_desc_map.get(role, "你是一个普通抖音用户")
+
+        desc_part = f"\n视频描述: {video_desc}" if video_desc else ""
+
+        prompt = (
+            f"你是一个抖音用户。{role_hint}。"
+            f"\n视频标题: {video_title}"
+            f"{desc_part}"
+            f"\n\n请{length_desc}。"
+            "\n- 语言自然口语化"
+            "\n- 不要用 emoji"
+            "\n- 不要用引号"
+            "\n- 直接输出评论内容"
+        )
         text = await self._call_api(prompt)
         return text
 
@@ -256,7 +289,7 @@ class AIGenerator:
                         "model": self.model,
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": self.temperature,
-                        "max_tokens": 150,
+                        "max_tokens": 300,
                     },
                 )
                 if resp.status_code != 200:
@@ -330,14 +363,7 @@ class CorpusManager:
         return self._personas
 
     def get_persona(self, account_id: str) -> Optional[dict]:
-        """获取指定账号的人设
-
-        Args:
-            account_id: 账号 ID
-
-        Returns:
-            人设字典，或 None
-        """
+        """获取指定账号的人设"""
         if not self._personas:
             self.load_personas()
         persona = self._personas.get(account_id)
@@ -346,14 +372,7 @@ class CorpusManager:
         return persona
 
     def get_search_keywords(self, account_id: str) -> list:
-        """获取账号人设中的搜索关键词
-
-        Args:
-            account_id: 账号 ID
-
-        Returns:
-            关键词列表（无人设时返回空列表）
-        """
+        """获取账号人设中的搜索关键词"""
         persona = self.get_persona(account_id)
         if persona:
             return persona.get("search_keywords", [])
@@ -378,56 +397,47 @@ class CorpusManager:
 
     def list_scenes(self, persona_id: str = None) -> list:
         """列出所有场景（v2格式）"""
-        scenes_set = {}
+        result = []
         for platform in ["douyin", "xiaohongshu"]:
             data = self._load(platform)
-            for pid, pinfo in data.get("personas", {}).items():
-                if persona_id and pid != persona_id:
+            scenes = data.get("scenes", {})
+            for sid, info in scenes.items():
+                scene_persona = info.get("persona", "")
+                if persona_id and scene_persona != persona_id:
                     continue
-                for scene_id, sinfo in data.get("scenes", {}).items():
-                    key = f"{pid}.{scene_id}"
-                    if key not in scenes_set:
-                        scenes_set[key] = {
-                            "persona": pid,
-                            "id": scene_id,
-                            "label": sinfo.get("label", scene_id),
-                            "rounds": sinfo.get("rounds", 1),
-                        }
-        return list(scenes_set.values())
+                result.append({
+                    "platform": platform,
+                    "scene": sid,
+                    "persona": scene_persona,
+                    "category": info.get("category", ""),
+                    "comments": info.get("comments", []),
+                })
+        return result
 
     def get_comment_for_scene(self, persona: str, scene: str,
                                keyword: str = "", round_num: int = 1) -> Optional[str]:
-        """根据身份和场景获取评论（v2格式）
-
-        Args:
-            persona: 身份ID（如 health_lover）
-            scene: 场景ID（如 first_comment）
-            keyword: 关键词
-            round_num: 多轮对话第几轮
-
-        Returns:
-            评论文本，或 None
-        """
+        """根据身份和场景获取评论（v2格式）"""
         for platform in ["douyin", "xiaohongshu"]:
             data = self._load(platform)
-            content = data.get("content", {})
-            # 尝试精确匹配 persona.scene
-            key = f"{persona}.{scene}"
-            if key in content:
-                items = content[key]
-                if isinstance(items, list):
-                    return random.choice(items).replace("{keyword}", keyword) if items else None
-                # 多轮格式
-                round_key = f"round_{round_num}"
-                if isinstance(items, dict) and round_key in items:
-                    round_items = items[round_key]
-                    if round_items:
-                        return random.choice(round_items).replace("{keyword}", keyword)
-            # 尝试匹配 scene 但不限定 persona
-            for ck, cv in content.items():
-                if ck.endswith(f".{scene}"):
-                    if isinstance(cv, list) and cv:
-                        return random.choice(cv).replace("{keyword}", keyword)
+            scenes = data.get("scenes", {})
+            if scene in scenes:
+                info = scenes[scene]
+                if info.get("persona", "") != persona:
+                    continue
+                comments = info.get("comments", [])
+                if comments:
+                    idx = (round_num - 1) % len(comments)
+                    comment = comments[idx]
+                    if "{keyword}" in comment and keyword:
+                        comment = comment.replace("{keyword}", keyword)
+                    return comment
+                templates = info.get("templates", [])
+                if templates:
+                    idx = (round_num - 1) % len(templates)
+                    comment = templates[idx]
+                    if "{keyword}" in comment and keyword:
+                        comment = comment.replace("{keyword}", keyword)
+                    return comment
         return None
 
     # ── 语料查询 ──────────────────────────────────────────
@@ -451,23 +461,13 @@ class CorpusManager:
         return result
 
     def get_comments(self, categories: List[str] = None, platform: str = None, count: int = 20) -> List[str]:
-        """获取评论列表
-
-        Args:
-            categories: 指定分类（None = 所有启用分类）
-            platform: 指定平台（None = 所有平台）
-            count: 最多返回数量
-
-        Returns:
-            评论文本列表
-        """
+        """获取评论列表"""
         results = []
         platforms = [platform] if platform else ["douyin", "xiaohongshu"]
 
         for p in platforms:
             data = self._load(p)
             for name, info in data.get("categories", {}).items():
-                # 筛选分类
                 if categories and name not in categories:
                     continue
                 if not info.get("enabled", True):
@@ -475,11 +475,9 @@ class CorpusManager:
                 if info.get("weight", 0) <= 0:
                     continue
 
-                # 取评论
                 comments = info.get("comments", [])
                 templates = info.get("templates", [])
                 combined = comments + templates
-                # 按权重比例取
                 take = max(1, int(count * info.get("weight", 10) / 100))
                 results.extend(random.sample(combined, min(take, len(combined))))
 
@@ -487,193 +485,16 @@ class CorpusManager:
         return results[:count]
 
     def add_comment(self, category: str, text: str, platform: str = "douyin"):
-        """添加一条评论到指定平台指定分类"""
+        """添加一条评论到指定分类（追加模式）"""
         data = self._load(platform)
         cats = data.get("categories", {})
         if category not in cats:
-            cats[category] = {"weight": 10, "enabled": True, "label": category, "comments": [], "templates": []}
-        if "comments" not in cats[category]:
-            cats[category]["comments"] = []
-        cats[category]["comments"].append(text)
-        data["categories"] = cats
-
-        path = CORPUS_DIR / f"{platform}.yaml"
-        path.write_text(yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False))
-        self._cache.pop(platform, None)  # 清除缓存
-        log.info(f"  ✅ 已添加评论到 [{platform}/{category}]: {text}")
-
-    def delete_comment(self, category: str, index: int, platform: str = "douyin"):
-        """删除指定索引的评论"""
-        data = self._load(platform)
-        cats = data.get("categories", {}).get(category, {})
-        comments = cats.get("comments", [])
-        if 0 <= index < len(comments):
-            removed = comments.pop(index)
-            cats["comments"] = comments
-            path = CORPUS_DIR / f"{platform}.yaml"
-            path.write_text(yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False))
-            self._cache.pop(platform, None)
-            log.info(f"  🗑 已删除评论 [{platform}/{category}]: {removed}")
-
-    def update_category(self, platform: str, category: str, **kwargs):
-        """更新分类设置（weight/enabled/label 等）"""
-        data = self._load(platform)
-        cats = data.get("categories", {})
-        if category not in cats:
-            cats[category] = {"weight": 10, "enabled": True, "label": category, "comments": [], "templates": []}
-        for k, v in kwargs.items():
-            if k in ("weight", "enabled", "label"):
-                cats[category][k] = v
-        data["categories"] = cats
+            cats[category] = {"weight": 10, "enabled": True, "label": category, "comments": []}
+        cats[category].setdefault("comments", []).append({"text": text, "role": "filler"})
         path = CORPUS_DIR / f"{platform}.yaml"
         path.write_text(yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False))
         self._cache.pop(platform, None)
-        log.info(f"  ✅ 已更新分类 [{platform}/{category}]: {kwargs}")
-
-    # ── 账号上下文 ──────────────────────────────────────────
-
-    def set_account_id(self, account_id: str):
-        """设置当前账号 ID，方便后续跟踪上下文"""
-        self._account_id = account_id
-        log.info(f"  👤 设置账号: {account_id}")
-
-    # ── AI 生成器 ──────────────────────────────────────────
-
-    def _get_ai_generator(self) -> AIGenerator:
-        """懒获取 AI 生成器实例"""
-        if self._ai_gen is None:
-            self._ai_gen = AIGenerator()
-        return self._ai_gen
-
-    # ── 视频标题匹配 → 评论 ──────────────────────────────────
-
-    @staticmethod
-    def _extract_first_keyword(video_title: str) -> Optional[str]:
-        """从视频标题中提取第一个有意义的词（不含纯数字和标点）"""
-        words = re.findall(r'[\u4e00-\u9fff]{2,}', video_title)
-        return words[0] if words else ""
-
-    def _get_comment_from_categories(self, category_names: list, platform: str = None,
-                                      allow_templates: bool = True) -> Optional[str]:
-        """从指定的分类名列表中随机取一条评论（遍历所有平台）
-        Args:
-            allow_templates: 是否允许使用含 {keyword} 的模板
-        """
-        platforms = [platform] if platform else ["douyin", "xiaohongshu"]
-        candidates = []
-
-        for p in platforms:
-            data = self._load(p)
-            for cat_name, info in data.get("categories", {}).items():
-                if cat_name not in category_names:
-                    continue
-                if not info.get("enabled", True):
-                    continue
-                if allow_templates:
-                    candidates.extend(info.get("comments", []) + info.get("templates", []))
-                else:
-                    candidates.extend(info.get("comments", []))
-
-        if candidates:
-            return random.choice(candidates)
-        return None
-
-    def _get_random_comment(self, platform: str = None) -> Optional[str]:
-        """从所有启用分类中随机取一条评论"""
-        platforms = [platform] if platform else ["douyin", "xiaohongshu"]
-        all_comments = []
-
-        for p in platforms:
-            data = self._load(p)
-            for name, info in data.get("categories", {}).items():
-                if not info.get("enabled", True):
-                    continue
-                if info.get("weight", 0) <= 0:
-                    continue
-                comments = info.get("comments", [])  # 随机兜底不包含 {keyword} 模板
-                all_comments.extend(comments)
-
-        if all_comments:
-            return random.choice(all_comments)
-        return None
-
-    # ── 行业 + 万能双池匹配 ──────────────────────────────
-
-    def _get_account_industry(self, account_id: str) -> str:
-        """从 profiles.json 读取账号的行业标记，无标记返回 general"""
-        persona = self.get_persona(account_id)
-        if persona and persona.get("industry"):
-            return persona["industry"]
-        # 从 profiles.json 直接读 industry 字段
-        try:
-            if PROFILES_PATH.exists():
-                raw = json.loads(PROFILES_PATH.read_text())
-                profile = raw.get(account_id, {})
-                ind = profile.get("industry", "general")
-                return ind
-        except Exception:
-            pass
-        return "general"
-
-    @staticmethod
-    def _classify_video(video_title: str) -> str:
-        """根据视频标题判断所属行业
-        Returns:
-            行业名（medical / finance / tech / food），都不匹配返回 "general"
-        """
-        if not video_title:
-            return "general"
-        for industry, tags in INDUSTRY_TAGS.items():
-            for tag in tags:
-                if tag in video_title:
-                    return industry
-        return "general"
-
-    def _pick_comment(self, industry: str, account_industry: str, direction: str) -> Optional[str]:
-        """根据视频行业和账号行业选评论
-
-        核心规则:
-          - 账号行业匹配视频行业 → 从行业语料取（需 YAML 中该分类有 accessible 标记）
-          - 不匹配 → 从万能池取（称赞/提问/共鸣）
-        """
-        # 尝试从匹配行业 + 方向的分类取
-        cat = DIRECTION_TO_CATEGORY.get(direction, direction)
-        if industry == account_industry and industry != "general":
-            # 行业匹配 → 从该行业的分类取
-            # 行业分类命名规则: {行业}_{方向}, 如 medical_赞美
-            industry_cat = f"{industry}_{cat}"
-            candidates = []
-            for p in ["douyin", "xiaohongshu"]:
-                data = self._load(p)
-                for cname, info in data.get("categories", {}).items():
-                    if cname != industry_cat:
-                        continue
-                    if not info.get("enabled", True):
-                        continue
-                    accessible = info.get("accessible", [])
-                    if accessible != "*" and account_industry not in accessible:
-                        continue
-                    candidates.extend(info.get("comments", []))
-            if candidates:
-                return random.choice(candidates)
-
-        # 万能池: 从通用方向取
-        cat = DIRECTION_TO_CATEGORY.get(direction, direction)
-        candidates = []
-        for p in ["douyin", "xiaohongshu"]:
-            data = self._load(p)
-            for cname, info in data.get("categories", {}).items():
-                if cname != f"万能{cat}" and cname != cat:
-                    continue
-                accessible = info.get("accessible", "*")
-                if accessible != "*" and account_industry not in accessible:
-                    continue
-                if not info.get("enabled", True):
-                    continue
-                candidates.extend(info.get("comments", []))
-        if candidates:
-            return random.choice(candidates)
-        return None
+        log.info(f"  ✅ 已添加评论到 {platform}/{category}: {text[:30]}")
 
     def get_comment_for_video(
         self,
@@ -681,15 +502,7 @@ class CorpusManager:
         direction: str = None,
         account_id: str = None,
     ) -> Optional[str]:
-        """根据视频标题和账号行业，从语料库匹配评论
-
-        流程:
-          1. 判断视频行业（从标题关键词）
-          2. 取账号行业（从 profiles.json）
-          3. 两行业匹配 → 从行业语料池取
-          4. 不匹配 → 从万能池取
-          5. 兜底 → 随机通用评论
-        """
+        """根据视频标题和账号行业，从语料库匹配评论"""
         if not direction:
             direction = random.choice(UNIVERSAL_DIRECTIONS)
 
@@ -698,23 +511,214 @@ class CorpusManager:
 
         log.info(f"  📋 视频行业={video_industry} 账号行业={account_industry} 方向={direction}")
 
-        # 尝试行业池匹配
         if video_industry == account_industry and account_industry != "general":
             comment = self._pick_comment(video_industry, account_industry, direction)
             if comment:
                 log.info(f"  ✅ 行业池匹配: {comment[:40]}")
                 return comment
 
-        # 万能池
         comment = self._pick_comment("general", account_industry, direction)
         if comment:
             log.info(f"  ✅ 万能池: {comment[:40]}")
             return comment
 
-        # 兜底
         comment = self._get_random_comment()
         if comment and "{keyword}" in comment:
             kw = self._extract_first_keyword(video_title)
             if kw:
                 comment = comment.replace("{keyword}", kw)
         return comment
+
+    # ── 角色化评论（v3）────────────────────────────────────
+
+    def get_roles(self, platform: str = "douyin") -> dict:
+        """返回语料库中可用的角色列表及每角色的评论数"""
+        data = self._load(platform)
+        roles = {}
+        for cat_name, cat_info in data.get("categories", {}).items():
+            for comment in cat_info.get("comments", []):
+                if isinstance(comment, dict):
+                    role = comment.get("role", "filler")
+                else:
+                    role = "filler"
+                if role not in roles:
+                    roles[role] = {"label": role, "count": 0, "examples": []}
+                roles[role]["count"] += 1
+                if len(roles[role]["examples"]) < 3:
+                    text = comment["text"] if isinstance(comment, dict) else comment
+                    roles[role]["examples"].append(text)
+            for template in cat_info.get("templates", []):
+                if isinstance(template, dict):
+                    role = template.get("role", "filler")
+                else:
+                    role = "filler"
+                if role not in roles:
+                    roles[role] = {"label": role, "count": 0, "examples": []}
+                roles[role]["count"] += 1
+        return roles
+
+    def get_role_label(self, role: str) -> str:
+        """角色标识 → 中文标签"""
+        labels = {
+            "sharer": "分享型", "questioner": "提问型", "sympathizer": "共情型",
+            "skeptic": "质疑型", "sufferer": "患者型", "filler": "灌水型",
+            "expert_ref": "推荐型",
+        }
+        return labels.get(role, role)
+
+    def batch_get_comments_by_roles(
+        self,
+        role_distribution: dict,
+        platform: str = "douyin",
+        video_title: str = "",
+        total: int = 30,
+        ai_enhance: bool = False,
+        long_ratio: float = 0.0,
+    ) -> list:
+        """按角色比例批量抽取评论，可选 AI 增强和长评
+
+        Args:
+            role_distribution: {"filler": 0.3, "questioner": 0.17, ...}
+            platform: 平台
+            video_title: 视频标题（用于模板替换）
+            total: 总共取多少条
+            ai_enhance: 是否用 AI 改写每条评论
+            long_ratio: 长评占比（0~1）
+
+        Returns:
+            [{"text": "...", "role": "...", "role_label": "...", "is_long": bool}, ...]
+        """
+        all_by_role = {}
+        data = self._load(platform)
+        for cat_name, cat_info in data.get("categories", {}).items():
+            for comment in cat_info.get("comments", []):
+                if isinstance(comment, dict):
+                    c_role = comment.get("role", "filler")
+                    text = comment.get("text", "")
+                else:
+                    c_role = "filler"
+                    text = str(comment)
+                all_by_role.setdefault(c_role, []).append(text)
+            for template in cat_info.get("templates", []):
+                if isinstance(template, dict):
+                    c_role = template.get("role", "filler")
+                    text = template.get("text", "")
+                else:
+                    c_role = "filler"
+                    text = str(template)
+                all_by_role.setdefault(c_role, []).append(text)
+
+        result = []
+        for role, proportion in role_distribution.items():
+            pool = all_by_role.get(role, [])
+            if not pool:
+                continue
+            take = max(1, int(total * proportion))
+            sampled = random.sample(pool, min(take, len(pool)))
+            for text in sampled:
+                if "{keyword}" in text and video_title:
+                    kw = self._extract_first_keyword(video_title)
+                    if kw:
+                        text = text.replace("{keyword}", kw)
+                is_long = random.random() < long_ratio
+                result.append({
+                    "text": text,
+                    "role": role,
+                    "role_label": self.get_role_label(role),
+                    "is_long": is_long,
+                })
+
+        random.shuffle(result)
+        result = result[:total]
+
+        # AI 增强
+        if ai_enhance and video_title:
+            import asyncio as _asyncio
+            try:
+                loop = _asyncio.get_event_loop()
+            except RuntimeError:
+                loop = _asyncio.new_event_loop()
+            for item in result:
+                try:
+                    enhanced = loop.run_until_complete(
+                        self._ai_gen.generate_comment_by_role(
+                            video_title=video_title,
+                            role=item["role"],
+                            role_label=item["role_label"],
+                            is_long=item["is_long"],
+                        )
+                    ) if self._ai_gen else None
+                    if enhanced:
+                        item["text"] = enhanced
+                except Exception:
+                    pass
+
+        return result
+
+    # ── 内部方法 ────────────────────────────────────────────
+
+    def _get_account_industry(self, account_id: str) -> str:
+        """从 profiles.json 读取账号行业"""
+        try:
+            if PROFILES_PATH.exists():
+                profiles = json.loads(PROFILES_PATH.read_text())
+                profile = profiles.get(account_id, {})
+                return profile.get("industry", "general")
+        except Exception:
+            pass
+        return "general"
+
+    def _classify_video(self, title: str) -> str:
+        """从标题判断视频行业"""
+        title_lower = title.lower()
+        for industry, keywords in INDUSTRY_TAGS.items():
+            for kw in keywords:
+                if kw in title_lower or kw in title:
+                    return industry
+        return "general"
+
+    def _extract_first_keyword(self, title: str) -> Optional[str]:
+        """从标题提取第一个行业关键词"""
+        title_lower = title.lower()
+        for industry, keywords in INDUSTRY_TAGS.items():
+            for kw in keywords:
+                if kw in title_lower or kw in title:
+                    return kw
+        return None
+
+    def _pick_comment(self, video_industry: str, account_industry: str, direction: str) -> Optional[str]:
+        """从行业池取一条评论"""
+        cat_name = DIRECTION_TO_CATEGORY.get(direction)
+        if not cat_name:
+            return None
+
+        for platform in ["douyin", "xiaohongshu"]:
+            data = self._load(platform)
+            cat_info = data.get("categories", {}).get(cat_name)
+            if not cat_info:
+                continue
+
+            accessible = cat_info.get("accessible", [])
+            if accessible and video_industry not in accessible:
+                continue
+
+            candidates = []
+            for comment in cat_info.get("comments", []):
+                if isinstance(comment, dict):
+                    candidates.append(comment.get("text", ""))
+                else:
+                    candidates.append(comment)
+            if candidates:
+                return random.choice(candidates)
+        return None
+
+    def _get_random_comment(self) -> Optional[str]:
+        """兜底：从所有平台随机取一条评论"""
+        for platform in ["douyin", "xiaohongshu"]:
+            data = self._load(platform)
+            for cat_info in data.get("categories", {}).values():
+                comments = cat_info.get("comments", [])
+                if comments:
+                    c = random.choice(comments)
+                    return c if isinstance(c, str) else c.get("text", "")
+        return None
