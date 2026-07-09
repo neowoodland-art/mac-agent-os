@@ -1,4 +1,4 @@
-import{t as e}from"./index-Cel4xy2x.js";var t=null,n=[],r=[],i={};async function a(t){try{r=(await e(`/v2/accounts`)).accounts||[]}catch{r=[]}t.innerHTML=`
+import{t as e}from"./index-CexM7zDQ.js";var t=null,n=[],r=[],i={};async function a(t){try{r=(await e(`/v2/accounts`)).accounts||[]}catch{r=[]}t.innerHTML=`
     <div style="padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-weight:700;font-size:16px">🚀 联邦指挥台</div>

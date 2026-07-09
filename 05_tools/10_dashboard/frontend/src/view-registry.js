@@ -11,6 +11,7 @@ import { registerMigrated } from './router.js';
 
 const MIGRATED_VIEWS = [
   // ── 矩阵养号 ──
+  'comment-workbench',
   'matrix-summary',
   'matrix-accounts',
   'matrix-nurture',
