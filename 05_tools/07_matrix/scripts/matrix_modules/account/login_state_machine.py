@@ -588,16 +588,22 @@ class DouyinLoginRecovery(RecoveryStep):
     # ── 内部方法 ──────────────────────────────────────
 
     def _get_phone(self, account_id: str) -> str:
-        """从 accounts.yaml 读手机号"""
+        """从 accounts.override.yaml 或 accounts.yaml 读手机号（优先 override）"""
         try:
             import yaml, os
-            cfg = os.path.expanduser(
-                '~/workbuddy-agent-os/agent-local/tools/matrix/config/accounts.yaml')
-            with open(cfg) as f:
-                data = yaml.safe_load(f)
-            for a in data.get("accounts", []):
-                if a.get("id") == account_id:
-                    return a.get("phone", "")
+            for cfg_name in ['accounts.override.yaml', 'accounts.yaml']:
+                cfg = os.path.expanduser(
+                    f'~/workbuddy-agent-os/agent-local/tools/matrix/config/{cfg_name}')
+                try:
+                    with open(cfg) as f:
+                        data = yaml.safe_load(f)
+                    for a in data.get("accounts", []):
+                        if a.get("id") == account_id:
+                            phone = a.get("phone", "")
+                            if phone:
+                                return phone
+                except Exception:
+                    pass
         except Exception:
             pass
         return ""
