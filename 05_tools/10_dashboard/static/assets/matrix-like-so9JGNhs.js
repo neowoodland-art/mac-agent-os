@@ -1,4 +1,4 @@
-import{n as e,t}from"./index-OGKxte58.js";import{t as n}from"./account-selector-D87mja1n.js";var r=null;async function i(i){let a=(i.id||`like`).replace(/-/g,`_`);i.innerHTML=`
+import{n as e,t}from"./index-BZnvemmj.js";import{t as n}from"./account-selector-D87mja1n.js";var r=null;async function i(i){let a=(i.id||`like`).replace(/-/g,`_`);i.innerHTML=`
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
         <div style="font-weight:600;font-size:13px;margin-bottom:6px">❤️ 收藏点赞 <span style="font-size:10px;color:var(--text2);font-weight:400">选择账号 → 执行点赞/收藏</span></div>

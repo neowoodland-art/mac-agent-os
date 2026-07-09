@@ -263,7 +263,8 @@ function renderTable(accounts, filterFn) {
         <button onclick="window._actSingle('${idEsc}','nurture')" class="row-btn" title="养号">🏃</button>
         <button onclick="window._actSingle('${idEsc}','comment')" class="row-btn" title="评论">💬</button>
         <button onclick="window._actSingle('${idEsc}','record')" class="row-btn" title="录制">🎬</button>
-      </td></tr>`;
+        <button onclick="window._actDelete('${idEsc}')" style="background:none;border:none;font-size:14px;cursor:pointer;opacity:.4;padding:2px 4px" title="删除账号">🗑</button>
+        </td></tr>`;
 
       // 展开详情行（初始隐藏）
       html += `<tr class="acct-detail-row" data-parent="${a.id}" style="display:none">
@@ -579,6 +580,30 @@ function clearSelection() {
 function getSelectedIds() {
   return [...document.querySelectorAll('.acct-cb:checked')].map(cb => cb.value);
 }
+
+
+// ── 删除账号（含身份目录） ──
+window._actDelete = async (accountId) => {
+  if (!confirm(`⚠️ 确定彻底删除账号 ${accountId}？\n\n将删除：\n  账号配置\n  身份目录（指纹/Cookie）\n  ORACLE 注册\n\n此操作不可撤销！`)) return;
+  if (!confirm(`再次确认：删除 ${accountId} 的所有数据？`)) return;
+
+  const btn = document.querySelector(`button[onclick*="'${accountId}'"]`);
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+
+  try {
+    const r = await fetch(`/api/matrix/accounts/${encodeURIComponent(accountId)}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      alert(`✅ 账号 ${accountId} 已彻底删除`);
+      refreshView();
+    } else {
+      alert('❌ ' + (d.detail || d.message || '删除失败'));
+    }
+  } catch(e) {
+    alert('❌ ' + e.message);
+  }
+  if (btn) { btn.textContent = '🗑'; btn.disabled = false; }
+};
 
 
 // ── 单账号操作 ──

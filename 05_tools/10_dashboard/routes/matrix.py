@@ -482,11 +482,71 @@ async def api_matrix_update_account(account_id: str, data: dict):
 
 
 @router.delete("/accounts/{account_id}")
-def api_matrix_delete_account(account_id: str, delete_identity: bool = False):
-    """删除账号"""
+def api_matrix_delete_account(account_id: str):
+    """彻底删除账号（配置+身份目录+ORACLE，支持远程机器同步清理）"""
+    import yaml
     try:
         mgr = _get_matrix_mgr()
-        mgr.delete_account(account_id, delete_identity=delete_identity)
+        # 查一下这个账号属于哪台机器（用于远程清理）
+        owner_machine = ""
+        try:
+            oracle_path = AGENT_SYNC / "ORACLE.yaml"
+            if oracle_path.exists():
+                oracle = yaml.safe_load(oracle_path.read_text())
+                for entry in oracle.get("accounts", []):
+                    for plat, aid in entry.get("platforms", {}).items():
+                        if aid == account_id:
+                            owner_machine = entry.get("assigned_machine", "") or entry.get("machine", "")
+                            break
+        except Exception:
+            pass
+
+        # 删除本地配置 + 身份目录
+        mgr.delete_account(account_id, delete_identity=True)
+
+        # 从 ORACLE.yaml 中移除
+        try:
+            oracle_path = AGENT_SYNC / "ORACLE.yaml"
+            if oracle_path.exists():
+                oracle = yaml.safe_load(oracle_path.read_text())
+                before = len(oracle.get("accounts", []))
+                oracle["accounts"] = [
+                    e for e in oracle.get("accounts", [])
+                    if not any(account_id in v for v in e.get("platforms", {}).values())
+                ]
+                if len(oracle["accounts"]) < before:
+                    oracle_path.write_text(
+                        yaml.dump(oracle, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                    )
+        except Exception:
+            pass
+
+        # 如果是远程机器的账号，SSH 同步删除
+        if owner_machine and owner_machine != HOSTNAME:
+            try:
+                oracle_path = AGENT_SYNC / "ORACLE.yaml"
+                if oracle_path.exists():
+                    oracle = yaml.safe_load(oracle_path.read_text())
+                    machine_cfg = oracle.get("machines", {}).get(owner_machine, {})
+                    remote_ip = machine_cfg.get("tailscale_ip", "")
+                    remote_user = machine_cfg.get("ssh_user", owner_machine)
+                    if remote_ip:
+                        remote_cmd = (
+                            f"cd ~/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts && "
+                            f"PYTHONPATH=\"$HOME/workbuddy-agent-os/agent-sync/05_tools/07_matrix/scripts\" "
+                            f"{REMOTE_PYTHON} -c "
+                            f"\"from matrix_mgmt import MatrixManager; "
+                            f"mgr = MatrixManager(); "
+                            f"mgr.delete_account('{account_id}', delete_identity=True)\""
+                        )
+                        subprocess.run(
+                            ["ssh", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no",
+                             f"{remote_user}@{remote_ip}", remote_cmd],
+                            capture_output=True, text=True, timeout=30
+                        )
+            except Exception:
+                pass
+
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(500, detail=str(e))

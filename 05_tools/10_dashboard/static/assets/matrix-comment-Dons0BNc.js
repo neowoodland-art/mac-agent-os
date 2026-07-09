@@ -1,4 +1,4 @@
-import{n as e,t}from"./index-OGKxte58.js";import{t as n}from"./account-selector-D87mja1n.js";var r=null,i=``,a=[],o={},s=localStorage.getItem(`_sc_api_url`)||`https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1`;async function c(e,c){i=e.id||`sc`,o={},e.innerHTML=`
+import{n as e,t}from"./index-BZnvemmj.js";import{t as n}from"./account-selector-D87mja1n.js";var r=null,i=``,a=[],o={},s=localStorage.getItem(`_sc_api_url`)||`https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1`;async function c(e,c){i=e.id||`sc`,o={},e.innerHTML=`
     <div style="padding:16px">
       <!-- 主面板 -->
       <div style="background:var(--bg2);border-radius:10px;padding:14px;border:1px solid var(--border)">
