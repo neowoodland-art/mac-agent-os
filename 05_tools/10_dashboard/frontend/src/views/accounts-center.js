@@ -260,10 +260,14 @@ function renderTable(accounts, filterFn) {
       // 首次登录检测：无 Cookie 或未配置 → 显示首次登录按钮
       const isNewAccount = st === 'no_cookie' || st === 'no_identity' || st === 'empty_cookie';
       let actionBtns = '';
+      // 所有账号都显示手动输入登录按钮
+      const manualLoginBtn = `<button onclick="window._actSingle('${idEsc}','login')" style="background:var(--bg3);border:1px solid var(--border);padding:2px 6px;border-radius:3px;cursor:pointer;font-size:10px;color:var(--text)" title="手动打开浏览器登录（60秒超时）">✏️ 手动登录</button>`;
+
       if (isNewAccount) {
         // 新账号：突出首次登录，常规按钮灰色不可点
         actionBtns = `
           <button onclick="window._actSingle('${idEsc}','login')" style="background:var(--primary);color:#fff;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600" title="首次登录（5分钟超时）">📱 首次登录</button>
+          ${manualLoginBtn}
           <button disabled style="opacity:.3;border:none;padding:2px 6px;font-size:11px" title="请先完成首次登录">📡</button>
           <button disabled style="opacity:.3;border:none;padding:2px 6px;font-size:11px" title="请先完成首次登录">🏃</button>
           <button onclick="window._actDelete('${idEsc}')" style="background:none;border:none;font-size:14px;cursor:pointer;opacity:.4;padding:2px 4px" title="删除账号">🗑</button>`;
@@ -274,6 +278,7 @@ function renderTable(accounts, filterFn) {
           <button onclick="window._actSingle('${idEsc}','nurture')" class="row-btn" title="养号">🏃</button>
           <button onclick="window._actSingle('${idEsc}','comment')" class="row-btn" title="评论">💬</button>
           <button onclick="window._actSingle('${idEsc}','record')" class="row-btn" title="录制">🎬</button>
+          ${manualLoginBtn}
           <button onclick="window._actDelete('${idEsc}')" style="background:none;border:none;font-size:14px;cursor:pointer;opacity:.4;padding:2px 4px" title="删除账号">🗑</button>`;
       }
       html += `<td style="padding:3px 6px;white-space:nowrap">${actionBtns}</td></tr>`;
