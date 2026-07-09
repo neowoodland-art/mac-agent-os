@@ -594,6 +594,8 @@ window._actDelete = async (accountId) => {
     const r = await fetch(`/api/matrix/accounts/${encodeURIComponent(accountId)}`, { method: 'DELETE' });
     const d = await r.json();
     if (d.status === 'ok') {
+      // 立即从本地缓存中移除，防止 refreshView() 完成前打开新建弹窗读到旧数据
+      window._v2Accounts = (window._v2Accounts || []).filter(a => a.id !== accountId);
       alert(`✅ 账号 ${accountId} 已彻底删除`);
       refreshView();
     } else {

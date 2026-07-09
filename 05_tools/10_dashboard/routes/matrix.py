@@ -518,6 +518,14 @@ def api_matrix_delete_account(account_id: str):
                     oracle_path.write_text(
                         yaml.dump(oracle, default_flow_style=False, allow_unicode=True, sort_keys=False)
                     )
+                    # 清除 AccountService 的 60 秒缓存，让后续查询立即读新数据
+                    try:
+                        from services.account_service import AccountService
+                        svc = AccountService()
+                        svc._oracle = None
+                        svc._oracle_loaded = 0
+                    except Exception:
+                        pass
         except Exception:
             pass
 
