@@ -100,8 +100,8 @@ class Executor:
 
             max_execution_sec = task.get("max_execution_sec", 7200)
             cmd_type = task.get("cmd_type", "")
-            # 登录/采集/养号可能触发登录弹窗需用户交互，给 5 分钟静默等待
-            idle_timeout = 300 if cmd_type in ("login", "smart-login", "collect", "nurture") else 60
+            # 仅登录任务给 5 分钟静默等待（首次登录需手动操作），其余保持 60 秒
+            idle_timeout = 300 if cmd_type in ("login", "smart-login") else 60
             start_time = time.time()
             last_output_time = time.time()
 
