@@ -1438,12 +1438,28 @@ class DouyinOps(PlatformOps):
                         return m ? m[0] : null;
                     } catch(e) { return null; }
                 }
+                // DOM 兜底：找包含"粉丝"/"关注"/"获赞"文字的元素的相邻数字
+                function statByLabel(label) {
+                    try {
+                        var els = document.querySelectorAll('span, div, p');
+                        for (var i = 0; i < els.length; i++) {
+                            if ((els[i].textContent||'').trim() === label) {
+                                var next = els[i].nextElementSibling || els[i].parentElement?.nextElementSibling?.querySelector('span, div, p');
+                                if (next) {
+                                    var m = (next.textContent||'').trim().match(/\\d+(?:\\.\\d+)?[万w]?/);
+                                    if (m) return m[0];
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                    return null;
+                }
                 return {
                     nickname: nickname, user_id: uidM ? uidM[1] : '?',
-                    following: folM || (e2eNum('user-info-follow')||'?'),
-                    fans: fanM || (e2eNum('user-info-fans')||'?'),
-                    likes: likM || (e2eNum('user-info-like')||'?'),
-                    posts: posM || (e2eNum('user-tab-count')||'?'),
+                    following: folM || (e2eNum('user-info-follow')||statByLabel('关注')||'?'),
+                    fans: fanM || (e2eNum('user-info-fans')||statByLabel('粉丝')||'?'),
+                    likes: likM || (e2eNum('user-info-like')||statByLabel('获赞')||'?'),
+                    posts: posM || (e2eNum('user-tab-count')||statByLabel('作品')||'?'),
                     bio: (document.querySelector('[data-e2e="user-bio"]')?.textContent?.trim() || '?').slice(0, 50),
                 };
             } catch(e) {
