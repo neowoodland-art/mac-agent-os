@@ -87,7 +87,7 @@ window.switchView = function(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','ops-command'];
+  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','comment-workbench','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','ops-command'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -116,7 +116,7 @@ window.switchView = function(view) {
       e.classList.toggle('active', e.dataset.view === view);
     });
     // Hide ALL other views first
-    ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
+    ['comment-workbench','matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
      'ave-render','ave-script','ave-materials','ave-templates',
      'crawl-tasks','crawl-sources','crawl-history',
      'machines','fleet-sync','fleet-reconcile','fleet-exec',
@@ -143,7 +143,7 @@ window.switchView = function(view) {
 
   // 视图显隐
   // 视图显隐
-  const viewIds = ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
+  const viewIds = ['comment-workbench','matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
                    'ave-render','ave-script','ave-materials','ave-templates',
                    'crawl-tasks','crawl-sources','crawl-history',
                    'machines','fleet-sync','fleet-reconcile','fleet-exec',

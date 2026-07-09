@@ -67,6 +67,9 @@ def api_generate_comments(data: dict):
         long_ratio: float         — 长评占比 0~1
     """
     video_title = data.get("video_title", "")
+    video_tags = data.get("video_tags", []) or []
+    video_industry = data.get("video_industry") or None  # 前端人工纠偏
+    direction = data.get("direction", "auto")
     platform = data.get("platform", "douyin")
     role_dist = data.get("role_distribution", {}) or DEFAULT_ROLES
     total = data.get("total", 30)
@@ -77,10 +80,24 @@ def api_generate_comments(data: dict):
         raise HTTPException(400, detail="video_title 必填")
 
     mgr = _get_corpus_mgr()
+
+    # 行业：前端指定 > 自动识别 > None(通用)
+    if video_industry:
+        industry = video_industry
+    else:
+        industry = mgr._classify_video(video_title)
+        if not industry:
+            for tag in video_tags:
+                industry = mgr._classify_video(tag)
+                if industry:
+                    break
+    logger.info("  📋 视频行业: %s (title=%.40s)", industry or "仅通用", video_title)
+
     comments = mgr.batch_get_comments_by_roles(
         role_distribution=role_dist,
         platform=platform,
         video_title=video_title,
+        video_industry=industry,
         total=total,
         ai_enhance=ai_enhance,
         long_ratio=long_ratio,

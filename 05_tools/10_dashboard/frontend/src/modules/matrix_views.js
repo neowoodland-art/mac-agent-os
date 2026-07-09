@@ -78,7 +78,7 @@ window.switchView = function(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','ops-command','ops-recorder'];
+  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','comment-workbench','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','ops-command','ops-recorder'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -107,7 +107,7 @@ window.switchView = function(view) {
       e.classList.toggle('active', e.dataset.view === view);
     });
     // Hide ALL other views first
-    ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
+    ['comment-workbench','matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
      'ave-render','ave-script','ave-materials','ave-templates',
      'crawl-tasks','crawl-sources',
      'machines','fleet-sync','fleet-reconcile','fleet-exec',
@@ -134,7 +134,7 @@ window.switchView = function(view) {
 
   // 视图显隐
   // 视图显隐
-  const viewIds = ['matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus','matrix-record',
+  const viewIds = ['comment-workbench','matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus','matrix-record',
                    'matrix-accounts','matrix-atom-ops','matrix-settings','matrix-run','matrix-commands','matrix-summary',
                    'matrix-c2','matrix-backup','matrix-export',
                    'ave-render','ave-script','ave-materials','ave-templates',
@@ -171,7 +171,7 @@ function _tryMigratedView(view) {
     // ── 只读仪表盘 ──
     'matrix-summary','machines','productions','assets','costs',
     // ── 功能完整的操作视图 ──
-    'accounts-center','matrix-interact','matrix-comment','matrix-collect','matrix-like','matrix-accounts','matrix-nurture','matrix-sms-proxy','matrix-blueprints','matrix-corpus','ops-command',
+    'comment-workbench','accounts-center','matrix-interact','matrix-comment','matrix-collect','matrix-like','matrix-accounts','matrix-nurture','matrix-sms-proxy','matrix-blueprints','matrix-corpus','ops-command',
     // ── 录制标注 ──
     'ops-recorder',
     // ── 列表/管理视图 ──

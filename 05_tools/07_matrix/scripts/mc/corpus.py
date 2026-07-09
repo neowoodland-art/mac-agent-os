@@ -571,6 +571,7 @@ class CorpusManager:
         role_distribution: dict,
         platform: str = "douyin",
         video_title: str = "",
+        video_industry: str = None,
         total: int = 30,
         ai_enhance: bool = False,
         long_ratio: float = 0.0,
@@ -581,6 +582,7 @@ class CorpusManager:
             role_distribution: {"filler": 0.3, "questioner": 0.17, ...}
             platform: 平台
             video_title: 视频标题（用于模板替换）
+            video_industry: 视频行业，如 "health" — 只取 accessible 匹配的分类；None=不过滤
             total: 总共取多少条
             ai_enhance: 是否用 AI 改写每条评论
             long_ratio: 长评占比（0~1）
@@ -591,6 +593,14 @@ class CorpusManager:
         all_by_role = {}
         data = self._load(platform)
         for cat_name, cat_info in data.get("categories", {}).items():
+            # 行业过滤
+            # - 有 accessible 的分类：只对匹配行业的视频开放
+            # - 无 accessible 的分类：所有视频通用
+            # - video_industry = None（自动识别失败）：只取通用分类
+            accessible = cat_info.get("accessible", [])
+            if accessible:
+                if not video_industry or video_industry not in accessible:
+                    continue
             for comment in cat_info.get("comments", []):
                 if isinstance(comment, dict):
                     c_role = comment.get("role", "filler")
