@@ -501,7 +501,22 @@ class BatchEngine:
             return reports
         
         # cookie 不存在或过期 → 让 ensure_login 恢复链处理
-        if check_cookie(identity_dir) in ("no_cookie", "expired", "error"):
+        ck_status = check_cookie(identity_dir)
+        if ck_status in ("no_cookie", "expired", "error"):
+            # skip_sms 模式：cookie 过期不打开浏览器，直接跳过（防服务器主动发短信）
+            _skip_sms_bp = False
+            if self.blueprints:
+                _bp_data = resolve_blueprint(self.blueprints[0])
+                if _bp_data and _bp_data.get("skip_sms"):
+                    _skip_sms_bp = True
+            if _skip_sms_bp:
+                log.warning(f"  ⏭️ [{identity_dir}] skip_sms + cookie {ck_status}，跳过（不打开浏览器）")
+                for acct in group_accts:
+                    for r in range(1, self.rounds_total + 1):
+                        rpt = AccountRunReport(acct["id"], "", r)
+                        rpt.skipped = True
+                        reports.append(rpt)
+                return reports
             log.info(f"  🔐 [{identity_dir}] cookie 状态需恢复，由 LoginStateMachine 处理")
 
         # 分配窗口位置槽位
