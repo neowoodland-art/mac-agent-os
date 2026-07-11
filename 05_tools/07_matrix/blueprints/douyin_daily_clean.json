@@ -1,0 +1,101 @@
+{
+  "id": "douyin_daily_clean",
+  "name": "抖音-纯净养号",
+  "description": "浏览15个视频，随机点赞/收藏/关注，无评论。短信验证时自动跳过（不发短信、不封号）",
+  "version": "1.0",
+  "skip_sms": true,
+  "platform": "douyin",
+  "steps": [
+    {"step_id": 1,  "op": "goto_home",     "args": {}},
+
+    {"step_id": 2,  "op": "scroll_feed",   "args": {}},
+    {"step_id": 3,  "op": "open_video",    "args": {}},
+    {"step_id": 4,  "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 5,  "op": "like",          "args": {"probability": 0.5}},
+    {"step_id": 6,  "op": "collect",       "args": {"probability": 0.15}},
+
+    {"step_id": 7,  "op": "scroll_feed",   "args": {}},
+    {"step_id": 8,  "op": "open_video",    "args": {}},
+    {"step_id": 9,  "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 10, "op": "like",          "args": {"probability": 0.6}},
+    {"step_id": 11, "op": "follow",        "args": {"probability": 0.1}},
+
+    {"step_id": 12, "op": "scroll_feed",   "args": {}},
+    {"step_id": 13, "op": "open_video",    "args": {}},
+    {"step_id": 14, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 15, "op": "like",          "args": {"probability": 0.5}},
+    {"step_id": 16, "op": "collect",       "args": {"probability": 0.15}},
+
+    {"step_id": 17, "op": "scroll_feed",   "args": {}},
+    {"step_id": 18, "op": "open_video",    "args": {}},
+    {"step_id": 19, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 20, "op": "like",          "args": {"probability": 0.6}},
+    {"step_id": 21, "op": "collect",       "args": {"probability": 0.15}},
+
+    {"step_id": 22, "op": "scroll_feed",   "args": {}},
+    {"step_id": 23, "op": "open_video",    "args": {}},
+    {"step_id": 24, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 25, "op": "like",          "args": {"probability": 0.5}},
+    {"step_id": 26, "op": "follow",        "args": {"probability": 0.1}},
+
+    {"step_id": 27, "op": "scroll_feed",   "args": {}},
+    {"step_id": 28, "op": "open_video",    "args": {}},
+    {"step_id": 29, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 30, "op": "like",          "args": {"probability": 0.6}},
+    {"step_id": 31, "op": "collect",       "args": {"probability": 0.15}},
+
+    {"step_id": 32, "op": "scroll_feed",   "args": {}},
+    {"step_id": 33, "op": "open_video",    "args": {}},
+    {"step_id": 34, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 35, "op": "like",          "args": {"probability": 0.5}},
+    {"step_id": 36, "op": "collect",       "args": {"probability": 0.15}},
+
+    {"step_id": 37, "op": "scroll_feed",   "args": {}},
+    {"step_id": 38, "op": "open_video",    "args": {}},
+    {"step_id": 39, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 40, "op": "like",          "args": {"probability": 0.6}},
+    {"step_id": 41, "op": "follow",        "args": {"probability": 0.1}},
+
+    {"step_id": 42, "op": "scroll_feed",   "args": {}},
+    {"step_id": 43, "op": "open_video",    "args": {}},
+    {"step_id": 44, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 45, "op": "like",          "args": {"probability": 0.5}},
+    {"step_id": 46, "op": "collect",       "args": {"probability": 0.15}},
+
+    {"step_id": 47, "op": "scroll_feed",   "args": {}},
+    {"step_id": 48, "op": "open_video",    "args": {}},
+    {"step_id": 49, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 50, "op": "like",          "args": {"probability": 0.6}},
+    {"step_id": 51, "op": "collect",       "args": {"probability": 0.15}},
+
+    {"step_id": 52, "op": "scroll_feed",   "args": {}},
+    {"step_id": 53, "op": "open_video",    "args": {}},
+    {"step_id": 54, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 55, "op": "like",          "args": {"probability": 0.5}},
+    {"step_id": 56, "op": "follow",        "args": {"probability": 0.1}},
+
+    {"step_id": 57, "op": "scroll_feed",   "args": {}},
+    {"step_id": 58, "op": "open_video",    "args": {}},
+    {"step_id": 59, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 60, "op": "like",          "args": {"probability": 0.6}},
+    {"step_id": 61, "op": "collect",       "args": {"probability": 0.15}},
+
+    {"step_id": 62, "op": "scroll_feed",   "args": {}},
+    {"step_id": 63, "op": "open_video",    "args": {}},
+    {"step_id": 64, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 65, "op": "like",          "args": {"probability": 0.5}},
+    {"step_id": 66, "op": "collect",       "args": {"probability": 0.15}},
+
+    {"step_id": 67, "op": "scroll_feed",   "args": {}},
+    {"step_id": 68, "op": "open_video",    "args": {}},
+    {"step_id": 69, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 70, "op": "like",          "args": {"probability": 0.6}},
+    {"step_id": 71, "op": "follow",        "args": {"probability": 0.1}},
+
+    {"step_id": 72, "op": "scroll_feed",   "args": {}},
+    {"step_id": 73, "op": "open_video",    "args": {}},
+    {"step_id": 74, "op": "wait_watch",    "args": {"seconds": null}},
+    {"step_id": 75, "op": "like",          "args": {"probability": 0.5}},
+    {"step_id": 76, "op": "collect",       "args": {"probability": 0.15}}
+  ]
+}

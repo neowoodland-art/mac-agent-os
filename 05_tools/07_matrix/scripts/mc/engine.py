@@ -421,6 +421,10 @@ class BatchEngine:
                         icon = "✅" if result.success else "❌"
                         log.info(f"    {icon} [{sn:2d}] {op_name:18s} → {result.detail[:25]} (重试, {result.elapsed:.1f}s)")
             elif verify_type == "sms":
+                if bp.get("skip_sms"):
+                    log.warning(f"    ⏭️ [{account_id}] 蓝图标记跳过短信验证，关闭浏览器")
+                    await conn.close()
+                    return report
                 log.warning(f"    📱 [{account_id}] 触发短信验证，自动恢复...")
                 await lsm.recover_sms(conn.page, account_id)
                 log.info(f"    ⏭️ 跳过当前操作 [{sn}]")

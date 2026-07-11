@@ -821,7 +821,7 @@ class MachineSession:
 CMD_REGISTRY = {
     "nurture": {
         "runner": "nurture_runner.sh",            # shell 包装器
-        "defaults": {"blueprint": "douyin_daily", "rounds": 10},
+        "defaults": {"blueprint": "douyin_daily_clean", "rounds": 10},
         "auto_blueprint": False,
     },
     "collect": {
