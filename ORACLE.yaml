@@ -160,11 +160,6 @@ accounts:
   identity: douyin_18550099245
   platforms:
     douyin: douyin_18550099245
-- phone: '13382501238'
-  assigned_machine: 5kechengdeAir
-  identity: douyin_13382501238
-  platforms:
-    douyin: douyin_13382501238
 - phone: '15358427890'
   assigned_machine: 5kechengdeAir
   identity: douyin_15358427890
