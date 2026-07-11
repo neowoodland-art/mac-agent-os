@@ -547,3 +547,48 @@ def api_push_task_event(data: dict = {}):
 def api_task_events(limit: int = 50):
     """获取最近的任务事件列表（供前端轮询/实时展示）"""
     return {"events": _TASK_EVENTS[-limit:]}
+
+
+@router.post("/fetch-titles")
+def api_fetch_titles(data: dict = {}):
+    """从视频 URL 列表中提取页面标题
+
+    Body: {"urls": ["https://www.douyin.com/video/...", ...]}
+    Returns: {"titles": [{"url": "...", "title": "...", "error": "..."}]}
+    """
+    import urllib.request as _urq
+    import re as _re
+
+    urls = data.get("urls", [])
+    if not urls or not isinstance(urls, list):
+        return {"status": "error", "message": "urls 必填"}
+
+    results = []
+    for url in urls:
+        url = url.strip()
+        if not url:
+            continue
+        title = ""
+        error = ""
+        try:
+            req = _urq.Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept-Language": "zh-CN,zh;q=0.9",
+            })
+            resp = _urq.urlopen(req, timeout=10)
+            html = resp.read().decode("utf-8", errors="replace")
+            # 提取 <title> 标签
+            m = _re.search(r'<title>([^<]+)</title>', html)
+            if m:
+                title = m.group(1).strip()
+                # 去掉平台后缀
+                title = _re.sub(r'\s*[-–—|]\s*抖音$', '', title).strip()
+                # 如果标题太长（含大量SEO关键词），截取到有用部分
+                if len(title) > 60:
+                    title = title[:60]
+        except Exception as e:
+            error = str(e)[:60]
+        results.append({"url": url, "title": title, "error": error})
+
+    logger.info("  📋 提取 %d 个URL标题: %d 成功", len(results), sum(1 for r in results if r["title"]))
+    return {"status": "ok", "titles": results}

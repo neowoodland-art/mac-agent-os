@@ -204,8 +204,30 @@ function _sliderColor(role) {
 }
 
 window._cwRolePct = (uid, roleId, val) => {
-  _rolePcts[roleId] = parseInt(val) / 100;
-  document.getElementById(`cwPct_${roleId}_${uid}`).textContent = `${val}%`;
+  const newVal = parseInt(val) / 100;
+  const oldVal = _rolePcts[roleId] || 0;
+  _rolePcts[roleId] = newVal;
+
+  // 归一化：其他角色等比例缩放，确保总和=100%
+  const otherTotal = Object.entries(_rolePcts)
+    .filter(([k]) => k !== roleId)
+    .reduce((s, [, v]) => s + v, 0);
+  if (otherTotal > 0.001) {
+    const target = 1 - newVal;
+    const scale = target / otherTotal;
+    Object.keys(_rolePcts).forEach(k => {
+      if (k !== roleId) _rolePcts[k] = Math.round(_rolePcts[k] * scale * 100) / 100;
+    });
+  }
+
+  // 更新所有滑块UI
+  ROLES_CONFIG.forEach(r => {
+    const el = document.getElementById(`cwPct_${r.id}_${uid}`);
+    if (el) el.textContent = `${Math.round(_rolePcts[r.id] * 100)}%`;
+    const slider = document.querySelector(`[data-role="${r.id}"]`);
+    if (slider) slider.value = Math.round(_rolePcts[r.id] * 100);
+  });
+
   const total = Object.values(_rolePcts).reduce((a, b) => a + b, 0);
   const el = document.getElementById(`cwPctStatus_${uid}`);
   if (el) el.textContent = `总计 ${(total * 100).toFixed(0)}% ${Math.abs(total - 1) < 0.01 ? '✅' : '⚠️'}`;
@@ -213,18 +235,43 @@ window._cwRolePct = (uid, roleId, val) => {
 
 // ═══ 导入视频 ═══
 
-window._cwParseUrls = (uid) => {
+window._cwParseUrls = async (uid) => {
   const raw = document.getElementById(`cwUrls_${uid}`)?.value?.trim();
   if (!raw) { alert('请先粘贴视频链接'); return; }
   const urls = raw.split('\n').map(s => s.trim()).filter(Boolean);
   if (!urls.length) { alert('没有有效的链接'); return; }
 
+  // 先添加，占位
+  const newUrls = [];
   urls.forEach(url => {
     if (!_videos.find(v => v.url === url)) {
-      _videos.push({ url, title: '', tags: '', checked: true, industry: '', direction: 'auto' });
+      _videos.push({ url, title: '', tags: '', checked: true, industry: '', content_type: '', direction: 'auto', guide_points: '' });
+      newUrls.push(url);
     }
   });
   _renderVideoList(uid);
+
+  // 异步去提取标题（不阻塞显示）
+  if (newUrls.length) {
+    try {
+      const r = await fetch('/api/ops/fetch-titles', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: newUrls }),
+      });
+      const d = await r.json();
+      if (d.status === 'ok' && d.titles) {
+        d.titles.forEach(t => {
+          const v = _videos.find(v => v.url === t.url);
+          if (v && t.title) {
+            v.title = t.title;
+          }
+        });
+        _renderVideoList(uid);
+      }
+    } catch (e) {
+      console.warn('标题提取失败:', e);
+    }
+  }
 };
 
 window._cwShowApiImport = (uid) => {
@@ -257,7 +304,9 @@ window._cwApiImport = async (uid) => {
               tags: Array.isArray(t.tags) ? t.tags.join(',') : (t.tags || ''),
               checked: true,
               industry: '',
+              content_type: '',
               direction: 'auto',
+              guide_points: '',
             });
             total++;
           }
@@ -277,29 +326,46 @@ function _renderVideoList(uid) {
   if (!_videos.length) { wrap.style.display = 'none'; return; }
 
   wrap.style.display = 'block';
+  const checkedCount = _videos.filter(v => v.checked).length;
   wrap.innerHTML = `
-    <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;font-size:10px;color:var(--text2)">
+    <div style="display:flex;align-items:center;gap:3px;margin-bottom:2px;font-size:9px;color:var(--text2);flex-wrap:wrap">
       <label style="display:flex;align-items:center;gap:2px;cursor:pointer">
-        <input type="checkbox" onchange="window._cwToggleAllVideo('${uid}',this.checked)" ${_videos.every(v => v.checked) ? 'checked' : ''}>
+        <input type="checkbox" onchange="window._cwToggleAllVideo('${uid}',this.checked)" ${_videos.every(v => v.checked) ? 'checked' : ''} style="margin:0">
         全选
       </label>
-      <span>共 ${_videos.length} 个视频</span>
-      <button onclick="window._cwClearVideos('${uid}')" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:10px;color:var(--red)">清空</button>
+      <span>${_videos.length}个</span>
+      <span style="color:var(--primary)">已选${checkedCount}</span>
+      <span style="font-size:8px;color:var(--text2);margin:0 2px">|</span>
+      <span style="font-size:8px">批量:</span>
+      <select onchange="window._cwBatchSetVideoAttr('${uid}','industry',this.value)" style="width:52px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px;border-radius:2px;font-size:8px">
+        ${INDUSTRIES.map(ind => `<option value="${ind.id}">${ind.label.replace(/^[^\s]+\s/,'')}</option>`).join('')}
+      </select>
+      <select onchange="window._cwBatchSetVideoAttr('${uid}','content_type',this.value)" style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px;border-radius:2px;font-size:8px">
+        ${CONTENT_TYPES.map(ct => `<option value="${ct.id}">${ct.label.replace(/^[^\s]+\s/,'')}</option>`).join('')}
+      </select>
+      <input type="text" placeholder="统一标签" maxlength="14" onchange="window._cwBatchSetVideoAttr('${uid}','tags',this.value)"
+             style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
+      <input type="text" placeholder="统一引导" maxlength="14" onchange="window._cwBatchSetVideoAttr('${uid}','guide_points',this.value)"
+             style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
+      <button onclick="window._cwClearVideos('${uid}')" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:9px;color:var(--red)">清空</button>
     </div>
     ${_videos.map((v, i) => {
       const indOpts = INDUSTRIES.map(ind => `<option value="${ind.id}" ${(v.industry||'')===ind.id?'selected':''}>${ind.label.replace(/^[^\s]+\s/,'')}</option>`).join('');
       const ctOpts = CONTENT_TYPES.map(ct => `<option value="${ct.id}" ${(v.content_type||'')===ct.id?'selected':''}>${ct.label.replace(/^[^\s]+\s/,'')}</option>`).join('');
       return `
-      <div style="display:flex;align-items:center;gap:3px;padding:2px 4px;font-size:10px;background:var(--bg2);border-radius:3px;margin-bottom:2px">
-        <input type="checkbox" ${v.checked ? 'checked' : ''} onchange="window._cwToggleVideo('${uid}',${i},this.checked)">
-        <span style="flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:60px" title="${v.title || v.url}">${v.title ? v.title.slice(0, 18) : _shortenUrl(v.url, 25)}</span>
-        <select onchange="window._cwSetVideoIndustry('${uid}',${i},this.value)" style="width:58px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:9px">${indOpts}</select>
-        <select onchange="window._cwSetVideoContentType('${uid}',${i},this.value)" style="width:52px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:9px">${ctOpts}</select>
-        <input type="text" placeholder="标签" value="${v.tags||''}" maxlength="16"
+      <div style="display:flex;align-items:center;gap:2px;padding:2px 2px;font-size:9px;background:var(--bg2);border-radius:3px;margin-bottom:1px">
+        <input type="checkbox" ${v.checked ? 'checked' : ''} onchange="window._cwToggleVideo('${uid}',${i},this.checked)" style="flex-shrink:0">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:30px;max-width:100px;font-size:9px" title="${v.title || v.url}">${v.title ? v.title.slice(0, 14) : _shortenUrl(v.url, 18)}</span>
+        <select onchange="window._cwSetVideoIndustry('${uid}',${i},this.value)" style="width:52px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 1px;border-radius:2px;font-size:8px">${indOpts}</select>
+        <select onchange="window._cwSetVideoContentType('${uid}',${i},this.value)" style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 1px;border-radius:2px;font-size:8px">${ctOpts}</select>
+        <input type="text" value="${v.tags||''}" maxlength="12" placeholder="标签"
                onchange="window._cwSetVideoTag('${uid}',${i},this.value)"
-               style="width:50px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:9px">
+               style="width:48px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
+        <input type="text" value="${v.guide_points||''}" maxlength="16" placeholder="引导"
+               onchange="window._cwSetVideoGuidePoints('${uid}',${i},this.value)"
+               style="width:48px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
         <button onclick="window._cwRemoveVideo('${uid}',${i})"
-                style="background:none;border:none;cursor:pointer;font-size:10px;opacity:.3;padding:0 2px">✕</button>
+                style="background:none;border:none;cursor:pointer;font-size:9px;opacity:.3;padding:0 1px;flex-shrink:0">✕</button>
       </div>`}).join('')}
   `;
 }
@@ -333,6 +399,16 @@ window._cwSetVideoIndustry = (uid, idx, val) => {
 
 window._cwSetVideoContentType = (uid, idx, val) => {
   if (_videos[idx]) _videos[idx].content_type = val;
+};
+
+window._cwSetVideoGuidePoints = (uid, idx, val) => {
+  if (_videos[idx]) _videos[idx].guide_points = val;
+};
+
+// 批量设置：对当前所有勾选的视频统一赋值
+window._cwBatchSetVideoAttr = (uid, attr, val) => {
+  _videos.forEach(v => { if (v.checked) v[attr] = val; });
+  _renderVideoList(uid);
 };
 
 const INDUSTRIES = [
@@ -475,54 +551,50 @@ window._cwGenerate = async (uid) => {
 
   _generatedComments = [];
 
-  // 一次 API 调用生成所有评论，然后按视频分组
-  // 这样从语料池取出的每条评论全局唯一，各视频之间绝不撞车
-  const allTitles = selectedVids.map(v => v.title || '').filter(Boolean).join(' | ');
-  // 提取所有视频的标签去重，供后端行业分类使用
-  const allTags = [...new Set(selectedVids.flatMap(v => (v.tags || '').split(/[,，]/).map(s => s.trim()).filter(Boolean)))];
-  // 取多数视频的行业（如果所有视频行业不同，用通用）
-  const industries = [...new Set(selectedVids.map(v => v.industry || '').filter(Boolean))];
-  const batchIndustry = industries.length === 1 ? industries[0] : '';
-  // 取多数视频的方向
-  const dirs = [...new Set(selectedVids.map(v => v.direction || 'auto').filter(d => d !== 'auto'))];
-  const batchDirection = dirs.length === 1 ? dirs[0] : 'auto';
+  // 每个视频独立调 API，各自带上自己的上下文
+  // 这样 AI 知道每条评论对应哪个视频、什么行业、什么类型
+  for (let vi = 0; vi < selectedVids.length; vi++) {
+    const v = selectedVids[vi];
+    const title = v.title || '';
+    if (!title) {
+      console.warn(`视频 #${vi + 1} 无标题，跳过`);
+      continue;
+    }
 
-  try {
-    const r = await fetch('/api/comment-workbench/generate', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        video_title: allTitles || '视频',
-        video_tags: allTags,
-        video_industry: batchIndustry,
-        direction: batchDirection,
-        role_distribution: _rolePcts,
-        total: totalNeeded,
-        ai_enhance: aiEnhance,
-        long_ratio: longRatio,
-      }),
-    });
-    const d = await r.json();
-    const allComments = d.comments || [];
+    // 提取此视频自己的标签+引导
+    const tags = (v.tags || '').split(/[,，]/).map(s => s.trim()).filter(Boolean);
+    const guidePoints = v.guide_points || '';
+    const contentType = v.content_type || '';
 
-    // 按视频分组，每个视频分到 perVideo 条
-    for (let vi = 0; vi < selectedVids.length; vi++) {
-      const v = selectedVids[vi];
-      const start = vi * perVideo;
-      const end = Math.min(start + perVideo, allComments.length);
-      const videoComments = allComments.slice(start, end);
+    try {
+      const r = await fetch('/api/comment-workbench/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_title: title,
+          video_tags: tags,
+          video_industry: v.industry || '',
+          guide_points: guidePoints,
+          content_type: contentType,
+          role_distribution: _rolePcts,
+          total: perVideo,
+          ai_enhance: aiEnhance,
+          long_ratio: longRatio,
+        }),
+      });
+      const d = await r.json();
+      let videoComments = d.comments || [];
 
-      // 此视频的 keyword 替换
-      const kw = _extractKeyword(v.title || '');
-      let processed = videoComments;
+      // keyword 替换
+      const kw = _extractKeyword(title);
       if (kw) {
-        processed = videoComments.map(c => ({
+        videoComments = videoComments.map(c => ({
           ...c,
           text: c.text ? c.text.replace(/\{keyword\}/g, kw) : c.text,
         }));
       }
 
-      // 从此视频的评论池中，循环分配到各账号
-      processed.forEach((c, ci) => {
+      // 循环分配到各账号
+      videoComments.forEach((c, ci) => {
         const acctIdx = ci % accts.length;
         _generatedComments.push({
           video_idx: vi,
@@ -534,10 +606,9 @@ window._cwGenerate = async (uid) => {
           is_long: !!c.is_long,
         });
       });
+    } catch (e) {
+      console.error(`视频 #${vi + 1} 生成失败:`, e);
     }
-  } catch (e) {
-    console.error('生成评论失败:', e);
-    alert('❌ 生成失败: ' + (e.message || e));
   }
 
   btn.textContent = '🚀 生成评论'; btn.disabled = false;
@@ -569,25 +640,31 @@ function _renderPreview(uid) {
   }
 
   wrap.style.display = 'block';
-  count.textContent = `共 ${_generatedComments.length} 条 | ${_videos.filter(v=>v.checked).length} 个视频 | ${_selector?.getSelected()?.length || 0} 个账号`;
+  count.textContent = `共 ${_generatedComments.length} 条`;
 
   const selectedVids = _videos.filter(v => v.checked);
 
-  list.innerHTML = _generatedComments.map((c, i) => {
-    const v = selectedVids[c.video_idx];
-    const videoLabel = v ? (v.title ? v.title.slice(0, 20) : _shortenUrl(v.url, 20)) : `视频#${c.video_idx + 1}`;
-    const roleColor = _sliderColor(c.role);
-    return `
-      <div style="display:flex;align-items:center;gap:4px;padding:4px 8px;background:var(--bg3);border-radius:4px;font-size:10px;border-left:3px solid ${roleColor}">
-        <span style="font-size:9px;color:var(--text2);min-width:16px">#${i + 1}</span>
-        <span style="font-size:9px;color:var(--text2);min-width:40px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v ? (v.title||v.url) : ''}">📹 ${videoLabel}</span>
-        <span style="font-size:9px;padding:1px 4px;border-radius:3px;background:${roleColor}20;color:${roleColor};min-width:35px;text-align:center">${c.role_label}${c.is_long ? '📖' : ''}</span>
-        <span style="font-size:9px;color:var(--text2);min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤 ${c.account_id}</span>
+  list.innerHTML = `
+    <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;font-size:9px;color:var(--text2)">
+      <span style="min-width:16px"><input type="checkbox" id="cwSelAll_${uid}" onchange="document.querySelectorAll('.cw-comment-cb').forEach(cb=>cb.checked=this.checked)"></span>
+      <span style="flex:1;font-size:9px">${_generatedComments.length} 条 | ${selectedVids.length} 视频</span>
+      <button onclick="window._cwSaveSelectedComments('${uid}')" style="background:var(--bg3);border:1px solid var(--border);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:9px">💾 入库</button>
+    </div>
+    ${_generatedComments.map((c, i) => {
+      const v = selectedVids[c.video_idx];
+      const videoLabel = v ? (v.title ? v.title.slice(0, 16) : _shortenUrl(v.url, 18)) : `视频#${c.video_idx + 1}`;
+      const roleColor = _sliderColor(c.role);
+      return `
+      <div style="display:flex;align-items:center;gap:3px;padding:3px 6px;background:var(--bg3);border-radius:4px;font-size:9px;border-left:3px solid ${roleColor};margin-bottom:2px">
+        <input type="checkbox" class="cw-comment-cb" data-idx="${i}" style="flex-shrink:0">
+        <span style="font-size:8px;color:var(--text2);min-width:28px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v ? (v.title||v.url) : ''}">📹${videoLabel}</span>
+        <span style="font-size:8px;padding:1px 3px;border-radius:2px;background:${roleColor}20;color:${roleColor};min-width:30px;text-align:center;flex-shrink:0">${c.role_label}${c.is_long ? '📖' : ''}</span>
+        <span style="font-size:8px;color:var(--text2);min-width:40px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0">${c.account_id}</span>
         <span style="flex:1;color:var(--text);min-width:0">${escapeHtml(c.text)}</span>
-        <button onclick="window._cwEditComment(${i},'${uid}')" style="background:none;border:none;cursor:pointer;font-size:11px;opacity:.5" title="编辑">✏️</button>
-        <button onclick="window._cwDeleteComment(${i},'${uid}')" style="background:none;border:none;cursor:pointer;font-size:11px;opacity:.3" title="删除">✕</button>
+        <button onclick="window._cwEditComment(${i},'${uid}')" style="background:none;border:none;cursor:pointer;font-size:10px;opacity:.4;flex-shrink:0">✏️</button>
+        <button onclick="window._cwDeleteComment(${i},'${uid}')" style="background:none;border:none;cursor:pointer;font-size:10px;opacity:.3;flex-shrink:0">✕</button>
       </div>`;
-  }).join('');
+    }).join('')}`;
 }
 
 window._cwEditComment = (idx, uid) => {
@@ -622,6 +699,35 @@ window._cwSaveEdit = (idx, uid) => {
 window._cwDeleteComment = (idx, uid) => {
   _generatedComments.splice(idx, 1);
   _renderPreview(uid);
+};
+
+// ═══ 入库 ═══
+
+window._cwSaveSelectedComments = async (uid) => {
+  const checked = document.querySelectorAll('.cw-comment-cb:checked');
+  if (!checked.length) { alert('请先勾选要入库的评论'); return; }
+
+  const selected = [];
+  checked.forEach(cb => {
+    const idx = parseInt(cb.dataset.idx);
+    const c = _generatedComments[idx];
+    if (c) selected.push({ text: c.text, role: c.role, category: '入库评论' });
+  });
+
+  try {
+    const r = await fetch('/api/comment-workbench/save-comments', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comments: selected, platform: 'douyin' }),
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      alert(`✅ 入库 ${d.saved} 条评论`);
+    } else {
+      alert('❌ ' + (d.message || '入库失败'));
+    }
+  } catch (e) {
+    alert('❌ ' + e.message);
+  }
 };
 
 window._cwRegenerate = (uid) => {

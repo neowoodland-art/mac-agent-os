@@ -202,15 +202,23 @@ class AIGenerator:
         role: str = "sharer",
         role_label: str = "分享型",
         is_long: bool = False,
+        guide_points: str = "",
+        industry: str = "",
+        content_type: str = "",
+        tags: str = "",
     ) -> Optional[str]:
-        """根据视频 + 角色生成评论（含长评模式）
+        """根据视频 + 角色生成评论（含长评模式、引导要点）
 
         Args:
             video_title: 视频标题
             video_desc: 视频描述
-            role: 角色标识（sharer/questioner/sympathizer/skeptic/sufferer/filler/expert_ref）
+            role: 角色标识
             role_label: 角色中文标签
             is_long: 是否生成讲故事的长评
+            guide_points: 引导要点（逗号分隔），对引导类角色生效
+            industry: 视频行业
+            content_type: 视频内容类型
+            tags: 视频标签
         """
         if not self.available:
             return None
@@ -222,17 +230,41 @@ class AIGenerator:
             "sympathizer": "你是一个善于共情的人，表达理解、安慰和支持",
             "skeptic": "你是一个理性客观的人，对内容保持审慎和独立思考",
             "sufferer": "你是一个有相同经历的人，讲述自己遇到的类似问题",
-            "filler": "你是一个普通用户，用简短的话互动",
+            "filler": "你是一个普通用户，用简短的话互动，比如哈哈哈、沙发前排",
             "expert_ref": "你是一个有经验的人，推荐特定的专家或方案",
+            "funny": "你是一个幽默搞怪的用户，用搞笑的方式吐槽或调侃",
+            "angry": "你是一个愤世嫉俗的人，对现状感到不满和愤怒",
+            "oppose": "你是一个反对者，坚持抵制某个产品或观点",
+            "guide_analyze": "你是一个理性分析的人，客观评价视频内容的优缺点，引导大家关注博主观点",
+            "guide_share": "你是一个有经验的人，分享自己的真实经历来印证视频内容，引导大家采取行动",
+            "guide_agree": "你是一个赞同者，完全认同博主观点，引导其他用户赞同",
+            "guide_benefit": "你是一个精明消费者，分享如何获得优惠和福利，引导大家薅羊毛",
+            "guide_compare": "你是一个对比型用户，拿其他产品或方案做对比，引导用户选择博主的推荐",
         }
         role_hint = role_desc_map.get(role, "你是一个普通抖音用户")
+
+        # 构建视频信息块
+        video_info_parts = [f"视频标题: {video_title}"]
+        if industry:
+            video_info_parts.append(f"行业: {industry}")
+        if content_type:
+            video_info_parts.append(f"内容类型: {content_type}")
+        if tags:
+            video_info_parts.append(f"标签: {tags}")
+        video_info = " | ".join(video_info_parts)
+
+        # 引导要点（仅对引导类角色生效）
+        guide_part = ""
+        if guide_points and role.startswith("guide_"):
+            guide_part = f"\n\n引导要求：在评论中自然地融入以下要点（选择1~2个融入即可）：{guide_points}"
 
         desc_part = f"\n视频描述: {video_desc}" if video_desc else ""
 
         prompt = (
-            f"你是一个抖音用户。{role_hint}。"
-            f"\n视频标题: {video_title}"
+            f"你是一个抖音用户。{role_hint}。\n"
+            f"{video_info}"
             f"{desc_part}"
+            f"{guide_part}"
             f"\n\n请{length_desc}。"
             "\n- 语言自然口语化"
             "\n- 不要用 emoji"
@@ -563,8 +595,29 @@ class CorpusManager:
             "sharer": "分享型", "questioner": "提问型", "sympathizer": "共情型",
             "skeptic": "质疑型", "sufferer": "患者型", "filler": "灌水型",
             "expert_ref": "推荐型",
+            "funny": "搞怪", "angry": "愤世嫉俗", "oppose": "坚决抵制",
+            "guide_analyze": "客观分析",
+            "guide_share": "经验分享",
+            "guide_agree": "赞同博主",
+            "guide_benefit": "薅羊毛推荐",
+            "guide_compare": "对比反证",
         }
         return labels.get(role, role)
+
+    # 前端新角色 → 语料库旧角色映射表（用于取模板评论）
+    ROLE_CORPUS_MAP = {
+        "filler": "filler",
+        "funny": "filler",        # 搞怪 ← 从灌水里取模板，AI改成搞怪
+        "sympathizer": "sympathizer",
+        "sharer": "sharer",
+        "angry": "skeptic",       # 愤世嫉俗 ← 从质疑评论取模板
+        "oppose": "skeptic",      # 坚决抵制 ← 同上
+        "guide_analyze": "sharer",
+        "guide_share": "sharer",
+        "guide_agree": "sharer",
+        "guide_benefit": "expert_ref",
+        "guide_compare": "skeptic",
+    }
 
     def batch_get_comments_by_roles(
         self,
@@ -572,6 +625,9 @@ class CorpusManager:
         platform: str = "douyin",
         video_title: str = "",
         video_industry: str = None,
+        guide_points: str = "",
+        content_type: str = "",
+        video_tags: str = "",
         total: int = 30,
         ai_enhance: bool = False,
         long_ratio: float = 0.0,
@@ -620,8 +676,10 @@ class CorpusManager:
 
         result = []
         for role, proportion in role_distribution.items():
-            pool = all_by_role.get(role, [])
+            corp_role = self.ROLE_CORPUS_MAP.get(role, role)
+            pool = all_by_role.get(corp_role, [])
             if not pool:
+                log.warning("  ⚠️ 角色 %s 无语料（映射到 %s 也无料），跳过", role, corp_role)
                 continue
             take = max(1, int(total * proportion))
             sampled = random.sample(pool, min(take, len(pool)))
@@ -641,27 +699,37 @@ class CorpusManager:
         random.shuffle(result)
         result = result[:total]
 
-        # AI 增强
-        if ai_enhance and video_title:
-            import asyncio as _asyncio
-            try:
-                loop = _asyncio.get_event_loop()
-            except RuntimeError:
-                loop = _asyncio.new_event_loop()
-            for item in result:
+        # AI 增强（含懒实例化）
+        if ai_enhance and video_title and total > 0:
+            if self._ai_gen is None:
+                from mc.corpus import AIGenerator
+                self._ai_gen = AIGenerator()
+            if not self._ai_gen.available:
+                log.warning("  ⚠️ AI 跳过：未配置 API key（检查 config/ai.yaml）")
+            else:
+                import asyncio as _asyncio
                 try:
-                    enhanced = loop.run_until_complete(
-                        self._ai_gen.generate_comment_by_role(
-                            video_title=video_title,
-                            role=item["role"],
-                            role_label=item["role_label"],
-                            is_long=item["is_long"],
+                    loop = _asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = _asyncio.new_event_loop()
+                for item in result:
+                    try:
+                        enhanced = loop.run_until_complete(
+                            self._ai_gen.generate_comment_by_role(
+                                video_title=video_title,
+                                role=item["role"],
+                                role_label=item["role_label"],
+                                is_long=item["is_long"],
+                                guide_points=guide_points,
+                                industry=video_industry or "",
+                                content_type=content_type,
+                                tags=video_tags,
+                            )
                         )
-                    ) if self._ai_gen else None
-                    if enhanced:
-                        item["text"] = enhanced
-                except Exception:
-                    pass
+                        if enhanced:
+                            item["text"] = enhanced
+                    except Exception as exc:
+                        log.warning("  ⚠️ AI 增强单条失败: %s", exc)
 
         return result
 
@@ -688,12 +756,16 @@ class CorpusManager:
         return "general"
 
     def _extract_first_keyword(self, title: str) -> Optional[str]:
-        """从标题提取第一个行业关键词"""
+        """从标题提取第一个行业关键词（兜底：取前6个中文字符）"""
         title_lower = title.lower()
         for industry, keywords in INDUSTRY_TAGS.items():
             for kw in keywords:
                 if kw in title_lower or kw in title:
                     return kw
+        # 匹配不到行业词 → 取前4~8个中文字符作为关键词
+        m = re.search(r'([\u4e00-\u9fff]{4,8})', title)
+        if m:
+            return m.group(1)
         return None
 
     def _pick_comment(self, video_industry: str, account_industry: str, direction: str) -> Optional[str]:

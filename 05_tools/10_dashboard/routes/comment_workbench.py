@@ -68,7 +68,9 @@ def api_generate_comments(data: dict):
     """
     video_title = data.get("video_title", "")
     video_tags = data.get("video_tags", []) or []
-    video_industry = data.get("video_industry") or None  # 前端人工纠偏
+    video_industry = data.get("video_industry") or None
+    guide_points = data.get("guide_points", "") or ""
+    content_type = data.get("content_type", "") or ""
     direction = data.get("direction", "auto")
     platform = data.get("platform", "douyin")
     role_dist = data.get("role_distribution", {}) or DEFAULT_ROLES
@@ -91,15 +93,50 @@ def api_generate_comments(data: dict):
                 industry = mgr._classify_video(tag)
                 if industry:
                     break
-    logger.info("  📋 视频行业: %s (title=%.40s)", industry or "仅通用", video_title)
+    # 视频标签转为逗号字符串
+    tags_str = ", ".join(video_tags) if isinstance(video_tags, list) else str(video_tags)
+    logger.info("  📋 视频行业: %s | 内容类型: %s | 引导: %.30s", industry or "通用", content_type or "-", guide_points or "-")
 
     comments = mgr.batch_get_comments_by_roles(
         role_distribution=role_dist,
         platform=platform,
         video_title=video_title,
         video_industry=industry,
+        guide_points=guide_points,
+        content_type=content_type,
+        video_tags=tags_str,
         total=total,
         ai_enhance=ai_enhance,
         long_ratio=long_ratio,
     )
     return {"comments": comments, "total": len(comments)}
+
+
+@router.post("/save-comments")
+def api_save_comments(data: dict):
+    """将精选评论保存到语料库
+
+    Body: {
+        "comments": [{"text": "...", "role": "...", "category": "..."}],
+        "platform": "douyin"
+    }
+    """
+    comments = data.get("comments", [])
+    platform = data.get("platform", "douyin")
+    if not comments:
+        raise HTTPException(400, detail="comments 必填")
+
+    mgr = _get_corpus_mgr()
+    saved = 0
+    for c in comments:
+        text = c.get("text", "").strip()
+        role = c.get("role", "filler")
+        cat = c.get("category", "") or "入库评论"
+        if not text:
+            continue
+        # 入库到指定分类（不存在则自动创建）
+        mgr.add_comment(cat, text, platform)
+        saved += 1
+
+    logger.info("  ✅ 入库 %d 条评论 → %s/%s", saved, platform, cat)
+    return {"status": "ok", "saved": saved}

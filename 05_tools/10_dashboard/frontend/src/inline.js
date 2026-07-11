@@ -161,9 +161,13 @@ window.switchView = function(view) {
   }
 
   // 已迁移视图 → 动态加载（由 views/*.js 的 loadView 接管）
+  // 采集管理旧路由 → 新采集视图
+  if (view === 'crawl-tasks' || view === 'crawl-sources' || view === 'crawl-history') {
+    view = 'collect';
+  }
   // window.tryLoadView 由 router.js 和本文件共同暴露
-  if (window.tryLoadView) {
-    window.tryLoadView(view);
+  if (window.tryLoadView && window.tryLoadView(view)) {
+    return;
   }
 
   // URL hash 同步：支持浏览器刷新后回到当前页
