@@ -555,9 +555,9 @@ window._cwGenerate = async (uid) => {
   // 这样 AI 知道每条评论对应哪个视频、什么行业、什么类型
   for (let vi = 0; vi < selectedVids.length; vi++) {
     const v = selectedVids[vi];
-    const title = v.title || '';
+    const title = v.title || v.url || '';
     if (!title) {
-      console.warn(`视频 #${vi + 1} 无标题，跳过`);
+      console.warn(`视频 #${vi + 1} 无标题无URL，跳过`);
       continue;
     }
 
