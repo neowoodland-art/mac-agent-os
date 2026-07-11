@@ -766,7 +766,8 @@ window._cwDispatch = async (uid) => {
           params: {
             urls: [v ? v.url : ''],
             direction: 'praise',
-            custom_comment: c.text,
+            comments: v ? { [v.url]: c.text } : {},
+            titles: v && v.title ? { [v.url]: v.title } : {},
             skip_analysis: true,
           },
         }),
