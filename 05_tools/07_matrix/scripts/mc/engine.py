@@ -314,8 +314,17 @@ class BatchEngine:
                 await asyncio.sleep(6)
 
         # ── 钩子1: 登录状态检测（执行前确保登录）──
-        from matrix_modules.account.login_state_machine import LoginStateMachine
-        lsm = LoginStateMachine()
+        if bp and bp.get("skip_sms"):
+            from matrix_modules.account.login_state_machine import (
+                LoginStateMachine, RecoveryChain, CookieRecovery, VisualRecovery
+            )
+            lsm = LoginStateMachine(recovery_chain=RecoveryChain(steps=[
+                CookieRecovery(),
+                VisualRecovery(),
+            ]))
+        else:
+            from matrix_modules.account.login_state_machine import LoginStateMachine
+            lsm = LoginStateMachine()
         login_ok = await lsm.ensure_login(conn.page, account_id, platform)
         if not login_ok:
             # 检测是否被封号
