@@ -325,7 +325,15 @@ class BatchEngine:
         else:
             from matrix_modules.account.login_state_machine import LoginStateMachine
             lsm = LoginStateMachine()
+        phone = None
         login_ok = await lsm.ensure_login(conn.page, account_id, platform)
+        # skip_sms 模式：登录后立即检查是否有 SMS 弹窗（服务器主动触发）
+        if login_ok and bp and bp.get("skip_sms"):
+            sms_popup = await lsm.check_verify_dialog(conn.page)
+            if sms_popup == "sms":
+                log.warning(f"  ⏭️ [{account_id}] 服务器弹出短信验证，skip_sms 跳过，关闭浏览器")
+                await conn.close()
+                return report
         if not login_ok:
             # 检测是否被封号
             if hasattr(lsm, 'last_status') and lsm.last_status == 'banned':
