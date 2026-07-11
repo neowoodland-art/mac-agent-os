@@ -29,6 +29,7 @@ export async function loadView(container) {
           <label style="font-size:11px;color:var(--text2)">蓝图:
             <select id="ndBlueprint" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:11px">
               <option value="">自动匹配</option>
+              <option value="douyin_daily_clean">🎵 纯净养号(无评论·无短信)</option>
               <option value="douyin_daily">🎵 douyin_daily</option>
               <option value="xhs_daily">📕 xhs_daily</option>
               <option value="douyin_active_v1">🎵 douyin_active_v1</option>
