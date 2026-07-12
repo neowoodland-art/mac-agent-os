@@ -1384,15 +1384,19 @@ class MatrixManager:
         result["last_cmd"] = parts[0] if parts else ""
         try:
             text = log_file.read_text(encoding="utf-8", errors="replace")
-            if "✅" in text and "🛑 浏览器已关闭" in text:
+            # 先检测短信触发（优先级最高：多条日志可能同时有 ✅ 和 短信验证）
+            if any(kw in text for kw in ["短信验证", "auto_verify 返回 False", "需手动登录", "sms_login", "SmsRecovery"]):
+                result["last_status"] = "sms_skip"
+            # 再检测完成状态
+            elif "✅" in text and "🛑 浏览器已关闭" in text:
                 if "skip_sms" in text or "跳过短信" in text:
                     result["last_status"] = "sms_skip"
                 else:
                     result["last_status"] = "success"
+            # 失败
             elif "❌" in text or "Error" in text or "failed" in text.lower():
                 result["last_status"] = "failed"
-            elif "短信验证" in text or "sms" in text.lower():
-                result["last_status"] = "sms_skip"
+            # 兜底
             else:
                 result["last_status"] = "running"
         except Exception:

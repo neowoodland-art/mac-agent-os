@@ -94,6 +94,10 @@ _static_dir = Path(__file__).parent / "static"
 _static_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
+@app.get("/favicon.ico")
+async def favicon():
+    return ""
+
 @app.get("/")
 def index():
     index_path = _static_dir / "index.html"
