@@ -1,4 +1,4 @@
-import{r as e,t}from"./index-Cb71sUyt.js";e(`collect`);async function n(e){e.innerHTML=`
+import{r as e,t}from"./index-FXDEG4xd.js";e(`collect`);async function n(e){e.innerHTML=`
     <div style="padding:20px;max-width:1200px;margin:0 auto">
       <h2 style="margin-bottom:16px">📡 内容采集</h2>
 

@@ -53,9 +53,9 @@ export function tryLoadView(viewName) {
   const container = document.getElementById('view-dynamic');
   if (!container) return false;
 
-  // 隐藏所有旧视图
-  document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
-  document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.classList.add('hidden'));
+  // 隐藏所有旧视图（class + inline style 双重保障，防内联 display 覆盖）
+  document.querySelectorAll('[id^="view-"]').forEach(el => { el.classList.add('hidden'); el.style.display = 'none'; });
+  document.querySelectorAll('[id^="plugin-view-"]').forEach(el => { el.classList.add('hidden'); el.style.display = 'none'; });
 
   // 显示动态容器
   container.classList.remove('hidden');

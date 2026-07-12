@@ -62,9 +62,14 @@ def _register_plugins():
         try:
             _PLUGINS[name] = inst
             _AVAILABLE[name] = inst.is_available()
-            # 写入共享数据
+            # 写入共享数据（加超时保护，防某些插件的 write_shared 卡死）
             try:
-                inst.write_shared()
+                from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutTimeout
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    fut = pool.submit(inst.write_shared)
+                    fut.result(timeout=10)
+            except FutTimeout:
+                logger.warning(f"  插件 {name} write_shared 超时，跳过")
             except:
                 pass
         except Exception as e:

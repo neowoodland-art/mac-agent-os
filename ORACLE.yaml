@@ -180,6 +180,46 @@ accounts:
   identity: douyin_18550099018
   platforms:
     douyin: douyin_18550099018
+- phone: '13382502664'
+  assigned_machine: 5kechengdeAir
+  identity: douyin_13382502664
+  platforms:
+    douyin: douyin_13382502664
+- phone: '13382501256'
+  assigned_machine: 5kechengdeAir
+  identity: douyin_13382501256
+  platforms:
+    douyin: douyin_13382501256
+- phone: '13382502342'
+  assigned_machine: 5kechengdeAir
+  identity: douyin_13382502342
+  platforms:
+    douyin: douyin_13382502342
+- phone: '13382546434'
+  assigned_machine: 5kechengdeAir
+  identity: douyin_13382546434
+  platforms:
+    douyin: douyin_13382546434
+- phone: '13382548963'
+  assigned_machine: 5kechengdeAir
+  identity: douyin_13382548963
+  platforms:
+    douyin: douyin_13382548963
+- phone: '13160144006'
+  assigned_machine: chengzigedeAir
+  identity: douyin_13160144006
+  platforms:
+    douyin: douyin_13160144006
+- phone: '13382500738'
+  assigned_machine: chengzigedeAir
+  identity: douyin_13382500738
+  platforms:
+    douyin: douyin_13382500738
+- phone: '13382504732'
+  assigned_machine: chengzigedeAir
+  identity: douyin_13382504732
+  platforms:
+    douyin: douyin_13382504732
 tasks:
 - name: nurture_morning
   schedule: 30 9 * * *

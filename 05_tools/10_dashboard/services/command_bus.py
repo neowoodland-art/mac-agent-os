@@ -226,11 +226,23 @@ class MachineSession:
         return cls._sessions[machine]
 
     def graceful_exit(self, account_id: str = None):
-        """优雅退出：执行前清理同机残留进程"""
+        """优雅退出：执行前清理同机残留进程。
+
+        只杀无 active 命令的僵尸进程；若有 active 命令，由 guardd 调度器排他管理，不抢杀。
+        """
         for cmd in self.commands[:]:
             if cmd.status.is_active and (account_id is None or account_id in cmd.accounts):
                 self.cancel(cmd)
-        # 额外清理：pkill 同账号进程
+
+        # 僵尸进程清理：只杀无 active 命令的残留
+        active_for_account = any(
+            cmd.status.is_active and (account_id is None or account_id in cmd.accounts)
+            for cmd in self.commands
+        )
+        if active_for_account:
+            return
+
+        # 无 active 命令 → pkill 清理僵尸进程
         if self.is_local:
             target = account_id or ""
             try:
@@ -997,7 +1009,7 @@ class CommandBus:
                     p = a.get("platform", "douyin")
                     plat_groups.setdefault(p, []).append(a)
                 for platform, plat_accts in plat_groups.items():
-                    bp = params.get("blueprint") or {"douyin": "douyin_daily", "xiaohongshu": "xhs_daily"}.get(platform, "douyin_daily")
+                    bp = params.get("blueprint") or {"douyin": "douyin_daily_clean", "xiaohongshu": "xhs_daily"}.get(platform, "douyin_daily_clean")
                     r = params.get("rounds", 10)
                     # 拆解：每个账号生成独立任务（让 guardd 3 slot 并行执行）
                     for a in plat_accts:

@@ -43,6 +43,7 @@ const MIGRATED_VIEWS = [
   'capabilities',
 
   // ── 内容采集 ──
+  'collect',
   'crawl-tasks',
   'crawl-sources',
   'crawl-history',
