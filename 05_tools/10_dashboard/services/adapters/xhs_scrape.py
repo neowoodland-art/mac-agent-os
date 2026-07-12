@@ -1,20 +1,20 @@
 """
-xhs_collect.py — 小红书采集适配器
+xhs_scrape.py — 小红书抓取适配器
 
 工具：OpenCLI xiaohongshu → agent-browser
 """
 import asyncio, json, logging
-from services.adapters import CollectAdapter
+from services.adapters import ScrapeAdapter
 
-logger = logging.getLogger("dashboard.collect.xhs")
+logger = logging.getLogger("dashboard.scrape.xhs")
 
 
-class XhsCollectAdapter(CollectAdapter):
+class XhsScrapeAdapter(ScrapeAdapter):
     platform = "xiaohongshu"
-    adapter_name = "xhs_opencli"
+    adapter_name = "xhs_scrape"
 
     async def collect_user(self, user_id: str, limit: int = 20) -> list[dict]:
-        """采集指定用户的笔记列表"""
+        """抓取指定用户的笔记列表"""
         results = []
         ok, data, tool = await self._try_tools(2, [
             ("opencli", lambda: self._opencli_user_notes(user_id, limit)),
@@ -26,7 +26,7 @@ class XhsCollectAdapter(CollectAdapter):
 
     async def collect_item(self, target: str, depth: str = "light",
                            tool_level: int = 2) -> dict:
-        """采集单篇笔记详情"""
+        """抓取单篇笔记详情"""
         note_id = self._extract_note_id(target)
         if not note_id:
             return {"error": f"无法解析笔记ID: {target}"}
@@ -35,10 +35,10 @@ class XhsCollectAdapter(CollectAdapter):
         ])
         if ok and data:
             return self._to_schema(data)
-        return {"error": "所有工具均无法采集"}
+        return {"error": "所有工具均无法抓取"}
 
     async def collect_comments(self, item_id: str, limit: int = 20) -> list[dict]:
-        """采集笔记评论"""
+        """抓取笔记评论"""
         ok, data, tool = await self._try_tools(2, [
             ("opencli", lambda: self._opencli_comments(item_id, limit)),
         ])

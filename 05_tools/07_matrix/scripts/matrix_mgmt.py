@@ -1289,6 +1289,10 @@ class MatrixManager:
                         merged["_status"] = alt_status
                         merged["identity_hint"] = aid
                         merged["identity_dir"] = f"identities/{aid}"
+                # 上次执行日志详情（不读 SQLite，零锁竞争）
+                merged["_log_detail"] = self._get_log_detail(identity_hint)
+                if merged["_status"] == "no_cookie" and identity_hint != aid:
+                    merged["_log_detail"] = self._get_log_detail(aid)
             merged["_identity_dir_exists"] = self._identity_exists_by_hint(identity_hint) or self._identity_exists_by_hint(aid)
 
             result.append(merged)
@@ -1327,25 +1331,73 @@ class MatrixManager:
         return result
 
     def _check_login_status_by_hint(self, hint: str) -> str:
-        """通过 identity_hint 检查登录状态"""
+        """通过 identity_hint 检查账号状态（不读 SQLite，不卡锁）
+
+        核心原则：
+          - 不打开 cookies.sqlite（零锁竞争）
+          - 用文件存在性 + 上次任务日志判断状态
+          - 兼容前端已有的 _status 取值（'logged_in'/'no_cookie'/'remote'/'disabled'）
+
+        状态映射：
+          cookies.sqlite 文件存在 + 上次日志成功结束 → logged_in（兼容旧逻辑）
+          cookies.sqlite 文件存在 + 日志触发短信跳过  → logged_in（仍标为可操作）
+          cookies.sqlite 文件存在 + 日志失败          → logged_in（兜底）
+          cookies.sqlite 文件不存在或为空              → no_cookie
+        """
         if not hint:
             return "no_identity"
         cookie_path = MATRIX_IDENTITIES / hint / "user_data" / "cookies.sqlite"
-        if not cookie_path.exists():
+        if not cookie_path.exists() or cookie_path.stat().st_size < 100:
             return "no_cookie"
-        if cookie_path.stat().st_size < 100:
-            return "empty_cookie"
+        # 尽量兼容旧逻辑：有 cookie 文件就算 logged_in（前端不影响）
+        # 同时通过 _log_status 字段传递更丰富的状态信息
+        return "logged_in"
+
+    def _get_log_detail(self, hint: str) -> dict:
+        """获取该账号上次执行日志的详细信息（供前端展示）
+
+        Returns:
+          {"exists": true/false, "last_status": "success"|"sms_skip"|"failed"|"unknown",
+           "last_time": "2026-07-12 20:08", "last_cmd": "nurture"}
+        """
+        result = {"exists": False, "last_status": "unknown", "last_time": "", "last_cmd": ""}
+        log_dir = Path.home() / "workbuddy-agent-os" / "agent-local" / "runtime" / "guardd" / "tasks"
+        if not log_dir.exists():
+            return result
+        candidate = None
         try:
-            conn = sqlite3.connect(str(cookie_path), timeout=2)
-            cur = conn.cursor()
-            total = cur.execute("SELECT count(*) FROM moz_cookies").fetchone()[0]
-            session = cur.execute(
-                "SELECT count(*) FROM moz_cookies WHERE name LIKE '%session%'"
-            ).fetchone()[0]
-            conn.close()
-            return "logged_in" if session > 0 else "no_session"
-        except:
-            return "error"
+            for f in log_dir.iterdir():
+                if not f.name.endswith(".log") or hint not in f.name:
+                    continue
+                mtime = f.stat().st_mtime
+                if candidate is None or mtime > candidate[0]:
+                    candidate = (mtime, f)
+        except PermissionError:
+            return result
+        if not candidate:
+            return result
+        mtime, log_file = candidate
+        result["exists"] = True
+        result["last_time"] = datetime.fromtimestamp(mtime).strftime("%m-%d %H:%M")
+        # 从文件名取 cmd_type
+        parts = log_file.stem.split("_")
+        result["last_cmd"] = parts[0] if parts else ""
+        try:
+            text = log_file.read_text(encoding="utf-8", errors="replace")
+            if "✅" in text and "🛑 浏览器已关闭" in text:
+                if "skip_sms" in text or "跳过短信" in text:
+                    result["last_status"] = "sms_skip"
+                else:
+                    result["last_status"] = "success"
+            elif "❌" in text or "Error" in text or "failed" in text.lower():
+                result["last_status"] = "failed"
+            elif "短信验证" in text or "sms" in text.lower():
+                result["last_status"] = "sms_skip"
+            else:
+                result["last_status"] = "running"
+        except Exception:
+            pass
+        return result
 
     def _identity_exists_by_hint(self, hint: str) -> bool:
         if not hint:

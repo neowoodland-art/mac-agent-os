@@ -164,9 +164,9 @@ window.switchView = function(view) {
   }
 
   // 已迁移视图 → 动态加载（由 views/*.js 的 loadView 接管）
-  // 采集管理旧路由 → 新采集视图
+  // 抓取管理旧路由 → 新抓取视图（scrape）
   if (view === 'crawl-tasks' || view === 'crawl-sources' || view === 'crawl-history') {
-    view = 'collect';
+    view = 'scrape';
   }
   // window.tryLoadView 由 router.js 和本文件共同暴露
   if (window.tryLoadView && window.tryLoadView(view)) {
@@ -511,7 +511,7 @@ async function loadPlugins() {
         {view:'ave-materials', label:'素材库'},
         {view:'ave-templates', label:'模板'},
       ]},
-      '内容采集': { icon: '📡', items: [
+      '内容抓取': { icon: '📡', items: [
         {view:'crawl-tasks', label:'采集任务'},
         {view:'crawl-sources', label:'源管理'},
         {view:'crawl-history', label:'采集历史'},

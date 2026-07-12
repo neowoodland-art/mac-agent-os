@@ -290,7 +290,7 @@ class MachineSession:
         timeout_map = {
             "login": 600,      # 登录最多等 10 分钟
             "comment": 1200,   # 评论最多等 20 分钟
-            "collect": 600,    # 采集最多等 10 分钟
+            "collect": 600,    # 账号信息采集最多等 10 分钟
             "nurture": 21600,  # 养号最多等 6 小时
         }
         max_time = timeout_map.get(cmd.cmd_type, 3600)
@@ -829,13 +829,26 @@ class MachineSession:
 #
 # 前端调用示例:
 #   POST /api/ops/run {type:'collect', accounts:['douyin_01'], params:{rounds:1}}
-#   → CMD_REGISTRY["collect"] → "mc run --accounts=douyin_01 --blueprints=douyin_read_profile --rounds=1"
+#   → mc run --accounts=douyin_01 --blueprints=douyin_read_profile --rounds=1
+#
+# ⚠️ 以下 collect 是「账号信息采集」（走 Camoufox 养号引擎），
+#    用于采集已登录账号的昵称/粉丝数等主页信息。
+#    新「内容数据采集」走独立引擎：POST /api/collect/run（Chrome/OpenCLI）
+#    两条路径完全隔离，互不相关。
 CMD_REGISTRY = {
     "nurture": {
         "runner": "nurture_runner.sh",            # shell 包装器
         "defaults": {"blueprint": "douyin_daily_clean", "rounds": 10},
         "auto_blueprint": False,
     },
+    # ── 账号信息采集（走 Camoufox 养号引擎）─────────────────────
+    # 用途：采集已登录养号账号的主页信息（昵称/粉丝数/获赞数）
+    # 引擎：mc run → Camoufox（Firefox 内核，养号专用指纹）
+    # 路由：POST /api/ops/run {type:'collect'}
+    #
+    # ⛔ 新内容采集走独立系统（Chrome/OpenCLI）：
+    #    路由 POST /api/collect/run — 两条路径完全隔离。
+    # ────────────────────────────────────────────────────────────
     "collect": {
         "template": "mc run --accounts={ids} --blueprints={blueprint} --rounds={rounds}",
         "defaults": {"rounds": 1},

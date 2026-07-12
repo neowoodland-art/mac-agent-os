@@ -1,22 +1,22 @@
 """
-douyin_collect.py — 抖音采集适配器
+douyin_scrape.py — 抖音抓取适配器
 
 工具：OpenCLI douyin → agent-browser（Chrome DOM提取）
 """
 import asyncio, json, logging
-from services.adapters import CollectAdapter
+from services.adapters import ScrapeAdapter
 
-logger = logging.getLogger("dashboard.collect.douyin")
+logger = logging.getLogger("dashboard.scrape.douyin")
 
 
-class DouyinCollectAdapter(CollectAdapter):
+class DouyinScrapeAdapter(ScrapeAdapter):
     platform = "douyin"
-    adapter_name = "douyin_opencli"
+    adapter_name = "douyin_scrape"
 
     # ── 公开接口 ──
 
     async def collect_user(self, user_id: str, limit: int = 20) -> list[dict]:
-        """采集指定用户的视频列表（含评论）"""
+        """抓取指定用户的视频列表（含评论）"""
         results = []
         ok, data, tool = await self._try_tools(2, [
             ("opencli", lambda: self._opencli_user_videos(user_id, limit)),
@@ -29,7 +29,7 @@ class DouyinCollectAdapter(CollectAdapter):
 
     async def collect_item(self, target: str, depth: str = "light",
                            tool_level: int = 2) -> dict:
-        """采集单条视频详情"""
+        """抓取单条视频详情"""
         aweme_id = self._extract_aweme_id(target)
         if not aweme_id:
             return {"error": f"无法解析视频ID: {target}"}
@@ -40,10 +40,10 @@ class DouyinCollectAdapter(CollectAdapter):
         ])
         if ok and data:
             return self._to_schema(data)
-        return {"error": "所有工具均无法采集"}
+        return {"error": "所有工具均无法抓取"}
 
     async def collect_comments(self, item_id: str, limit: int = 20) -> list[dict]:
-        """采集评论区（需先有作者 sec_uid，目前返回空表）"""
+        """抓取评论区（需先有作者 sec_uid，目前返回空表）"""
         return []
 
     async def collect_search(self, keyword: str, limit: int = 20) -> list[dict]:

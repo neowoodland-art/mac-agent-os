@@ -1,37 +1,37 @@
 """
-routes/collect.py — 采集系统 API 路由 v1
+routes/scrape.py — 抓取系统 API 路由 v1
 
 端点：
-  POST /api/collect/run       — 执行采集
-  POST /api/collect/resolve   — 批量解析 URL
-  GET  /api/collect/result    — 异步任务结果查询
-  GET  /api/collect/tasks     — 任务列表
-  GET  /api/collect/items     — 内容列表
-  GET  /api/collect/items/{id} — 单条详情
-  GET  /api/collect/stats     — 采集统计
-  POST /api/collect/sources   — 创建采集源
-  GET  /api/collect/sources   — 采集源列表
-  DELETE /api/collect/sources/{id} — 删除采集源
+  POST /api/scrape/run       — 执行抓取
+  POST /api/scrape/resolve   — 批量解析 URL
+  GET  /api/scrape/result    — 异步任务结果查询
+  GET  /api/scrape/tasks     — 任务列表
+  GET  /api/scrape/items     — 内容列表
+  GET  /api/scrape/items/{id} — 单条详情
+  GET  /api/scrape/stats     — 抓取统计
+  POST /api/scrape/sources   — 创建抓取源
+  GET  /api/scrape/sources   — 抓取源列表
+  DELETE /api/scrape/sources/{id} — 删除抓取源
 """
 import asyncio, json, logging
 from fastapi import APIRouter, HTTPException
-from services.collect_engine import CollectEngine
+from services.scrape_engine import ScrapeEngine
 
-logger = logging.getLogger("dashboard.routes.collect")
-router = APIRouter(prefix="/api/collect", tags=["collect"])
+logger = logging.getLogger("dashboard.routes.scrape")
+router = APIRouter(prefix="/api/scrape", tags=["scrape"])
 
 _engine = None
 
 def _get_engine():
     global _engine
     if _engine is None:
-        _engine = CollectEngine()
+        _engine = ScrapeEngine()
     return _engine
 
 
 @router.post("/run")
-async def api_collect_run(data: dict = {}):
-    """执行采集任务"""
+async def api_scrape_run(data: dict = {}):
+    """执行抓取任务"""
     try:
         targets = data.get("targets", data.get("target", []))
         if isinstance(targets, str):
@@ -50,13 +50,13 @@ async def api_collect_run(data: dict = {}):
         result = await engine.run(request)
         return {"status": "ok", **result}
     except Exception as e:
-        logger.exception("采集执行失败")
+        logger.exception("抓取执行失败")
         return {"status": "error", "message": str(e)}
 
 
 @router.post("/resolve")
-async def api_collect_resolve(data: dict = {}):
-    """批量解析 URL，不执行采集"""
+async def api_scrape_resolve(data: dict = {}):
+    """批量解析 URL，不执行抓取"""
     try:
         urls = data.get("urls", data.get("targets", []))
         if isinstance(urls, str):
@@ -80,7 +80,7 @@ async def api_collect_resolve(data: dict = {}):
 
 
 @router.get("/result")
-async def api_collect_result(run_id: str = ""):
+async def api_scrape_result(run_id: str = ""):
     """查询异步任务结果"""
     if not run_id:
         return {"status": "error", "message": "run_id 必填"}
@@ -92,7 +92,7 @@ async def api_collect_result(run_id: str = ""):
 
 
 @router.get("/tasks")
-async def api_collect_tasks(status: str = "", platform: str = "",
+async def api_scrape_tasks(status: str = "", platform: str = "",
                             limit: int = 50):
     """任务列表"""
     engine = _get_engine()
@@ -105,7 +105,7 @@ async def api_collect_tasks(status: str = "", platform: str = "",
 
 
 @router.get("/items")
-async def api_collect_items(platform: str = "", author_id: str = "",
+async def api_scrape_items(platform: str = "", author_id: str = "",
                             limit: int = 100):
     """内容列表"""
     engine = _get_engine()
@@ -118,7 +118,7 @@ async def api_collect_items(platform: str = "", author_id: str = "",
 
 
 @router.get("/items/{item_id}")
-async def api_collect_item_detail(item_id: int):
+async def api_scrape_item_detail(item_id: int):
     """单条内容详情（含评论区）"""
     engine = _get_engine()
     item = engine.db.get_item(item_id)
@@ -130,16 +130,16 @@ async def api_collect_item_detail(item_id: int):
 
 
 @router.get("/stats")
-async def api_collect_stats():
-    """采集统计"""
+async def api_scrape_stats():
+    """抓取统计"""
     engine = _get_engine()
     stats = engine.get_stats()
     return {"status": "ok", **stats}
 
 
 @router.post("/sources")
-async def api_collect_create_source(data: dict = {}):
-    """创建采集源"""
+async def api_scrape_create_source(data: dict = {}):
+    """创建抓取源"""
     platform = data.get("platform", "")
     source_type = data.get("source_type", "")
     target = data.get("target", "")
@@ -155,20 +155,20 @@ async def api_collect_create_source(data: dict = {}):
         depth=data.get("depth", "light"),
         tool_level=data.get("tool_level", 2),
     )
-    return {"status": "ok", "message": "采集源已创建"}
+    return {"status": "ok", "message": "抓取源已创建"}
 
 
 @router.get("/sources")
-async def api_collect_list_sources():
-    """采集源列表"""
+async def api_scrape_list_sources():
+    """抓取源列表"""
     engine = _get_engine()
     sources = engine.db.list_sources()
     return {"status": "ok", "data": sources}
 
 
 @router.delete("/sources/{source_id}")
-async def api_collect_delete_source(source_id: int):
-    """删除采集源"""
+async def api_scrape_delete_source(source_id: int):
+    """删除抓取源"""
     engine = _get_engine()
     engine.db.delete_source(source_id)
-    return {"status": "ok", "message": "采集源已删除"}
+    return {"status": "ok", "message": "抓取源已删除"}

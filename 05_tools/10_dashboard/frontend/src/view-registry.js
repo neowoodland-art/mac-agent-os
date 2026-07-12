@@ -42,8 +42,8 @@ const MIGRATED_VIEWS = [
   'workflow',
   'capabilities',
 
-  // ── 内容采集 ──
-  'collect',
+  // ── 内容抓取 ──
+  'scrape',
   'crawl-tasks',
   'crawl-sources',
   'crawl-history',

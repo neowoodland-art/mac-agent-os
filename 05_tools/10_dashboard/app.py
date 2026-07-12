@@ -1031,8 +1031,8 @@ app.include_router(v2_accounts_router)
 from routes.comment_workbench import router as comment_workbench_router
 app.include_router(comment_workbench_router)
 
-from routes.collect import router as collect_router
-app.include_router(collect_router)
+from routes.scrape import router as scrape_router
+app.include_router(scrape_router)
 
 @app.get("/api/workflow/nodes")
 def api_workflow_nodes():

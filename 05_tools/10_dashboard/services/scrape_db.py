@@ -1,11 +1,11 @@
 """
-collect_db.py — 采集系统 SQLite 数据库层 v1
+scrape_db.py — 抓取系统 SQLite 数据库层 v1
 
 表结构：
-  - collect_tasks:    采集任务（单次/批量/定时）
-  - collect_items:    采集内容（带统一 schema，按 platform+item_id 去重）
-  - collect_comments: 评论区（按 item_id 关联）
-  - collect_sources:  采集源（定时监控用）
+  - scrape_tasks:     抓取任务（单次/批量/定时）
+  - scrape_items:     抓取内容（带统一 schema，按 platform+item_id 去重）
+  - scrape_comments:  评论区（按 item_id 关联）
+  - scrape_sources:   抓取源（定时监控用）
 """
 import json, sqlite3, time, os
 from datetime import datetime
@@ -15,10 +15,10 @@ from typing import Optional
 _THIS_DIR = Path(__file__).resolve().parent
 AGENT_LOCAL = Path(os.environ.get("AGENT_LOCAL",
                    str(Path.home() / "workbuddy-agent-os" / "agent-local")))
-DEFAULT_DB = AGENT_LOCAL / "data" / "collect.db"
+DEFAULT_DB = AGENT_LOCAL / "data" / "scrape.db"
 
 SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS collect_tasks (
+CREATE TABLE IF NOT EXISTS scrape_tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT NOT NULL DEFAULT 'single',                    -- 'single'/'batch'/'scheduled'
     platform TEXT,                                          -- 'douyin'/'xhs'/'bilibili'/'zhihu'/'web'
@@ -34,9 +34,9 @@ CREATE TABLE IF NOT EXISTS collect_tasks (
     completed_at TEXT
 );
 
-CREATE TABLE IF NOT EXISTS collect_items (
+CREATE TABLE IF NOT EXISTS scrape_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER REFERENCES collect_tasks(id),
+    task_id INTEGER REFERENCES scrape_tasks(id),
     platform TEXT NOT NULL,
     item_id TEXT NOT NULL,                                  -- 平台内唯一 ID
     url TEXT,
@@ -54,16 +54,16 @@ CREATE TABLE IF NOT EXISTS collect_items (
     UNIQUE(platform, item_id)
 );
 
-CREATE TABLE IF NOT EXISTS collect_comments (
+CREATE TABLE IF NOT EXISTS scrape_comments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    item_db_id INTEGER REFERENCES collect_items(id),
+    item_db_id INTEGER REFERENCES scrape_items(id),
     author_name TEXT,
     text TEXT,
     likes INTEGER DEFAULT 0,
     replied_at TEXT
 );
 
-CREATE TABLE IF NOT EXISTS collect_sources (
+CREATE TABLE IF NOT EXISTS scrape_sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     platform TEXT NOT NULL,
     source_type TEXT NOT NULL,                              -- 'user'/'hashtag'/'keyword'/'url_list'
@@ -79,8 +79,8 @@ CREATE TABLE IF NOT EXISTS collect_sources (
 """
 
 
-class CollectDB:
-    """采集数据库操作"""
+class ScrapeDB:
+    """抓取数据库操作"""
 
     def __init__(self, db_path: str = None):
         self.db_path = db_path or str(DEFAULT_DB)
@@ -109,7 +109,7 @@ class CollectDB:
         conn = self._get_conn()
         try:
             cur = conn.execute(
-                "INSERT INTO collect_tasks (type,platform,target,depth,tool_level,machine,total_targets) VALUES (?,?,?,?,?,?,?)",
+                "INSERT INTO scrape_tasks (type,platform,target,depth,tool_level,machine,total_targets) VALUES (?,?,?,?,?,?,?)",
                 (type, platform, target, depth, tool_level, machine, total_targets)
             )
             conn.commit()
@@ -132,7 +132,7 @@ class CollectDB:
             if status in ("completed", "failed"):
                 sets.append("completed_at=datetime('now','localtime')")
             params.append(task_id)
-            conn.execute(f"UPDATE collect_tasks SET {','.join(sets)} WHERE id=?", params)
+            conn.execute(f"UPDATE scrape_tasks SET {','.join(sets)} WHERE id=?", params)
             conn.commit()
         finally:
             conn.close()
@@ -140,7 +140,7 @@ class CollectDB:
     def get_task(self, task_id: int) -> Optional[dict]:
         conn = self._get_conn()
         try:
-            row = conn.execute("SELECT * FROM collect_tasks WHERE id=?", (task_id,)).fetchone()
+            row = conn.execute("SELECT * FROM scrape_tasks WHERE id=?", (task_id,)).fetchone()
             return dict(row) if row else None
         finally:
             conn.close()
@@ -157,7 +157,7 @@ class CollectDB:
             if platform:
                 where.append("platform=?")
                 params.append(platform)
-            sql = "SELECT * FROM collect_tasks"
+            sql = "SELECT * FROM scrape_tasks"
             if where:
                 sql += " WHERE " + " AND ".join(where)
             sql += " ORDER BY id DESC LIMIT ?"
@@ -166,7 +166,7 @@ class CollectDB:
         finally:
             conn.close()
 
-    # ── 采集内容 ──
+    # ── 抓取内容 ──
 
     def insert_item(self, task_id: int, platform: str, item_id: str,
                     url: str = "", title: str = "", author_name: str = "",
@@ -177,7 +177,7 @@ class CollectDB:
         conn = self._get_conn()
         try:
             cur = conn.execute(
-                """INSERT OR IGNORE INTO collect_items
+                """INSERT OR IGNORE INTO scrape_items
                    (task_id,platform,item_id,url,title,author_name,author_id,
                     published_at,text_content,tags,stats,extra,media)
                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
@@ -197,7 +197,7 @@ class CollectDB:
         conn = self._get_conn()
         try:
             row = conn.execute(
-                "SELECT id FROM collect_items WHERE platform=? AND item_id=?",
+                "SELECT id FROM scrape_items WHERE platform=? AND item_id=?",
                 (platform, item_id)
             ).fetchone()
             return row["id"] if row else None
@@ -210,7 +210,7 @@ class CollectDB:
     def get_item(self, db_id: int) -> Optional[dict]:
         conn = self._get_conn()
         try:
-            row = conn.execute("SELECT * FROM collect_items WHERE id=?", (db_id,)).fetchone()
+            row = conn.execute("SELECT * FROM scrape_items WHERE id=?", (db_id,)).fetchone()
             if not row:
                 return None
             item = dict(row)
@@ -236,7 +236,7 @@ class CollectDB:
             if author_id:
                 where.append("author_id=?")
                 params.append(author_id)
-            sql = "SELECT * FROM collect_items"
+            sql = "SELECT * FROM scrape_items"
             if where:
                 sql += " WHERE " + " AND ".join(where)
             sql += " ORDER BY collected_at DESC LIMIT ?"
@@ -254,7 +254,7 @@ class CollectDB:
         try:
             for c in comments:
                 conn.execute(
-                    "INSERT INTO collect_comments (item_db_id,author_name,text,likes,replied_at) VALUES (?,?,?,?,?)",
+                    "INSERT INTO scrape_comments (item_db_id,author_name,text,likes,replied_at) VALUES (?,?,?,?,?)",
                     (item_db_id, c.get("nickname", c.get("author", "")),
                      c.get("text", ""), c.get("digg_count", c.get("likes", 0)),
                      c.get("create_time", ""))
@@ -267,12 +267,12 @@ class CollectDB:
         conn = self._get_conn()
         try:
             return [dict(r) for r in conn.execute(
-                "SELECT * FROM collect_comments WHERE item_db_id=? ORDER BY likes DESC",
+                "SELECT * FROM scrape_comments WHERE item_db_id=? ORDER BY likes DESC",
                 (item_db_id,)).fetchall()]
         finally:
             conn.close()
 
-    # ── 采集源（定时用）──
+    # ── 抓取源（定时用）──
 
     def upsert_source(self, platform: str, source_type: str, target: str,
                       display_name: str = "", schedule: str = "",
@@ -280,7 +280,7 @@ class CollectDB:
         conn = self._get_conn()
         try:
             conn.execute(
-                """INSERT INTO collect_sources
+                """INSERT INTO scrape_sources
                    (platform,source_type,target,display_name,schedule,depth,tool_level)
                    VALUES (?,?,?,?,?,?,?)
                    ON CONFLICT(platform,source_type,target) DO UPDATE SET
@@ -298,22 +298,21 @@ class CollectDB:
         try:
             if status:
                 rows = conn.execute(
-                    "SELECT * FROM collect_sources WHERE status=? ORDER BY platform,target",
+                    "SELECT * FROM scrape_sources WHERE status=? ORDER BY platform,target",
                     (status,)).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT * FROM collect_sources ORDER BY platform,target").fetchall()
+                    "SELECT * FROM scrape_sources ORDER BY platform,target").fetchall()
             return [dict(r) for r in rows]
         finally:
             conn.close()
 
     def get_due_sources(self) -> list[dict]:
-        """返回所有到期的定时采集源"""
+        """返回所有到期的定时抓取源"""
         conn = self._get_conn()
         try:
-            # 简化版：每 2 小时执行一次的逻辑
             rows = conn.execute(
-                """SELECT * FROM collect_sources
+                """SELECT * FROM scrape_sources
                    WHERE status='active'
                    AND (last_collected IS NULL
                         OR datetime('now','localtime','-2 hours') > last_collected)"""
@@ -326,7 +325,7 @@ class CollectDB:
         conn = self._get_conn()
         try:
             conn.execute(
-                "UPDATE collect_sources SET last_collected=datetime('now','localtime') WHERE id=?",
+                "UPDATE scrape_sources SET last_collected=datetime('now','localtime') WHERE id=?",
                 (source_id,))
             conn.commit()
         finally:
@@ -335,7 +334,7 @@ class CollectDB:
     def delete_source(self, source_id: int):
         conn = self._get_conn()
         try:
-            conn.execute("DELETE FROM collect_sources WHERE id=?", (source_id,))
+            conn.execute("DELETE FROM scrape_sources WHERE id=?", (source_id,))
             conn.commit()
         finally:
             conn.close()
@@ -346,7 +345,7 @@ class CollectDB:
         conn = self._get_conn()
         try:
             rows = conn.execute(
-                "SELECT platform, COUNT(*) as cnt FROM collect_items GROUP BY platform"
+                "SELECT platform, COUNT(*) as cnt FROM scrape_items GROUP BY platform"
             ).fetchall()
             result = {}
             for r in rows:
@@ -359,7 +358,7 @@ class CollectDB:
         conn = self._get_conn()
         try:
             row = conn.execute(
-                "SELECT COUNT(*) as cnt FROM collect_items WHERE date(collected_at)=date('now','localtime')"
+                "SELECT COUNT(*) as cnt FROM scrape_items WHERE date(collected_at)=date('now','localtime')"
             ).fetchone()
             return row["cnt"] if row else 0
         finally:
@@ -368,7 +367,7 @@ class CollectDB:
     def sources_count(self) -> int:
         conn = self._get_conn()
         try:
-            row = conn.execute("SELECT COUNT(*) as cnt FROM collect_sources WHERE status='active'").fetchone()
+            row = conn.execute("SELECT COUNT(*) as cnt FROM scrape_sources WHERE status='active'").fetchone()
             return row["cnt"] if row else 0
         finally:
             conn.close()
@@ -377,7 +376,7 @@ class CollectDB:
         conn = self._get_conn()
         try:
             rows = conn.execute(
-                "SELECT status, COUNT(*) as cnt FROM collect_tasks GROUP BY status"
+                "SELECT status, COUNT(*) as cnt FROM scrape_tasks GROUP BY status"
             ).fetchall()
             result = {"total": 0}
             for r in rows:

@@ -1,6 +1,6 @@
 """
-plugins/crawl.py — 内容采集插件 v1.1
-采集任务管理 / 采集源管理 / 采集历史 / 数据库统计
+plugins/crawl.py — 内容抓取插件 v1.1
+抓取任务管理 / 抓取源管理 / 抓取历史 / 数据库统计
 版本: 1.1.0 | 更新: 2026-07-10
 """
 import json, logging
@@ -14,24 +14,24 @@ logger = logging.getLogger("dashboard.plugins.crawl")
 
 class CrawlDashboardPlugin(DashboardPlugin):
     name = "crawl"
-    label = "内容采集"
+    label = "内容抓取"
     icon = "📡"
     version = "1.1.0"
-    description = "内容采集：采集任务 / 源管理 / 采集历史"
+    description = "内容抓取：抓取任务 / 源管理 / 抓取历史"
     order = 35
 
     def _get_collect_stats(self):
-        """从采集数据库获取统计"""
+        """从抓取数据库获取统计"""
         try:
-            from services.collect_db import CollectDB
-            db = CollectDB()
+            from services.scrape_db import ScrapeDB
+            db = ScrapeDB()
             return {
                 "total": sum(db.count_by_platform().values()),
                 "today": db.count_today(),
                 "sources": db.sources_count(),
             }
         except Exception as e:
-            logger.warning(f"采集数据库不可用: {e}")
+            logger.warning(f"抓取数据库不可用: {e}")
             return None
 
     def _count_knowledge_items(self):
@@ -54,24 +54,24 @@ class CrawlDashboardPlugin(DashboardPlugin):
         return total, today
 
     def summary(self, machines: list[str]) -> dict:
-        """返回内容采集概览（数据库统计优先）"""
+        """返回内容抓取概览（数据库统计优先）"""
         db_stats = self._get_collect_stats()
         if db_stats:
             return {
-                "总采集数": db_stats["total"],
+                "总抓取数": db_stats["total"],
                 "今日新增": db_stats["today"],
-                "采集源": db_stats["sources"],
+                "抓取源": db_stats["sources"],
             }
         # 兜底：知识库统计
         total, today = self._count_knowledge_items()
         return {
-            "总采集数": total,
+            "总抓取数": total,
             "今日新增": today,
-            "采集源": 0,
+            "抓取源": 0,
         }
 
     def detail(self, machine: str) -> dict:
-        """返回指定机器的采集详情"""
+        """返回指定机器的抓取详情"""
         db_stats = self._get_collect_stats()
         if db_stats:
             return {
@@ -84,8 +84,8 @@ class CrawlDashboardPlugin(DashboardPlugin):
         return {"machine": machine, "total": total, "today": today}
 
     def actions(self) -> list[dict]:
-        """返回采集可执行操作"""
+        """返回抓取可执行操作"""
         return [
-            {"label": "新建采集", "action": "switchView('collect')"},
-            {"label": "采集管理", "action": "switchView('collect')"},
+            {"label": "新建抓取", "action": "switchView('scrape')"},
+            {"label": "抓取管理", "action": "switchView('scrape')"},
         ]
