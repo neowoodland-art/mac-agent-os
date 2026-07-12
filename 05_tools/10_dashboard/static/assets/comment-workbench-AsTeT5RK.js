@@ -1,4 +1,4 @@
-import{t as e}from"./index-BgPNyGEf.js";import{t}from"./account-selector-D87mja1n.js";var n=null,r={},i=[],a=[],o=``,s={sharer:`分享型`,questioner:`提问型`,sympathizer:`共情型`,skeptic:`质疑型`,sufferer:`患者型`,filler:`灌水型`,expert_ref:`推荐型`};async function c(s){o=s.id||`cw`,i=[],a=[],s.innerHTML=`
+import{t as e}from"./index-CEGJ4Kyq.js";import{t}from"./account-selector-D87mja1n.js";var n=null,r={},i=[],a=[],o=``,s={sharer:`分享型`,questioner:`提问型`,sympathizer:`共情型`,skeptic:`质疑型`,sufferer:`患者型`,filler:`灌水型`,expert_ref:`推荐型`};async function c(s){o=s.id||`cw`,i=[],a=[],s.innerHTML=`
     <div style="padding:16px;max-width:960px">
 
       <!-- ═══ 标题 ═══ -->

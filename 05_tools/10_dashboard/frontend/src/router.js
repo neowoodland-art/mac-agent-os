@@ -57,8 +57,9 @@ export function tryLoadView(viewName) {
   document.querySelectorAll('[id^="view-"]').forEach(el => { el.classList.add('hidden'); el.style.display = 'none'; });
   document.querySelectorAll('[id^="plugin-view-"]').forEach(el => { el.classList.add('hidden'); el.style.display = 'none'; });
 
-  // 显示动态容器
+  // 显示动态容器（必须先清除 inline style，因为上方的 querySelectorAll 对 view-dynamic 也设置了 style.display='none'）
   container.classList.remove('hidden');
+  container.style.removeProperty('display');
   container.innerHTML = '<div class="loading">⏳ 加载中...</div>';
 
   // 异步加载（不阻塞 switchView 返回）
