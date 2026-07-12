@@ -1,0 +1,440 @@
+# ════════════════════════════════════════════════════════════════
+# AgentOS 项目模块清单
+# 版本: 1.0 | 最后更新: 2026-07-12
+#
+# 用途:
+#   给 AI 智能体和人类开发者的项目"总地图"。
+#   任何 AI 进入项目后，先读此文件，了解：
+#     - 项目有哪些模块，每个模块负责什么
+#     - 每个模块涉及哪些文件（不遗漏、不乱改）
+#     - 红线（哪些文件绝对不能碰）
+#     - 命名空间（哪些名字已被占用）
+#     - 通用规则（新代码该怎么写）
+#
+# 维护者: ghai
+# 更新触发条件: 新增/删除模块、修改红线、新增命名
+# ════════════════════════════════════════════════════════════════
+
+project:
+  name: AgentOS
+  tagline: 多智能体联邦操作系统 — 给 WorkBuddy AI 装上外骨骼
+  version: 4.2.1
+  repo_root: ~/workbuddy-agent-os/agent-sync
+
+# ════════════════════════════════════════════════════════════════
+# 一、顶层架构理念
+# ════════════════════════════════════════════════════════════════
+#
+# AgentOS 不是单一应用，是多个功能模块的"联邦"。
+# 每个模块独立开发、独立运行，通过统一的 command_bus 和 Dashboard 连接。
+#
+# 核心骨架:
+#   L5  Dashboard 前端（frontend/） ← Web 界面
+#   L4  API 路由层（routes/）       ← FastAPI 接口
+#   L3  命令分发层（services/）     ← CommandBus + 引擎
+#   L2  CLI 执行层（mc/agentos）    ← 命令行工具
+#   L1  平台操作层（ops/）          ← 原子操作
+#   L0  浏览器层（Camoufox/Chrome） ← 浏览器自动化
+#
+# 数据分离:
+#   agent-sync/ → Git 同步（代码 + 知识库 + 配置）
+#   agent-local/ → 本机私有（密钥 + 日志 + 运行时数据）
+#
+# 联邦:
+#   3 台 Mac 通过 Tailscale 组网，guardd 节点代理通信
+#
+# ════════════════════════════════════════════════════════════════
+
+modules:
+
+  # ──────────────────────────────────────────────────────────────
+  # 模块 A: 养号矩阵
+  # ──────────────────────────────────────────────────────────────
+  - id: nurture-matrix
+    name: 养号矩阵
+    description: >
+      多平台（抖音/小红书）养号引擎。
+      管理多个账号的登录、浏览、点赞、评论、收藏等日常养号操作。
+      使用 Camoufox 浏览器（Firefox 内核 + 防检测指纹）。
+    keywords: [matrix, nurture, 养号, douyin, xhs, camoufox, 登录]
+    api_routes:
+      - POST /api/ops/run {type:nurture|collect|login|comment|like|logout}
+      - GET /api/ops/status
+    core_files:
+      # 🚫 核心引擎 — 禁止修改（除非 ghai 明确要求）
+      - services/command_bus.py
+      - 05_tools/07_matrix/scripts/mc/
+      - 05_tools/07_matrix/scripts/douyin_ops.py
+      - 05_tools/07_matrix/scripts/matrix_mgmt.py
+      - 05_tools/07_matrix/scripts/auth_manager.py
+      - 05_tools/07_matrix/scripts/cdp_connector.py
+      - 05_tools/07_matrix/scripts/browser_manager.py
+      - 05_tools/07_matrix/scripts/task_engine.py
+      - 05_tools/07_matrix/blueprints/  # JSON 蓝图
+    routes:
+      - routes/ops.py
+      - routes/matrix.py
+    frontend_views:
+      - frontend/src/views/matrix-*.js      # 所有 matrix- 前缀的视图
+      - frontend/src/modules/nurture.js
+    frontend_inline:
+      - inline.js 中 loadMatrixCollect()    # 旧系统内联视图
+      - inline.js 中 loadMatrixCommands()   # 命令与任务
+    reserved_prefixes:
+      - matrix-       # 视图前缀
+      - mc            # CLI 前缀
+      - douyin_       # 账号标识
+      - xhs_          # 账号标识
+    redlines:
+      - "services/command_bus.py — 养号命令分发核心，禁止修改"
+      - "05_tools/07_matrix/scripts/ — 养号引擎代码，非必要不修改"
+      - "inline.js 中 loadMatrixCollect() — 旧系统内联函数，只减不增"
+
+  # ──────────────────────────────────────────────────────────────
+  # 模块 B: 内容抓取
+  # ──────────────────────────────────────────────────────────────
+  - id: content-scrape
+    name: 内容抓取
+    description: >
+      独立的内容数据抓取系统。
+      用户输入 URL/sec_uid/关键词 → 用 OpenCLI/Chrome 抓取视频/笔记/评论数据。
+      与养号矩阵完全隔离（不同引擎、不同路由、不同数据库）。
+      使用 Chrome 浏览器（非 Camoufox），走独立 API 路径 /api/scrape/。
+    keywords: [scrape, 抓取, 内容, opencli, chrome]
+    api_routes:
+      - POST /api/scrape/run
+      - POST /api/scrape/resolve
+      - GET /api/scrape/items
+      - GET /api/scrape/tasks
+      - GET /api/scrape/stats
+      - POST /api/scrape/sources
+      - GET /api/scrape/sources
+    core_files:
+      - services/scrape_engine.py
+      - services/scrape_db.py
+      - routes/scrape.py
+      - services/adapters/__init__.py       # ScrapeAdapter 基类
+      - services/adapters/douyin_scrape.py
+      - services/adapters/xhs_scrape.py
+      - services/adapters/bilibili_scrape.py
+      - services/adapters/zhihu_scrape.py
+      - services/adapters/web_scrape.py
+      - services/adapters/browser_helpers.py
+    routes:
+      - routes/scrape.py
+    frontend_views:
+      - frontend/src/views/scrape.js        # 内容抓取视图
+    frontend_modules:
+      - frontend/src/modules/collect.js     # 命令TAB中的采集模块
+    database:
+      path: agent-local/data/scrape.db
+      schema: services/scrape_db.py
+    reserved_prefixes:
+      - scrape_       # 文件/类名前缀
+      - /api/scrape   # API 路由前缀
+    redlines:
+      - "禁止使用 Camoufox（必须用 Chrome/Playwright）"
+      - "禁止通过 POST /api/ops/run {type:'collect'} 执行"
+      - "禁止修改旧系统文件（command_bus.py / routes/ops.py）"
+
+  # ──────────────────────────────────────────────────────────────
+  # 模块 C: 视频工厂 (AVE)
+  # ──────────────────────────────────────────────────────────────
+  - id: ave-video-factory
+    name: 视频工厂
+    description: >
+      AI 视频生产管线。文案生成 → 脚本拆解 → 素材匹配 → 视频合成 → 渲染输出。
+      涵盖 AI 提示词工程、素材库管理、渲染任务管理等。
+    keywords: [ave, 视频, 渲染, 脚本, 素材, ai-video]
+    core_scripts:
+      - 05_tools/09_ave/scripts/
+    frontend_views:
+      - frontend/src/views/ave-*.js
+      - frontend/src/views/workflow.js
+      - frontend/src/views/capabilities.js
+
+  # ──────────────────────────────────────────────────────────────
+  # 模块 D: 联邦管理
+  # ──────────────────────────────────────────────────────────────
+  - id: federation
+    name: 联邦管理
+    description: >
+      三台机器的联邦协同。包括机器状态监控、Git 同步、对账检查、远程 Shell。
+      核心基础设施：guardd 守护进程（每台机器运行，管理任务/心跳/健康检查）。
+    keywords: [fleet, federation, guardd, 联邦, 同步, 机器, ssh]
+    core_files:
+      - 05_tools/00_setup/guardd/
+      - 04_memory/cross_machine/
+      - services/fleet_collector.py
+    frontend_views:
+      - frontend/src/views/fleet-*.js
+      - frontend/src/views/machines.js
+
+  # ──────────────────────────────────────────────────────────────
+  # 模块 E: 智能体增强层（给 AI 用的）
+  # ──────────────────────────────────────────────────────────────
+  - id: agent-enhancement
+    name: 智能体增强层
+    description: >
+      给 WorkBuddy AI 装"外骨骼"的配置层。
+      包括身份规则（SOUL.md）、分层记忆系统、知识库、行为协议。
+      这部分不是自动化执行代码，而是 AI 自身行为的配置文件。
+    keywords: [soul, 记忆, 知识库, 协议, identity, 智能体]
+    core_files:
+      - 01_core/SOUL.md                 # 🚫 AI 行为规则，禁止修改
+      - 01_core/IDENTITY.md
+      - 01_core/USER.md
+      - 01_core/VERSION                 # 🚫 版本唯一来源，禁止修改
+      - 01_core/IDENTITY.tpl.md
+      - 01_core/USER.tpl.md
+      - 02_skills/                      # 技能目录
+      - 03_knowledge/                   # 知识库
+      - 04_memory/                      # 记忆系统
+      - 03_knowledge/99_system/         # 系统文档
+    protocols:
+      - 03_knowledge/99_system/protocols/
+    redlines:
+      - "01_core/ — 只读，通过 apply-config.sh 部署"
+      - "04_memory/long_term/facts.db — 通过记忆系统 API 操作"
+      - "01_core/VERSION — 版本唯一来源，禁止硬编码"
+
+  # ──────────────────────────────────────────────────────────────
+  # 模块 F: 系统工具集
+  # ──────────────────────────────────────────────────────────────
+  - id: system-tools
+    name: 系统工具
+    description: >
+      杂项工具集。包括 SEO 诊断、内容采集旧版脚本、系统监控、MCP 服务等。
+      这些工具功能独立，不属于上述任何大模块。
+    keywords: [tools, seo, mcp, 诊断, 采集旧版]
+    directories:
+      - 05_tools/01_system/       # 系统诊断
+      - 05_tools/05_crawl/        # 采集旧版
+      - 05_tools/08_trae_agent/   # Trae 编程助手
+
+# ════════════════════════════════════════════════════════════════
+# 二、Dashboard 前端全视图索引
+# ════════════════════════════════════════════════════════════════
+# 按导航分组列出所有视图，让 AI 知道每个视图的去向
+# 来源: frontend/src/inline.js 导航配置 + view-registry.js
+
+dashboard_navigation:
+  - group: 概览
+    views:
+      - productions       # 生产列表
+      - assets            # 资产列表
+      - costs             # 费用分析
+      - machines          # 机器状态
+  - group: 矩阵
+    views:
+      - matrix-accounts   # 账号管理
+      - matrix-sms-proxy  # 短信与代理
+      - matrix-nurture    # 养号执行
+      - matrix-collect    # 🔵 旧系统：信息采集（养号引擎）
+      - matrix-publish    # 内容发布
+      - matrix-interact   # 评论互动
+      - ops-command       # 联邦指挥台
+      - matrix-comment    # 定向评论
+      - comment-workbench # 评论工作台
+      - matrix-like       # 收藏点赞
+      - matrix-blueprints # 蓝图管理
+      - matrix-schedule   # 定时任务
+      - matrix-corpus     # 语料库
+      - matrix-commands   # 命令与任务
+  - group: 视频工厂
+    views:
+      - ave-render        # 渲染任务
+      - ave-script        # 脚本生成
+      - ave-materials     # 素材库
+      - ave-templates     # 模板
+  - group: 内容抓取
+    views:
+      - crawl-tasks       # 🟢 新系统：抓取任务（映射到 scrape 视图）
+      - crawl-sources     # 源管理
+      - crawl-history     # 抓取历史
+  - group: 联邦
+    views:
+      - fleet-sync        # 一键同步
+      - fleet-reconcile   # 对账检查
+      - fleet-exec        # 远程 Shell
+  - group: 服务
+    views:
+      - serve-mcp         # MCP 状态
+      - serve-dashboard   # Dashboard 日志
+      - serve-schedule    # 全局定时任务
+  - group: 其他
+    views:
+      - ops-recorder      # 录制管理
+      - matrix-atom-ops   # 原子操作
+
+# ════════════════════════════════════════════════════════════════
+# 三、红线（任何 AI 进入项目后必须遵守）
+# ════════════════════════════════════════════════════════════════
+
+redlines:
+  # ── 养号核心（改了就崩） ──
+  - file: services/command_bus.py
+    reason: 养号命令分发的唯一通道，改错会导致所有养号操作异常
+    action: 禁止修改。除非 ghai 明确要求
+
+  - file: 05_tools/07_matrix/scripts/
+    reason: 养号引擎全部代码，运行时依赖
+    action: 禁止修改。需要备份文件先与 ghai 确认
+
+  - file: frontend/src/inline.js
+    reason: 7060 行的内联代码，混装所有旧系统视图。禁止新增代码
+    action: 新功能必须写在 views/*.js 或 modules/*.js 中，再通过 import 接入
+
+  # ── 版本与宪法 ──
+  - file: 01_core/VERSION
+    reason: 版本唯一来源，所有地方读取此文件
+    action: 禁止直接修改。由 ghai 决定版本号
+
+  - file: ORACLE.yaml
+    reason: 联邦宪法，账号→机器分配唯一源
+    action: 禁止修改。修改由 ghai 通过 git push 完成
+
+  # ── 数据安全 ──
+  - dir: agent-local/
+    reason: 本机私有数据（密钥、日志、运行时数据），不同步
+    action: 禁止修改任何文件
+
+  - file: 04_memory/long_term/facts.db
+    reason: L2 结构化事实库，通过记忆 API 操作
+    action: 禁止直接修改
+
+# ════════════════════════════════════════════════════════════════
+# 四、命名保留池
+# ════════════════════════════════════════════════════════════════
+# 这些名字已被项目使用，新增模块/功能时不要冲突
+
+reserved_names:
+
+  # Python 模块名 / 类名
+  python_classes:
+    # 养号系统
+    - CommandBus
+    - MachineSession
+    - MatrixManager
+    - DouyinOps
+    - AuthManager
+    - CDPConnector
+    # 抓取系统
+    - ScrapeEngine
+    - ScrapeDB
+    - ScrapeAdapter
+    - DouyinScrapeAdapter
+    - XhsScrapeAdapter
+    - BilibiliScrapeAdapter
+    - ZhihuScrapeAdapter
+    - WebScrapeAdapter
+    # 其他
+    - DashboardPlugin
+    - AgentOSPlugin
+    - CollectAdapter          # 🚫 已弃用，用 ScrapeAdapter
+
+  # Python import 路径
+  python_imports:
+    - services.command_bus
+    - services.collect_engine      # 🚫 已弃用 → services.scrape_engine
+    - services.collect_db          # 🚫 已弃用 → services.scrape_db
+    - services.scrape_engine
+    - services.scrape_db
+    - routes.ops
+    - routes.collect               # 🚫 已弃用 → routes.scrape
+    - routes.scrape
+    - plugins.crawl
+
+  # API 路由前缀
+  api_routes:
+    - /api/ops/            # 养号操作入口
+    - /api/collect/        # 🚫 已弃用 → /api/scrape/
+    - /api/scrape/         # 内容抓取
+    - /api/matrix/         # 养号数据接口
+    - /api/federation/     # 联邦接口
+    - /api/plugins/        # 插件接口
+    - /api/summary         # 面板总览
+
+  # Dashboard 视图名（注册在 view-registry.js 中）
+  dashboard_views:
+    # 已迁移视图
+    - matrix-*             # 所有 matrix- 前缀视图（13个）
+    - fleet-*              # 所有 fleet- 前缀视图（3个）
+    - ave-*                # 所有 ave- 前缀视图
+    - serve-*              # 所有 serve- 前缀视图
+    - crawl-*              # 所有 crawl- 前缀视图（映射到 scrape）
+    - scrape               # 🟢 新系统：内容抓取
+    - collect              # 🚫 已弃用 → scrape
+    - productions
+    - assets
+    - costs
+    - machines
+    - comment-workbench
+    - ops-command
+    - ops-recorder
+    - workflow
+    - capabilities
+
+# ════════════════════════════════════════════════════════════════
+# 五、通用开发规则
+# ════════════════════════════════════════════════════════════════
+# 任何 AI 在项目中新增代码前必须遵守
+
+rules:
+
+  - id: new-code-placement
+    description: 新增代码放哪里
+    rule: >
+      新功能必须写在独立文件中。
+      前端 → views/xxx.js 或 modules/xxx.js
+      后端 → 按模块建文件
+      🚫 禁止往 inline.js 新增任何代码
+      🚫 禁止往 command_bus.py 新增任何代码
+
+  - id: module-separation
+    description: 模块隔离
+    rule: >
+      不同模块的文件不要相互引用。
+      抓取系统不要调用养号系统的函数。
+      养号系统不要调用抓取系统的函数。
+      共享基础设施（command_bus、guardd）除外。
+
+  - id: naming-conflict
+    description: 命名冲突检查
+    rule: >
+      新增函数/变量/文件前，先查 reservation_names 看名字是否已被占用。
+      不要用 collect 这个英文词 — 它已经在旧系统中被大量使用。
+      新系统统一用 scrape。
+
+  - id: manifest-update
+    description: MANIFEST 更新
+    rule: >
+      新增模块后，必须更新此 MANIFEST.yaml。
+      新增视图后，必须在 dashboard_navigation 中登记。
+      新增红线后，必须在 redlines 中登记。
+      新增命名后，必须在 reserved_names 中登记。
+
+# ════════════════════════════════════════════════════════════════
+# 六、参考文档
+# ════════════════════════════════════════════════════════════════
+# 想深入了解某模块，读这些
+
+references:
+  - topic: 总架构
+    file: CONSTITUTION.md
+  - topic: 架构宪法（详细版）
+    file: 03_knowledge/99_system/ARCHITECTURE_CONSTITUTION.md
+  - topic: 联邦实操
+    file: FEDERATION_GUIDE.md
+  - topic: AI 行为规则
+    file: 01_core/SOUL.md
+  - topic: 记忆与知识库架构
+    file: 03_knowledge/99_system/agent-os-memory-knowledge-architecture.md
+  - topic: 养号系统架构
+    file: 03_knowledge/99_system/matrix/matrix-nurture-system-architecture.md
+  - topic: 内容采集系统规划 v2
+    file: 采集系统框架规划-v2.md  # 在用户根目录
+  - topic: 知识库 AI 入口
+    file: 03_knowledge/99_system/AI_READING_GUIDE.md
+  - topic: 项目指令
+    file: AGENTS.md
