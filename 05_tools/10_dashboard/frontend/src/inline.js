@@ -10,44 +10,7 @@ window.tryLoadView = tryLoadView;
 const API = '';
 let currentView = 'productions';
 
-// ── Sidebar ──
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sidebarToggleBtn');
-  const isCollapsed = sb.classList.toggle('collapsed');
-  btn.textContent = isCollapsed ? '▶' : '◀';
-  btn.title = isCollapsed ? '展开侧边栏' : '折叠侧边栏';
-}
-function toggleGroup(el) {
-  const body = el.nextElementSibling;
-  if (!body || !body.classList) return;
-  // 手风琴: 关闭其他所有分组
-  document.querySelectorAll('.nav-group-header').forEach(h => {
-    if (h === el) return;
-    const b = h.nextElementSibling;
-    if (b && b.classList && !b.classList.contains('collapsed')) {
-      b.classList.add('collapsed');
-      h.dataset.collapsed = 'true';
-      const arrow = h.querySelector('span:last-child');
-      if (arrow) arrow.textContent = '▶';
-    }
-  });
-  // 切换当前分组
-  const isCollapsed = body.classList.toggle('collapsed');
-  el.dataset.collapsed = isCollapsed ? 'true' : 'false';
-  el.querySelector('span:last-child').textContent = isCollapsed ? '▶' : '▼';
-}
-function collapseAllGroups() {
-  document.querySelectorAll('.nav-group-header').forEach(h => {
-    const body = h.nextElementSibling;
-    if (body && body.classList && !body.classList.contains('collapsed')) {
-      body.classList.add('collapsed');
-      h.dataset.collapsed = 'true';
-      const arrow = h.querySelector('span:last-child');
-      if (arrow) arrow.textContent = '▶';
-    }
-  });
-}
+// ── Sidebar (moved to navigation.js) ──
 let currentPage = 0;
 const PAGE_SIZE = 30;
 let searchTimer;
@@ -484,85 +447,7 @@ async function loadPlugins() {
     const plugins = res.plugins || [];
     // 旧兼容: 忽略不存在的 pluginBadge/pluginCount
 
-    // 构建分组侧边栏 (可折叠) — 按 COMMAND-CENTER-PLAN 排列
-    let html = '';
-    const S = (label, status) => `<span style="font-size:9px;margin-left:4px;padding:1px 5px;border-radius:3px;background:rgba(217,119,6,.12);color:#d97706;font-weight:500">${status}</span>`;
-    const groups = {
-      '矩阵': { icon: '📱', items: [
-        {view:'matrix-accounts', label:'👤 账号管理'},
-        {view:'matrix-sms-proxy', label:'🪪 短信与代理'},
-        {view:'matrix-nurture', label:'🏃 养号执行'},
-        {view:'matrix-collect', label:'📡 信息采集'},
-        {view:'matrix-publish', label:'📤 内容发布'},
-        {view:'matrix-interact', label:'💬 评论互动'},
-        {view:'ops-command', label:'🚀 联邦指挥台'},
-        {view:'matrix-comment', label:'💬 定向评论'},
-        {view:'comment-workbench', label:'🎭 评论工作台'},
-        {view:'matrix-like', label:'❤️ 收藏点赞'},
-        {view:'matrix-blueprints', label:'📋 蓝图管理'},
-        {view:'matrix-login', label:'🔑 登录管理'},
-        {view:'matrix-schedule', label:'⏱ 定时任务'},
-        {view:'matrix-corpus', label:'📚 语料库'},
-        {view:'ops-command', label:'🖥️ 联邦指挥台'},
-      ]},
-      '视频工厂': { icon: '🎬', items: [
-        {view:'ave-render', label:'渲染任务'},
-        {view:'ave-script', label:'脚本生成'},
-        {view:'ave-materials', label:'素材库'},
-        {view:'ave-templates', label:'模板'},
-      ]},
-      '内容抓取': { icon: '📡', items: [
-        {view:'crawl-tasks', label:'📥 抓取任务'},
-        {view:'crawl-sources', label:'📋 源管理'},
-        {view:'crawl-history', label:'📜 抓取历史'},
-      ]},
-      '联邦': { icon: '🖥️', items: [
-        {view:'machines', label:'机器状态'},
-        {view:'fleet-sync', label:'一键同步'},
-        {view:'fleet-reconcile', label:'对账检查'},
-        {view:'fleet-exec', label:'远程Shell'},
-        {view:'matrix-commands', label:'🎯 命令与任务'},
-      ]},
-      '服务': { icon: '⚙️', items: [
-        {view:'serve-mcp', label:'MCP状态'},
-        {view:'serve-dashboard', label:'Dashboard日志'},
-        {view:'serve-schedule', label:'全局定时任务'},
-      ]},
-    };
-
-    // ── 从 API 加载 agentos 插件注册的导航 ──
-    // 已停用：插件导航与硬编码导航重叠（联邦管理/社交矩阵/系统设置），
-    // 统一由硬编码导航控制，防止重复项
-    async function loadNavFromAPI() {
-      // 直接渲染，不使用插件导航
-      _renderNav();
-    }
-    
-    function _renderNav() {
-      let html = '';
-      for (const [gname, g] of Object.entries(groups)) {
-        html += `<div class="nav-group-header" onclick="toggleGroup(this)" data-collapsed="true">${g.icon} ${gname} <span style="float:right;font-size:10px;opacity:.5">▶</span></div>`;
-        html += `<div class="nav-group-body collapsed">`;
-        for (const item of g.items) {
-          if (item.sub) {
-            html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
-            for (const sub of item.sub) {
-              html += `<div class="nav-sub" data-group="${item.view.replace('plugin-','')}" data-view="${sub.view}" onclick="switchView('${sub.view}')" style="display:none">${sub.label}</div>`;
-            }
-          } else {
-            html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
-          }
-        }
-        html += '</div>';
-      }
-      html += '<div class="nav-item" data-view="timeline" onclick="switchView(\'timeline\')" style="display:none">📈 时间线</div>';
-      nav.innerHTML = html;
-    }
-    
-    // 先渲染 fallback 导航，再加载 API 覆盖
-    _renderNav();
-    loadNavFromAPI();
-    // 构建完成后恢复当前视图的激活状态
+    // 导航由 navigation.js 自动渲染
     switchView(currentView);
   } catch(e) {
     // 保底：即使 API 失败也加载生产列表
@@ -570,98 +455,8 @@ async function loadPlugins() {
   }
 }
 
-// ── Matrix 养号矩阵汇总（inline 视图）──
-async function loadMatrixSummary() {
-  const el = document.getElementById('matrixSummaryContent');
-  const meta = document.getElementById('matrixSummaryMeta');
-  el.innerHTML = '<div class="loading">加载矩阵状态...</div>';
-  try {
-    const r = await fetch('/api/matrix/cross-machines');
-    const d = await r.json();
-    meta.textContent = `${d.total_machines} 机器 · ${d.total_accounts} 账号`;
-
-    // 获取身份目录统计
-    let identityCount = 0;
-    try {
-      const ir = await fetch('/api/matrix/system-info');
-      const id = await ir.json();
-      identityCount = id.identity_dirs || 0;
-    } catch(e) {}
-    meta.textContent += ` · 🪪 ${identityCount} 身份目录`;
-
-    // 检测重复：同一账号出现在不同机器
-    const allIds = {};
-    const duplicates = [];
-    d.machines.forEach(m => {
-      (m.accounts||[]).forEach(a => {
-        if (allIds[a.id] && allIds[a.id] !== m.hostname) {
-          duplicates.push({id: a.id, m1: allIds[a.id], m2: m.hostname});
-        }
-        allIds[a.id] = m.hostname;
-      });
-    });
-
-    let html = '';
-
-    // 重复告警
-    if (duplicates.length) {
-      html += `<div style="padding:12px;background:rgba(239,68,68,.12);border-radius:8px;border:1px solid rgba(239,68,68,.25);margin-bottom:16px">
-        <div style="font-weight:600;color:var(--red);margin-bottom:6px">🚨 账号重复分配检测</div>
-        ${duplicates.map(dp => `<div style="font-size:13px;margin:2px 0">⚠️ <strong>${dp.id}</strong> 同时分配给 <strong>${dp.m1}</strong> 和 <strong>${dp.m2}</strong></div>`).join('')}
-        <div style="font-size:11px;color:var(--text2);margin-top:4px">请编辑 accounts_registry.yaml 修正 assign_machine</div>
-      </div>`;
-    }
-
-    // 每机器一张卡片
-    html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px">`;
-    d.machines.forEach(m => {
-      const localTag = m.hostname === d.source_hostname ? '<span style="font-size:10px;color:var(--green);margin-left:6px">(本机)</span>' : '';
-      html += `<div style="background:var(--bg2);border-radius:var(--radius);padding:16px;border:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <div><span style="font-weight:600;font-size:14px">🖥 ${m.hostname}</span>${localTag}</div>
-          <div style="display:flex;gap:6px;font-size:11px">
-            <span class="badge badge-blue">共${m.total}</span>
-            <span class="badge badge-green">🟢${m.logged_in}</span>
-            <span class="badge badge-gray">⏸${m.total-m.logged_in-m.remote}</span>
-            ${m.remote ? `<span class="badge badge-amber">📡${m.remote}</span>` : ''}
-          </div>
-        </div>
-        <table style="font-size:12px;margin:0"><thead><tr>
-          <th>账号</th><th>平台</th><th>状态</th><th>归属</th>
-        </tr></thead><tbody>${(m.accounts||[]).map(a => {
-          const s = a.status === 'logged_in' ? '🟢' : a.status === 'disabled' ? '⏸' : a.enabled ? '🔴' : '⏸';
-          const isRemote = a.owner_machine && a.owner_machine !== m.hostname && a.status !== 'remote' ? `📡${a.owner_machine}` : a.status === 'remote' ? `📡${a.owner_machine||'?'}` : '✅';
-          return `<tr><td><strong>${a.id}</strong></td>
-            <td>${a.platform==='douyin'?'🎵':'📕'} ${a.platform}</td>
-            <td>${s} ${a.status}</td>
-            <td style="font-size:11px;color:var(--text2)">${isRemote}</td></tr>`;
-        }).join('')}</tbody></table>
-      </div>`;
-    });
-    html += `</div>`;
-
-    // 蓝图简表
-    try {
-      const br = await fetch('/api/matrix/blueprints');
-      const bd = await br.json();
-      const bps = bd.blueprints || [];
-      html += `<div style="margin-top:16px;background:var(--bg2);border-radius:var(--radius);padding:16px;border:1px solid var(--border)">
-        <div style="font-weight:600;margin-bottom:10px">📋 蓝图 (${bps.length})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">${bps.map(b => 
-          `<span style="background:var(--bg3);padding:4px 10px;border-radius:4px;font-size:12px">${b.name} <span class="badge badge-blue" style="font-size:9px">${b.step_count}步</span></span>`
-        ).join('')}</div>
-      </div>`;
-    } catch(e) {}
-
-    html += `<div style="margin-top:12px;text-align:right;font-size:11px;color:var(--text2)">
-      <a href="/matrix-mgmt" target="_blank" style="color:var(--blue)">📱 打开完整管理页面 →</a>
-    </div>`;
-
-    el.innerHTML = html;
-  } catch(e) {
-    el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
-  }
-}
+// ── Matrix 养号矩阵汇总（已迁移至 views/matrix-summary.js）──
+// async function loadMatrixSummary() — 已删除，由 tryLoadView 接管
 
 // ════════════════════════════════════════════════════════
 // Matrix Sub-Views (inline, no new tab)

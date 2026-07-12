@@ -11,6 +11,15 @@ import './style.css';
 // ── 内联视图函数（回退代码，未迁移视图使用）──
 import './inline.js';
 
+// ── 工具函数 ──
+import './utils.js';
+
+// ── 导航模块 ──
+import './navigation.js';
+
+// ── 事件处理函数 ──
+import './event-handlers.js';
+
 // ── 功能模块 ──
 import './modules/matrix_views.js';
 import './modules/batch_exec.js';
