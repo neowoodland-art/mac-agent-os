@@ -512,9 +512,9 @@ async function loadPlugins() {
         {view:'ave-templates', label:'模板'},
       ]},
       '内容抓取': { icon: '📡', items: [
-        {view:'crawl-tasks', label:'采集任务'},
-        {view:'crawl-sources', label:'源管理'},
-        {view:'crawl-history', label:'采集历史'},
+        {view:'crawl-tasks', label:'📥 抓取任务'},
+        {view:'crawl-sources', label:'📋 源管理'},
+        {view:'crawl-history', label:'📜 抓取历史'},
       ]},
       '联邦': { icon: '🖥️', items: [
         {view:'machines', label:'机器状态'},
@@ -1044,10 +1044,16 @@ function renderAccountsTable() {
     ${th('id','ID')}${th('platform','平台')}${th('phone','手机')}${th('machine','归属机器')}${th('status','状态')}${th('display_name','昵称')}
     ${th('identity_dir','身份目录')}<th>备注</th><th>操作</th>
   </tr></thead><tbody>${sorted.map(a => {
-    const s = a._status === 'logged_in' ? '<span class="badge badge-green" style="background:rgba(5,150,105,.1);color:var(--green);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">✅ 已登录</span>'
-      : a._status === 'remote' ? '<span class="badge badge-gray" style="background:rgba(107,114,128,.1);color:var(--text2);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">📡 远程</span>'
+    // 状态显示：优先用 _log_detail（不读 SQLite，从执行日志获取）
+    const ld = a._log_detail || {};
+    const st = a._status === 'remote' ? '<span class="badge badge-gray" style="background:rgba(107,114,128,.1);color:var(--text2);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">📡 远程</span>'
       : a._status === 'disabled' ? '<span class="badge badge-gray" style="background:rgba(107,114,128,.1);color:var(--text2);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⏸ 停用</span>'
-      : `<span class="badge badge-amber" style="background:rgba(217,119,6,.1);color:var(--amber);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⚠️ ${a._status}</span>`;
+      : !ld.exists ? '<span class="badge badge-amber" style="background:rgba(217,119,6,.1);color:var(--amber);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">🆕 新账号</span>'
+      : ld.last_status === 'success' ? '<span class="badge badge-green" style="background:rgba(5,150,105,.1);color:var(--green);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">✅ ' + ld.last_cmd + ' ' + ld.last_time + '</span>'
+      : ld.last_status === 'sms_skip' ? '<span class="badge badge-amber" style="background:rgba(217,119,6,.1);color:var(--amber);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">📱 短信跳过 ' + ld.last_time + '</span>'
+      : ld.last_status === 'failed' ? '<span class="badge badge-red" style="background:rgba(220,38,38,.1);color:var(--red);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">❌ 失败 ' + ld.last_time + '</span>'
+      : ld.last_status === 'running' ? '<span class="badge badge-blue" style="background:rgba(37,99,235,.1);color:var(--blue);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⏳ 运行中</span>'
+      : '<span class="badge badge-gray" style="background:rgba(107,114,128,.1);color:var(--text2);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">❓ 💡 待执行</span>';
     const platformIcon = a.platform === 'douyin' ? '🎵' : (a.platform === 'xiaohongshu' ? '📕' : '🌐');
     const machineLabel = a.is_local
       ? '<span style="color:#6366f1;font-size:12px">💻 本机</span>'
@@ -1057,7 +1063,7 @@ function renderAccountsTable() {
       <td>${platformIcon} ${a.platform}</td>
       <td style="font-family:monospace;font-size:12px">${String(a.phone||a.phone_mask||'-').slice(0,11)}</td>
       <td>${machineLabel}</td>
-      <td>${s}</td>
+      <td>${st}</td>
       <td style="font-size:12px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis">${a.display_name || '-'}</td>
       <td style="font-size:11px;color:var(--text2)">${a.identity_dir ? a.identity_dir.split('/').pop() : '-'}</td>
       <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
