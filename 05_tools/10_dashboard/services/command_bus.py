@@ -965,7 +965,7 @@ class CommandBus:
                 import yaml
                 oracle = yaml.safe_load(oracle_path.read_text())
                 for entry in oracle.get("accounts", []):
-                    machine = entry.get("machine", "")
+                    machine = entry.get("machine", "") or entry.get("assigned_machine", "")
                     for plat, acct_id in entry.get("platforms", {}).items():
                         oracle_map[acct_id] = machine
         except:

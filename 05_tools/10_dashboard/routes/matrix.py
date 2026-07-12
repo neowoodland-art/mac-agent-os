@@ -407,7 +407,7 @@ async def api_matrix_create_account(data: dict):
                     changed = False
                     for entry in oracle.get("accounts", []):
                         if aid in entry.get("platforms", {}).values():
-                            entry["assigned_machine"] = owner_machine
+                            entry["machine"] = owner_machine
                             changed = True
                             break
                     if not changed:
@@ -418,7 +418,7 @@ async def api_matrix_create_account(data: dict):
                         identity_name = raw_id_dir.replace("identities/", "")
                         oracle.setdefault("accounts", []).append({
                             "phone": data.get("phone", ""),
-                            "assigned_machine": owner_machine,
+                            "machine": owner_machine,
                             "identity": identity_name,
                             "platforms": {plat: aid},
                         })
@@ -496,7 +496,7 @@ def api_matrix_delete_account(account_id: str):
                 for entry in oracle.get("accounts", []):
                     for plat, aid in entry.get("platforms", {}).items():
                         if aid == account_id:
-                            owner_machine = entry.get("assigned_machine", "") or entry.get("machine", "")
+                            owner_machine = entry.get("machine", "") or entry.get("assigned_machine", "")
                             break
         except Exception:
             pass

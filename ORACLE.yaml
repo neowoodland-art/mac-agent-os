@@ -128,98 +128,100 @@ accounts:
     douyin: douyin_146
     xiaohongshu: xhs_16
 - phone: '15370103682'
-  assigned_machine: chengzigedeAir
   platforms:
     xiaohongshu: xhs_15370103682
+  machine: chengzigedeAir
+  identity: xhs_15370103682
 - phone: '13382501975'
-  assigned_machine: chengzigedeAir
   platforms:
     xiaohongshu: xhs_13382501975
+  machine: chengzigedeAir
+  identity: xhs_13382501975
 - phone: '13382502033'
-  assigned_machine: 5kechengdeAir
   identity: douyin_13382502033
   platforms:
     douyin: douyin_13382502033
+  machine: 5kechengdeAir
 - phone: '18550095271'
-  assigned_machine: 5kechengdeAir
   identity: douyin_18550095271
   platforms:
     douyin: douyin_18550095271
+  machine: 5kechengdeAir
 - phone: '18550099069'
-  assigned_machine: 5kechengdeAir
   identity: douyin_18550099069
   platforms:
     douyin: douyin_18550099069
+  machine: 5kechengdeAir
 - phone: '18550099707'
-  assigned_machine: 5kechengdeAir
   identity: douyin_18550099707
   platforms:
     douyin: douyin_18550099707
+  machine: 5kechengdeAir
 - phone: '18550099245'
-  assigned_machine: 5kechengdeAir
   identity: douyin_18550099245
   platforms:
     douyin: douyin_18550099245
+  machine: 5kechengdeAir
 - phone: '15358427890'
-  assigned_machine: 5kechengdeAir
   identity: douyin_15358427890
   platforms:
     douyin: douyin_15358427890
+  machine: 5kechengdeAir
 - phone: '18550093602'
-  assigned_machine: 5kechengdeAir
   identity: douyin_18550093602
   platforms:
     douyin: douyin_18550093602
+  machine: 5kechengdeAir
 - phone: '13382504130'
-  assigned_machine: 5kechengdeAir
   identity: douyin_13382504130
   platforms:
     douyin: douyin_13382504130
+  machine: 5kechengdeAir
 - phone: '18550099018'
-  assigned_machine: 5kechengdeAir
   identity: douyin_18550099018
   platforms:
     douyin: douyin_18550099018
+  machine: 5kechengdeAir
 - phone: '13382502664'
-  assigned_machine: 5kechengdeAir
   identity: douyin_13382502664
   platforms:
     douyin: douyin_13382502664
+  machine: 5kechengdeAir
 - phone: '13382501256'
-  assigned_machine: 5kechengdeAir
   identity: douyin_13382501256
   platforms:
     douyin: douyin_13382501256
+  machine: 5kechengdeAir
 - phone: '13382502342'
-  assigned_machine: 5kechengdeAir
   identity: douyin_13382502342
   platforms:
     douyin: douyin_13382502342
+  machine: 5kechengdeAir
 - phone: '13382546434'
-  assigned_machine: 5kechengdeAir
   identity: douyin_13382546434
   platforms:
     douyin: douyin_13382546434
+  machine: 5kechengdeAir
 - phone: '13382548963'
-  assigned_machine: 5kechengdeAir
   identity: douyin_13382548963
   platforms:
     douyin: douyin_13382548963
+  machine: 5kechengdeAir
 - phone: '13160144006'
-  assigned_machine: chengzigedeAir
   identity: douyin_13160144006
   platforms:
     douyin: douyin_13160144006
+  machine: chengzigedeAir
 - phone: '13382500738'
-  assigned_machine: chengzigedeAir
   identity: douyin_13382500738
   platforms:
     douyin: douyin_13382500738
+  machine: chengzigedeAir
 - phone: '13382504732'
-  assigned_machine: chengzigedeAir
   identity: douyin_13382504732
   platforms:
     douyin: douyin_13382504732
+  machine: chengzigedeAir
 tasks:
 - name: nurture_morning
   schedule: 30 9 * * *
