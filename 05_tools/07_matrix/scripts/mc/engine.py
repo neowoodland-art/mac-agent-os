@@ -44,7 +44,8 @@ def resolve_account(account_id: str) -> dict:
 
 def resolve_blueprint(name: str) -> Optional[dict]:
     bp_dir = TOOL_DIR / "blueprints"
-    for f in sorted(bp_dir.glob("*.json")):
+    # 长名字优先（避免 douyin_daily 被子串匹配到 douyin_daily_clean）
+    for f in sorted(bp_dir.glob("*.json"), key=lambda p: -len(p.stem)):
         bp = json.loads(f.read_text())
         if name in (bp.get("id", ""), bp.get("name", ""), f.stem):
             return bp
