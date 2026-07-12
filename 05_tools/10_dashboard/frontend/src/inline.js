@@ -64,6 +64,9 @@ loadStats();
   if (hash) {
     // 延后执行，等插件和统计加载完成
     setTimeout(function() { window.switchView(hash); }, 100);
+  } else {
+    // 无 hash 时默认显示矩阵养号总览
+    setTimeout(function() { window.switchView('plugin-matrix'); }, 200);
   }
 })();
 
