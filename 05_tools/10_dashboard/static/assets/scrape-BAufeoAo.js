@@ -1,4 +1,4 @@
-import"./index-BFID71OM.js";var e=null;async function t(e){e.innerHTML=n(),r(e),p(),g(),_()}function n(){return`
+import"./index-D8kaX4GF.js";var e=null;async function t(e){e.innerHTML=n(),r(e),p(),g(),_()}function n(){return`
   <div style="padding:12px;font-size:12px;color:var(--text)">
     <!-- Tab 栏 -->
     <div style="display:flex;gap:0;margin-bottom:10px;border-bottom:1px solid var(--border)">

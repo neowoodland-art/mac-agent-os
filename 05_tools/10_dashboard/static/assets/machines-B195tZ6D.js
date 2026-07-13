@@ -1,4 +1,4 @@
-import{i as e,r as t,t as n}from"./index-BFID71OM.js";async function r(r){e(r,`读取联邦心跳中...`);try{let e=(await n(`/machines`)).machines||[],t=document.getElementById(`machineCount`);if(t&&(t.textContent=`共 ${e.length} 台主机`),!e.length){r.innerHTML=`<div class="error" style="padding:40px">无心跳数据</div>`;return}r.innerHTML=`
+import{a as e,i as t,t as n}from"./index-D8kaX4GF.js";async function r(r){e(r,`读取联邦心跳中...`);try{let e=(await n(`/machines`)).machines||[],t=document.getElementById(`machineCount`);if(t&&(t.textContent=`共 ${e.length} 台主机`),!e.length){r.innerHTML=`<div class="error" style="padding:40px">无心跳数据</div>`;return}r.innerHTML=`
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px" id="machineGrid">
         ${e.map(e=>i(e)).join(``)}
       </div>
