@@ -208,6 +208,10 @@ def api_summary():
     for name, inst in sorted(_PLUGINS.items(), key=lambda x: x[1].order if x[1] else 99):
         if inst is None:
             continue
+        if name == 'matrix':
+            # matrix 的 summary 遍历所有养号账号耗时 ~6秒，且前端未使用其数据
+            result[name] = {"meta": {"label": inst.label, "icon": inst.icon, "version": inst.version}, "data": {}}
+            continue
         try:
             from plugins._registry import get_machine_list
             result[name] = {
