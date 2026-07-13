@@ -1364,26 +1364,34 @@ class MatrixManager:
         log_dir = Path.home() / "workbuddy-agent-os" / "agent-local" / "runtime" / "guardd" / "tasks"
         if not log_dir.exists():
             return result
+        # 缓存日志文件列表（只 stat 一次，避免重复 syscall）
+        if not hasattr(self, "_log_files_cache"):
+            self._log_files_cache = {}
+            try:
+                for f in log_dir.iterdir():
+                    if f.name.endswith(".log"):
+                        try:
+                            self._log_files_cache[f.name] = f.stat().st_mtime
+                        except OSError:
+                            pass
+            except PermissionError:
+                return result
         candidate = None
-        try:
-            for f in log_dir.iterdir():
-                if not f.name.endswith(".log") or hint not in f.name:
-                    continue
-                mtime = f.stat().st_mtime
-                if candidate is None or mtime > candidate[0]:
-                    candidate = (mtime, f)
-        except PermissionError:
-            return result
+        for fname, mtime in self._log_files_cache.items():
+            if hint not in fname:
+                continue
+            if candidate is None or mtime > candidate[0]:
+                candidate = (mtime, fname)
         if not candidate:
             return result
-        mtime, log_file = candidate
+        mtime, fname = candidate
         result["exists"] = True
         result["last_time"] = datetime.fromtimestamp(mtime).strftime("%m-%d %H:%M")
         # 从文件名取 cmd_type
-        parts = log_file.stem.split("_")
+        parts = Path(fname).stem.split("_")
         result["last_cmd"] = parts[0] if parts else ""
         try:
-            text = log_file.read_text(encoding="utf-8", errors="replace")
+            text = (log_dir / fname).read_text(encoding="utf-8", errors="replace")
             # 先检测短信触发（优先级最高：多条日志可能同时有 ✅ 和 短信验证）
             if any(kw in text for kw in ["短信验证", "auto_verify 返回 False", "需手动登录", "sms_login", "SmsRecovery"]):
                 result["last_status"] = "sms_skip"

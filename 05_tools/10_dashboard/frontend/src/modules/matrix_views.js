@@ -607,7 +607,8 @@ async function loadPlugins() {
       ]},
       '内容抓取': { icon: '📡', items: [
         {view:'crawl-tasks', label:'📥 抓取任务'},
-        {view:'crawl-sources', label:'源管理'},
+        {view:'crawl-sources', label:'📋 源管理'},
+        {view:'crawl-history', label:'📜 抓取历史'},
       ]},
       '联邦': { icon: '🖥️', items: [
         {view:'machines', label:'机器状态'},

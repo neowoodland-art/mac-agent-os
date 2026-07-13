@@ -670,31 +670,3 @@ characters:
         【神态&场景】柔光箱均匀布光、中焦85mm、纯灰色专业背景'
       shoes: ''
       style: ''
-  t:
-    name: t
-    description: 测试
-    base: 测试
-    personality: 默认
-    voice_style: 默认
-    art_style: 写实摄影风格
-    face:
-      shape: ''
-      eyes: ''
-      nose: ''
-      lips: ''
-      hair: ''
-      skin: ''
-      facial_hair: ''
-      glasses: ''
-      distinctive: ''
-    body:
-      build: ''
-      height: ''
-      posture: ''
-      age_group: ''
-    clothing:
-      top: ''
-      inner: ''
-      bottom: ''
-      shoes: ''
-      style: ''
