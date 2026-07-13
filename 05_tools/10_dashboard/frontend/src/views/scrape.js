@@ -31,6 +31,14 @@ export async function loadView(container) {
   loadStats();
   loadSources();
   loadHistory();
+
+  // 自动切换到指定Tab（从导航栏 crawl-sources/crawl-history 跳转时）
+  if (window._scrapeTab) {
+    const tab = window._scrapeTab;
+    window._scrapeTab = null; // 消费后清除
+    const tabEl = container.querySelector('.collect-tab[data-tab="' + tab + '"]');
+    if (tabEl) tabEl.click();
+  }
 }
 
 // ── HTML 渲染 ──

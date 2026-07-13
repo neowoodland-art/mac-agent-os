@@ -450,6 +450,28 @@ def api_generate_from_direction(data: dict):
         raise HTTPException(500, detail=f"角色生成失败: {str(e)}")
 
 
+@app.get("/api/portrait-files/{character_name}/{file_name}")
+def api_portrait_file(character_name: str, file_name: str):
+    """提供角色定妆照图片文件"""
+    # 支持多种可能的路径
+    _assets_dir = _AVE_SCRIPTS / "character_registry" / "assets"
+    possible_dirs = [
+        _assets_dir / character_name,
+        _assets_dir / character_name.replace(" ", "_"),
+        _assets_dir / character_name.lower(),
+    ]
+    for d in possible_dirs:
+        if d.exists():
+            for f in d.iterdir():
+                if f.name == file_name or f.name == file_name.replace("_grid_", "_"):
+                    return FileResponse(str(f), media_type="image/png" if f.suffix == ".png" else "image/jpeg")
+            # 没找到精确匹配，返回第一个图片作为兜底
+            for f in d.iterdir():
+                if f.suffix in (".png", ".jpg", ".jpeg"):
+                    return FileResponse(str(f), media_type="image/png" if f.suffix == ".png" else "image/jpeg")
+    # 无任何文件，返回空响应
+    return FileResponse(str(_static_dir / "favicon.ico")) if (_static_dir / "favicon.ico").exists() else ""
+
 @app.post("/api/characters/update")
 def api_update_character(data: dict):
     """更新角色属性"""
@@ -614,7 +636,7 @@ def api_matrix_cross_machines():
 
 
 @app.get("/api/health")
-def health():
+async def health():
     return {
         "status": "ok",
         "version": "2.0.0",
@@ -1037,6 +1059,8 @@ app.include_router(comment_workbench_router)
 
 from routes.scrape import router as scrape_router
 app.include_router(scrape_router)
+
+from workflows import WORKFLOW_TEMPLATES, NODE_DEFINITIONS, get_node_categories, get_runner
 
 @app.get("/api/workflow/nodes")
 def api_workflow_nodes():

@@ -597,13 +597,16 @@ async function loadPlugins() {
         {view:'ops-command', label:'🖥️ 联邦指挥台'},
       ]},
       '视频工厂': { icon: '🎬', items: [
-        {view:'ave-render', label:'渲染任务'},
-        {view:'ave-script', label:'脚本生成'},
-        {view:'ave-materials', label:'素材库'},
-        {view:'ave-templates', label:'模板'},
+        {view:'workflow',   label:'🔀 工作流'},
+        {view:'capabilities',label:'⚡ 能力目录'},
+        {view:'characters', label:'🧑 角色列表'},
+        {view:'char-gen',   label:'🎭 角色生成器'},
+        {view:'productions',label:'📋 生产记录'},
+        {view:'assets',     label:'📦 素材库'},
+        {view:'costs',      label:'💰 费用分析'},
       ]},
-      '内容采集': { icon: '📡', items: [
-        {view:'crawl-tasks', label:'采集任务'},
+      '内容抓取': { icon: '📡', items: [
+        {view:'crawl-tasks', label:'📥 抓取任务'},
         {view:'crawl-sources', label:'源管理'},
       ]},
       '联邦': { icon: '🖥️', items: [
@@ -616,6 +619,7 @@ async function loadPlugins() {
         {view:'serve-mcp', label:'MCP状态'},
         {view:'serve-dashboard', label:'Dashboard日志'},
         {view:'serve-schedule', label:'全局定时任务'},
+        {view:'timeline',   label:'📈 时间线'},
       ]},
     };
 

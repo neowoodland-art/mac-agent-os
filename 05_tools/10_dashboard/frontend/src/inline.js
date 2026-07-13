@@ -10,7 +10,44 @@ window.tryLoadView = tryLoadView;
 const API = '';
 let currentView = 'productions';
 
-// ── Sidebar (moved to navigation.js) ──
+// ── Sidebar ──
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebarToggleBtn');
+  const isCollapsed = sb.classList.toggle('collapsed');
+  btn.textContent = isCollapsed ? '▶' : '◀';
+  btn.title = isCollapsed ? '展开侧边栏' : '折叠侧边栏';
+}
+function toggleGroup(el) {
+  const body = el.nextElementSibling;
+  if (!body || !body.classList) return;
+  // 手风琴: 关闭其他所有分组
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    if (h === el) return;
+    const b = h.nextElementSibling;
+    if (b && b.classList && !b.classList.contains('collapsed')) {
+      b.classList.add('collapsed');
+      h.dataset.collapsed = 'true';
+      const arrow = h.querySelector('span:last-child');
+      if (arrow) arrow.textContent = '▶';
+    }
+  });
+  // 切换当前分组
+  const isCollapsed = body.classList.toggle('collapsed');
+  el.dataset.collapsed = isCollapsed ? 'true' : 'false';
+  el.querySelector('span:last-child').textContent = isCollapsed ? '▶' : '▼';
+}
+function collapseAllGroups() {
+  document.querySelectorAll('.nav-group-header').forEach(h => {
+    const body = h.nextElementSibling;
+    if (body && body.classList && !body.classList.contains('collapsed')) {
+      body.classList.add('collapsed');
+      h.dataset.collapsed = 'true';
+      const arrow = h.querySelector('span:last-child');
+      if (arrow) arrow.textContent = '▶';
+    }
+  });
+}
 let currentPage = 0;
 const PAGE_SIZE = 30;
 let searchTimer;
@@ -38,6 +75,13 @@ loadStats();
 window.switchView = function(view) {
   // Plugin views → inline rendering
   if (view === 'plugin-matrix') { view = 'matrix-summary'; }
+  // 抓取管理旧路由 → 新抓取视图（scrape）
+  // 放在最前面，避免经过旧视图的显隐逻辑
+  if (view === 'crawl-tasks' || view === 'crawl-sources' || view === 'crawl-history') {
+    // 记录目标Tab，供 scrape.js 使用
+    window._scrapeTab = view === 'crawl-sources' ? 'sources' : view === 'crawl-history' ? 'history' : 'run';
+    view = 'scrape';
+  }
   currentView = view;
 
   // 所有 nav-item 和 nav-sub 的 active 状态
@@ -127,10 +171,7 @@ window.switchView = function(view) {
   }
 
   // 已迁移视图 → 动态加载（由 views/*.js 的 loadView 接管）
-  // 抓取管理旧路由 → 新抓取视图（scrape）
-  if (view === 'crawl-tasks' || view === 'crawl-sources' || view === 'crawl-history') {
-    view = 'scrape';
-  }
+  // 抓取路由已在 switchView 开头处理
   // window.tryLoadView 由 router.js 和本文件共同暴露
   if (window.tryLoadView && window.tryLoadView(view)) {
     return;
@@ -170,76 +211,7 @@ async function loadStats() {
 }
 
 // ── Productions ──
-async function loadProductions(page) {
-  if (page !== undefined) currentPage = page;
-  const el = document.getElementById('productionList');
-
-  // 矩阵养号运营数据看板（独立容器，不会被覆盖）
-  try {
-    let statsEl = document.getElementById('matrixDashboardStats');
-    if (!statsEl) {
-      statsEl = document.createElement('div');
-      statsEl.id = 'matrixDashboardStats';
-      el.parentNode.insertBefore(statsEl, el);
-    }
-    const sr = await fetch('/api/matrix/sms/accounts');
-    const sd = await sr.json();
-    const accts = (sd.accounts || []).filter(a => a.is_local);
-    const online = accts.filter(a => a.has_cookie);
-    const profiled = accts.filter(a => a.has_profile);
-    statsEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">'+
-      '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
-        '<div style="font-size:24px;font-weight:700;color:#6366f1">'+accts.length+'</div>'+
-        '<div style="font-size:11px;color:var(--text2)">📱 本机账号</div></div>'+
-      '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
-        '<div style="font-size:24px;font-weight:700;color:var(--green)">'+online.length+'</div>'+
-        '<div style="font-size:11px;color:var(--text2)">🔑 已登录</div></div>'+
-      '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
-        '<div style="font-size:24px;font-weight:700;color:var(--amber)">'+profiled.length+'</div>'+
-        '<div style="font-size:11px;color:var(--text2)">👤 已采集</div></div>'+
-      '<div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);text-align:center">'+
-        '<div style="font-size:24px;font-weight:700;color:var(--text2)">'+sd.accounts.length+'</div>'+
-        '<div style="font-size:11px;color:var(--text2)">🌐 联邦账号</div></div>'+
-    '</div>';
-  } catch(e) { /* ignore */ }
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    const strategy = document.getElementById('filterStrategy').value;
-    const status = document.getElementById('filterStatus').value;
-    const search = document.getElementById('searchInput').value;
-    const params = new URLSearchParams({limit: PAGE_SIZE, offset: currentPage * PAGE_SIZE});
-    if (strategy) params.set('strategy', strategy);
-    if (status) params.set('status', status);
-    const r = await fetch(`${API}/api/productions?${params}`);
-    const res = await r.json();
-    const data = res.data || [];
-
-    if (!data.length) { el.innerHTML = '<div class="error" style="padding:40px">暂无生产记录</div>'; return; }
-
-    const filtered = search ? data.filter(p => (p.script_name||'').includes(search)) : data;
-    if (!filtered.length) { el.innerHTML = '<div class="error">未找到匹配记录</div>'; return; }
-
-    el.innerHTML = `<table><thead><tr>
-      <th>编号</th><th>策略</th><th>脚本</th><th>状态</th><th>费用</th><th>时长</th><th>时间</th>
-    </tr></thead><tbody>${filtered.map(p => `<tr onclick="showDetail(${p.id})">
-      <td>#${p.id}</td>
-      <td>${p.strategy||'-'}</td>
-      <td>${(p.script_name||'').slice(0,30)||'-'}</td>
-      <td><span class="badge badge-${(p.status||'unknown').toLowerCase()}">${p.status}</span></td>
-      <td>¥${(p.total_cost||0).toFixed(2)}</td>
-      <td>${p.duration_sec ? p.duration_sec.toFixed(0) + 's' : '-'}</td>
-      <td style="white-space:nowrap">${(p.created_at||'').slice(0,16)}</td>
-    </tr>`).join('')}</tbody></table>`;
-
-    // Pagination
-    document.getElementById('pagination').innerHTML = currentPage > 0
-      ? `<button onclick="loadProductions(${currentPage-1})">← 上一页</button><span style="padding:6px 12px;color:var(--text2)">第 ${currentPage+1} 页</span><button onclick="loadProductions(${currentPage+1})">下一页 →</button>`
-      : `<span style="padding:6px 12px;color:var(--text2)">第 1 页</span><button onclick="loadProductions(${currentPage+1})">下一页 →</button>`;
-    loadStats();
-  } catch(e) { el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`; }
-}
-
-function debounceSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadProductions(0), 400); }
+function debounceSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => {}, 400); }
 
 // ── Detail ──
 async function showDetail(id) {
@@ -294,142 +266,9 @@ async function showDetail(id) {
 function closeDetail() { document.getElementById('detailModal').classList.add('hidden'); }
 
 // ── Assets ──
-async function loadAssets(page) {
-  const el = document.getElementById('assetList');
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    const type = document.getElementById('assetTypeFilter').value;
-    const tag = document.getElementById('assetSearch').value;
-    const params = new URLSearchParams({limit: 50});
-    if (type) params.set('type', type);
-    if (tag) params.set('tag', tag);
-    const r = await fetch(`${API}/api/assets?${params}`);
-    const data = await r.json();
-    if (!data.length) { el.innerHTML = '<div class="error" style="padding:40px">暂无资产</div>'; return; }
-    el.innerHTML = `<div class="asset-grid">${data.map(a => `<div class="asset-card" onclick="showDetail(${a.production_id})" style="cursor:pointer">
-      <div class="type">${a.asset_type||'-'}</div>
-      <div class="name">${(a.name||a.file_path||'-').slice(0,40)}</div>
-      <div class="meta">${a.source||''}${a.file_size ? ' · '+(a.file_size/1024).toFixed(0)+'KB' : ''}</div>
-      ${a.tags ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${a.tags.split(',').map(t => `<span style="background:var(--bg3);padding:1px 6px;border-radius:4px;font-size:10px">${t}</span>`).join('')}</div>` : ''}
-    </div>`).join('')}</div>`;
-  } catch(e) { el.innerHTML = `<div class="error">❌ 加载失败</div>`; }
-}
 function debounceAssetSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadAssets(), 400); }
 
 // ── Costs ──
-async function loadCosts() {
-  const el1 = document.getElementById('costSummary');
-  const el2 = document.getElementById('costBreakdown');
-  try {
-    const r = await fetch(`${API}/api/summary`);
-    const d = await r.json();
-    const s = d.ave || d;
-    el1.innerHTML = `<div class="stats" style="grid-template-columns:repeat(3,1fr)">
-      <div class="stat-card"><div class="label">总费用</div><div class="value">¥${(s.total_cost||0).toFixed(2)}</div></div>
-      <div class="stat-card"><div class="label">本月费用</div><div class="value">¥${(s.month_cost||0).toFixed(2)}</div></div>
-      <div class="stat-card"><div class="label">平均费用/生产</div><div class="value">¥${s.total_productions ? (s.total_cost/s.total_productions).toFixed(2) : '0.00'}</div></div>
-    </div>`;
-
-    // 按策略统计 (专用API)
-    const r2 = await fetch(`${API}/api/costs/breakdown`);
-    const strategies = await r2.json();
-    const colors = ['#6366f1','#22c55e','#f59e0b','#ef4444','#3b82f6'];
-
-    if (!strategies.length) {
-      el2.innerHTML = '<div class="error" style="padding:40px">暂无费用数据</div>';
-      return;
-    }
-
-    const maxCost = Math.max(...strategies.map(s => s.total_cost), 1);
-    el2.innerHTML = `<div class="chart-box">
-      <div style="font-size:14px;font-weight:600;margin-bottom:12px">按策略统计</div>
-      <div class="cost-bar">${strategies.map((s,i) => `<div style="flex:${(s.total_cost/maxCost*100).toFixed(0)};background:${colors[i%5]};min-width:20px" title="${s.strategy}: ¥${s.total_cost.toFixed(2)}">¥${s.total_cost.toFixed(0)}</div>`).join('')}</div>
-      <table><thead><tr><th>策略</th><th>次数</th><th>总时长</th><th>总费用</th><th>平均费用</th></tr></thead><tbody>
-        ${strategies.map(s => `<tr><td>${s.strategy}</td><td>${s.count}</td><td>${(s.total_duration||0).toFixed(0)}s</td><td>¥${(s.total_cost||0).toFixed(2)}</td><td>¥${s.avg_cost||'0.00'}</td></tr>`).join('')}
-      </tbody></table>
-    </div>`;
-  } catch(e) { el1.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`; }
-}
-
-// ── Machine Status ──
-async function loadMachines() {
-  const el = document.getElementById('machineGrid');
-  const countEl = document.getElementById('machineCount');
-  el.innerHTML = '<div class="loading">读取联邦心跳中...</div>';
-  try {
-    const r = await fetch(`${API}/api/machines`);
-    const d = await r.json();
-    const machines = d.machines || [];
-    countEl.textContent = `共 ${machines.length} 台主机`;
-
-    if (!machines.length) {
-      el.innerHTML = '<div class="error" style="padding:40px">无心跳数据</div>';
-      return;
-    }
-
-    el.innerHTML = machines.map(m => {
-      // 安全取值
-      const isOnline = m.status === 'online' || m._live === true;
-      const isRecent = m.status === 'recent';
-      const isLive = m._live === true;
-      const dotColor = isLive ? '#1D9E75' : isOnline ? '#22C55E' : isRecent ? '#F59E0B' : '#EF4444';
-      const statusText = isLive ? '实时' : isOnline ? '在线' : isRecent ? '近期' : '离线';
-      const lastPushSec = m._last_push_sec || 0;
-      const minAgo = m.minutes_ago || Math.round(lastPushSec / 60) || 999;
-      const timeStr = isLive
-        ? `${lastPushSec}秒前`
-        : minAgo < 60
-          ? `${minAgo} 分钟前`
-          : `${(minAgo/60).toFixed(1)} 小时前`;
-
-      // 磁盘条
-      const diskUsed = m.disk_used_gb || 0;
-      const diskTotal = m.disk_total_gb || 1;
-      const diskPct = Math.round((diskUsed / diskTotal) * 100);
-      const diskAvail = m.disk_avail_gb || 0;
-      const diskColor = diskPct > 85 ? 'var(--red)' : diskPct > 60 ? 'var(--amber)' : 'var(--green)';
-      const diskBar = `<div style="height:6px;background:var(--bg3);border-radius:3px;margin:6px 0;overflow:hidden">
-        <div style="height:100%;width:${diskPct}%;background:${diskColor};border-radius:3px;transition:width .3s"></div>
-      </div>`;
-
-      // 角色标签
-      const roleColor = '#378ADD';
-
-      return `<div style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid ${isOnline ? 'rgba(34,197,94,.2)' : 'var(--border)'}">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="width:10px;height:10px;border-radius:50%;background:${dotColor};display:inline-block;"></span>
-            <div>
-              <div style="font-weight:600;font-size:15px">${m.hostname}</div>
-              ${m._uid ? `<span style="font-size:10px;color:var(--text2);margin-left:6px">UID: ${m._uid}</span>` : ''}
-              <div style="font-size:11px;color:var(--text2)">${m.os || ''}</div>
-            </div>
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-bottom:12px">
-          <div><span style="color:var(--text2)">guardd</span><br>v${m.guardd_version||'-'}</div>
-          <div><span style="color:var(--text2)">最后心跳</span><br>${timeStr}</div>
-          <div><span style="color:var(--text2)">CPU 负载</span><br>${m.cpu_load||'-'}</div>
-          <div><span style="color:var(--text2)">当前任务</span><br>${m.current_task||'无'}</div>
-        </div>
-
-        <div style="font-size:12px;color:var(--text2);margin-bottom:2px">磁盘: ${(m.disk_used_gb||0).toFixed(0)}G / ${(m.disk_total_gb||0).toFixed(0)}G</div>
-        ${diskBar}
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
-          <span>已用 ${diskPct}%</span>
-          <span>剩余 ${(m.disk_avail_gb||0).toFixed(0)}G</span>
-        </div>
-
-        ${m.is_duplicate ? `<div style="margin-top:8px;padding:4px 8px;background:rgba(245,158,11,.1);border-radius:4px;font-size:11px;color:var(--amber)">⚠ hostname 变更: 原名 ${m.duplicate_of||''}</div>` : ''}
-      </div>`;
-    }).join('');
-  } catch(e) {
-    el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
-  }
-}
-
-// ── Identity & Plugin Init ──
 async function loadIdentity() {
   try {
     const r = await fetch('/api/identity');
@@ -447,162 +286,95 @@ async function loadPlugins() {
     const plugins = res.plugins || [];
     // 旧兼容: 忽略不存在的 pluginBadge/pluginCount
 
-    // 导航由 navigation.js 自动渲染
+    // 构建分组侧边栏 (可折叠) — 按 COMMAND-CENTER-PLAN 排列
+    let html = '';
+    const S = (label, status) => `<span style="font-size:9px;margin-left:4px;padding:1px 5px;border-radius:3px;background:rgba(217,119,6,.12);color:#d97706;font-weight:500">${status}</span>`;
+    const groups = {
+      '矩阵': { icon: '📱', items: [
+        {view:'matrix-accounts', label:'👤 账号管理'},
+        {view:'matrix-sms-proxy', label:'🪪 短信与代理'},
+        {view:'matrix-nurture', label:'🏃 养号执行'},
+        {view:'matrix-collect', label:'📡 信息采集'},
+        {view:'matrix-publish', label:'📤 内容发布'},
+        {view:'matrix-interact', label:'💬 评论互动'},
+        {view:'ops-command', label:'🚀 联邦指挥台'},
+        {view:'matrix-comment', label:'💬 定向评论'},
+        {view:'comment-workbench', label:'🎭 评论工作台'},
+        {view:'matrix-like', label:'❤️ 收藏点赞'},
+        {view:'matrix-blueprints', label:'📋 蓝图管理'},
+        {view:'matrix-login', label:'🔑 登录管理'},
+        {view:'matrix-schedule', label:'⏱ 定时任务'},
+        {view:'matrix-corpus', label:'📚 语料库'},
+        {view:'ops-command', label:'🖥️ 联邦指挥台'},
+      ]},
+      '视频工厂': { icon: '🎬', items: [
+        {view:'ave-render', label:'渲染任务'},
+        {view:'ave-script', label:'脚本生成'},
+        {view:'ave-materials', label:'素材库'},
+        {view:'ave-templates', label:'模板'},
+      ]},
+      '内容抓取': { icon: '📡', items: [
+        {view:'crawl-tasks', label:'📥 抓取任务'},
+        {view:'crawl-sources', label:'📋 源管理'},
+        {view:'crawl-history', label:'📜 抓取历史'},
+      ]},
+      '联邦': { icon: '🖥️', items: [
+        {view:'machines', label:'机器状态'},
+        {view:'fleet-sync', label:'一键同步'},
+        {view:'fleet-reconcile', label:'对账检查'},
+        {view:'fleet-exec', label:'远程Shell'},
+        {view:'matrix-commands', label:'🎯 命令与任务'},
+      ]},
+      '服务': { icon: '⚙️', items: [
+        {view:'serve-mcp', label:'MCP状态'},
+        {view:'serve-dashboard', label:'Dashboard日志'},
+        {view:'serve-schedule', label:'全局定时任务'},
+      ]},
+    };
+
+    // ── 从 API 加载 agentos 插件注册的导航 ──
+    // 已停用：插件导航与硬编码导航重叠（联邦管理/社交矩阵/系统设置），
+    // 统一由硬编码导航控制，防止重复项
+    async function loadNavFromAPI() {
+      // 使用 navigation.js 渲染（若可用），否则用 inline.js 回退
+      if (window.renderNav) window.renderNav();
+      else _renderNav();
+    }
+    
+    function _renderNav() {
+      let html = '';
+      for (const [gname, g] of Object.entries(groups)) {
+        html += `<div class="nav-group-header" onclick="toggleGroup(this)" data-collapsed="true">${g.icon} ${gname} <span style="float:right;font-size:10px;opacity:.5">▶</span></div>`;
+        html += `<div class="nav-group-body collapsed">`;
+        for (const item of g.items) {
+          if (item.sub) {
+            html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
+            for (const sub of item.sub) {
+              html += `<div class="nav-sub" data-group="${item.view.replace('plugin-','')}" data-view="${sub.view}" onclick="switchView('${sub.view}')" style="display:none">${sub.label}</div>`;
+            }
+          } else {
+            html += `<div class="nav-item" data-view="${item.view}" onclick="switchView('${item.view}')">${item.label}</div>`;
+          }
+        }
+        html += '</div>';
+      }
+      html += '<div class="nav-item" data-view="timeline" onclick="switchView(\'timeline\')" style="display:none">📈 时间线</div>';
+      nav.innerHTML = html;
+    }
+    
+    // 先渲染导航（优先用 navigation.js），再加载 API 覆盖
+    if (window.renderNav) window.renderNav();
+    else _renderNav();
+    loadNavFromAPI();
+    // 构建完成后恢复当前视图的激活状态
     switchView(currentView);
   } catch(e) {
     // 保底：即使 API 失败也加载生产列表
-    loadProductions();
+    // loadProductions removed
   }
 }
 
-// ── Matrix 养号矩阵汇总（已迁移至 views/matrix-summary.js）──
-// async function loadMatrixSummary() — 已删除，由 tryLoadView 接管
-
-// ════════════════════════════════════════════════════════
-// Matrix Sub-Views (inline, no new tab)
-// ════════════════════════════════════════════════════════
-
-let _accountsData = [];
-let _accountsSort = {col:'id', asc:true};
-
-// ════════════════════════════════════════════════════════
-// Batch Execution View
-// ════════════════════════════════════════════════════════
-
-async function loadMatrixRun() {
-  const el = document.getElementById('matrixRunContent');
-  const meta = document.getElementById('batchRunMeta');
-  if (!el) return;
-  el.innerHTML = '<div class="loading">加载中...</div>';
-
-  try {
-    // Load accounts + blueprints + corpus in parallel
-    const [ar, br, cr] = await Promise.all([
-      fetch('/api/matrix/accounts'),
-      fetch('/api/matrix/blueprints'),
-      fetch('/api/matrix/corpus'),
-    ]);
-    const ad = await ar.json();
-    const bd = await br.json();
-    const cd = await cr.json();
-
-    const accounts = (ad.accounts || []).filter(a => a.is_local || a._status === 'logged_in');
-    const blueprints = bd.blueprints || [];
-    const corpusCats = cd.categories || [];
-
-    meta.textContent = `${accounts.length} 可用账号 · ${blueprints.length} 蓝图`;
-
-    let html = '';
-
-    // ── 账号选择（按平台分组）──
-    const douyinAccts = accounts.filter(a => a.platform === 'douyin');
-    const xhsAccts = accounts.filter(a => a.platform === 'xiaohongshu');
-    const platGroups = [['🎵 抖音', douyinAccts], ['📕 小红书', xhsAccts]].filter(g => g[1].length);
-
-    html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">👥 选择账号</div>${
-        platGroups.map(([label, list]) =>
-          `<div style="font-size:11px;color:var(--text2);margin:4px 0 2px">${label}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px" class="batchAcctGroup">${
-            list.map((a, idx) => {
-              const s = a._status === 'logged_in' ? '🟢' : '⏸';
-              const phone = String(a.phone || a.phone_mask || '??').slice(0, 11);
-              return `<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px;white-space:nowrap">
-                <input type="checkbox" class="batch-acct" value="${a.id}" data-platform="${a.platform}">
-                ${s} <strong>${a.id}</strong> <span style="color:var(--text2);font-size:10px">${phone}</span>
-              </label>`;
-            }).join('')
-          }</div>`
-        ).join('')
-      }</div>`;
-    // 旧 forEach 已替换为上方 map 渲染
-
-    // ── 蓝图选择（带平台过滤） ──
-    html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">📋 选择蓝图 <span style="font-size:11px;color:var(--text2)">（自动根据所选账号过滤平台）</span></div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px" id="batchBpList"></div>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px" id="bpFilterHint">加载中...</div>
-    </div>`;
-
-    // ── 蓝图过滤逻辑（账号选择变化时自动过滤） ──
-    window._allBlueprints = blueprints;
-    const allBlueprints = blueprints;
-    // 蓝图列表渲染（不过滤，显示全部，平台匹配在预览时检查）
-    function renderBlueprints() {
-      const list = document.getElementById('batchBpList');
-      const hint = document.getElementById('bpFilterHint');
-      if (!list) return;
-      const prevChecked = new Set([...document.querySelectorAll('.batch-bp:checked')].map(e => e.value));
-      list.innerHTML = allBlueprints.map(b => {
-        const checked = prevChecked.has(b.name) ? 'checked' : '';
-        const platTag = b.platform ? (b.platform === 'douyin' ? '🎵' : '📕') : '❓';
-        return '<label style="background:var(--bg3);padding:5px 10px;border-radius:5px;border:1px solid var(--border);cursor:pointer;font-size:12px">' +
-          '<input type="checkbox" class="batch-bp" value="' + b.name + '" ' + checked + '> ' +
-          b.name + ' <span class="badge badge-blue" style="font-size:9px">' + (b.step_count || '?') + '步</span> ' +
-          '<span style="font-size:9px;color:var(--text2)">' + platTag + '</span></label>';
-      }).join('');
-      if (hint) hint.textContent = '✅ 显示全部 ' + allBlueprints.length + ' 个蓝图（平台匹配在执行时自动处理）';
-    }
-
-    // ── 参数表单 ──
-    html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">⚙️ 执行参数</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
-        <div><label style="font-size:11px;color:var(--text2)">轮数</label><input id="bpRounds" value="5" type="number" min="1" max="100" style="width:100%"></div>
-        <div><label style="font-size:11px;color:var(--text2)">轮间隔(秒)</label><input id="bpInterval" value="30-60" style="width:100%"></div>
-        <div><label style="font-size:11px;color:var(--text2)">账号间延迟(秒)</label><input id="bpStagger" value="15-30" style="width:100%"></div>
-        <div><label style="font-size:11px;color:var(--text2)">模式</label>
-          <div style="display:flex;align-items:center;gap:6px;padding-top:4px">
-            <input type="checkbox" id="bpMix" checked> <label for="bpMix" style="font-size:12px">混合随机</label>
-          </div>
-        </div>
-      </div>
-      <div style="margin-top:8px">
-        <label style="font-size:11px;color:var(--text2)">📚 语料分类</label>
-        <div id="corpusPills" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
-        <label style="background:var(--bg3);padding:3px 8px;border-radius:4px;border:1px solid var(--border);cursor:pointer;font-size:11px">
-          <input type="checkbox" id="bpCorpusRandom" onchange="corpusToggleRandom()"> 🎲 随机
-        </label>`;
-    corpusCats.forEach(c => {
-      if (!c.enabled) return;
-      html += `<label style="background:var(--bg3);padding:3px 8px;border-radius:4px;border:1px solid var(--border);cursor:pointer;font-size:11px" class="corpus-cat-label">
-        <input type="checkbox" class="batch-corpus" value="${c.name}"> ${c.name}
-      </label>`;
-    });
-    html += `</div></div>
-      <div style="margin-top:8px">
-        <label style="font-size:11px;color:var(--text2)">🌐 代理策略</label>
-        <select id="bpProxy" style="width:150px"><option value="auto">auto</option><option value="none">不使用</option></select>
-      </div>
-    </div>`;
-
-    // ── 命令预览 + 执行按钮 ──
-    html += `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-weight:600;font-size:13px">💻 命令预览</span>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-sm" onclick="batchPreview()">🔄 更新预览</button>
-          <button class="btn btn-primary btn-sm" onclick="batchExecute()">▶ 执行</button>
-        </div>
-      </div>
-      <pre id="batchCmdPreview" style="background:var(--bg3);padding:10px;border-radius:6px;font-size:12px;font-family:monospace;overflow-x:auto;margin:0">mc run --accounts ...</pre>
-    </div>`;
-
-    // ── 执行结果 ──
-    html += `<div id="batchOutput" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">📊 执行输出</div>
-      <pre id="batchOutputContent" style="background:var(--bg3);padding:10px;border-radius:6px;font-size:11px;font-family:monospace;max-height:400px;overflow-y:auto;margin:0"></pre>
-    </div>`;
-
-    el.innerHTML = html;
-    renderBlueprints();
-    batchPreview();
-  } catch(e) {
-    el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
-  }
-}
-
-// Batch execution helpers
+// ── Matrix 养号矩阵汇总（inline 视图）──
 function corpusToggleRandom() {
   const isRandom = document.getElementById('bpCorpusRandom')?.checked;
   document.querySelectorAll('.corpus-cat-label input').forEach(cb => {
@@ -717,67 +489,6 @@ async function batchExecute() {
 }
 
 // 已合并到下方 loadMatrixAccounts2
-async function loadIdentities() {
-  const el = document.getElementById('matrixIdentityContent');
-  if (!el) return;
-  try {
-    const r = await fetch('/api/matrix/identities');
-    const d = await r.json();
-    const identities = d.identities || [];
-    if (!identities.length) { el.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:20px;text-align:center">暂无本地身份</div>'; return; }
-    el.innerHTML = identities.map(id => {
-      const idName = id.identity_dir;
-      const phone = id.phone || '未知';
-      const cookieStatus = id.has_cookie ? '🍪 已就绪' : '❌ 无Cookie';
-      return `<div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <div><span style="font-size:14px">📱</span> <strong style="font-size:14px">${phone}</strong>
-            <span style="color:var(--text2);font-size:11px;margin-left:6px">${idName}</span>
-            <span style="font-size:11px;margin-left:6px;color:${id.has_cookie?'#22c55e':'#ef4444'}">${cookieStatus}</span>
-          </div>
-          <button onclick="deleteIdentity('${idName}')" style="background:#ef4444;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🗑 删除身份</button>
-        </div>
-        <div style="margin-top:6px">
-          ${id.accounts.map(a => `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--bg3);border-radius:4px;margin-bottom:3px;font-size:12px">
-            <span style="color:${a.status==='logged_in'?'#22c55e':'#8b8fa3'}">${a.status==='logged_in'?'✅':'⏸'}</span>
-            <span style="font-weight:600;width:100px">${a.id}</span>
-            <span style="color:var(--text2);width:70px;font-size:11px">${a.platform}</span>
-            <span style="font-size:11px;color:${a.status==='logged_in'?'#22c55e':'#f59e0b'}">${a.status}</span>
-            <span style="flex:1"></span>
-            ${id.accounts.length > 1 ? `<button onclick="unbindAccount('${a.id}')" style="background:transparent;color:var(--amber);border:1px solid var(--border);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px">解绑</button>` : ''}
-          </div>`).join('')}
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) { if (el) el.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
-}
-
-async function loadMatrixAccounts() {
-  const el = document.getElementById('matrixAccountsContent');
-  if (!el) return;
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    let machinesInfo = '';
-    try {
-      const mr = await fetch('/api/matrix/cross-machines');
-      const md = await mr.json();
-      if (md.total_machines) {
-        machinesInfo = '<div style="display:flex;gap:12px;margin-bottom:12px;font-size:12px;color:var(--text2);background:var(--bg2);border-radius:var(--radius);padding:8px 12px;border:1px solid var(--border)">'+
-          '<span>🖥️ 机器: <strong>'+md.total_machines+'</strong></span>'+
-          '<span>👤 账号: <strong>'+md.total_accounts+'</strong></span>'+
-          '<span>📡 在线: <strong style="color:var(--green)">'+md.online_machines+'</strong></span>'+
-        '</div>';
-      }
-    } catch(e) { /* ignore */ }
-    const r = await fetch('/api/matrix/accounts');
-    const d = await r.json();
-    _accountsData = Array.isArray(d) ? d : (d.accounts || []);
-    if (!_accountsData.length) { el.innerHTML = machinesInfo+'<div class="error">暂无账号</div>'; return; }
-    el.innerHTML = machinesInfo;
-    renderAccountsTable();
-  } catch(e) { el.innerHTML = '<span style="color:var(--red)">'+e.message+'</span>'; }
-}
-
 function acctSwitchTab(tab, el) {
   document.querySelectorAll('.acct-tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
@@ -878,134 +589,6 @@ function renderAccountsTable() {
   }).join('')}</tbody></table>
   <div style="font-size:11px;color:var(--text2);margin-top:6px">共 ${_accountsData.length} 个账号 · 点击表头排序</div>`;
 }
-
-async function loadMatrixBlueprints() {
-  const el = document.getElementById('matrixBlueprintsContent');
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  // 加载蓝图列表 + 原子操作（用于编辑器）
-  try {
-    const [br, or] = await Promise.all([
-      fetch('/api/matrix/blueprints'),
-      fetch('/api/matrix/atom-ops'),
-    ]);
-    const bd = await br.json();
-    const od = await or.json();
-    const bps = Array.isArray(bd) ? bd : (bd.blueprints || []);
-    const allOps = od.ops || [];
-    window._matrixOps = {};
-    allOps.forEach(o => { window._matrixOps[o.name] = o; });
-
-    let html = '';
-
-    // ── 可折叠蓝图列表 (默认折叠) ──
-    html += `<div style="margin-bottom:10px;background:var(--bg2);border-radius:10px;border:1px solid var(--border);overflow:hidden">`;
-    html += `<div onclick="bpToggleList()" style="padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
-      <span style="font-weight:600;font-size:13px">📋 蓝图库 <span class="badge badge-blue" style="font-size:10px;background:rgba(37,99,235,.1);color:var(--blue);padding:2px 6px;border-radius:6px">${bps.length}</span></span>
-      <span id="bp-list-arrow" style="color:var(--text2);font-size:12px">▶ 展开</span>
-    </div>`;
-    html += `<div id="bp-list-body" style="display:none;padding:0 14px 10px">`;
-    if (!bps.length) {
-      html += '<div style="padding:6px 0;color:var(--text2);font-size:13px">暂无蓝图</div>';
-    } else {
-      bps.forEach(b => {
-        const stepsPreview = (b.steps||[]).slice(0,3).map(s => window._matrixOps?.[s.op||s.name]?.label||s.op||s.name||'').join(' → ');
-        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px">
-          <span style="flex:1"><strong>${b.name}</strong> <span style="color:var(--text2);font-size:11px">${b.step_count}步 · ${b.platform||'douyin'}</span>
-            ${stepsPreview ? `<br><span style="color:var(--text2);font-size:11px">${stepsPreview}</span>` : ''}</span>
-          <span style="display:flex;gap:4px;flex-shrink:0">
-            <button class="btn btn-sm" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();bpExecute('${b.name}')">▶ 执行</button>
-            <button class="btn btn-sm" style="background:transparent;color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();showBpEditor('${b.name}')">✏️</button>
-            <button class="btn btn-sm" style="background:transparent;color:var(--red);border:1px solid rgba(239,68,68,.3);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();delBp('${b.name}')">🗑</button>
-          </span>
-        </div>`;
-      });
-    }
-    html += `</div></div>`;
-
-    // ── 编辑器主区域 (全宽) ──
-    html += `<div style="background:var(--bg2);border-radius:var(--radius);padding:16px;border:1px solid var(--border)">`;
-    html += `
-      <div id="bp-editor">
-        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:12px">
-          <div style="flex:2;min-width:200px">
-            <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">蓝图名称</label>
-            <input id="bp-name" placeholder="my_blueprint" style="font-size:14px;font-weight:600">
-          </div>
-          <div style="flex:1;min-width:120px">
-            <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">平台</label>
-            <select id="bp-platform" onchange="bpUpdatePlatform()" style="font-size:13px">
-              <option value="douyin">🎵 抖音</option>
-              <option value="xiaohongshu">📕 小红书</option>
-            </select>
-          </div>
-          <div style="flex:2;min-width:150px">
-            <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">说明</label>
-            <input id="bp-desc" placeholder="可选说明">
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0">
-            <button class="btn btn-primary" onclick="bpSave()" style="padding:7px 18px">💾 保存</button>
-            <button class="btn btn-outline" onclick="bpClear()" style="padding:7px 14px">🗑 清空</button>
-            <button class="btn btn-outline" onclick="showBpEditor(null)" style="padding:7px 14px">+ 新建</button>
-          </div>
-        </div>
-
-        <div style="margin:14px 0 8px;display:flex;align-items:center;gap:8px">
-          <span style="font-weight:600;font-size:13px;color:var(--text2);white-space:nowrap">⚡ 原子操作</span>
-          <div style="display:flex;gap:3px;flex-wrap:wrap" id="bp-op-tabs">
-            <span class="badge badge-blue" style="cursor:pointer;padding:3px 8px;font-size:10px" data-ft="all" onclick="bpFilterOps('all')">📋 全部</span>
-            <span class="badge badge-gray" style="cursor:pointer;padding:3px 8px;font-size:10px" data-ft="navigation" onclick="bpFilterOps('navigation')">🏠 导航</span>
-            <span class="badge badge-gray" style="cursor:pointer;padding:3px 8px;font-size:10px" data-ft="browse" onclick="bpFilterOps('browse')">📱 浏览</span>
-            <span class="badge badge-gray" style="cursor:pointer;padding:3px 8px;font-size:10px" data-ft="interact" onclick="bpFilterOps('interact')">💡 交互</span>
-            <span class="badge badge-gray" style="cursor:pointer;padding:3px 8px;font-size:10px" data-ft="utility" onclick="bpFilterOps('utility')">⏳ 工具</span>
-          </div>
-        </div>
-        <div id="bp-op-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:5px;margin:0 0 16px"></div>
-
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span style="font-weight:600;font-size:13px;color:var(--text2)">📋 编排步骤</span>
-          <span id="bp-step-count" style="font-size:11px;color:var(--text2)">0 步</span>
-          <span id="bp-validate" style="font-size:11px"></span>
-        </div>
-        <div id="bp-steps" style="min-height:80px;border:2px dashed var(--border);border-radius:8px;padding:10px">
-          <div style="color:var(--text2);font-size:13px;text-align:center;padding:20px">👆 点击上方原子操作卡片添加到步骤，可无限向下编排</div>
-        </div>
-      </div>`;
-    html += `</div>`;
-
-    el.innerHTML = html;
-    // 初始化编辑器状态
-    window._bpSteps = [];
-    window._editingBp = null;
-    window._bpFilter = 'all';
-    window._bpListOpen = false;
-    bpUpdatePlatform();
-  } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
-}
-
-// Blueprint editor helper functions
-window.bpToggleList = function() {
-  window._bpListOpen = !window._bpListOpen;
-  const body = document.getElementById('bp-list-body');
-  const arrow = document.getElementById('bp-list-arrow');
-  if (body && arrow) {
-    body.style.display = window._bpListOpen ? 'block' : 'none';
-    arrow.textContent = window._bpListOpen ? '▼ 收起' : '▶ 展开';
-  }
-};
-
-window.bpAddStep = function(name) {
-  const op = window._matrixOps?.[name];
-  if (!op) return;
-  window._bpSteps = window._bpSteps || [];
-  window._bpSteps.push({name, label: op.label||name, requires: op.requires||[], allows: op.allows||[]});
-  bpRenderSteps();
-};
-
-window.bpRemoveStep = function(idx) {
-  window._bpSteps = window._bpSteps || [];
-  window._bpSteps.splice(idx, 1);
-  bpRenderSteps();
-};
 
 function bpRenderSteps() {
   const el = document.getElementById('bp-steps');
@@ -1307,106 +890,6 @@ function closeBpModal() {
 // ════════════════════════════════════════════════════════
 // [旧登记注册函数已移除，注册功能合并到 SMS 页面]
 
-async function loadMatrixAtomOps() {
-  const el = document.getElementById('matrixAtomOpsContent');
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    const r = await fetch('/api/matrix/atom-ops');
-    const d = await r.json();
-    const ops = d.ops || [];
-    document.getElementById('matrixAtomOpCount').textContent = `共 ${ops.length} 个操作`;
-    if (!ops.length) { el.innerHTML = '<div class="error">暂无操作</div>'; return; }
-    const groups = {};
-    ops.forEach(o => {
-      const p = o.platform || '通用';
-      if(!groups[p]) groups[p]=[];
-      groups[p].push(o);
-    });
-    const platformLabels = {douyin:'🎵 抖音', xiaohongshu:'📕 小红书', '通用':'⚙️ 通用'};
-    el.innerHTML = Object.entries(groups).map(([p, items]) => {
-      const subGroups = {};
-      items.forEach(o => {
-        const g = o.category||'其他';
-        if(!subGroups[g]) subGroups[g]=[];
-        subGroups[g].push(o);
-      });
-      const catLabels = {navigation:'🏠 导航', browse:'📱 浏览', interact:'💡 交互', utility:'⏳ 工具'};
-      return `<div style="margin-bottom:16px">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;padding:6px 10px;border-radius:6px;background:var(--bg3)">${platformLabels[p]||p} <span style="font-weight:400;font-size:11px;color:var(--text2)">(${items.length})</span></div>
-        ${Object.entries(subGroups).map(([g, sub]) => `
-          <div style="font-size:12px;font-weight:600;margin:8px 0 6px;color:var(--text2)">${catLabels[g]||g} (${sub.length})</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;margin-bottom:6px">${sub.map(o => {
-            let reqHtml = '';
-            if (o.requires && o.requires.length && o.requires[0] !== '*') {
-              reqHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(37,99,235,.1);color:var(--blue);margin-top:4px">← 需前序: '+o.requires.slice(0,3).join(',')+(o.requires.length>3?'…':'')+'</span>';
-            } else if (o.can_be_first) {
-              reqHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(5,150,105,.1);color:var(--green);margin-top:4px">✅ 可为首步</span>';
-            }
-            let nextHtml = '';
-            if (o.allows && o.allows.length && o.allows[0] !== '*') {
-              nextHtml = '<span style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(107,114,128,.1);color:var(--text2);margin-top:2px">→ 后继: '+o.allows.slice(0,4).join(',')+(o.allows.length>4?'…':'')+'</span>';
-            }
-            const pt = o.platform==='通用'?'⚙️通用':(o.platform==='douyin'?'🎵抖音':'📕小红书');
-            return '<div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">'
-              +'<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">'
-              +'<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;background:rgba(99,102,241,.15);color:#818cf8">'+pt+'</span>'
-              +'<span style="font-size:12px;font-weight:600">'+(o.label||o.name)+'</span></div>'
-              +'<div style="font-size:10px;color:var(--text2);margin-top:1px">'+(o.desc||o.doc||'')+'</div>'
-              +'<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:2px">'+reqHtml+nextHtml+'</div></div>';
-          }).join('')}</div>`
-        ).join('')}</div>`;
-    }).join('');
-  } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
-}
-
-async function loadMatrixBackup() {
-  const el = document.getElementById('matrixBackupContent');
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    const r = await fetch('/api/matrix/backups');
-    const d = await r.json();
-    const baks = d.backups || [];
-    // 按身份分组展示最新
-    const groups = {};
-    baks.forEach(b => { if(!groups[b.identity]) groups[b.identity]=[]; groups[b.identity].push(b); });
-    const html = Object.entries(groups).slice(0,6).map(([ident, items]) => {
-      const latest = items[0];
-      return `<div style="background:var(--bg3);border-radius:6px;padding:10px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-        <div><strong style="font-size:13px">${ident}</strong><br><span class="text-xs text-muted">${items.length} 备份 · 最新: ${latest.time_str} (${latest.size_kb}KB)</span></div>
-        <div><button class="btn btn-sm btn-outline" onclick="restoreBackup('${ident}','${latest.path}')">恢复</button></div>
-      </div>`;
-    }).join('') || '<div class="text-muted text-sm">暂无备份</div>';
-    el.innerHTML = `<div style="display:grid;gap:8px">${html}</div>
-      <div style="margin-top:12px"><div style="display:flex;gap:8px;align-items:center">
-        <input id="backupLabelInline" placeholder="备份标签" style="width:200px" value="inline">
-        <button class="btn btn-primary btn-sm" onclick="createBackup()">创建备份</button>
-      </div></div>
-      <div id="backupResultInline" class="mt-4 text-sm"></div>`;
-  } catch(e) { el.innerHTML = `<div class="error">${e.message}</div>`; }
-}
-
-async function loadMatrixExport() {
-  const el = document.getElementById('matrixExportContent');
-  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-    <div style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid var(--border)">
-      <div style="font-weight:600;margin-bottom:8px">📤 导出账号</div>
-      <p class="text-sm text-muted mb-2">导出所有账号配置 + Cookie + 指纹为 ZIP</p>
-      <button class="btn btn-primary" onclick="doExport()">导出 ZIP</button>
-      <div id="exportResultInline" class="mt-4 text-sm"></div>
-    </div>
-    <div style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid var(--border)">
-      <div style="font-weight:600;margin-bottom:8px">📥 导入账号</div>
-      <p class="text-sm text-muted mb-2">从 ZIP 文件恢复</p>
-      <div class="flex" style="align-items:center">
-        <input id="importPathInline" placeholder="/tmp/matrix_export.zip" style="flex:1">
-        <button class="btn btn-primary" onclick="doImport()">导入</button>
-      </div>
-      <div id="importResultInline" class="mt-4 text-sm"></div>
-    </div>
-  </div>`;
-}
-
-// Helper functions for inline sub-views
 async function createBackup() {
   const label = (document.getElementById('backupLabelHeader')?.value || document.getElementById('backupLabelInline')?.value || 'manual') + '_' + Date.now();
   // Try header result area first, fallback to inline
@@ -1417,7 +900,7 @@ async function createBackup() {
     const r = await fetch('/api/matrix/backup', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({label})});
     const res = await r.json();
     if (el) el.innerHTML = `<span style="color:var(--green)">✅ ${res.backup_count||0} 个身份已备份 (${label})</span>`;
-    loadMatrixBackup();
+    // loadMatrixBackup removed
   } catch(e) { if (el) el.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
 }
 
@@ -1473,138 +956,6 @@ function _renderShell(containerId, title, status, note) {
 }
 
 // 矩阵系列 — 养号执行（直接内联执行面板）
-async function loadMatrixNurture() {
-  const el = document.getElementById('view-matrix-nurture');
-  el.innerHTML = `
-    <div style="padding:16px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-weight:600;font-size:13px;margin-bottom:8px">🌱 养号执行 <span style="font-size:10px;color:var(--text2);font-weight:400">预检 → 窗口定位 → 执行 → 验证</span></div>
-        <div id="nurtureAcctList" style="margin-bottom:6px">
-          <div class="loading" style="padding:8px;font-size:12px">⏳ 加载账号列表...</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <label style="font-size:11px;color:var(--text2)">轮数:
-            <select id="ndRounds" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:11px">
-              <option value="1">1 测试</option><option value="5">5</option>
-              <option value="10" selected>10 默认</option>
-              <option value="20">20</option><option value="30">30</option>
-            </select>
-          </label>
-           <label style="font-size:11px;color:var(--text2)">蓝图:
-             <select id="ndBlueprint" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:11px">
-               <option value="">自动匹配</option>
-             </select>
-           </label>
-           <script>
-             (async function() {
-               try {
-                 const r = await fetch('/api/matrix/blueprints');
-                 const d = await r.json();
-                 const bps = d.blueprints || d || [];
-                 const sel = document.getElementById('ndBlueprint');
-                 if (!sel) return;
-                 bps.forEach(bp => {
-                   const name = bp.name || bp.file.replace(/\.json$/, '');
-                   const file = bp.file.replace(/\.json$/, '');
-                   const plat = (bp.platform || '').toLowerCase();
-                   const emoji = plat === 'xiaohongshu' ? '📕' : '🎵';
-                   const opt = document.createElement('option');
-                   opt.value = file;
-                   opt.textContent = emoji + ' ' + name;
-                   sel.appendChild(opt);
-                 });
-               } catch(e) { console.warn('蓝图加载失败', e); }
-             })();
-           </script>
-          <button onclick="nurturePreflight()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔍 预检</button>
-          <button onclick="nurtureExec()" style="background:#22c55e;color:#000;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">🚀 执行选中</button>
-          <button onclick="nurtureExecAll()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 全部启用</button>
-          <span id="nurtureSelCount" style="font-size:10px;color:var(--text2)">已选 0 个</span>
-        </div>
-        <div id="nurtureStatus" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
-        <div id="nurturePreflightInfo" style="font-size:10px;color:var(--text2);margin-top:2px;font-family:monospace;white-space:pre-wrap"></div>
-        <div id="nurtureLog" style="font-size:10px;background:var(--bg2);border-radius:6px;padding:6px;margin-top:4px;max-height:300px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
-      </div>
-    </div>`;
-  // 用共享选择器加载账号列表
-  const data = await _loadAccounts();
-  _renderAccountSelector('nurtureAcctList', {_data: data, height: '350px'});
-  document.getElementById('nurtureSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
-}
-
-// 矩阵系列 — 信息采集（按机器分组 + 账号选择）
-// 矩阵系列 — 登录与信息采集（合并）
-async function loadMatrixCollect() {
-  const el = document.getElementById('view-matrix-collect');
-  el.innerHTML = `
-    <div style="padding:16px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px">📡 登录与信息采集 <span style="font-size:10px;color:var(--text2);font-weight:400">登录+采集一体化，选择账号后可仅登录或登录后采集</span></div>
-        <div id="collectAccountList" style="margin-bottom:6px">
-          <div class="loading" style="padding:8px;font-size:12px">⏳ 加载账号列表...</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          <span id="collectStatus" style="font-size:10px;color:var(--text2)">⏸️ 空闲</span>
-          <button onclick="collectLogin()" style="background:#6366f1;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600">🔑 登录选中</button>
-          <button onclick="collectExec()" style="background:var(--primary);color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600">📥 采集选中</button>
-          <button onclick="collectAll()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📋 采集全部</button>
-          <button onclick="cancelCollect()" style="background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.3);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">⏹ 停止</button>
-          <span id="collectSelCount" style="font-size:10px;color:var(--text2)">已选 0 个</span>
-        </div>
-        <div id="collectLog" style="font-size:10px;background:var(--bg2);border-radius:6px;padding:6px;margin-top:4px;max-height:250px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
-      </div>
-    </div>`;
-  const data = await _loadAccounts();
-  _renderAccountSelector('collectAccountList', {_data: data, height: '350px'});
-  document.getElementById('collectSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
-  // 加载采集状态
-  try {
-    const sr = await fetch('/api/matrix/collect-homepage/status');
-    const sd = await sr.json();
-    if (sd.running) document.getElementById('collectStatus').innerHTML = '<span style="color:var(--green)">🟢 采集中</span>';
-  } catch(e) {}
-}
-
-// 采集：登录选中账号
-window.collectLogin = async function() {
-  const selected = _getSelectedAccounts();
-  if (!selected.length) { alert('请先选择要登录的账号'); return; }
-  const logEl = document.getElementById('collectLog');
-  if (logEl) logEl.textContent = '🔑 登录 ' + selected.length + ' 个账号...\n';
-  for (const s of selected) {
-    try {
-      const r = await fetch('/api/ops/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'login',accounts:[s.id]})});
-      const d = await r.json();
-      if (logEl) logEl.textContent += s.id + ': ' + (d.status || 'OK') + '\n';
-    } catch(e) { if (logEl) logEl.textContent += s.id + ': ❌ ' + e.message + '\n'; }
-  }
-};
-
-// 采集：采集选中账号
-window.collectExec = async function() {
-  const selected = _getSelectedAccounts();
-  if (!selected.length) { alert('请先选择要采集的账号'); return; }
-  const logEl = document.getElementById('collectLog');
-  if (logEl) logEl.textContent = '📥 采集 ' + selected.length + ' 个账号...\n';
-  for (const s of selected) {
-    try {
-      const r = await fetch('/api/matrix/collect-homepage', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:s.id})});
-      const d = await r.json();
-      document.getElementById('collectStatus').innerHTML = '<span style="color:var(--green)">🟢 采集中</span>';
-      if (logEl) logEl.textContent += s.id + ': ' + (d.status || 'OK') + ' 机器:' + (d.machine||s.machine) + '\n';
-    } catch(e) { if (logEl) logEl.textContent += s.id + ': ❌ ' + e.message + '\n'; }
-  }
-};
-
-// 采集全部
-window.collectAll = async function() {
-  const selected = _getSelectedAccounts();
-  if (!selected.length) { alert('没有可采集的账号'); return; }
-  if (!confirm('采集全部 ' + selected.length + ' 个账号？')) return;
-  await collectExec();
-};
-
-// 采集折叠组
 function toggleCollectGroup(id) {
   const el = document.getElementById(id);
   const arrow = document.getElementById(id + '_arrow');
@@ -1711,240 +1062,6 @@ window.loadCollectHistory = async function() {
 };
 
 // 矩阵系列 — 内容发布（Shell — 无CLI）
-async function loadMatrixPublish() {
-  _renderShell('view-matrix-publish', '📤 内容发布', '无CLI',
-    '发布模块的 CLI 封装尚未完成。现有的 publish_video.py 在 agent-os/agent-sync/05_tools/07_matrix/scripts/ 目录下。需要 agentos matrix publish CLI 封装。');
-}
-
-// 矩阵系列 — 定向评论（共享选择器）
-async function loadMatrixComment() {
-  const el = document.getElementById('view-matrix-comment');
-  el.innerHTML = `
-    <div style="padding:16px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px">💬 定向评论 <span style="font-size:10px;color:var(--text2);font-weight:400">选择账号 → 填入视频链接 → 方向/语料 → 执行</span></div>
-        <div id="commentAccountList" style="margin-bottom:6px">
-          <div class="loading" style="padding:8px;font-size:12px">⏳ 加载账号列表...</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
-          <textarea id="commentUrls" placeholder="视频链接（每行一个，支持多个）" rows="3" style="flex:2;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;resize:vertical"></textarea>
-          <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px">
-            <select id="commentDirection" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
-              <option value="">自动选方向</option>
-              <option value="称赞">👍 称赞</option>
-              <option value="提问">🤔 提问</option>
-              <option value="共鸣">💗 共鸣</option>
-              <option value="感慨">😌 感慨</option>
-              <option value="客观">📊 客观</option>
-            </select>
-            <select id="commentCorpus" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px">
-              <option value="">默认语料</option>
-              <option value="通用">📚 通用</option>
-              <option value="科技">💻 科技</option>
-              <option value="生活">🏠 生活</option>
-              <option value="美食">🍔 美食</option>
-              <option value="娱乐">🎮 娱乐</option>
-            </select>
-            <button onclick="runComment()" style="background:var(--primary);color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px">🚀 执行评论</button>
-          </div>
-        </div>
-        <div id="commentResult" style="font-size:10px;color:var(--text2);margin-top:4px;font-family:monospace;white-space:pre-wrap"></div>
-      </div>
-    </div>`;
-  const data = await _loadAccounts();
-  _renderAccountSelector('commentAccountList', {_data: data, height: '350px'});
-}
-window.runComment = async function() {
-  const selected = _getSelectedAccounts();
-  const urlsText = document.getElementById('commentUrls')?.value;
-  const dir = document.getElementById('commentDirection')?.value;
-  const corpus = document.getElementById('commentCorpus')?.value;
-  const el = document.getElementById('commentResult');
-  if (!urlsText || !urlsText.trim()) { el.textContent = '请填写至少一个视频链接'; return; }
-  const urls = urlsText.split('\n').map(u => u.trim()).filter(u => u);
-  if (!urls.length) { el.textContent = '请填写有效的视频链接'; return; }
-  if (!selected.length) { el.textContent = '请先选择要执行的账号'; return; }
-  el.textContent = '⏳ 使用 ' + selected.length + ' 个账号评论 ' + urls.length + ' 个视频...\n';
-  let results = [];
-  for (const url of urls) {
-    for (const s of selected) {
-      try {
-        const r = await fetch('/api/matrix/task/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'comment',url,direction:dir||null,account:s.id,corpus:corpus||null})});
-        const d = await r.json();
-        results.push({url, account:s.id, status: d.error ? '❌' : '✅', msg: d.error || (d.task_id || 'OK')});
-      } catch(e) { results.push({url, account:s.id, status: '❌', msg: e.message}); }
-    }
-  }
-  const totalOk = results.filter(r => r.status === '✅').length;
-  el.textContent = '✅ ' + totalOk + '/' + results.length + ' 完成\n' +
-    results.slice(0,30).map(r => r.status + ' ' + (r.account||'') + ' ' + (r.url||'').slice(0,35) + ' ' + (r.msg||'')).join('\n');
-};
-
-// 矩阵系列 — 定时任务（Shell — 待集成）
-// 矩阵系列 — 定时任务（有 API → 集成）
-async function loadMatrixSchedule() {
-  const el = document.getElementById('view-matrix-schedule');
-  el.innerHTML = '<div id="schedPanel" style="padding:20px"><div class="loading">⏳ 加载定时任务...</div></div>';
-  try {
-    const ri = await fetch('/api/matrix/schedules');
-    const di = await ri.json();
-    const tasks = di.tasks || di || [];
-    document.getElementById('schedPanel').innerHTML = `
-      <h2 style="font-size:18px;margin-bottom:12px">⏰ 定时任务</h2>
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);margin-bottom:12px">
-        <div style="font-size:12px;font-weight:600;margin-bottom:6px">📋 任务列表 (${Array.isArray(tasks)?tasks.length:0})</div>
-        <div style="font-size:12px">${Array.isArray(tasks) && tasks.length ? tasks.map(t =>
-          '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'+
-          '<span style="font-size:10px">'+(t.enabled?'🟢':'⚪')+'</span>'+
-          '<span>'+(t.account||t.id||'-')+'</span>'+
-          '<span style="font-size:11px;color:var(--text2)">'+(t.blueprint||'')+'</span>'+
-          '<span style="font-size:11px;color:var(--text2)">'+(t.time||'')+'</span>'+
-          '</div>'
-        ).join('') : '<span style="color:var(--text2)">暂无定时任务</span>'}</div>
-      </div>
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);margin-bottom:8px">
-        <div style="font-size:12px;font-weight:600;margin-bottom:6px">➕ 新建定时任务</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          <button onclick="switchView('matrix-commands')" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">→ 前往命令与任务页</button>
-        </div>
-      </div>
-      <div style="font-size:10px;color:var(--text2)">完整调度管理在「矩阵 → 命令与任务」页面</div>`;
-  } catch(e) {
-    document.getElementById('schedPanel').innerHTML = '<div style="padding:20px"><h2 style="font-size:18px;margin-bottom:12px">⏰ 定时任务</h2><div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)"><div class="error">❌ '+e.message+'</div><p style="font-size:12px;color:var(--text2);margin-top:8px">完整调度管理在「矩阵 → 命令与任务」页面</p></div></div>';
-  }
-}
-
-// 矩阵系列 — 收藏点赞（共享选择器）
-async function loadMatrixLike() {
-  const el = document.getElementById('view-matrix-like');
-  el.innerHTML = `
-    <div style="padding:16px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px">❤️ 收藏点赞 <span style="font-size:10px;color:var(--text2);font-weight:400">选择账号 → 填入视频链接 → 执行点赞</span></div>
-        <div id="likeAccountList" style="margin-bottom:6px">
-          <div class="loading" style="padding:8px;font-size:12px">⏳ 加载账号列表...</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
-          <textarea id="likeUrls" placeholder="视频链接（每行一个，支持多个）" rows="3" style="flex:2;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px;resize:vertical"></textarea>
-          <button onclick="runLike()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px;align-self:flex-start">❤️ 执行点赞</button>
-        </div>
-        <div id="likeResult" style="font-size:10px;color:var(--text2);margin-top:4px;font-family:monospace;white-space:pre-wrap"></div>
-      </div>
-    </div>`;
-  const data = await _loadAccounts();
-  _renderAccountSelector('likeAccountList', {_data: data, height: '350px'});
-}
-
-window.runLike = async function() {
-  const selected = _getSelectedAccounts();
-  const urlsText = document.getElementById('likeUrls')?.value;
-  const el = document.getElementById('likeResult');
-  if (!urlsText || !urlsText.trim()) { el.textContent = '请填写视频链接'; return; }
-  const urls = urlsText.split('\n').map(u => u.trim()).filter(u => u);
-  if (!urls.length) { el.textContent = '请填写有效的视频链接'; return; }
-  if (!selected.length) { el.textContent = '请先选择要执行的账号'; return; }
-  el.textContent = '⏳ 执行 ' + urls.length + ' 个点赞...\n';
-  let results = [];
-  for (const url of urls) {
-    for (const s of selected) {
-      try {
-        const r = await fetch('/api/matrix/task/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'like',url,account:s.id})});
-        const d = await r.json();
-        results.push({url, account:s.id, status: d.error ? '❌' : '✅', msg: d.error || (d.task_id || 'OK')});
-      } catch(e) { results.push({url, account:s.id, status: '❌', msg: e.message}); }
-    }
-  }
-  const ok = results.filter(r => r.status === '✅').length;
-  el.textContent = '✅ ' + ok + '/' + results.length + '\n' +
-    results.slice(0,30).map(r => r.status + ' ' + (r.account||'') + ' ' + (r.url||'').slice(0,35)).join('\n');
-};
-
-// 矩阵系列 — 登录管理 → 已合并到信息采集
-async function loadMatrixLogin() {
-  const el = document.getElementById('view-matrix-login');
-  el.innerHTML = `
-    <div style="padding:16px">
-      <div style="background:var(--bg2);border-radius:10px;padding:16px;border:1px solid var(--border);text-align:center">
-        <div style="font-size:24px;margin-bottom:8px">🔑</div>
-        <div style="font-size:14px;font-weight:600;margin-bottom:4px">登录管理已合并到信息采集</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">登录 → 采集是同一流程，请前往「信息采集」页面操作</div>
-        <button onclick="switchView('matrix-collect')" style="background:var(--primary);color:#fff;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px">→ 前往信息采集</button>
-      </div>
-    </div>`;
-}
-
-// 联邦指挥台（共享选择器 + 操作类型选择）
-async function loadOpsCommand() {
-  const el = document.getElementById('view-ops-command');
-  el.innerHTML = `
-    <div style="padding:16px">
-      <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border);margin-bottom:8px">
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px">🖥️ 联邦指挥台 <span style="font-size:10px;color:var(--text2);font-weight:400">选机器 → 选操作 → 选账号 → 批量执行</span></div>
-        <div id="opsAccountList" style="margin-bottom:6px">
-          <div class="loading" style="padding:8px;font-size:12px">⏳ 加载账号列表...</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <label style="font-size:11px;color:var(--text2)">操作:
-            <select id="opsType" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
-              <option value="nurture">🏃 养号</option>
-              <option value="collect">📡 采集</option>
-              <option value="login">🔑 登录</option>
-              <option value="logout">🔒 登出</option>
-            </select>
-          </label>
-          <label style="font-size:11px;color:var(--text2)" id="opsRoundsLabel">轮数:
-            <select id="opsRounds" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
-              <option value="1">1</option><option value="5">5</option>
-              <option value="10" selected>10</option><option value="20">20</option>
-            </select>
-          </label>
-          <button onclick="opsBatchExec()" style="background:#22c55e;color:#000;border:none;padding:5px 16px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">🚀 批量执行</button>
-          <span id="opsSelCount" style="font-size:10px;color:var(--text2)">已选 0 个</span>
-        </div>
-        <div id="opsResult" style="font-size:10px;color:var(--text2);margin-top:4px;font-family:monospace;white-space:pre-wrap"></div>
-      </div>
-      <div id="opsHistoryBox" style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-size:12px;font-weight:600;margin-bottom:4px">📋 执行历史</div>
-        <div id="opsHistoryList" style="font-size:10px;max-height:180px;overflow-y:auto">
-          <div class="loading">⏳ 加载执行历史...</div>
-        </div>
-      </div>
-    </div>`;
-  const data = await _loadAccounts();
-  _renderAccountSelector('opsAccountList', {_data: data, height: '350px'});
-  document.getElementById('opsSelCount').textContent = '已选 ' + _getSelectedAccounts().length + ' 个';
-  loadOpsHistory();
-}
-
-async function loadOpsHistory() {
-  try {
-    const r = await fetch('/api/matrix/nurture/results');
-    const d = await r.json();
-    const items = d.results || [];
-    const el = document.getElementById('opsHistoryList');
-    if (!items.length) { el.innerHTML = '<div style="color:var(--text2)">暂无执行记录</div>'; return; }
-    let html = '<table style="width:100%"><tr><th>时间</th><th>账号</th><th>状态</th><th>步骤</th><th>耗时</th></tr>';
-    items.slice(0, 20).forEach(r => {
-      const st = r.status === 'completed' ? '✅' : r.status === 'running' ? '⏳' : '❌';
-      const ts = r.completed_at || r.started_at || '';
-      const time = ts ? new Date(ts).toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '-';
-      const steps = r.steps ? (r.steps.success||0)+'/'+(r.steps.total||0) : '-';
-      const dur = r.duration_secs ? Math.round(r.duration_secs/60)+'min' : '-';
-      html += `<tr><td>${time}</td><td>${r.account}</td><td>${st}</td><td>${steps}</td><td>${dur}</td></tr>`;
-    });
-    html += '</table>';
-    el.innerHTML = html;
-  } catch(e) {}
-}
-
-// ════════════════════════════════════════════════════════
-// 共享账号选择器（所有操作视图共用）
-// ════════════════════════════════════════════════════════
-
-let _allAccounts = [];
-let _hpIndex = {};
-let _collectedAt = '';
-
 async function _loadAccounts() {
   if (_allAccounts.length) {
     return {accounts: _allAccounts, hpIndex: _hpIndex, collectedAt: _collectedAt};
@@ -2160,7 +1277,7 @@ async function opsBatchExec() {
       txt += '  ' + o.account + ': ' + (o.status || 'OK') + '\n';
     });
     resultEl.textContent = txt;
-    setTimeout(loadOpsHistory, 5000);
+    // loadOpsHistory removed
   } else {
     resultsEl.innerHTML = '<div style="color:var(--red)">❌ '+(result.message||JSON.stringify(result))+'</div>';
   }
@@ -2208,314 +1325,11 @@ async function loadCrawlSources(){ _renderShell('view-crawl-sources', '📡 源�
 async function loadCrawlHistory(){ _renderShell('view-crawl-history', '📜 采集历史', '无API', '采集历史的统一展示 API 尚未完成。'); }
 
 // 联邦系列 — 一键同步（有CLI）
-async function loadFleetSync() {
-  const el = document.getElementById('view-fleet-sync');
-  el.innerHTML = `
-    <div style="padding:20px">
-      <h2 style="font-size:18px;margin-bottom:12px">🔄 一键同步</h2>
-      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">通过 Git 同步三台机器（本机 / 5kecheng / 7kecheng）的最新代码</p>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button onclick="doFleetSync()" style="background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">🔄 执行同步</button>
-      </div>
-      <div id="fleetSyncLog" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:400px;overflow:auto"></div>
-    </div>`;
-}
-window.doFleetSync = async function() {
-  const el = document.getElementById('fleetSyncLog');
-  el.textContent = '⏳ 执行中...\n';
-  try {
-    const r = await fetch('/api/fleet/sync', {method:'POST'});
-    const d = await r.json();
-    el.textContent = d.output || JSON.stringify(d, null, 2);
-  } catch(e) { el.textContent = '❌ ' + e.message; }
-};
-
-// 联邦系列 — 对账检查（有CLI）
-async function loadFleetReconcile() {
-  const el = document.getElementById('view-fleet-reconcile');
-  el.innerHTML = `
-    <div style="padding:20px">
-      <h2 style="font-size:18px;margin-bottom:12px">🔍 对账检查</h2>
-      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">检查本机是否符合 ORACLE.yaml 宪法定义</p>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button onclick="doFleetReconcile()" style="background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">🔍 执行对账</button>
-      </div>
-      <div id="fleetReconcileLog" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:400px;overflow:auto"></div>
-    </div>`;
-}
-window.doFleetReconcile = async function() {
-  const el = document.getElementById('fleetReconcileLog');
-  el.textContent = '⏳ 执行中...\n';
-  try {
-    const r = await fetch('/api/fleet/reconcile', {method:'POST'});
-    const d = await r.json();
-    el.textContent = d.output || JSON.stringify(d, null, 2);
-  } catch(e) { el.textContent = '❌ ' + e.message; }
-};
-
-// 联邦系列 — 远程Shell（有CLI）
-async function loadFleetExec() {
-  const el = document.getElementById('view-fleet-exec');
-  el.innerHTML = `
-    <div style="padding:20px">
-      <h2 style="font-size:18px;margin-bottom:12px">💻 远程Shell</h2>
-      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">在远程机器上执行命令（通过 mc remote exec）</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-        <select id="fleetExecMachine" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
-          <option value="5kechengdeAir">5kechengdeAir</option>
-          <option value="7kecheng">7kecheng</option>
-        </select>
-        <input id="fleetExecCmd" placeholder="输入命令..." style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:12px">
-        <button onclick="doFleetExec()" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">➡ 执行</button>
-      </div>
-      <div id="fleetExecLog" style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border);font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:400px;overflow:auto"></div>
-    </div>`;
-}
-window.doFleetExec = async function() {
-  const machine = document.getElementById('fleetExecMachine')?.value;
-  const cmd = document.getElementById('fleetExecCmd')?.value;
-  const el = document.getElementById('fleetExecLog');
-  if (!cmd) { el.textContent = '请输入命令'; return; }
-  el.textContent = '⏳ 执行中...\n';
-  try {
-    const r = await fetch('/api/federation/exec', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({machine,command:cmd,timeout:30})});
-    const d = await r.json();
-    el.textContent = d.output || JSON.stringify(d, null, 2);
-  } catch(e) { el.textContent = '❌ ' + e.message; }
-};
-
-// 服务系列 — Shell（无功能）
 async function loadServeMCP()      { _renderShell('view-serve-mcp', '🔌 MCP状态', '无功能', 'MCP 状态监控尚未实现。这是显示当前 MCP Server 连接状态和运行指标的页面。'); }
 async function loadServeDashboard(){ _renderShell('view-serve-dashboard', '📊 Dashboard日志', '无功能', 'Dashboard 日志聚合页面尚未实现。将汇总各模块的运行日志。'); }
 async function loadServeSchedule() { _renderShell('view-serve-schedule', '⏰ 全局定时任务', '无功能', '全局调度器管理页面尚未实现。将在 agentos serve schedule CLI 封装完成后对接。'); }
 
 // ── SMS & Proxy ──
-async function loadSmsProxy() {
-  await Promise.all([
-    loadSmsConfig(),
-    loadProxyList(),
-    loadPhonePresets(),
-    loadSmsAccounts(),
-  ]);
-}
-
-async function loadSmsAccounts() {
-  const sel = document.getElementById('smsAccountSelect');
-  const overview = document.getElementById('smsAccountsOverview');
-  if (!sel) return;
-  try {
-    // 直接从 SMS API 获取账号（/api/federation/accounts 返回的是 HTML，不是 JSON）
-    const r = await fetch('/api/matrix/sms/accounts');
-    const d = await r.json();
-    if (d.error) {
-      if (overview) overview.innerHTML = '<span style="color:var(--red)">❌ '+d.error+'</span>';
-      return;
-    }
-    const accounts = d.accounts || [];
-
-    window._lastSmsAccounts = accounts;
-    // 下拉框（隐藏，用于存储完整选项数据）
-    sel.innerHTML = '<option value="">— 选择账号 —</option>' +
-      accounts.map(a => '<option value="'+a.id+'" data-phone="'+(a.phone||'')+'" data-nick="'+(a.nickname||'')+'" data-display="'+
-        ((a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+' '+(a.owner_machine||(a.is_local?'本机':'远程'))+' ('+a.phone+')').replace(/"/g,'&quot;')+'">'+
-        ((a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+' '+(a.owner_machine||(a.is_local?'本机':'远程'))+' ('+a.phone+')')+'</option>').join('');
-    // 搜索框：存一份完整选项用于搜索
-    window._smsAccountOptions = accounts;
-    // 加载人设信息（供卡片渲染使用）
-    let personas = {};
-    try {
-      const pr = await fetch('/api/matrix/personas');
-      const pd = await pr.json();
-      personas = pd.personas || {};
-    } catch(e) { /* ignore */ }
-
-    // 账号管理 — 身份卡片（手机号分组）+ 账号列表（表格）
-    if (overview) {
-      const dot = (ok) => ok ? '✅' : '❌';
-      const machineLabel = (a) => a.owner_machine || (a.is_local ? '本机' : '远程');
-      const isRemote = (a) => !a.is_local && a.owner_machine;
-      const loginDisabled = (a) => a.busy || isRemote(a);
-      const loginTitle = (a) => a.busy ? '忙碌中' : (isRemote(a) ? '需在 '+machineLabel(a)+' 操作' : '登录');
-      const clearTitle = (a) => a.busy ? '忙碌中' : (isRemote(a) ? '需在 '+machineLabel(a)+' 操作' : '清除');
-      const delTitle = (a) => a.busy ? '忙碌中' : (isRemote(a) ? '需在 '+machineLabel(a)+' 操作' : '删除');
-      const btnStyle = (a, disabled) => disabled ? 'opacity:.3;cursor:not-allowed' : 'cursor:pointer';
-      
-      // 加载录制统计
-      let recStats = {};
-      try { 
-        const rr = await fetch('/api/matrix/recordings/stats');
-        const rd = await rr.json();
-        recStats = rd.stats || {};
-      } catch(e) {}
-
-      // ═══ 上部: 身份卡片（按手机号分组）═══
-      const groups = {};
-      accounts.forEach(a => {
-        const m = machineLabel(a);
-        const p = a.phone || '未设置手机号';
-        const key = m + '|' + p;
-        if (!groups[key]) groups[key] = { machine: m, phone: p, accts: [] };
-        groups[key].accts.push(a);
-      });
-      
-      var cardsHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px;margin-bottom:16px">'+
-        Object.values(groups).sort(function(a,b) {
-          // 本机优先
-          var aLocal = a.accts.some(function(acct){return acct.is_local;});
-          var bLocal = b.accts.some(function(acct){return acct.is_local;});
-          if (aLocal && !bLocal) return -1;
-          if (!aLocal && bLocal) return 1;
-          // 同是本机或同是远程：按机器名+手机号排
-          var ma = a.machine, mb = b.machine;
-          if (ma < mb) return -1;
-          if (ma > mb) return 1;
-          return a.phone.localeCompare(b.phone);
-        }).map(function(g) {
-          var accts = g.accts;
-          var sharedIdent = accts.find(function(a){return (a.identity_dir||'').startsWith('phone_');})?.identity_dir
-            || accts.find(function(a){return a.has_identity;})?.id || accts[0]?.id;
-          var recCount = accts.reduce(function(s,a){return s+(recStats[a.id]||0);},0);
-          var cooked = accts.reduce(function(s,a){return s+(a.has_cookie?1:0);},0);
-          var fmtNum = function(v) { if(!v||v==='?'||v==='-')return'-';var n=parseInt(v);if(isNaN(n))return v;if(n>=10000)return(n/10000).toFixed(1)+'w';if(n>=1000)return(n/1000).toFixed(1)+'k';return n; };
-          var statusBadge = function(a) { return a.has_cookie ? '<span style="color:var(--green)">✅</span>' : '<span style="color:var(--text2)">❌</span>'; };
-          
-          return '<div style="background:var(--bg2);border-radius:var(--radius);padding:10px;border:1px solid var(--border);box-shadow:var(--shadow)">'+
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px">'+
-              '<div><strong>📱 '+g.phone+'</strong> <span style="font-size:10px;color:var(--text2);margin-left:4px">🆔 '+(sharedIdent||'')+'</span></div>'+
-              '<span style="font-size:10px;color:var(--text2)">🍪 '+cooked+'/'+accts.length+'已登录 | 📦 '+recCount+'次录制</span>'+
-            '</div>'+
-            '<div style="font-size:10px;color:var(--primary);margin-bottom:6px">🖥️ '+g.machine+'</div>'+
-            '<table style="width:100%;font-size:11px">'+
-              '<thead><tr style="color:var(--text2);font-size:10px">'+
-                '<th style="text-align:left;padding:2px 4px;font-weight:500">平台</th>'+
-                '<th style="text-align:left;padding:2px 4px;font-weight:500">账号</th>'+
-                '<th style="text-align:left;padding:2px 4px;font-weight:500">状态</th>'+
-                '<th style="text-align:left;padding:2px 4px;font-weight:500">粉丝</th>'+
-                '<th style="padding:2px 4px;font-weight:500">操作</th></tr></thead><tbody>'+
-            accts.map(function(a) {
-              var icon = a.platform==='xiaohongshu'?'📕':'🎵';
-              var platName = a.platform==='xiaohongshu'?'小红书':'抖音';
-              var ld = loginDisabled(a);
-              var lop = ld?'':"accountLogin('"+a.id+"')";
-              var cop = ld?'':"clearCookies('"+a.id+"','"+a.platform+"')";
-              var dop = ld?'':"deleteAccount('"+a.id+"')";
-              return '<tr>'+
-                '<td style="padding:2px 4px">'+icon+' '+platName+'</td>'+
-                '<td style="padding:2px 4px;color:var(--text)">'+a.nickname+'</td>'+
-                '<td style="padding:2px 4px">'+statusBadge(a)+'</td>'+
-                '<td style="padding:2px 4px;color:var(--text2)">'+fmtNum(a.fans)+'</td>'+
-                '<td style="padding:2px 4px;white-space:nowrap">'+
-                  '<button onclick="'+lop+'" style="background:transparent;border:none;font-size:11px;'+btnStyle(a,ld)+'" title="'+loginTitle(a)+'">🔑</button>'+
-                  '<button onclick="'+cop+'" style="background:transparent;border:none;font-size:11px;'+btnStyle(a,ld)+'" title="'+clearTitle(a)+'">🚫</button>'+
-                  '<button onclick="'+dop+'" style="background:transparent;border:none;font-size:11px;'+btnStyle(a,ld)+'" title="'+delTitle(a)+'">🗑</button>'+
-                '</td></tr>';
-            }).join('')+'</tbody></table>'+
-            '<div style="margin-top:6px;display:flex;gap:4px;font-size:10px">'+
-              '<button onclick="loadSmsAccounts()" style="background:var(--bg3);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)">🔄 刷新</button>'+
-              (g.machine==='本机'||g.machine===window.location.hostname
-                ? '<button onclick="loginAllPlatforms(\''+g.phone+'\')" style="background:var(--bg3);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)">🔄 全部登录</button>'+
-                  '<button onclick="collectAllPlatforms(\''+g.phone+'\')" style="background:var(--bg3);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text)">👤 全部采集</button>'+
-                  '<button onclick="deleteIdentityByPhone(\''+g.phone+'\')" style="background:rgba(220,38,38,.08);color:var(--red);border:1px solid var(--red);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除身份</button>'
-                : '<span style="color:var(--text2);padding:3px 0">📡 操作需在 '+g.machine+' 上执行</span>'
-              )+
-            '</div></div>';
-        }).join('')+'</div>';
-
-      // ═══ 下部: 账号列表（可排序表格 + 搜索 + 统计）═══
-      // 统计信息
-      var phoneSet = {}; accounts.forEach(function(a){if(a.phone)phoneSet[a.phone]=true;});
-      var identitySet = {}; accounts.forEach(function(a){if(a.identity_dir)identitySet[a.identity_dir]=true;});
-      var phoneCount = Object.keys(phoneSet).length;
-      var identityCount = Object.keys(identitySet).length;
-      var totalCount = accounts.length;
-      var localCount = accounts.filter(function(a){return a.is_local;}).length;
-      var loggedIn = accounts.filter(function(a){return a.has_cookie;}).length;
-
-      // 本机优先排序
-      var sortedAccounts = accounts.slice().sort(function(a,b) {
-        if (a.is_local && !b.is_local) return -1;
-        if (!a.is_local && b.is_local) return 1;
-        var ma = machineLabel(a), mb = machineLabel(b);
-        if (ma < mb) return -1;
-        if (ma > mb) return 1;
-        var pa = a.phone||'', pb = b.phone||'';
-        if (pa < pb) return -1;
-        if (pa > pb) return 1;
-        return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
-      });
-
-      var tableId = 'acctTableBody';
-      var sortState = {col:'账号', asc:true};
-
-      var tableHtml = '<div style="background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);padding:10px;box-shadow:var(--shadow)">'+
-        '<div style="font-size:13px;font-weight:600;margin-bottom:6px">📋 全部账号列表</div>'+
-        '<div style="display:flex;gap:12px;font-size:11px;color:var(--text2);margin-bottom:8px">'+
-          '<span>📱 <strong style="color:var(--text)">'+phoneCount+'</strong> 个手机号</span>'+
-          '<span>🆔 <strong style="color:var(--text)">'+identityCount+'</strong> 个身份</span>'+
-          '<span>👤 <strong style="color:var(--text)">'+totalCount+'</strong> 个账号</span>'+
-          '<span>🎯 <strong style="color:var(--text)">'+localCount+'/'+totalCount+'</strong> 本机</span>'+
-          '<span>✅ <strong style="color:var(--green)">'+loggedIn+'</strong> 已登录</span>'+
-        '</div>'+
-        '<div style="display:flex;gap:6px;margin-bottom:8px">'+
-          '<input id="acctSearchInput" placeholder="🔍 搜索账号/手机/昵称..." oninput="filterAcctTable()" style="flex:1;min-width:150px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:5px;font-size:12px">'+
-          '<select id="acctPlatformFilter" onchange="filterAcctTable()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:11px">'+
-            '<option value="">全部平台</option>'+
-            '<option value="douyin">🎵 抖音</option>'+
-            '<option value="xiaohongshu">📕 小红书</option>'+
-          '</select>'+
-          '<select id="acctMachineFilter" onchange="filterAcctTable()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:11px">'+
-            '<option value="">全部机器</option>'+
-            '<option value="local">本机</option>'+
-            '<option value="remote">远程</option>'+
-          '</select>'+
-          '<select id="acctStatusFilter" onchange="filterAcctTable()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:5px;font-size:11px">'+
-            '<option value="">全部状态</option>'+
-            '<option value="logged_in">已登录</option>'+
-            '<option value="not_logged">未登录</option>'+
-          '</select>'+
-        '</div>'+
-        '<div style="max-height:400px;overflow-y:auto">'+
-        '<table style="width:100%;font-size:12px"><thead><tr>'+
-          '<th onclick="sortAcctTable(0)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">账号 <span style="font-size:9px">▲</span></th>'+
-          '<th onclick="sortAcctTable(1)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">平台</th>'+
-          '<th onclick="sortAcctTable(2)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">手机</th>'+
-          '<th onclick="sortAcctTable(3)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">机器</th>'+
-          '<th onclick="sortAcctTable(4)" style="cursor:pointer;text-align:center;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">状态</th>'+
-          '<th onclick="sortAcctTable(5)" style="cursor:pointer;text-align:left;padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2);user-select:none">昵称</th>'+
-          '<th style="padding:4px 6px;font-weight:500;font-size:11px;color:var(--text2)">操作</th></tr></thead>'+
-          '<tbody id="'+tableId+'">'+
-        sortedAccounts.map(function(a, idx) {
-          var ml = machineLabel(a);
-          var icon = a.platform==='xiaohongshu'?'📕':'🎵';
-          var platName = a.platform==='xiaohongshu'?'小红书':'抖音';
-          var ld = loginDisabled(a);
-          var lop = ld?'':"accountLogin('"+a.id+"')";
-          var cop = ld?'':"clearCookies('"+a.id+"','"+a.platform+"')";
-          var dop = ld?'':"deleteAccount('"+a.id+"')";
-          return '<tr data-idx="'+idx+'" data-phone="'+(a.phone||'')+'" data-platform="'+a.platform+'" data-machine="'+(a.is_local?'local':'remote')+'" data-login="'+(a.has_cookie?'yes':'no')+'" data-search="'+(a.id+' '+(a.phone||'')+' '+a.nickname).toLowerCase()+'">'+
-            '<td style="padding:3px 6px;font-size:11px">'+a.id+'</td>'+
-            '<td style="padding:3px 6px;font-size:11px">'+icon+' '+platName+'</td>'+
-            '<td style="padding:3px 6px;font-size:10px;color:var(--text2)">'+(a.phone||'')+'</td>'+
-            '<td style="padding:3px 6px;font-size:10px;color:var(--primary)">'+ml+'</td>'+
-            '<td style="padding:3px 6px;text-align:center;font-size:11px">'+(a.has_cookie?'✅':'❌')+'</td>'+
-            '<td style="padding:3px 6px;font-size:11px">'+a.nickname+'</td>'+
-            '<td style="padding:3px 6px;white-space:nowrap;font-size:11px">'+
-              '<button onclick="'+lop+'" style="background:transparent;border:none;cursor:pointer;'+btnStyle(a,ld)+'" title="'+loginTitle(a)+'">🔑</button>'+
-              '<button onclick="'+cop+'" style="background:transparent;border:none;cursor:pointer;'+btnStyle(a,ld)+'" title="'+clearTitle(a)+'">🚫</button>'+
-              '<button onclick="'+dop+'" style="background:transparent;border:none;cursor:pointer;'+btnStyle(a,ld)+'" title="'+delTitle(a)+'">🗑</button>'+
-            '</td></tr>';
-        }).join('')+'</tbody></table></div></div>';
-      // 保存accounts数据供排序筛选用（使用已排序的列表）
-      window._acctTableData = sortedAccounts;
-
-      overview.innerHTML = cardsHtml + tableHtml;
-    }
-  } catch(e) {
-    if (overview) overview.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
-  }
-}
-
-// ── 短信账号搜索 ──
 function smsFilterAccounts() {
   const input = document.getElementById('smsAccountSearch');
   const sel = document.getElementById('smsAccountSelect');
@@ -2801,54 +1615,6 @@ function toggleCollectHistory() {
   if (!isOpen) loadCollectHistory();
 }
 
-async function loadCollectHistory() {
-  const el = document.getElementById('chContent');
-  if (!el) return;
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    const r = await fetch('/api/matrix/homepage-history');
-    const data = await r.json();
-    const history = data.history || [];
-    if (!history.length) {
-      el.innerHTML = '<div style="color:var(--text2);font-size:11px">暂无采集历史</div>';
-      return;
-    }
-
-    // 时间倒序
-    history.reverse();
-
-    let html = '<table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr style="background:var(--bg3)">';
-    html += '<th style="padding:3px 6px;text-align:left">#</th>';
-    html += '<th style="padding:3px 6px;text-align:left">采集时间</th>';
-    html += '<th style="padding:3px 6px;text-align:right">身份</th>';
-    html += '<th style="padding:3px 6px;text-align:right">账号</th>';
-    html += '<th style="padding:3px 6px;text-align:right">成功</th>';
-    html += '<th style="padding:3px 6px;text-align:right">失败</th>';
-    html += '</tr></thead><tbody>';
-
-    history.forEach(function(h, i) {
-      const ts = (h.collected_at || '').replace('T',' ').slice(0,19);
-      const bg = i % 2 === 0 ? '' : 'background:#1e2133';
-      html += '<tr style="border-top:1px solid var(--border);' + bg + '">';
-      html += '<td style="padding:3px 6px">' + (history.length - i) + '</td>';
-      html += '<td style="padding:3px 6px;color:#6366f1">' + ts.slice(5,16) + '</td>';
-      html += '<td style="padding:3px 6px;text-align:right">' + (h.total_identities||'?') + '</td>';
-      html += '<td style="padding:3px 6px;text-align:right">' + (h.total_accounts||'?') + '</td>';
-      html += '<td style="padding:3px 6px;text-align:right;color:var(--green)">' + (h.success||0) + '</td>';
-      html += '<td style="padding:3px 6px;text-align:right;color:var(--red)">' + (h.failed||0) + '</td>';
-      html += '</tr>';
-    });
-
-    html += '</tbody></table>';
-    html += '<div style="margin-top:4px;font-size:9px;color:var(--text2)">📜 共 ' + history.length + ' 次采集记录</div>';
-
-    el.innerHTML = html;
-  } catch(e) {
-    el.innerHTML = '<div style="color:var(--red);font-size:11px">' + e.message + '</div>';
-  }
-}
-
-// ── Proxy ──
 async function proxyTest() {
   const proxy = document.getElementById('proxyTestInput')?.value;
   const el = document.getElementById('proxyTestResult');
@@ -2950,122 +1716,6 @@ function editDialog(id) {
 // ════════════════════════════════════════════════════════
 // Corpus Management
 // ════════════════════════════════════════════════════════
-
-async function loadCorpus() {
-  const el = document.getElementById('corpusContent');
-  const meta = document.getElementById('corpusMeta');
-  if (!el) return;
-  el.innerHTML = '<div class="loading">加载中...</div>';
-  try {
-    const r = await fetch('/api/matrix/corpus');
-    const d = await r.json();
-    const cats = d.categories || [];
-    meta.textContent = `共 ${cats.length} 个分类 · ${d.total_comments||0} 条评论`;
-
-    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">';
-
-    // Group by platform
-    const groups = {};
-    cats.forEach(c => {
-      const p = c.platform === 'xiaohongshu' ? '📕 小红书' : '🎵 抖音';
-      if (!groups[p]) groups[p] = [];
-      groups[p].push(c);
-    });
-
-    Object.entries(groups).forEach(([platform, items]) => {
-      html += `<div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
-        <div style="font-weight:600;font-size:14px;margin-bottom:10px">${platform}</div>
-        <table><thead><tr><th>分类</th><th>权重</th><th>评论数</th><th>状态</th><th>操作</th></tr></thead><tbody>
-        ${items.map(c => `<tr>
-          <td><strong>${c.name}</strong></td>
-          <td>${c.weight}</td>
-          <td>${c.count}</td>
-          <td>${c.enabled ? '<span class="badge badge-green">✅ 启用</span>' : '<span class="badge badge-gray">⏸ 停用</span>'}</td>
-          <td><button class="btn btn-sm btn-outline" onclick="corpusShowDetail('${c.platform}','${c.name}')">📝</button></td>
-        </tr>`).join('')}
-        </tbody></table>
-      </div>`;
-    });
-    html += '</div>';
-
-    // Add comment form
-    html += `<div style="margin-top:12px;background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">✏️ 添加评论</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select id="corpusAddPlatform" style="width:120px">
-          <option value="douyin">🎵 抖音</option>
-          <option value="xiaohongshu">📕 小红书</option>
-        </select>
-        <input id="corpusAddCategory" placeholder="分类名" style="width:100px">
-        <input id="corpusAddText" placeholder="评论内容" style="flex:1;min-width:200px">
-        <button class="btn btn-primary btn-sm" onclick="corpusAdd()">+ 添加</button>
-        <span id="corpusAddResult" style="font-size:12px"></span>
-      </div>
-    </div>
-    <!-- 批量导入 -->
-    <div style="margin-top:8px;background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">📥 批量导入</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
-        <select id="corpusBatchPlatform" style="width:120px">
-          <option value="douyin">🎵 抖音</option>
-          <option value="xiaohongshu">📕 小红书</option>
-        </select>
-        <input id="corpusBatchCategory" placeholder="分类名" style="width:100px">
-        <button class="btn btn-primary btn-sm" onclick="corpusBatchImport()">📥 导入</button>
-        <span id="corpusBatchResult" style="font-size:12px"></span>
-      </div>
-      <textarea id="corpusBatchTexts" placeholder="每行一条评论，直接粘贴即可&#10;例：&#10;讲得太好了，受益匪浅！&#10;这个观点很新颖，学习了&#10;干货满满，感谢分享" style="width:100%;height:100px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:5px;font-size:12px;font-family:monospace"></textarea>
-      <div style="font-size:10px;color:var(--text2);margin-top:4px">支持粘贴、拖入 txt 文件（点击下方「选择文件」或直接粘贴内容）</div>
-    </div>
-    <!-- 格式模板 -->
-    <div style="margin-top:8px;background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-weight:600;font-size:13px">📋 格式模板</div>
-        <span style="font-size:10px;color:var(--text2);cursor:pointer" onclick="copyTemplate()">📋 复制模板</span>
-      </div>
-      <pre style="font-size:10px;background:var(--bg2);padding:8px;border-radius:4px;margin-top:6px;overflow-x:auto;white-space:pre-wrap;color:var(--text2)">
-# 语料库格式模板 v2.0
-# 支持身份(Persona)×场景(Scene)×内容(Content) 三维结构
-# 也兼容当前的一维分类格式（categories）
-
-## 一维格式（当前使用）
-categories:
-  赞美:
-    comments:
-      - "讲得太好了，受益匪浅！"
-      - "干货满满，感谢分享"
-  提问:
-    comments:
-      - "请问这是在哪里？"
-
-## 二维格式（推荐）
-personas:
-  health_lover:
-    name: "养生爱好者"
-    tags: ["养生","健康"]
-scenes:
-  first_comment:
-    label: "首次评论"
-content:
-  health_lover.first_comment:
-    - "这个养生方法很实用"
-    - "坚持调理最重要"
-
-## 三维格式（含多轮对话）
-content:
-  health_lover.follow_up:
-    round_1:
-      - "确实如此，{keyword}我也是这么认为的"
-    round_2:
-      - "对，后来我换了一种方法就好了"
-      </pre>
-    </div>`;
-
-    el.innerHTML = html;
-  } catch(e) {
-    el.innerHTML = `<div class="error">❌ ${e.message}</div>`;
-  }
-}
 
 async function corpusAdd() {
   const platform = document.getElementById('corpusAddPlatform')?.value;
@@ -3237,7 +1887,7 @@ async function gitSync() {
     var res = await r.json();
     btn.textContent = 'done';
     setTimeout(function(){ btn.textContent = 'sync'; btn.style.opacity = '1'; }, 2000);
-    if (typeof loadMachines === 'function') loadMachines();
+    // loadMachines removed
     if (typeof loadStats === 'function') loadStats();
   } catch(e) {
     btn.textContent = 'err';
@@ -3493,27 +2143,6 @@ async function collectProfile(accountId) {
 // 录制管理
 // ════════════════════════════════════════════════════════
 
-async function loadMatrixRecord() {
-  const listEl = document.getElementById('recordList');
-  const detailEl = document.getElementById('recordDetail');
-  const statusEl = document.getElementById('recordStatus');
-  if (statusEl) statusEl.innerHTML = '';
-  if (detailEl) detailEl.innerHTML = '';
-  // 填充账号下拉
-  const acctSel = document.getElementById('recordAccountSelect');
-  if (acctSel) {
-    try {
-      const r = await fetch('/api/matrix/sms/accounts');
-      const d = await r.json();
-      acctSel.innerHTML = '<option value="">选择账号…</option>' +
-        (d.accounts||[]).filter(a => a.is_local).map(a =>
-          '<option value="'+a.id+'">'+(a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
-    } catch(e) { /* ignore */ }
-  }
-  // 加载录制包列表
-  refreshRecordingList();
-}
-
 async function refreshRecordingList() {
   const listEl = document.getElementById('recordList');
   if (!listEl) return;
@@ -3656,77 +2285,6 @@ function switchCmdTab(tab, el) {
   ['cmd-run-content','cmd-comment-content','cmd-schedule-content','cmd-collect-content','cmd-corpus-content','cmd-nurture-content'].forEach(id => {
     document.getElementById(id).style.display = id === tab+'-content' ? 'block' : 'none';
   });
-}
-
-async function loadMatrixCommands() {
-  // 加载批量执行内容（复用原始 loadMatrixRun 的渲染结果）
-  const runEl = document.getElementById('matrixRunContent2');
-  if (runEl) {
-    // 先渲染原始内容
-    await loadMatrixRun();
-    // 把渲染结果复制到命令与任务的 TAB 中
-    const origEl = document.getElementById('matrixRunContent');
-    if (origEl && origEl.innerHTML) {
-      runEl.innerHTML = origEl.innerHTML;
-      // 持续监控同步（原始内容变化时自动更新）
-      if (!window._cmdRunObserver) {
-        window._cmdRunObserver = new MutationObserver(() => {
-          document.getElementById('matrixRunContent2').innerHTML = origEl.innerHTML;
-        });
-        window._cmdRunObserver.observe(origEl, { childList: true, subtree: true, characterData: true });
-      }
-    }
-  }
-  // 加载定时任务列表
-  refreshScheduleList();
-  // 填充定时任务的账号下拉
-  const schedAcct = document.getElementById('schedAccount');
-  if (schedAcct) {
-    try {
-      const r = await fetch('/api/matrix/sms/accounts');
-      const d = await r.json();
-      schedAcct.innerHTML = '<option value="">选账号</option>' +
-        (d.accounts||[]).filter(a => a.is_local).map(a =>
-          '<option value="'+a.id+'">'+(a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
-    } catch(e) { /* ignore */ }
-  }
-
-  // 语料库 TAB 绑定（同步原始 corpusContent 到 corpusContent3）
-  const corpusEl3 = document.getElementById('corpusContent3');
-  const corpusOrig = document.getElementById('corpusContent');
-  if (corpusEl3 && corpusOrig && !window._corpusObs3) {
-    window._corpusObs3 = new MutationObserver(() => {
-      const target = document.getElementById('corpusContent3');
-      const src = document.getElementById('corpusContent');
-      if (target && src) target.innerHTML = src.innerHTML;
-    });
-    window._corpusObs3.observe(corpusOrig, { childList: true, subtree: true, characterData: true });
-    // 强制加载语料库（无论原始页面是否已加载）
-    if (typeof loadCorpus === 'function') {
-      loadCorpus().catch(e => console.error('corpus load err', e));
-    }
-    corpusEl3.innerHTML = corpusOrig.innerHTML || '<div class="loading">加载语料库...</div>';
-  }
-
-  // 加载采集模块账号列表
-  try {
-    const r = await fetch('/api/matrix/sms/accounts');
-    const d = await r.json();
-    _collectAccounts = d.accounts || [];
-    renderCollectList();
-  } catch(e) { /* ignore */ }
-
-  // 填充定向评论的账号下拉
-  const acctSel = document.getElementById('cmdTaskAccount');
-  if (acctSel) {
-    try {
-      const r = await fetch('/api/matrix/sms/accounts');
-      const d = await r.json();
-      acctSel.innerHTML = '<option value="">自动选账号</option>' +
-        (d.accounts||[]).filter(a => a.is_local).map(a =>
-          '<option value="'+a.id+'">'+(a.platform==='xiaohongshu'?'📕':'🎵')+' '+a.nickname+'</option>').join('');
-    } catch(e) { /* ignore */ }
-  }
 }
 
 async function cmdRunCommentTask() {
@@ -4556,115 +3114,6 @@ function switchSetTab(tab, el) {
   });
 }
 
-async function loadMatrixSettings() {
-  // 三个 TAB 都使用 MutationObserver 同步原始内容
-  const syncMap = [
-    { id: 'matrixExportContent2', load: 'loadMatrixExport', orig: 'matrixExportContent' },
-    { id: 'matrixBackupContent2', load: 'loadMatrixBackup', orig: 'matrixBackupContent' },
-    { id: 'corpusContent2', load: 'loadCorpus', orig: 'corpusContent' },
-  ];
-  for (const {id, load, orig} of syncMap) {
-    const el = document.getElementById(id);
-    const origEl = document.getElementById(orig);
-    if (el && origEl && typeof window[load] === 'function') {
-      await window[load]();
-      el.innerHTML = origEl.innerHTML;
-      if (!window['_setObs_' + id]) {
-        window['_setObs_' + id] = new MutationObserver(() => {
-          const target = document.getElementById(id);
-          const source = document.getElementById(orig);
-          if (target && source) target.innerHTML = source.innerHTML;
-        });
-        window['_setObs_' + id].observe(origEl, { childList: true, subtree: true, characterData: true });
-      }
-    }
-  }
-}
-
-// ── Keyboard ──
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
-
-// ── Timeline ──
-let timelineChart = null;
-async function loadTimeline(hostname) {
-  if (!hostname) {
-    // 展示 selector
-    const sel = document.getElementById('timelineSelector');
-    const r = await fetch('/api/machines'); const res = await r.json();
-    sel.innerHTML = (res.machines||[]).map(m =>
-      `<button class="btn" onclick="loadTimeline('${m.hostname}')">${m.hostname}</button>`
-    ).join('');
-    document.getElementById('timelineStatus').textContent = '点击机器查看';
-    return;
-  }
-  document.getElementById('timelineStatus').textContent = `加载 ${hostname}...`;
-  const r = await fetch(`/api/timeline/${hostname}?window=120`);
-  const res = await r.json();
-  const pts = res.points || [];
-  if (!pts.length) { document.getElementById('timelineStatus').textContent = `${hostname}: 暂无数据`; return; }
-  
-  const labels = pts.map(p => { try { return new Date(p.t).toLocaleTimeString(); } catch(e) { return ''; }});
-  const cpu = pts.map(p => p.cpu || 0);
-  const disk = pts.map(p => p.disk_pct || 0);
-  
-  document.getElementById('timelineStatus').textContent = `${hostname}: ${pts.length} 个采样点 (最近${res.total}条)`;
-  
-  // 简单 Canvas 绘图
-  const canvas = document.getElementById('timelineChart');
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth * 2; canvas.height = canvas.offsetHeight * 2;
-  ctx.scale(2,2); const w = canvas.offsetWidth, h = canvas.offsetHeight;
-  
-  const maxVal = Math.max(...cpu, ...disk, 1);
-  const pad = {top:20, bottom:20, left:40, right:20};
-  const cw = w - pad.left - pad.right, ch = h - pad.top - pad.bottom;
-  
-  ctx.clearRect(0,0,w,h);
-  // grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 0.5;
-  for(let i=0;i<5;i++) { ctx.beginPath(); ctx.moveTo(pad.left, pad.top+ch*i/4); ctx.lineTo(w-pad.right, pad.top+ch*i/4); ctx.stroke(); }
-  
-  function drawLine(data, color) {
-    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
-    data.forEach((v,i) => {
-      const x = pad.left + (i/(data.length-1||1))*cw;
-      const y = pad.top + ch - (v/maxVal)*ch;
-      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-    }); ctx.stroke();
-  }
-  drawLine(cpu, '#378ADD');
-  drawLine(disk, '#D85A30');
-  
-  // legend
-  ctx.fillStyle = '#378ADD'; ctx.fillRect(w-130, 10, 12, 12);
-  ctx.fillStyle = 'var(--text)'; ctx.font = '11px sans-serif'; ctx.fillText('CPU', w-112, 20);
-  ctx.fillStyle = '#D85A30'; ctx.fillRect(w-80, 10, 12, 12);
-  ctx.fillStyle = 'var(--text)'; ctx.fillText('磁盘(G)', w-62, 20);
-}
-
-// ── Alerts ──
-async function loadAlerts() {
-  const el = document.getElementById('alertsList');
-  try {
-    const r = await fetch('/api/alerts'); const res = await r.json();
-    const alerts = res.alerts || [];
-    if (!alerts.length) { el.innerHTML = '<div class="card"><div style="color:var(--green)">✅ 所有机器运行正常</div></div>'; return; }
-    el.innerHTML = alerts.map(a => {
-      const color = a.level === 'critical' ? 'var(--red)' : a.level === 'warning' ? 'var(--amber)' : 'var(--text2)';
-      const since = a.since_sec < 3600 ? `${(a.since_sec/60).toFixed(0)}分钟` : `${(a.since_sec/3600).toFixed(1)}小时`;
-      return `<div class="card" style="border-left:3px solid ${color}">
-        <div style="font-weight:600">${a.hostname}</div>
-        <div style="font-size:12px;color:${color}">${a.level==='critical'?'🔴 严重':a.level==='warning'?'🟡 警告':'ℹ️ 提示'}: 离线 ${since}</div>
-        ${a.note ? `<div style="font-size:11px;color:var(--text2)">${a.note}</div>` : ''}
-        <div style="margin-top:8px;display:flex;gap:8px">
-          <button class="btn" onclick="wakeupMachine('${a.hostname}')">🔄 唤醒</button>
-          <button class="btn" onclick="upgradeMachine('${a.hostname}')">⬆️ 升级</button>
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) { el.innerHTML = `<div class="error">❌ ${e.message}</div>`; }
-}
-
 async function wakeupMachine(hostname) {
   await fetch(`/api/wakeup/${hostname}`, {method:'POST'});
   alert(`已发送唤醒命令到 ${hostname}`);
@@ -4740,9 +3189,10 @@ async function wfInit() {
     const tmplD = await tmplR.json();
     // 构建节点定义字典
     wfNodeDefs = {};
+    const rootDefs = nodesD._defs || {};
     for (const cat of (nodesD.categories || [])) {
       for (const nid of (cat.nodes || [])) {
-        wfNodeDefs[nid] = cat._defs?.[nid] || {};
+        wfNodeDefs[nid] = rootDefs[nid] || {};
       }
     }
     wfTemplates = tmplD.templates || {};
@@ -5195,140 +3645,6 @@ async function wfGeneratePortrait() {
 }
 
 // ── Summary ──
-async function loadSummary() {
-  const el = document.getElementById('summaryContent');
-  try {
-    const [sumR, heatR, dailyR] = await Promise.all([
-      fetch('/api/summary').then(r=>r.json()),
-      fetch('/api/heatmap').then(r=>r.json()),
-      fetch('/api/daily-summary').then(r=>r.json()),
-    ]);
-    const heat = heatR.machines || {};
-    const daily = dailyR.machines || {};
-    let html = '';
-    // 热力图卡片
-    for (const [hostname, info] of Object.entries(heat)) {
-      const acts = info.hourly || [];
-      const total = acts.reduce((a,b)=>a+b,0);
-      const barMax = Math.max(...acts, 1);
-      html += `<div class="card"><h3>${hostname}</h3>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">今日心跳: ${total} 次</div>
-        <div style="display:flex;gap:2px;height:40px;align-items:flex-end">`;
-      for (let h=0;h<24;h++) {
-        const pct = acts[h] / barMax * 100;
-        html += `<div title="${h}时: ${acts[h]}次" style="flex:1;background:${acts[h] > barMax*0.7 ? 'var(--coral)' : acts[h] > barMax*0.3 ? 'var(--amber)' : 'var(--bg3)'};height:${Math.max(pct,3)}%;border-radius:2px 2px 0 0"></div>`;
-      }
-      html += `</div><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text2);margin-top:2px">
-        <span>0时</span><span>6时</span><span>12时</span><span>18时</span><span>24时</span>
-      </div>`;
-      // 最近事件
-      const ms = daily[hostname];
-      if (ms && ms.events && ms.events.length) {
-        html += `<div style="margin-top:8px;font-size:11px;color:var(--text2)">最近事件:</div>`;
-        ms.events.slice(-3).forEach(ev => {
-          html += `<div style="font-size:10px;color:var(--text2);padding:2px 0">• ${ev.type}: ${JSON.stringify(ev.payload||{}).slice(0,40)}</div>`;
-        });
-      }
-      html += `</div>`;
-    }
-    if (!html) html = '<div class="card"><div style="color:var(--text2)">暂无推送数据</div></div>';
-    el.innerHTML = html;
-  } catch(e) { el.innerHTML = `<div class="error">❌ ${e.message}</div>`; }
-}
-
-// ── View switcher ──
-const origSwitch = switchView;
-switchView = function(v) {
-  // 隐藏所有固定视图
-  document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
-  // 隐藏所有插件视图
-  document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.style.display = 'none');
-  
-  origSwitch(v);
-  if (v === 'timeline') loadTimeline();
-  if (v === 'alerts') loadAlerts();
-  if (v === 'summary') loadSummary();
-  // 插件视图
-  if (v.startsWith('plugin-')) {
-    const name = v.replace('plugin-', '');
-    loadPluginView(name);
-  }
-};
-
-// ══ 模块化角色生成流 ══
-
-// 角色模块定义（前端本地版，不依赖后端）
-const CHAR_GEN_MODULES = {
-  identity: { icon: '🆔', label: '身份', desc: '姓名/性别/年龄/种族' },
-  face_shape: { icon: '🗿', label: '面部轮廓', desc: '脸型/下颌/颧骨' },
-  facial_features: { icon: '👁️', label: '五官细节', desc: '眼/眉/鼻/唇' },
-  hair_skin: { icon: '💇', label: '头发&皮肤', desc: '发型/肤色/妆容' },
-  body: { icon: '🏋️', label: '体型姿态', desc: '身高/体型/姿态' },
-  clothing: { icon: '👔', label: '服装配饰', desc: '上衣/下装/配饰' },
-  expression_scene: { icon: '😊', label: '神态&场景', desc: '表情/光线/背景' },
-};
-
-// 每个模块的字段配置（用于渲染表单）
-const CHAR_GEN_FIELDS = {
-  identity: [
-    { key:'name', label:'角色名', type:'text', ph:'如: 阿远' },
-    { key:'gender', label:'性别', type:'select', opts:['男性','女性'] },
-    { key:'age', label:'年龄', type:'select', opts:['少年','青年','壮年','中年','老年'] },
-    { key:'ethnicity', label:'地域', type:'select', opts:['中国','东亚','东南亚','南亚','欧美'] },
-  ],
-  face_shape: [
-    { key:'shape', label:'脸型', type:'select', opts:['鹅蛋脸','瓜子脸','圆脸','方脸','国字脸','长脸','菱形脸','心形脸'] },
-    { key:'jaw', label:'下颌线', type:'select', opts:['清晰分明','柔和模糊','棱角突出','圆润温和'] },
-    { key:'cheekbone', label:'颧骨', type:'select', opts:['适中自然','高突出','饱满圆润','低平'] },
-    { key:'forehead', label:'额头', type:'select', opts:['饱满宽阔','适中','窄小','高额头'] },
-  ],
-  facial_features: [
-    { key:'eyes_shape', label:'眼型', type:'select', opts:['丹凤眼','杏眼','桃花眼','圆眼','细长眼','单眼皮','双眼皮','内双'] },
-    { key:'eyes_color', label:'瞳孔色', type:'select', opts:['深褐','浅褐','黑色','琥珀色','灰色','蓝色','绿色'] },
-    { key:'eyes_spirit', label:'眼神', type:'text', ph:'如: 深邃锐利、清澈温柔' },
-    { key:'eyebrows', label:'眉型', type:'select', opts:['剑眉','柳叶眉','一字眉','上挑眉','弯眉','粗眉','细长眉'] },
-    { key:'nose', label:'鼻型', type:'select', opts:['高挺','挺直窄小','中等挺拔','低平柔和'] },
-    { key:'nose_tip', label:'鼻头', type:'select', opts:['小巧圆润','圆润饱满','尖翘','略宽'] },
-    { key:'lips', label:'唇型', type:'select', opts:['薄唇','厚唇','M形唇','饱满','樱桃小嘴','微笑唇'] },
-    { key:'lips_state', label:'唇状态', type:'select', opts:['自然闭合','微张','紧抿','嘴角微扬','含笑意'] },
-  ],
-  hair_skin: [
-    { key:'hair_style', label:'发型', type:'select', opts:['短发','寸头','中长发','背头','三七分','齐刘海','碎发','高马尾','披肩发'] },
-    { key:'hair_color', label:'发色', type:'select', opts:['黑色','深棕','浅棕','亚麻色','灰色','银白'] },
-    { key:'hair_detail', label:'发型细节', type:'text', ph:'如: 两侧收短顶部略长' },
-    { key:'skin_tone', label:'肤色', type:'select', opts:['冷白皮','暖白皮','健康小麦','蜜色','古铜色','深色'] },
-    { key:'skin_texture', label:'肤质', type:'select', opts:['细腻光滑','自然肌理','毛孔可见','水润光泽'] },
-    { key:'complexion', label:'气色', type:'select', opts:['红润健康','略显苍白','容光焕发','自然均匀'] },
-    { key:'makeup', label:'妆容风格', type:'select', opts:['素颜','淡妆','精致妆容','裸妆','烟熏妆'] },
-    { key:'blemish', label:'特殊标记', type:'text', ph:'如: 右眉上细疤、左颊美人痣' },
-  ],
-  body: [
-    { key:'height', label:'身高', type:'select', opts:['矮小(155-165)','中等(165-175)','中高(175-185)','高大(185+)'] },
-    { key:'build', label:'体型', type:'select', opts:['纤细瘦弱','偏瘦','标准匀称','健壮','壮硕','魁梧'] },
-    { key:'shoulder', label:'肩宽', type:'select', opts:['窄肩','标准','宽肩','厚肩'] },
-    { key:'posture', label:'姿态', type:'select', opts:['挺拔','自然放松','微驼','端庄','慵懒'] },
-  ],
-  clothing: [
-    { key:'top', label:'上装', type:'text', ph:'如: 深灰色拉链运动夹克' },
-    { key:'inner', label:'内搭', type:'text', ph:'如: 白色圆领速干内衬' },
-    { key:'bottom', label:'下装', type:'text', ph:'如: 深蓝色牛仔裤' },
-    { key:'shoes', label:'鞋子', type:'text', ph:'如: 白色跑步鞋' },
-    { key:'accessories', label:'配饰', type:'text', ph:'如: 蓝色无线运动耳机(右耳)、细框眼镜' },
-    { key:'style_tag', label:'穿搭风格', type:'select', opts:['运动休闲','商务正装','日系清新','街头潮流','简约素雅'] },
-  ],
-  expression_scene: [
-    { key:'base_mood', label:'情绪基调', type:'select', opts:['平静从容','温和友善','冷峻严肃','沉稳内敛','自信昂扬','恬静淡然'] },
-    { key:'expression', label:'表面表情', type:'select', opts:['中性无表情','淡淡微笑','微笑','开怀大笑','皱眉沉思','目光坚定'] },
-    { key:'eye_spirit', label:'眼神细节', type:'text', ph:'如: 目光坚定直视前方、眼中带笑意' },
-    { key:'aura', label:'气质气场', type:'text', ph:'如: 沉稳内敛不怒自威、亲和温暖如沐春风' },
-    { key:'light_type', label:'光型', type:'select', opts:['柔光箱均匀布光','美人碟柔光','伦勃朗光','分割光','逆光轮廓光','阴天漫射光'] },
-    { key:'lens', label:'镜头', type:'select', opts:['标准50mm','中焦85mm','长焦135mm'] },
-    { key:'background', label:'背景环境', type:'text', ph:'如: 纯灰色专业背景、清晨城市街道' },
-  ],
-};
-
-let charGenLayerData = {};  // 存储所有模块的当前值
-
 function loadCharGen() {
   document.getElementById('charGenStep1').classList.remove('hidden');
   document.getElementById('charGenStep2').classList.add('hidden');
@@ -5799,35 +4115,6 @@ function renderCharPortraitGallery(refImgs, name) {
 
 // ── Capabilities ──
 let currentCapGroup = null;
-async function loadCapabilities() {
-  const el = document.getElementById('capabilityContent');
-  const tabsEl = document.getElementById('capGroupTabs');
-  const countEl = document.getElementById('capCount');
-  el.innerHTML = '<div class="loading">加载原子能力...</div>';
-  try {
-    const r = await fetch(`${API}/api/capabilities`);
-    const d = await r.json();
-    const groups = d.groups || [];
-    const matrix = d.matrix || [];
-    countEl.textContent = `共 ${d.total_items||0} 个能力`;
-
-    if (!groups.length) {
-      el.innerHTML = '<div class="error" style="padding:40px">暂无能力数据</div>';
-      return;
-    }
-
-    // 分组标签
-    tabsEl.innerHTML = groups.map((g, i) =>
-      `<button class="btn ${i === 0 ? 'active' : ''}" onclick="switchCapGroup(${i})" style="${i === 0 ? 'background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px' : 'background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px'}">${g.name} (${g.items.length})</button>`
-    ).join('');
-
-    currentCapGroup = 0;
-    renderCapGroup(groups[0], matrix);
-  } catch(e) {
-    el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
-  }
-}
-
 function switchCapGroup(idx) {
   currentCapGroup = idx;
   const tabs = document.getElementById('capGroupTabs').children;
@@ -5996,46 +4283,6 @@ function toggleC2Params() {
   if (el) el.style.display = type === 'nurture_run' ? 'block' : 'none';
 }
 
-async function loadC2Machines() {
-  const targetEl = document.getElementById('c2Target');
-  const statusEl = document.getElementById('c2MachineStatus');
-  if (!statusEl) return;
-  statusEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2)">加载中...</div>';
-  try {
-    const r = await fetch('/api/c2/machines');
-    const d = await r.json();
-    if (targetEl) targetEl.innerHTML = '<option value="">选择机器...</option>' +
-      d.machines.map(m => '<option value="'+m+'">'+m+(m==='chengzigedeAir'?' (本机)':'')+'</option>').join('');
-
-    let html = '';
-    for (const m of d.machines) {
-      try {
-        const sr = await fetch('/api/c2/environment/'+encodeURIComponent(m));
-        const st = await sr.json();
-        if (st.output) {
-          const o = st.output;
-          html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between">' +
-            '<strong>'+m+'</strong>' +
-            '<span>'+(o.guardd_running ? '✅ guardd运行' : '❌ guardd停')+' · 💾'+ (o.disk_avail_gb||'?')+'G' +' · 📱'+(o.matrix_accounts||'?')+'账号</span></div>';
-        } else {
-          html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">'+m+' · '+ (st.status||'未知') +'</div>';
-        }
-      } catch(e) {
-        html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--amber)">'+m+' · ⏳ 查询超时</div>';
-      }
-    }
-    statusEl.innerHTML = html || '<div style="text-align:center;padding:20px;color:var(--text2)">无机器数据</div>';
-  } catch(e) {
-    statusEl.innerHTML = '<div style="padding:20px;color:var(--red)">'+e.message+'</div>';
-  }
-}
-
-// ════════════════════════════════════════════════════════
-// Machine Status Bar — 全局三台机器状态条
-// ════════════════════════════════════════════════════════
-
-let _machineBarTimer = null;
-
 async function loadMachineBar() {
   const bar = document.getElementById('machineBar');
   if (!bar) return;
@@ -6088,6 +4335,8 @@ async function loadMachineBar() {
   }
 }
 
+let _machineBarTimer = null;
+
 function initMachineBar() {
   if (_machineBarTimer) clearInterval(_machineBarTimer);
   loadMachineBar();
@@ -6127,29 +4376,6 @@ async function sendC2Command() {
     loadC2History();
   } catch(e) {
     resultEl.innerHTML = '<div style="color:var(--red);font-size:13px;padding:8px">'+e.message+'</div>';
-  }
-}
-
-async function loadC2History() {
-  const el = document.getElementById('c2CommandHistory');
-  if (!el) return;
-  try {
-    const r = await fetch('/api/c2/commands');
-    const d = await r.json();
-    const cmds = d.recent || [];
-    if (!cmds.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">暂无执行历史</div>'; return; }
-    el.innerHTML = '<table><thead><tr><th>类型</th><th>目标</th><th>状态</th><th>时间</th><th>结果</th></tr></thead><tbody>' +
-      cmds.slice(0,20).map(c => {
-        const st = c.status||'?';
-        const cl = st==='completed' ? '#22c55e' : (st==='failed'?'#ef4444':'#f59e0b');
-        const out = c.output ? (c.output.accounts?c.output.accounts.join(','):Object.keys(c.output).slice(0,3).join('|')) : (c.error||'-');
-        const ts = (c.completed_at||c.created_at||'').slice(0,19).replace('T',' ');
-        return '<tr><td style="font-weight:600">'+c.type+'</td><td>'+(c.target_machine||'-')+'</td>' +
-          '<td><span style="color:'+cl+'">●</span> '+st+'</td><td style="font-size:11px;color:var(--text2)">'+ts+'</td>' +
-          '<td style="font-size:11px;color:var(--text2);max-width:150px;overflow:hidden;text-overflow:ellipsis">'+String(out).slice(0,40)+'</td></tr>';
-      }).join('') + '</tbody></table>';
-  } catch(e) {
-    el.innerHTML = '<div style="padding:20px;color:var(--red)">'+e.message+'</div>';
   }
 }
 
@@ -6613,12 +4839,9 @@ window.closeDetail = closeDetail;
 window.debounceAssetSearch = debounceAssetSearch;
 window.loadIdentity = loadIdentity;
 window.loadPlugins = loadPlugins;
-window.loadMatrixSummary = loadMatrixSummary;
-window.loadMatrixRun = loadMatrixRun;
 window.corpusToggleRandom = corpusToggleRandom;
 window.batchPreview = batchPreview;
 window.batchExecute = batchExecute;
-window.loadIdentities = loadIdentities;
 window.acctSwitchTab = acctSwitchTab;
 window.deleteIdentity = deleteIdentity;
 window.unbindAccount = unbindAccount;
@@ -6632,9 +4855,6 @@ window.bpRenderOps = bpRenderOps;
 window.bpExecute = bpExecute;
 window.bpDoExec = bpDoExec;
 window.closeBpModal = closeBpModal;
-window.loadMatrixAtomOps = loadMatrixAtomOps;
-window.loadMatrixBackup = loadMatrixBackup;
-window.loadMatrixExport = loadMatrixExport;
 window.createBackup = createBackup;
 window.restoreBackup = restoreBackup;
 window.doExport = doExport;
@@ -6651,7 +4871,6 @@ window.collectSelected = collectSelected;
 // window.loadMatrixLike = loadMatrixLike;
 // 被 modules/account_selector.js 覆盖
 // window.loadOpsCommand = loadOpsCommand;
-window.loadOpsHistory = loadOpsHistory;
 // 被 modules/corpus.js 覆盖
 // window._loadAccounts = _loadAccounts;
 // window._renderAccountSelector = _renderAccountSelector;
@@ -6694,7 +4913,6 @@ window.collectAllPlatforms = collectAllPlatforms;
 window.deleteIdentityByPhone = deleteIdentityByPhone;
 window.deleteAccount = deleteAccount;
 window.collectProfile = collectProfile;
-window.loadMatrixRecord = loadMatrixRecord;
 window.refreshRecordingList = refreshRecordingList;
 window.recordingStart = recordingStart;
 window.recordingStop = recordingStop;
@@ -6732,9 +4950,6 @@ window.scheduleAdd = scheduleAdd;
 window.scheduleToggle = scheduleToggle;
 window.scheduleDelete = scheduleDelete;
 window.switchSetTab = switchSetTab;
-window.loadMatrixSettings = loadMatrixSettings;
-window.loadTimeline = loadTimeline;
-window.loadAlerts = loadAlerts;
 window.wakeupMachine = wakeupMachine;
 window.upgradeMachine = upgradeMachine;
 window.wfNodeColor = wfNodeColor;
@@ -6775,11 +4990,8 @@ window.switchCapGroup = switchCapGroup;
 window.renderCapGroup = renderCapGroup;
 window.loadPluginView = loadPluginView;
 window.toggleC2Params = toggleC2Params;
-window.loadC2Machines = loadC2Machines;
-window.loadMachineBar = loadMachineBar;
 window.initMachineBar = initMachineBar;
 window.sendC2Command = sendC2Command;
-window.loadC2History = loadC2History;
 window.c2Nurture = c2Nurture;
 window.kbRefresh = kbRefresh;
 window.kbSwitchTab = kbSwitchTab;

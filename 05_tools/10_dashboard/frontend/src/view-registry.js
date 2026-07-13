@@ -35,18 +35,13 @@ const MIGRATED_VIEWS = [
   'ops-recorder',
 
   // ── 视频工厂 ──
-  'ave-render',
-  'ave-script',
-  'ave-materials',
-  'ave-templates',
   'workflow',
   'capabilities',
+  'characters',     // 角色列表
+  'char-gen',       // 角色生成器
 
   // ── 内容抓取 ──
   'scrape',
-  'crawl-tasks',
-  'crawl-sources',
-  'crawl-history',
 
   // ── 联邦管理 ──
   'fleet-sync',
@@ -63,6 +58,9 @@ const MIGRATED_VIEWS = [
   'productions',
   'assets',
   'costs',
+
+  // ── 其他 ──
+  'timeline',       // 时间线（暂留观察）
 ];
 
 // 注册所有已迁移视图
