@@ -367,7 +367,7 @@ async function loadPlugins() {
     else _renderNav();
     loadNavFromAPI();
     // 构建完成后恢复当前视图的激活状态
-    switchView(currentView);
+    // switchView(currentView) removed
   } catch(e) {
     // 保底：即使 API 失败也加载生产列表
     // loadProductions removed
@@ -1282,52 +1282,6 @@ async function opsBatchExec() {
     resultsEl.innerHTML = '<div style="color:var(--red)">❌ '+(result.message||JSON.stringify(result))+'</div>';
   }
 }
-
-// 视频工厂系列 — Shell（无API）
-async function loadAveRender()   { _renderShell('view-ave-render', '🎬 渲染任务', '无API', 'AVE 渲染任务的 API 尚未暴露。需要完成 agentos ave CLI 封装后对接。'); }
-async function loadAveScript()   { _renderShell('view-ave-script', '📝 脚本生成', '无API', '脚本生成模块的 API 尚未暴露。需要完成 agentos ave CLI 封装后对接。'); }
-async function loadAveMaterials(){ _renderShell('view-ave-materials', '📦 素材库', '无API', '素材管理模块的 API 尚未暴露。当前素材通过 SQLite 管理，需封装为 Dashboard API。'); }
-async function loadAveTemplates(){ _renderShell('view-ave-templates', '📋 模板', '无API', '模板管理模块的 API 尚未暴露。需要完成 agentos ave CLI 封装后对接。'); }
-
-// 内容采集系列 — 采集任务（有 plugin-collector → 集成）
-async function loadCrawlTasks() {
-  const el = document.getElementById('view-crawl-tasks');
-  el.innerHTML = '<div id="crawlTaskPanel" style="padding:20px"><div class="loading">⏳ 加载采集管理...</div></div>';
-  try {
-    const rs = await fetch('/api/plugins/collector/summary');
-    const d = await rs.json();
-    document.getElementById('crawlTaskPanel').innerHTML = `
-      <h2 style="font-size:18px;margin-bottom:12px">📡 采集任务</h2>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:12px">
-        <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
-          <div style="font-size:12px;color:var(--text2)">总采集数</div>
-          <div style="font-size:24px;font-weight:700">${d.total||0}</div>
-        </div>
-        <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
-          <div style="font-size:12px;color:var(--text2)">今日新增</div>
-          <div style="font-size:24px;font-weight:700;color:var(--green)">${d.today||0}</div>
-        </div>
-      </div>
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)">
-        <div style="font-size:12px;font-weight:600;margin-bottom:8px">🔧 操作</div>
-        <button onclick="switchView('plugin-collector')" style="background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">→ 打开采集管理器</button>
-        <span style="font-size:11px;color:var(--text2);margin-left:8px">完整采集管理界面</span>
-      </div>`;
-  } catch(e) {
-    document.getElementById('crawlTaskPanel').innerHTML = `<div style="padding:0"><h2 style="font-size:18px;margin-bottom:12px">📡 采集任务</h2>
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;border:1px solid var(--border)">
-        <p style="font-size:13px;color:var(--text2);margin-bottom:8px">采集管理器可通过下方按钮访问</p>
-        <button onclick="switchView('plugin-collector')" style="background:var(--primary);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">→ 打开采集管理器</button>
-      </div></div>`;
-  }
-}
-async function loadCrawlSources(){ _renderShell('view-crawl-sources', '📡 源管理', '无CLI', '采集源管理需要 agentos crawl CLI 封装后实现。'); }
-async function loadCrawlHistory(){ _renderShell('view-crawl-history', '📜 采集历史', '无API', '采集历史的统一展示 API 尚未完成。'); }
-
-// 联邦系列 — 一键同步（有CLI）
-async function loadServeMCP()      { _renderShell('view-serve-mcp', '🔌 MCP状态', '无功能', 'MCP 状态监控尚未实现。这是显示当前 MCP Server 连接状态和运行指标的页面。'); }
-async function loadServeDashboard(){ _renderShell('view-serve-dashboard', '📊 Dashboard日志', '无功能', 'Dashboard 日志聚合页面尚未实现。将汇总各模块的运行日志。'); }
-async function loadServeSchedule() { _renderShell('view-serve-schedule', '⏰ 全局定时任务', '无功能', '全局调度器管理页面尚未实现。将在 agentos serve schedule CLI 封装完成后对接。'); }
 
 // ── SMS & Proxy ──
 function smsFilterAccounts() {
@@ -3143,41 +3097,6 @@ function wfNodeColor(type) {
   const def = wfNodeDefs[type];
   return def?.color || NODE_COLORS[def?.category] || NODE_COLORS.default;
 }
-
-async function loadWorkflow() {
-  const el = document.getElementById('workflowContent');
-  el.innerHTML = `
-  <div style="display:flex;flex-direction:column;height:calc(100vh - 180px);min-height:500px">
-    <!-- 工具栏 -->
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-shrink:0">
-      <span style="font-size:14px;font-weight:600;color:var(--text)">🔀 工作流</span>
-      <select id="wfTemplateSelect" onchange="wfLoadTemplate(this.value)"
-        style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px;font-size:12px;width:160px">
-        <option value="">— 模板 —</option>
-      </select>
-      <div style="display:flex;gap:3px;flex-wrap:wrap;flex:1;overflow-x:auto;padding:2px 0" id="wfNodePalette"></div>
-      <button onclick="wfRun()" style="background:var(--primary);border:none;color:#fff;padding:3px 12px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap">▶ 运行</button>
-      <button onclick="wfClear()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap">🗑 清空</button>
-      <span id="wfRunStatus" style="font-size:11px;color:var(--text2);white-space:nowrap"></span>
-    </div>
-    <!-- 主体：画布 + 配置面板 -->
-    <div style="display:flex;gap:8px;flex:1;min-height:0">
-      <!-- 画布区 -->
-      <div style="flex:1;position:relative;background:var(--bg3);border-radius:8px;overflow:hidden;border:1px solid var(--border)">
-        <svg id="wfCanvas" width="100%" height="100%" style="cursor:grab;display:block"></svg>
-        <div id="wfCanvasPlaceholder" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text2);font-size:13px;pointer-events:none">
-          从上方拖拽节点到画布，或选择模板开始
-        </div>
-      </div>
-      <!-- 配置面板 -->
-      <div id="wfConfigPanel" style="width:300px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);overflow-y:auto;flex-shrink:0">
-        <div id="wfConfigContent" style="padding:14px;font-size:12px;color:var(--text2)">点击节点编辑配置</div>
-      </div>
-    </div>
-  </div>`;
-  await wfInit();
-}
-
 async function wfInit() {
   // 一次性加载所有节点定义和模板，避免 N+1 查询
   try {
@@ -3645,21 +3564,6 @@ async function wfGeneratePortrait() {
 }
 
 // ── Summary ──
-function loadCharGen() {
-  document.getElementById('charGenStep1').classList.remove('hidden');
-  document.getElementById('charGenStep2').classList.add('hidden');
-  document.getElementById('charGenStep3').classList.add('hidden');
-  document.getElementById('charGenDirection').value = '';
-  document.getElementById('charGenStep1Result').innerHTML = '';
-  document.getElementById('charGenStep2Result').innerHTML = '';
-  document.getElementById('charGenResultBody').innerHTML = '';
-  charGenLayerData = {};
-  // 渲染模块Tab
-  renderCharGenTabs();
-  // 默认选中第一个模块
-  charGenSwitchTab(Object.keys(CHAR_GEN_MODULES)[0]);
-}
-
 function renderCharGenTabs() {
   const tabsEl = document.getElementById('charGenTabs');
   tabsEl.innerHTML = Object.entries(CHAR_GEN_MODULES).map(([id, mod]) =>
@@ -3987,84 +3891,6 @@ async function charGenRun() {
     document.getElementById('charGenStep3').scrollIntoView({behavior: 'smooth', block: 'center'});
   } catch(e) {
     resultEl.innerHTML = '❌ 生成失败: ' + e.message;
-  }
-}
-
-// ── Characters ──
-async function loadCharacters() {
-  const el = document.getElementById('characterGrid');
-  const countEl = document.getElementById('charCount');
-  el.innerHTML = '<div class="loading">加载角色数据...</div>';
-  try {
-    const r = await fetch(`${API}/api/characters`);
-    const d = await r.json();
-    const chars = d.characters || {};
-    const active = d.active || '';
-    const entries = Object.entries(chars);
-    countEl.textContent = `共 ${entries.length} 个角色`;
-
-    if (!entries.length) {
-      el.innerHTML = '<div class="error" style="padding:40px">暂无角色数据</div>';
-      return;
-    }
-
-    el.innerHTML = entries.map(([name, char]) => {
-      const isActive = name === active;
-      const refImgs = char.reference_images || {};
-      const exprs = refImgs.expressions || {};
-      const exprCount = Object.keys(exprs).length;
-      // 兼容新旧两种 key 名: 旧=grid/portrait, 新=face_anchor/baseline/body
-      const hasGrid = !!(refImgs.grid || refImgs.face_anchor || refImgs.baseline);
-      const hasPortrait = !!(refImgs.portrait || refImgs.face_anchor);
-      const hasBody = refImgs.body && Object.values(refImgs.body).some(Boolean);
-      const hasRealPhoto = !!(refImgs.real_photo_fullbody || refImgs.real_photo_portrait);
-      return `<div style="background:var(--bg2);border-radius:var(--radius);padding:20px;border:1px solid ${isActive ? 'var(--primary)' : 'var(--border)'}">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div>
-              <div style="font-weight:600;font-size:16px">${name}</div>
-              <div style="font-size:11px;color:var(--text2)">${char.description||''}</div>
-            </div>
-          </div>
-          ${isActive ? `<span style="padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(99,102,241,.15);color:var(--primary);border:1px solid rgba(99,102,241,.3)">当前角色</span>` : ''}
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;margin-bottom:10px;color:var(--text2)">
-          <div>画风: ${char.art_style||'-'}</div>
-          <div>音色: ${char.voice_style||'-'}</div>
-          <div>性格: ${char.personality||'-'}</div>
-          <div>BGM: ${char.default_bgm_style||'-'}</div>
-        </div>
-
-        ${char.prompt_template ? `<div style="margin-bottom:10px;font-size:11px;color:var(--text2)">
-          <span style="font-weight:600">提示词模板:</span>
-          <div style="background:var(--bg3);padding:8px;border-radius:6px;margin-top:4px;font-family:mono;font-size:10px;word-break:break-all">${Object.values(char.prompt_template).join(' | ')}</div>
-        </div>` : ''}
-
-        ${char.outfit_presets ? `<div style="margin-bottom:10px">
-          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">穿搭预设</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap">${Object.keys(char.outfit_presets).map(k => `<span style="background:var(--bg3);padding:2px 8px;border-radius:4px;font-size:10px">${k}</span>`).join('')}</div>
-        </div>` : ''}
-
-        <div style="font-size:11px;color:var(--text2)">
-          <div>定妆照: ${hasGrid ? '✅ 已生成' : '❌ 未生成'} ${hasRealPhoto ? '·📷 真人参考照' : ''} ${hasBody ? `·${Object.keys(refImgs.body).length}个角度` : ''}</div>
-          ${char.seed ? `<div>固定 Seed: ${char.seed}</div>` : ''}
-        </div>
-
-        ${hasBody ? renderCharPortraitGallery(refImgs, name) : ''}
-
-        ${!hasBody && hasRealPhoto ? `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
-          <div style="font-size:10px;color:var(--text2)">📷 已上传真人参考照，点击「视频工厂→工作流编辑器」中的角色节点，生成定妆照</div>
-        </div>` : ''}
-
-        ${char.appearance && char.appearance.length ? `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
-          <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">外观特征</div>
-          <ul style="margin:0;padding-left:16px;font-size:11px;color:var(--text2)">${char.appearance.map(a => `<li>${a}</li>`).join('')}</ul>
-        </div>` : ''}
-      </div>`;
-    }).join('');
-  } catch(e) {
-    el.innerHTML = `<div class="error">❌ 加载失败: ${e.message}</div>`;
   }
 }
 
@@ -4880,7 +4706,6 @@ window._getSelectedAccounts = _getSelectedAccounts;
 window._filterAccountSelector = _filterAccountSelector;
 window.opsRun = opsRun;
 window.opsBatchExec = opsBatchExec;
-window.loadCrawlHistory = loadCrawlHistory;
 // 已迁移，由 views/fleet-reconcile.js 接管
 // window.loadFleetReconcile = loadFleetReconcile;
 window.fmtSmsTime = fmtSmsTime;
@@ -4974,7 +4799,6 @@ window.wfLoadCharacters = wfLoadCharacters;
 window.wfRenderConfig = wfRenderConfig;
 window.wfUpdateConfig = wfUpdateConfig;
 window.wfGeneratePortrait = wfGeneratePortrait;
-window.loadCharGen = loadCharGen;
 window.renderCharGenTabs = renderCharGenTabs;
 window.charGenSwitchTab = charGenSwitchTab;
 window.charGenFieldChange = charGenFieldChange;
@@ -4984,7 +4808,6 @@ window.charGenUpdatePreview = charGenUpdatePreview;
 window.charGenAutoFill = charGenAutoFill;
 window.charGenAutoFillFromDescription = charGenAutoFillFromDescription;
 window.charGenRun = charGenRun;
-window.loadCharacters = loadCharacters;
 window.renderCharPortraitGallery = renderCharPortraitGallery;
 window.switchCapGroup = switchCapGroup;
 window.renderCapGroup = renderCapGroup;
