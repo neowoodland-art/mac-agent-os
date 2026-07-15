@@ -1331,27 +1331,48 @@ class MatrixManager:
         return result
 
     def _check_login_status_by_hint(self, hint: str) -> str:
-        """通过 identity_hint 检查账号状态（不读 SQLite，不卡锁）
+        """通过 identity_hint 检查账号状态
 
-        核心原则：
-          - 不打开 cookies.sqlite（零锁竞争）
-          - 用文件存在性 + 上次任务日志判断状态
-          - 兼容前端已有的 _status 取值（'logged_in'/'no_cookie'/'remote'/'disabled'）
+        判断逻辑（按优先级）：
+          1. 读 guardd 任务日志 → 根据上次执行结果判断
+          2. 无日志时 → 检查 cookies.sqlite 文件存在性兜底
 
-        状态映射：
-          cookies.sqlite 文件存在 + 上次日志成功结束 → logged_in（兼容旧逻辑）
-          cookies.sqlite 文件存在 + 日志触发短信跳过  → logged_in（仍标为可操作）
-          cookies.sqlite 文件存在 + 日志失败          → logged_in（兜底）
-          cookies.sqlite 文件不存在或为空              → no_cookie
+        返回状态（兼容前端 STATUS_CFG）：
+          logged_in    → 🟢 已登录（日志成功 或 有 cookie 文件兜底）
+          need_login   → 🔴 需登录（日志显示失败 或 cookie 过期）
+          no_cookie    → 🔴 无Cookie（无日志无文件）
+          no_identity  → ⚪ 未配置
+          running      → ⏳ 执行中
+          sms_skip     → 📱 短信待验证
         """
         if not hint:
             return "no_identity"
+
+        # 1. 先查日志（优先级最高）
+        log = self._get_log_detail(hint)
+        if log.get("exists"):
+            ls = log.get("last_status", "unknown")
+            if ls == "success":
+                return "logged_in"
+            elif ls == "sms_skip":
+                return "sms_skip"
+            elif ls == "failed":
+                # 日志显示失败 → 看 cookie 还在不在
+                cookie_path = MATRIX_IDENTITIES / hint / "user_data" / "cookies.sqlite"
+                if cookie_path.exists() and cookie_path.stat().st_size >= 100:
+                    return "need_login"     # 有 cookie 但上次失败了 → 需重新登录
+                return "no_cookie"           # 没 cookie → 无Cookie
+            elif ls == "running":
+                return "running"
+            else:
+                # unknown → 兜底到文件检测
+                pass
+
+        # 2. 无日志或日志状态不明 → 文件存在性检测
         cookie_path = MATRIX_IDENTITIES / hint / "user_data" / "cookies.sqlite"
-        if not cookie_path.exists() or cookie_path.stat().st_size < 100:
-            return "no_cookie"
-        # 尽量兼容旧逻辑：有 cookie 文件就算 logged_in（前端不影响）
-        # 同时通过 _log_status 字段传递更丰富的状态信息
-        return "logged_in"
+        if cookie_path.exists() and cookie_path.stat().st_size >= 100:
+            return "logged_in"
+        return "no_cookie"
 
     def _get_log_detail(self, hint: str) -> dict:
         """获取该账号上次执行日志的详细信息（供前端展示）
