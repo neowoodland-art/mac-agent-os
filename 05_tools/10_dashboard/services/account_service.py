@@ -118,11 +118,12 @@ class AccountService:
                 "is_local": is_local,
             }
 
-            # 登录状态
+            # 登录状态（所有机器对等：统一走 guardd HTTP API）
+            remote_status = self._get_remote_account_status(machine, aid)
+            acct["login_status"] = remote_status
+            # 补充 profile 数据
             if is_local:
-                # 本机：从 MatrixManager 获取状态（文件存在性检测，零锁）
                 local = local_map.get(aid, {})
-                acct["login_status"] = local.get("_status", "unknown")
                 acct["nickname"] = local.get("nickname", "")
                 acct["fans"] = local.get("fans", "")
                 acct["following"] = local.get("following", "")
@@ -132,10 +133,6 @@ class AccountService:
                 acct["_banned"] = local.get("_banned", False)
                 acct["_identity_dir_exists"] = local.get("_identity_dir_exists", False)
             else:
-                # 远程：从 guardd 缓存或即时查询
-                remote_status = self._get_remote_account_status(machine, aid)
-                acct["login_status"] = remote_status
-                # profile 数据从联邦采集数据补
                 profile = self._get_profile_for_account(aid, machine)
                 acct.update(profile)
 

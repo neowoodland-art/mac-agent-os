@@ -268,44 +268,88 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             status = api_scheduler_status()
             self._send_json(200, status.get("slots", {}))
         elif path == "/accounts/status":
+            """返回本机所有账号的登录状态（对等原则：所有机器统一实现）
+            
+            判断逻辑（和 matrix_mgmt._check_login_status_by_hint 一致）：
+              1. 查 guardd 任务日志 → 根据上次执行结果判断
+              2. 无日志时 → 检查 cookies.sqlite 文件存在性兜底
+            """
             try:
-                # 从 task_store 推断账号状态（不走 cookies.sqlite）
+                import yaml
+                oracle_path = AGENT_SYNC / "ORACLE.yaml"
                 accounts = {}
-                if _task_store:
-                    recent = _task_store.get_recent_by_account(limit=1)
-                    for aid, last_task in recent.items():
-                        ts = last_task.get("status", "")
-                        if ts == "completed":
-                            accounts[aid] = "verified"
-                        elif ts == "failed":
-                            err = (last_task.get("error") or "").lower()
-                            if "login" in err or "cookie" in err or "auth" in err or "登录" in err:
-                                accounts[aid] = "need_login"
+                identities_dir = AGENT_LOCAL / "tools" / "matrix" / "identities"
+                tasks_dir = TASK_LOG_DIR
+
+                if oracle_path.exists():
+                    oracle = yaml.safe_load(oracle_path.read_text())
+                    # 只处理分配给本机的账号
+                    this_machine = HOSTNAME
+                    for entry in oracle.get("accounts", []):
+                        machine = entry.get("machine") or entry.get("assigned_machine", "")
+                        if machine != this_machine and machine != os.uname().nodename:
+                            continue
+                        platforms = entry.get("platforms", {})
+                        hint = entry.get("identity", "")
+                        if not hint:
+                            for plat, aid in platforms.items():
+                                accounts[aid] = "no_identity"
+                            continue
+
+                        # 1. 查日志
+                        log_status = "no_log"
+                        if tasks_dir.exists():
+                            candidate = None
+                            try:
+                                for f in tasks_dir.iterdir():
+                                    if not f.name.endswith(".log") or hint not in f.name:
+                                        continue
+                                    mtime = f.stat().st_mtime
+                                    if candidate is None or mtime > candidate[0]:
+                                        candidate = (mtime, f)
+                            except PermissionError:
+                                pass
+                            if candidate:
+                                _, log_file = candidate
+                                try:
+                                    text = log_file.read_text(encoding="utf-8", errors="replace")
+                                    if any(kw in text for kw in ["短信验证", "auto_verify 返回 False", "需手动登录", "sms_login", "SmsRecovery"]):
+                                        log_status = "sms_skip"
+                                    elif "✅" in text and "🛑 浏览器已关闭" in text:
+                                        log_status = "success"
+                                    elif "❌" in text or "Error" in text or "failed" in text.lower():
+                                        log_status = "failed"
+                                    else:
+                                        log_status = "running"
+                                except Exception:
+                                    pass
+
+                        # 2. 检查 cookies 文件
+                        cookie_path = identities_dir / hint / "user_data" / "cookies.sqlite"
+                        has_cookie = cookie_path.exists() and cookie_path.stat().st_size >= 100
+
+                        # 3. 综合判断
+                        for plat, aid in platforms.items():
+                            if log_status == "success":
+                                accounts[aid] = "logged_in"
+                            elif log_status == "sms_skip":
+                                accounts[aid] = "sms_skip"
+                            elif log_status == "failed":
+                                accounts[aid] = "need_login" if has_cookie else "no_cookie"
+                            elif log_status == "running":
+                                accounts[aid] = "running"
                             else:
-                                accounts[aid] = "failed"
-                        else:
-                            accounts[aid] = "unknown"
-                    # 补充：从 ORACLE 账号列表补全 unknown
-                    try:
-                        import yaml
-                        oracle_path = AGENT_SYNC / "ORACLE.yaml"
-                        if oracle_path.exists():
-                            oracle = yaml.safe_load(oracle_path.read_text())
-                            for entry in oracle.get("accounts", []):
-                                for plat, aid in entry.get("platforms", {}).items():
-                                    if aid not in accounts:
-                                        accounts[aid] = "unknown"
-                    except Exception:
-                        pass
+                                accounts[aid] = "logged_in" if has_cookie else "no_cookie"
+
                 self._send_json(200, {
                     "hostname": HOSTNAME,
                     "machine_uid": MACHINE_UID,
                     "accounts": accounts,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
-                    "source": "task_store",
+                    "source": "file_check",
                 })
             except Exception as e:
-                logger.error(f"/accounts/status 采集失败: {e}")
+                logger.error(f"/accounts/status 处理失败: {e}")
                 self._send_json(200, {"error": str(e), "accounts": {}})
         elif path == "/accounts/profiles":
             try:
