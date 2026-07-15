@@ -120,10 +120,9 @@ class AccountService:
 
             # 登录状态
             if is_local:
-                # 本机：从 guardd 本地端点获取状态（更可靠）
+                # 本机：从 MatrixManager 获取状态（文件存在性检测，零锁）
                 local = local_map.get(aid, {})
-                local_statuses = self._get_all_remote_statuses(HOSTNAME)
-                acct["login_status"] = local_statuses.get(aid, local.get("_status", "unknown"))
+                acct["login_status"] = local.get("_status", "unknown")
                 acct["nickname"] = local.get("nickname", "")
                 acct["fans"] = local.get("fans", "")
                 acct["following"] = local.get("following", "")
