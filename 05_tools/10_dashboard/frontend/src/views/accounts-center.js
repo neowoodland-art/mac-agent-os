@@ -32,7 +32,7 @@ const STATUS_CFG = {
 };
 
 // 状态排序优先级（用于概要栏排序）
-const STATUS_ORDER = ['banned', 'app_login_required', 'sms_failed', 'no_cookie', 'cookie_expiring', 'no_session', 'empty_cookie', 'disabled', 'unknown', 'new', 'logged_in'];
+const STATUS_ORDER = ['banned', 'need_login', 'sms_skip', 'no_cookie', 'running', 'disabled', 'unknown', 'logged_in'];
 
 // ── 主入口 ──
 export async function loadView(container) {
