@@ -394,7 +394,10 @@ function _renderVideoList(uid) {
       return `
       <div style="display:flex;align-items:center;gap:2px;padding:2px 2px;font-size:9px;background:var(--bg2);border-radius:3px;margin-bottom:1px">
         <input type="checkbox" ${v.checked ? 'checked' : ''} onchange="window._cwToggleVideo('${uid}',${i},this.checked)" style="flex-shrink:0">
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px" title="${v.title || v.url}">${v.title ? v.title.slice(0, 40) : _shortenUrl(v.url, 30)}</span>
+        <div style="flex:1;min-width:0;font-size:9px;line-height:1.3">
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.title || ''}">${v.title || '无标题'}</div>
+          <div style="font-size:7px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.url}">🔗 ${v.url}</div>
+        </div>
         <select onchange="window._cwSetVideoIndustry('${uid}',${i},this.value)" style="width:52px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 1px;border-radius:2px;font-size:8px">${indOpts}</select>
         <select onchange="window._cwSetVideoContentType('${uid}',${i},this.value)" style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 1px;border-radius:2px;font-size:8px">${ctOpts}</select>
         <input type="text" value="${v.tags||''}" maxlength="12" placeholder="标签"
