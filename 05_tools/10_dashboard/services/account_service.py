@@ -308,13 +308,16 @@ class AccountService:
             return
 
         logger.info(f"并行查询远程状态: {to_fetch}")
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from concurrent.futures import ThreadPoolExecutor, as_completed, wait as fut_wait, FIRST_COMPLETED
         with ThreadPoolExecutor(max_workers=len(to_fetch)) as pool:
             future_map = {pool.submit(self._query_remote_statuses, m): m for m in to_fetch}
-            for future in as_completed(future_map):
+            # 最多等 8 秒，超时未完成的以后再说
+            done, not_done = fut_wait(future_map.keys(), timeout=8, return_when=FIRST_COMPLETED)
+            # 处理已完成的
+            for future in done:
                 machine = future_map[future]
                 try:
-                    statuses = future.result()
+                    statuses = future.result(timeout=2)
                     self._remote_cache[machine] = {
                         "accounts": statuses,
                         "cached_at": now,
@@ -322,11 +325,12 @@ class AccountService:
                     logger.debug(f"远程状态已缓存: {machine} ({len(statuses)} 个账号)")
                 except Exception as e:
                     logger.debug(f"远程状态查询失败 {machine}: {e}")
-                    # 缓存为空结果，避免后续一直重试
-                    self._remote_cache[machine] = {
-                        "accounts": {},
-                        "cached_at": now,
-                    }
+                    self._remote_cache[machine] = {"accounts": {}, "cached_at": now}
+            # 超时的置空缓存，下次请求会重试
+            for future in not_done:
+                machine = future_map[future]
+                self._remote_cache[machine] = {"accounts": {}, "cached_at": now}
+                logger.debug(f"远程状态查询超时: {machine}")
 
     def _get_all_remote_statuses(self, machine: str) -> dict:
         """获取一台远程机器上所有账号的状态

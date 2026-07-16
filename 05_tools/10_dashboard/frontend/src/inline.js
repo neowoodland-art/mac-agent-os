@@ -73,6 +73,50 @@ loadStats();
 // ── Navigation ──
 // 使用 window.switchView 而非裸函数名，防止 Rollup scope hoisting 覆盖
 window.switchView = function(view) {
+  // 更新浏览器标题
+  const TITLE_MAP = {
+    'matrix-summary': '矩阵总览',
+    'matrix-accounts': '账号中心',
+    'matrix-nurture': '养号执行',
+    'matrix-collect': '信息采集',
+    'matrix-publish': '发布管理',
+    'matrix-blueprints': '蓝图管理',
+    'matrix-comment': '评论管理',
+    'comment-workbench': '评论工作台',
+    'matrix-interact': '互动管理',
+    'matrix-schedule': '定时任务',
+    'matrix-corpus': '语料库',
+    'matrix-sms-proxy': '短信与代理',
+    'matrix-like': '点赞管理',
+    'matrix-atom-ops': '原子操作',
+    'matrix-commands': '命令管理器',
+    'matrix-login': '登录管理',
+    'ops-command': '联邦指挥台',
+    'ops-recorder': '录制标注',
+    'accounts-center': '账号中心',
+    'scrape': '内容抓取',
+    'workflow': '工作流编辑器',
+    'capabilities': '能力目录',
+    'characters': '角色列表',
+    'char-gen': '角色生成器',
+    'timeline': '时间线',
+    'alerts': '告警中心',
+    'summary': '联邦总览',
+    'productions': '生产概览',
+    'assets': '资产概览',
+    'costs': '费用概览',
+    'fleet-sync': '联邦同步',
+    'fleet-reconcile': '联邦对账',
+    'fleet-exec': '联邦执行',
+    'serve-mcp': 'MCP状态',
+    'serve-dashboard': 'Dashboard日志',
+    'serve-schedule': '全局定时任务',
+    'machines': '机器状态',
+    'kb': '知识库',
+  };
+  if (view === 'plugin-matrix') view = 'matrix-summary';
+  document.title = 'AgentOS - ' + (TITLE_MAP[view] || view);
+
   // Plugin views → inline rendering
   if (view === 'plugin-matrix') { view = 'matrix-summary'; }
   // 抓取管理旧路由 → 新抓取视图（scrape）
