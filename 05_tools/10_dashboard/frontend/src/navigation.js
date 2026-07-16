@@ -8,7 +8,7 @@
 // ── 导航分组定义 ──
 const groups = {
   '矩阵': { icon: '📱', items: [
-    {view:'matrix-accounts', label:'👤 账号管理'},
+    {view:'accounts-center', label:'👤 账号中心'},
     {view:'matrix-sms-proxy', label:'🪪 短信与代理'},
     {view:'matrix-nurture', label:'🏃 养号执行'},
     {view:'matrix-collect', label:'📡 信息采集'},
@@ -39,7 +39,6 @@ const groups = {
     {view:'crawl-history', label:'📜 抓取历史'},
   ]},
   '联邦': { icon: '🖥️', items: [
-    {view:'machines', label:'机器状态'},
     {view:'fleet-sync', label:'一键同步'},
     {view:'fleet-reconcile', label:'对账检查'},
     {view:'fleet-exec', label:'远程Shell'},

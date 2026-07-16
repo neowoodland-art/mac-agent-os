@@ -60,6 +60,7 @@ export function tryLoadView(viewName) {
   // 显示动态容器（必须先清除 inline style，因为上方的 querySelectorAll 对 view-dynamic 也设置了 style.display='none'）
   container.classList.remove('hidden');
   container.style.removeProperty('display');
+  container.style.display = 'block';
   container.innerHTML = '<div class="loading">⏳ 加载中...</div>';
 
   // 异步加载（不阻塞 switchView 返回）

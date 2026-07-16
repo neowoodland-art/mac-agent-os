@@ -329,14 +329,14 @@ function _renderVideoList(uid) {
   const checkedCount = _videos.filter(v => v.checked).length;
   wrap.innerHTML = `
     <div style="display:flex;align-items:center;gap:3px;margin-bottom:2px;font-size:9px;color:var(--text2);flex-wrap:wrap">
-      <label style="display:flex;align-items:center;gap:2px;cursor:pointer">
-        <input type="checkbox" onchange="window._cwToggleAllVideo('${uid}',this.checked)" ${_videos.every(v => v.checked) ? 'checked' : ''} style="margin:0">
+      <input type="checkbox" onchange="window._cwToggleAllVideo('${uid}',this.checked)" ${_videos.every(v => v.checked) ? 'checked' : ''} style="flex-shrink:0;margin:0">
+      <span style="flex:1;display:flex;align-items:center;gap:4px;overflow:hidden;white-space:nowrap;font-size:9px">
         全选
-      </label>
-      <span>${_videos.length}个</span>
-      <span style="color:var(--primary)">已选${checkedCount}</span>
-      <span style="font-size:8px;color:var(--text2);margin:0 2px">|</span>
-      <span style="font-size:8px">批量:</span>
+        <span>${_videos.length}个</span>
+        <span style="color:var(--primary)">已选${checkedCount}</span>
+        <span style="color:var(--text2)">|</span>
+        <span>批量:</span>
+      </span>
       <select onchange="window._cwBatchSetVideoAttr('${uid}','industry',this.value)" style="width:52px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px;border-radius:2px;font-size:8px">
         ${INDUSTRIES.map(ind => `<option value="${ind.id}">${ind.label.replace(/^[^\s]+\s/,'')}</option>`).join('')}
       </select>
@@ -344,9 +344,9 @@ function _renderVideoList(uid) {
         ${CONTENT_TYPES.map(ct => `<option value="${ct.id}">${ct.label.replace(/^[^\s]+\s/,'')}</option>`).join('')}
       </select>
       <input type="text" placeholder="统一标签" maxlength="14" onchange="window._cwBatchSetVideoAttr('${uid}','tags',this.value)"
-             style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
+              style="width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
       <input type="text" placeholder="统一引导" maxlength="14" onchange="window._cwBatchSetVideoAttr('${uid}','guide_points',this.value)"
-             style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
+              style="width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
       <button onclick="window._cwClearVideos('${uid}')" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:9px;color:var(--red)">清空</button>
     </div>
     ${_videos.map((v, i) => {
@@ -355,15 +355,15 @@ function _renderVideoList(uid) {
       return `
       <div style="display:flex;align-items:center;gap:2px;padding:2px 2px;font-size:9px;background:var(--bg2);border-radius:3px;margin-bottom:1px">
         <input type="checkbox" ${v.checked ? 'checked' : ''} onchange="window._cwToggleVideo('${uid}',${i},this.checked)" style="flex-shrink:0">
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:30px;max-width:100px;font-size:9px" title="${v.title || v.url}">${v.title ? v.title.slice(0, 14) : _shortenUrl(v.url, 18)}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px" title="${v.title || v.url}">${v.title ? v.title.slice(0, 40) : _shortenUrl(v.url, 30)}</span>
         <select onchange="window._cwSetVideoIndustry('${uid}',${i},this.value)" style="width:52px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 1px;border-radius:2px;font-size:8px">${indOpts}</select>
         <select onchange="window._cwSetVideoContentType('${uid}',${i},this.value)" style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 1px;border-radius:2px;font-size:8px">${ctOpts}</select>
         <input type="text" value="${v.tags||''}" maxlength="12" placeholder="标签"
                onchange="window._cwSetVideoTag('${uid}',${i},this.value)"
-               style="width:48px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
+               style="width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
         <input type="text" value="${v.guide_points||''}" maxlength="16" placeholder="引导"
                onchange="window._cwSetVideoGuidePoints('${uid}',${i},this.value)"
-               style="width:48px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
+               style="width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:1px 2px;border-radius:2px;font-size:8px">
         <button onclick="window._cwRemoveVideo('${uid}',${i})"
                 style="background:none;border:none;cursor:pointer;font-size:9px;opacity:.3;padding:0 1px;flex-shrink:0">✕</button>
       </div>`}).join('')}

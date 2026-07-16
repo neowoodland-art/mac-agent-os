@@ -261,9 +261,7 @@ class DouyinOps(PlatformOps):
                 Condition("selector", '[data-e2e="searchbar-input"]', True,
                           message="需要搜索框可见"),
             ],
-            "open_video": [
-                Condition("page_mode", "page_mode", "grid", message="需要在 feed 流页"),
-            ],
+            "open_video": [],
             "search_browse": [
                 Condition("selector", '[data-e2e="searchbar-input"]', True,
                           message="需要搜索框可见"),
@@ -404,37 +402,27 @@ class DouyinOps(PlatformOps):
             return OpResult(op, step_id, True, "scroll", time.time()-t0)
 
         if op == "open_video":
-            """进入视频播放页"""
+            """进入视频播放页 — 鼠标点击第一张视频卡片"""
             t0 = time.time()
-            # 先查：已在播放页则跳过
-            if await self.page.locator('video').count() > 0:
+            # 先查：已在播放页则跳过（看URL是否已进入视频页，不看video元素——feed上的video预览也会count>0）
+            url = self.page.url
+            if '/video/' in url or 'modal_id' in url:
                 await self._ensure_video_focused()
                 return OpResult(op, step_id, True, "already_player", time.time()-t0)
-            
-            # 导航到首页
-            await self.page.goto("https://www.douyin.com/?recommend=1", timeout=20000, wait_until="domcontentloaded")
-            await asyncio.sleep(4)
-            
-            # 找卡片双击
-            for attempt in range(3):
-                card = self.page.locator('.discover-video-card-item, a[href*="/video/"], [class*="video-card"]').first
-                for _ in range(10):
-                    if await card.count() > 0:
-                        break
-                    await asyncio.sleep(1)
-                    card = self.page.locator('.discover-video-card-item, a[href*="/video/"], [class*="video-card"]').first
-                if await card.count() == 0:
-                    continue
+
+            # 找第一张视频卡片，鼠标点击进入播放
+            card = self.page.locator('.discover-video-card-item, a[href*="/video/"], [class*="video-card"]').first
+            for _ in range(15):
+                if await card.count() > 0:
+                    break
+                await asyncio.sleep(1)
+            if await card.count() > 0:
                 await card.click()
                 await asyncio.sleep(1)
                 await card.click()
                 await asyncio.sleep(3)
-                if await self.page.locator('video').count() > 0:
-                    await self._ensure_video_focused()
-                    return OpResult(op, step_id, True, "video_detail", time.time()-t0)
-                await self.page.goto("https://www.douyin.com/?recommend=1", timeout=15000, wait_until="domcontentloaded")
-                await asyncio.sleep(3)
-            return OpResult(op, step_id, False, "no_card", time.time()-t0)
+                return OpResult(op, step_id, True, "video_card_clicked", time.time()-t0)
+            return OpResult(op, step_id, False, "no_card_found", time.time()-t0)
 
         if op == "wait":
             await asyncio.sleep(args.get("seconds", 2))

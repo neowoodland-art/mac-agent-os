@@ -221,7 +221,7 @@ class ScrapeEngine:
         # 4. 同步模式（目标少，直接执行）
         task_id = self.db.create_task(
             "single", platform or "auto",
-            json.dumps([t["input"] for t in targets], ensure_ascii=False),
+            json.dumps([t["input"] for t in ready], ensure_ascii=False),
             depth, tool_level, machine, len(ready)
         )
         results = []

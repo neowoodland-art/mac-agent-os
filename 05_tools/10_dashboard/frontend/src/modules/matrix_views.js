@@ -49,20 +49,18 @@ loadIdentity();
 loadPlugins();
 loadStats();
 // 自动刷新: 10秒轮询机器状态, 30秒轮询摘要
-setInterval(() => { if (currentView === 'machines') loadMachines(); }, 10000);
 setInterval(() => { if (currentView === 'summary') loadSummary(); }, 30000);
 
 // ── Navigation ──
-// 保存原生的 switchView（来自 inline.js），然后扩展
+// 路由统一由 inline.js switchView + router.js tryLoadView 处理
+// matrix_views.js 只负责 nav 高亮和子菜单展开
 const _origSwitchView = window.switchView;
 window.switchView = function(view) {
-  // 先调原函数（处理viewIds显隐 + tryLoadView）
+  // 先调原函数（inline.js switchView，里面含路由+加载）
   if (typeof _origSwitchView === 'function') {
     _origSwitchView(view);
   }
   
-  // Plugin views → inline rendering  
-  if (view === 'plugin-matrix') { view = 'matrix-summary'; }
   currentView = view;
 
   // 所有 nav-item 和 nav-sub 的 active 状态
@@ -70,59 +68,19 @@ window.switchView = function(view) {
     e.classList.toggle('active', e.dataset.view === view);
   });
 
-  // 视频工厂：点击父级或子项时展开子菜单
+  // 视频工厂子菜单展开
   const aveSubViews = ['ave-render', 'ave-script', 'ave-materials', 'ave-templates'];
   const isAve = view === 'plugin-ave' || aveSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="ave"]').forEach(e => {
     e.style.display = isAve ? 'block' : 'none';
   });
 
-  // 矩阵养号：点击父级或子项时展开子菜单
+  // 矩阵养号子菜单展开
   const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','comment-workbench','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','ops-command','ops-recorder'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
   });
-
-  // 点击「视频工厂」时自动跳转到工作流编辑器
-  if (view === 'plugin-ave') {
-    document.querySelector('.nav-item[data-view="plugin-ave"]')?.classList.add('active');
-    document.querySelector('.nav-sub[data-view="workflow"]')?.classList.add('active');
-    switchView('workflow');
-    return;
-  }
-
-  // 点击「矩阵养号」时自动跳转到多机总览
-  if (view === 'plugin-matrix') {
-    document.querySelector('.nav-item[data-view="plugin-matrix"]')?.classList.add('active');
-    switchView('matrix-summary');
-    return;
-  }
-
-  // KB tab views → route to kb view with tab switch
-  const kbViewToTab = {'kb-knowledge':'kb-knowledge','kb-memory':'kb-memory','kb-system':'kb-system','kb-skills-int':'kb-skills'};
-  if (kbViewToTab[view]) {
-    const tabName = kbViewToTab[view];
-    document.querySelectorAll('.nav-item').forEach(e => {
-      e.classList.toggle('active', e.dataset.view === view);
-    });
-    // Hide ALL other views first
-    ['comment-workbench','matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
-     'ave-render','ave-script','ave-materials','ave-templates',
-     'crawl-tasks','crawl-sources',
-     'machines','fleet-sync','fleet-reconcile','fleet-exec',
-     'serve-mcp','serve-dashboard','serve-schedule',
-     'productions','assets','costs','capabilities','workflow','kb'].forEach(v => {
-      document.getElementById('view-' + v)?.classList.add('hidden');
-    });
-    document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.classList.add('hidden'));
-    // Show KB view
-    document.getElementById('view-kb')?.classList.remove('hidden');
-    currentView = 'kb';
-    const tab = document.querySelector('.kb-tab[data-tab="'+tabName+'"]');
-    if (tab) kbSwitchTab(tabName, tab);
-    return;
-  }
 
   // 如果点了子项，高亮父级
   if (aveSubViews.includes(view)) {
@@ -131,92 +89,9 @@ window.switchView = function(view) {
   if (matrixSubViews.includes(view)) {
     document.querySelector('.nav-item[data-view="plugin-matrix"]')?.classList.add('active');
   }
-
-  // 视图显隐
-  // 视图显隐
-  const viewIds = ['comment-workbench','matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus','matrix-record',
-                   'matrix-accounts','matrix-atom-ops','matrix-settings','matrix-run','matrix-commands','matrix-summary',
-                   'matrix-c2','matrix-backup','matrix-export',
-                   'ave-render','ave-script','ave-materials','ave-templates',
-                   'crawl-tasks','crawl-sources',
-                   'machines','fleet-sync','fleet-reconcile','fleet-exec',
-                   'serve-mcp','serve-dashboard','serve-schedule',
-                   'productions','assets','costs','capabilities','workflow','kb',
-                   'ops-command','dynamic',
-                   'timeline','alerts','summary','characters','char-gen'];
-  viewIds.forEach(v => {
-    document.getElementById('view-' + v)?.classList.toggle('hidden', v !== view);
-  });
-
-  // 插件视图（动态加载）
-  document.querySelectorAll('[id^="plugin-view-"]').forEach(el => el.classList.add('hidden'));
-  if (view.startsWith('plugin-') && !matrixSubViews.includes(view) && view !== 'matrix-summary') {
-    const pv = document.getElementById('plugin-view-' + view.replace('plugin-',''));
-    if (pv) pv.classList.remove('hidden');
-  }
-
-  // ── 已迁移视图（动态加载，先试路由再回退旧逻辑）──
-  if (_tryMigratedView(view)) return;
-
-  // 加载数据（回退：未迁移视图走旧 inline 函数）
-  // ── 所有视图已迁移，无 inline.js fallback ──
 }
 
 // ── 迁移视图辅助函数（全部33个已迁移视图）──
-function _tryMigratedView(view) {
-  // 完整白名单 = views/ 目录下所有含 loadView 的文件
-  // 白名单：只保留确认功能完整的视图
-  // 交互操作类视图（accounts/nurture/collect）回退到 inline 旧代码
-  var _migratedViews = [
-    // ── 只读仪表盘 ──
-    'matrix-summary','machines','productions','assets','costs',
-    // ── 功能完整的操作视图 ──
-    'comment-workbench','accounts-center','matrix-interact','matrix-comment','matrix-collect','matrix-like','matrix-accounts','matrix-nurture','matrix-sms-proxy','matrix-blueprints','matrix-corpus','ops-command',
-    // ── 录制标注 ──
-    'ops-recorder',
-    // ── 列表/管理视图 ──
-    'matrix-atom-ops','matrix-schedule',
-    // ── 联邦管理 ──
-    'fleet-sync','fleet-reconcile','fleet-exec',
-    // ── 服务状态 ──
-    'serve-mcp','serve-dashboard','serve-schedule',
-    // ── 视频工厂外壳 ──
-    'ave-render','ave-script','ave-materials','ave-templates','workflow','capabilities',
-    // ── 采集外壳 + 重定向 ──
-    'crawl-tasks','crawl-sources',
-    'matrix-publish','matrix-login',
-    // ── 已迁移旧代码视图（共13个已完成迁移）──
-    'matrix-record','matrix-c2','matrix-backup','matrix-export',
-    'matrix-run','matrix-commands','matrix-settings',
-    'characters','char-gen','alerts','timeline',
-    'summary','crawl-history',
-  ];
-  if (_migratedViews.indexOf(view) === -1) return false;
-
-  var container = document.getElementById('view-dynamic');
-  if (!container) return false;
-
-  // 隐藏所有旧视图（通杀所有 view- 和 plugin-view- 开头的元素）
-  document.querySelectorAll('[id^="view-"]').forEach(function(el) { el.classList.add('hidden'); });
-  document.querySelectorAll('[id^="plugin-view-"]').forEach(function(el) { el.classList.add('hidden'); });
-
-  // 显示动态容器并开始加载
-  container.classList.remove('hidden');
-  container.innerHTML = '<div class="loading">⏳ 加载中...</div>';
-
-  import(`../views/${view}.js`).then(function(m) {
-    if (m && typeof m.loadView === 'function') {
-      m.loadView(container);
-    } else {
-      container.innerHTML = '<div class="error">❌ 视图 ' + view + ' 没有 loadView 导出</div>';
-    }
-  }).catch(function(e) {
-    container.innerHTML = '<div class="error">❌ 加载失败: ' + e.message + '</div>';
-  });
-
-  return true;
-}
-
 // ── 暴露全局（供 onclick 使用）──
 window.toggleGroup = toggleGroup;
 window.collapseAllGroups = collapseAllGroups;
@@ -611,7 +486,6 @@ async function loadPlugins() {
         {view:'crawl-history', label:'📜 抓取历史'},
       ]},
       '联邦': { icon: '🖥️', items: [
-        {view:'machines', label:'机器状态'},
         {view:'fleet-sync', label:'一键同步'},
         {view:'fleet-reconcile', label:'对账检查'},
         {view:'fleet-exec', label:'远程Shell'},
@@ -657,7 +531,7 @@ async function loadPlugins() {
     _renderNav();
     loadNavFromAPI();
     // 构建完成后恢复当前视图的激活状态
-    switchView(currentView);
+    // switchView(currentView) removed — 单路由后不再覆盖用户操作
   } catch(e) {
     // 保底：即使 API 失败也加载生产列表
     loadProductions();

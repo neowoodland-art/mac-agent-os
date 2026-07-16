@@ -281,8 +281,8 @@ characters:
       style: ''
   测试:
     name: 测试
-    description: 测试角色
-    base: 测试角色
+    description: 测试用角色
+    base: 测试用角色
     personality: 默认
     voice_style: 默认
     art_style: 写实摄影风格

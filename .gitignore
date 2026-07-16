@@ -171,3 +171,7 @@ reports/
 # guardd 心跳数据 (已迁移到本机 local 目录, 不再提交 Gitee)
 04_memory/cross_machine/data/
 04_memory/cross_machine/status/live/
+# Dashboard 构建产物（自动生成，不提交）
+05_tools/10_dashboard/static/assets/
+05_tools/10_dashboard/frontend/node_modules/
+05_tools/10_dashboard/frontend/dist/

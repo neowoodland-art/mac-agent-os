@@ -29,6 +29,17 @@ def _get_engine():
     return _engine
 
 
+@router.post("/douyin-stats")
+async def api_douyin_stats(data: dict = {}):
+    """获取抖音视频详细统计数据（隔离于养号系统）"""
+    from services.douyin_stats import get_video_data
+    url = (data.get("url") or "").strip()
+    if not url:
+        return {"status": "error", "message": "url 必填"}
+    result = await get_video_data(url)
+    return {"status": "ok" if "error" not in result else "error", **result}
+
+
 @router.post("/run")
 async def api_scrape_run(data: dict = {}):
     """执行抓取任务"""
@@ -172,3 +183,157 @@ async def api_scrape_delete_source(source_id: int):
     engine = _get_engine()
     engine.db.delete_source(source_id)
     return {"status": "ok", "message": "抓取源已删除"}
+
+# ── 抖音追踪系统（隔离于养号） ──
+
+import json as _js, os as _os, time as _time
+from pathlib import Path as _Path
+
+_TRACKER_DB = _Path(_os.environ.get("AGENT_LOCAL",
+    str(_Path.home() / "workbuddy-agent-os" / "agent-local"))) / "data" / "douyin_tracker.json"
+
+
+def _load_tracker() -> list:
+    if _TRACKER_DB.exists():
+        try:
+            return _js.loads(_TRACKER_DB.read_text())
+        except:
+            pass
+    return []
+
+
+def _save_tracker(items: list):
+    _TRACKER_DB.parent.mkdir(parents=True, exist_ok=True)
+    _TRACKER_DB.write_text(_js.dumps(items, ensure_ascii=False, indent=2))
+
+
+def _clean_douyin_title(raw: str) -> str:
+    """清洗抖音标题：去掉『2.07 复制打开抖音，看看【xxx的作品】』前缀"""
+    t = raw.strip()
+    # 去掉开头的数字+空格（如 "2.07 "）
+    import re as _re
+    t = _re.sub(r'^[\d.]+[\s]*', '', t)
+    # 去掉 "复制打开抖音" 及其变体
+    t = _re.sub(r'^复制打开抖音[，,。.]*\s*', '', t)
+    t = _re.sub(r'^打开抖音[，,。.]*\s*', '', t)
+    t = _re.sub(r'^看看[，,。.]*\s*', '', t)
+    # 去掉【xxx的作品】前缀
+    t = _re.sub(r'^【[^】]+的作品】', '', t)
+    # 再次去掉可能残留的 "复制打开抖音"
+    t = _re.sub(r'复制打开抖音', '', t)
+    return t.strip() or raw[:60]
+
+
+@router.post("/import-topics")
+async def api_import_topics(data: dict = {}):
+    """从 tyhtak API 导入视频列表（轻量化，不调用 ops）"""
+    import urllib.request as _urq
+    api_url = (data.get("api_url") or "").strip()
+    if not api_url:
+        return {"status": "error", "message": "api_url 必填"}
+    page = int(data.get("page", 1))
+    page_size = int(data.get("page_size", 100))
+    try:
+        full_url = f"{api_url}?page={page}&pageSize={page_size}"
+        resp = _urq.urlopen(full_url, timeout=15)
+        body = _js.loads(resp.read().decode())
+    except Exception as e:
+        return {"status": "error", "message": f"请求失败: {e}"}
+    raw_items = body.get("data", {}).get("items", [])
+    items = []
+    for item in raw_items:
+        url = (item.get("share_url") or "").strip()
+        if not url:
+            continue
+        vid = str(item.get("id", ""))
+        items.append({
+            "id": vid,
+            "url": url,
+            "title": _clean_douyin_title(item.get("share_text", "")),
+            "author": item.get("nickname", "") or item.get("name", ""),
+            "created_at": item.get("created_at", ""),
+        })
+    return {"status": "ok", "items": items, "total": len(items)}
+
+
+@router.post("/track-video")
+async def api_track_video(data: dict = {}):
+    """采集单条视频并加入跟踪"""
+    from services.douyin_stats import get_video_data
+    url = (data.get("url") or "").strip()
+    if not url:
+        return {"status": "error", "message": "url 必填"}
+    stats = await get_video_data(url)
+    if "error" in stats:
+        return {"status": "error", "message": stats["error"]}
+    # 生成唯一 ID
+    item_id = f"dy_{stats.get('aweme_id','')}"
+    record = {
+        "id": item_id,
+        "url": url,
+        "title": stats.get("title", ""),
+        "author": stats.get("author", ""),
+        "stats": {
+            "likes": stats.get("likes", 0),
+            "comments": stats.get("comments", 0),
+            "collects": stats.get("collects", 0),
+            "shares": stats.get("shares", 0),
+        },
+        "comment_texts": stats.get("comment_texts", []),
+        "collected_at": _time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    # 保存
+    items = _load_tracker()
+    # 去重（同 ID 替换）
+    for i, it in enumerate(items):
+        if it["id"] == item_id:
+            items.pop(i)
+            break
+    items.insert(0, record)
+    _save_tracker(items)
+    return {"status": "ok", "item": record}
+
+
+@router.get("/tracked-videos")
+async def api_tracked_videos():
+    """获取已跟踪的视频列表"""
+    return {"status": "ok", "items": _load_tracker()}
+
+
+@router.post("/delete-tracked/{item_id}")
+async def api_delete_tracked(item_id: str):
+    """删除单条跟踪视频"""
+    items = _load_tracker()
+    before = len(items)
+    items = [it for it in items if it["id"] != item_id]
+    if len(items) < before:
+        _save_tracker(items)
+        return {"status": "ok"}
+    return {"status": "error", "message": "未找到"}
+
+
+@router.post("/refresh-video/{item_id}")
+async def api_refresh_video(item_id: str):
+    """刷新单条跟踪视频的数据"""
+    from services.douyin_stats import get_video_data
+    items = _load_tracker()
+    found = None
+    for it in items:
+        if it["id"] == item_id:
+            found = it
+            break
+    if not found:
+        return {"status": "error", "message": "未找到该视频"}
+    stats = await get_video_data(found["url"])
+    if "error" in stats:
+        return {"status": "error", "message": stats["error"]}
+    found["stats"] = {
+        "likes": stats.get("likes", 0),
+        "comments": stats.get("comments", 0),
+        "collects": stats.get("collects", 0),
+        "shares": stats.get("shares", 0),
+    }
+    found["comment_texts"] = stats.get("comment_texts", [])
+    found["collected_at"] = _time.strftime("%Y-%m-%d %H:%M:%S")
+    _save_tracker(items)
+    return {"status": "ok", "item": found}

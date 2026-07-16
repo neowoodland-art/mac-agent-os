@@ -12,6 +12,7 @@ import { registerMigrated } from './router.js';
 const MIGRATED_VIEWS = [
   // ── 矩阵养号 ──
   'comment-workbench',
+  'accounts-center',
   'matrix-summary',
   'matrix-accounts',
   'matrix-nurture',
@@ -47,7 +48,12 @@ const MIGRATED_VIEWS = [
   'fleet-sync',
   'fleet-reconcile',
   'fleet-exec',
-  'machines',
+
+  // ── 视频工厂 — AVE 子视图 ──
+  'ave-render',
+  'ave-script',
+  'ave-materials',
+  'ave-templates',
 
   // ── 服务 ──
   'serve-mcp',

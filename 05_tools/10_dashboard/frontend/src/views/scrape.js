@@ -50,6 +50,8 @@ function renderLayout() {
     <div style="display:flex;gap:0;margin-bottom:10px;border-bottom:1px solid var(--border)">
       <div class="collect-tab active" data-tab="run" style="padding:6px 14px;cursor:pointer;border-bottom:2px solid #6366f1;font-weight:600;font-size:12px">📡 新建抓取</div>
       <div class="collect-tab" data-tab="sources" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">📋 抓取源</div>
+      <div class="collect-tab" data-tab="dy-track" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">🎵 抖追踪</div>
+      <div class="collect-tab" data-tab="dy-tracking" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">📡 跟踪中</div>
       <div class="collect-tab" data-tab="history" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">📜 历史</div>
       <div style="flex:1"></div>
       <div id="collectStats" style="padding:6px 14px;font-size:10px;color:var(--text2);font-family:monospace"></div>
@@ -123,10 +125,40 @@ function renderLayout() {
       </div>
     </div>
 
+    <!-- Tab: 跟踪中 -->
+    <div id="collectTabDy-tracking" class="collect-tab-content" style="display:none">
+      <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div id="dtTrackingList" style="font-size:11px"></div>
+      </div>
+    </div>
+
     <!-- Tab: 历史 -->
     <div id="collectTabHistory" class="collect-tab-content" style="display:none">
       <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
         <div id="chList" style="font-size:11px"></div>
+      </div>
+    </div>
+
+    <!-- Tab: 抖追踪 -->
+    <div id="collectTabDy-track" class="collect-tab-content" style="display:none">
+      <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <!-- 导入区 -->
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+          <input id="dtApiUrl" type="text" placeholder="https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1" 
+                 style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px"
+                 value="https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1">
+          <button id="dtImportBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📥 导入</button>
+          <button id="dtNextPageBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📄 下一页</button>
+          <button id="dtBatchCollectBtn" style="display:none;background:#f97316;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">⚡ 全部采集</button>
+          <button id="dtCollectSelectedBtn" style="display:none;background:#22c55e;color:#000;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">✅ 采集选中</button>
+          <button id="dtTrackSelectedBtn" style="display:none;background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📌 跟踪选中</button>
+          <span id="dtPageInfo" style="display:none;font-size:10px;color:var(--text2);font-family:monospace"></span>
+          <span id="dtStatus" style="font-size:10px;color:var(--text2);font-family:monospace"></span>
+        </div>
+        <!-- 结果区：视频卡片列表 -->
+        <div id="dtVideoList" style="font-size:11px;"></div>
+        <!-- 日志 -->
+        <div id="dtLog" style="display:none;background:var(--bg3);border-radius:6px;padding:6px;margin-top:6px;border:1px solid var(--border);max-height:150px;overflow-y:auto;font-family:monospace;font-size:10px;white-space:pre-wrap"></div>
       </div>
     </div>
   </div>`;
@@ -169,11 +201,24 @@ function bindEvents(container) {
 
   // 加载远程机器列表
   loadMachines();
+
+  // 抖追踪事件
+  const dtImportBtn = document.getElementById('dtImportBtn');
+  if (dtImportBtn) dtImportBtn.addEventListener('click', () => doImportDyTopics(true));
+  const dtNextPageBtn = document.getElementById('dtNextPageBtn');
+  if (dtNextPageBtn) dtNextPageBtn.addEventListener('click', () => doImportDyTopics(false));
+  const dtBatchBtn = document.getElementById('dtBatchCollectBtn');
+  if (dtBatchBtn) dtBatchBtn.addEventListener('click', doBatchCollect);
+  const dtCollectSelBtn = document.getElementById('dtCollectSelectedBtn');
+  if (dtCollectSelBtn) dtCollectSelBtn.addEventListener('click', doCollectSelected);
+  const dtTrackSelBtn = document.getElementById('dtTrackSelectedBtn');
+  if (dtTrackSelBtn) dtTrackSelBtn.addEventListener('click', doTrackSelected);
+
 }
 
 // ── Tab 切换 ──
 
-function switchTab(tab) {
+async function switchTab(tab) {
   _currentTab = tab;
   document.querySelectorAll('.collect-tab').forEach(el => {
     el.style.borderBottom = el.dataset.tab === tab ? '2px solid #6366f1' : '2px solid transparent';
@@ -186,7 +231,12 @@ function switchTab(tab) {
   const contentEl = document.getElementById('collectTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
   if (contentEl) contentEl.style.display = 'block';
   if (tab === 'sources') loadSources();
-  if (tab === 'history') loadHistory();
+  if (tab === 'history') {
+    await loadHistory();
+    loadDyHistory();
+  }
+  if (tab === 'dy-track') loadDyTrack();
+  if (tab === 'dy-tracking') loadDyTracking();
 }
 
 // ── 日志 ──
@@ -563,3 +613,720 @@ async function loadHistory() {
     el.textContent = '❌ ' + e.message;
   }
 }
+
+
+// ═══════════════════════════════════════════════════════════
+// 🎵 抖音追踪功能（与养号隔离，独立于 Camoufox）
+// ═══════════════════════════════════════════════════════════
+
+let _dyVideos = [];
+let _dyTracked = new Set();
+let _dyPage = 1;
+let _dyTotal = 0;
+let _dyApiUrl = '';
+
+async function loadDyTrack() {
+  const listEl = document.getElementById('dtVideoList');
+  if (!listEl) return;
+  const statusEl = document.getElementById('dtStatus');
+  if (statusEl) statusEl.textContent = '';
+  // 恢复缓存中的视频列表
+  if (_dyVideos.length) {
+    renderDyVideos(listEl);
+  } else {
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:12px">⬆️ 在上方输入 API 地址后点击「导入列表」</div>';
+  }
+}
+
+function dtLog(msg) {
+  const el = document.getElementById('dtLog');
+  if (!el) return;
+  el.style.display = 'block';
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+async function doImportDyTopics(reset = true) {
+  const apiUrl = document.getElementById('dtApiUrl')?.value.trim();
+  if (!apiUrl) { alert('请输入 API URL'); return; }
+  const statusEl = document.getElementById('dtStatus');
+  const pageInfoEl = document.getElementById('dtPageInfo');
+  const nextBtnEl = document.getElementById('dtNextPageBtn');
+  if (statusEl) statusEl.textContent = '⏳ 导入中...';
+  
+  const page = reset ? 1 : (_dyPage + 1);
+  
+  try {
+    const r = await fetch('/api/scrape/import-topics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_url: apiUrl, page, page_size: 100 }),
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') {
+      dtLog('❌ 导入失败: ' + (d.message || ''));
+      if (statusEl) statusEl.textContent = '❌ 失败';
+      return;
+    }
+    const items = d.items || [];
+    if (reset) {
+      _dyVideos = items;
+      _dyPage = 1;
+      _dyApiUrl = apiUrl;
+      _dyTotal = d.total || items.length;
+    } else {
+      _dyVideos = _dyVideos.concat(items);
+      _dyPage = page;
+      _dyTotal = d.total || (_dyVideos.length + items.length);
+    }
+    
+    if (statusEl) statusEl.textContent = `✅ ${reset ? '已导入' : '已追加'} ${_dyVideos.length} 条视频`;
+    if (pageInfoEl) {
+      pageInfoEl.style.display = 'inline';
+      pageInfoEl.textContent = `📄 第 ${_dyPage} 页 / 共 ${_dyTotal} 条`;
+    }
+    if (nextBtnEl) {
+      nextBtnEl.style.display = items.length >= 5 ? 'inline-block' : 'none';
+    }
+    dtLog(`✅ ${reset ? '导入' : '追加'} ${items.length} 条视频（第${_dyPage}页）`);
+    const listEl = document.getElementById('dtVideoList');
+    if (listEl) renderDyVideos(listEl);
+  } catch (e) {
+    dtLog('❌ 导入异常: ' + e.message);
+    if (statusEl) statusEl.textContent = '❌ 异常';
+  }
+}
+
+function renderDyVideos(container) {
+  if (!_dyVideos.length) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:12px">无视频数据</div>';
+    return;
+  }
+    let html = '<div style="display:flex;align-items:center;gap:4px;padding:2px 8px;margin-bottom:2px;font-size:9px;color:var(--text2)">'
+    + '<input type="checkbox" id="dtSelAll" style="flex-shrink:0" onchange="var x=document.querySelectorAll(\'.dt-sel-cb\');for(var j=0;j<x.length;j++){x[j].checked=this.checked}updateSelButtons()">'
+    + '<span>全选</span>'
+    + '<span style="margin-left:auto">共 ' + _dyVideos.length + ' 条</span>'
+    + '</div>';
+  html += '<div style="display:flex;flex-direction:column;gap:6px">';
+  _dyVideos.forEach((v, i) => {
+    const tracked = _dyTracked.has(v.id);
+    html += `<div style="background:var(--bg3);border-radius:6px;padding:6px 8px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:3px;flex-wrap:nowrap">
+        <input type="checkbox" class="dt-sel-cb" data-idx="${i}" style="flex-shrink:0">
+        <button class="dt-collect-btn" data-idx="${i}" style="background:#22c55e;color:#000;border:none;padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px;font-weight:600;flex-shrink:0">🔍</button>
+        <label style="display:flex;align-items:center;gap:1px;font-size:9px;color:var(--text2);cursor:pointer;flex-shrink:0;white-space:nowrap">
+          <input type="checkbox" class="dt-track-cb" data-id="${v.id}" ${tracked ? 'checked' : ''}>跟
+        </label>
+        <span style="font-size:10px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.title || ''}">${v.title || '无标题'}</span>
+        <span style="font-size:8px;color:var(--text2);flex-shrink:0">${String(v.author || '?')?.slice(0,10) || '?'}</span>
+        <a href="${v.url || '#'}" target="_blank" style="font-size:8px;color:var(--primary);flex-shrink:0">🔗</a>
+      </div>
+      <!-- 采集结果 -->
+      <div id="dtResult_${i}" style="display:none;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">
+        <div id="dtStats_${i}" style="font-size:10px;color:var(--text2)">⏳ 采集数据中...</div>
+        <div id="dtComments_${i}" style="display:none;margin-top:4px;padding:4px;background:var(--bg2);border-radius:4px;font-size:10px;max-height:200px;overflow-y:auto"></div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+
+  // 绑定采集按钮
+  container.querySelectorAll('.dt-collect-btn').forEach(btn => {
+    btn.addEventListener('click', () => doCollectVideo(parseInt(btn.dataset.idx)));
+  });
+  // 绑定跟踪复选框
+  container.querySelectorAll('.dt-track-cb').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      e.preventDefault();
+      const id = cb.dataset.id;
+      if (cb.checked) {
+        _dyTracked.add(id);
+        // 如果已采集过，立即跟踪
+        const idx = _dyVideos.findIndex(v => v.id === id);
+        if (idx >= 0 && document.getElementById('dtStats_' + idx)?.dataset?.collected) {
+          trackVideo(idx);
+        }
+      } else {
+        _dyTracked.delete(id);
+      }
+    });
+  });
+  updateBatchBtn();
+  document.querySelectorAll('.dt-sel-cb').forEach(cb => cb.addEventListener('change', updateSelButtons));
+}
+
+async function doCollectVideo(idx) {
+  const v = _dyVideos[idx];
+  if (!v) return;
+  const statsEl = document.getElementById('dtStats_' + idx);
+  const commentEl = document.getElementById('dtComments_' + idx);
+  const resultEl = document.getElementById('dtResult_' + idx);
+  if (!statsEl || !resultEl) return;
+  
+  resultEl.style.display = 'block';
+  statsEl.textContent = '⏳ 采集数据中...';
+  statsEl.dataset.collected = '';
+  
+  try {
+    const r = await fetch('/api/scrape/douyin-stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: v.url }),
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') {
+      statsEl.textContent = '❌ ' + (d.message || '采集失败');
+      return;
+    }
+    statsEl.textContent = `👍 ${d.likes || '?'} | 💬 ${d.comments || '?'} | ⭐ ${d.collects || '?'} | 更新时间: ${d.collected_at || '?'}`;
+    statsEl.dataset.collected = 'true';
+    statsEl.dataset.likes = d.likes || 0;
+    statsEl.dataset.comments = d.comments || 0;
+    statsEl.dataset.collects = d.collects || 0;
+    
+    // 如果有关联复选框且已勾选，自动跟踪
+    const cb = document.querySelector('.dt-track-cb[data-id="' + v.id + '"]');
+    if (cb?.checked) {
+      trackVideo(idx, d);
+    }
+
+    // 显示评论
+    if (d.comment_texts && d.comment_texts.length) {
+      showDyComments(idx, commentEl, d.comment_texts);
+    }
+  } catch (e) {
+    statsEl.textContent = '❌ 异常: ' + e.message;
+  }
+}
+
+async function trackVideo(idx, data) {
+  const v = _dyVideos[idx];
+  if (!v) return;
+  dtLog('📌 跟踪视频: ' + (v.title || '').slice(0, 40));
+  // 如果已有采集结果，带上
+  const statsEl = document.getElementById('dtStats_' + idx);
+  if (data || statsEl?.dataset?.collected) {
+    const likes = data?.likes || statsEl?.dataset?.likes || 0;
+    const comments = data?.comments || statsEl?.dataset?.comments || 0;
+    const collects = data?.collects || statsEl?.dataset?.collects || 0;
+    
+    try {
+      await fetch('/api/scrape/track-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: v.url,
+          title: v.title,
+          author: v.author,
+          tracked_at: new Date().toLocaleString('zh-CN'),
+        }),
+      });
+      dtLog('✅ 已跟踪');
+    } catch (e) {
+      dtLog('❌ 跟踪失败: ' + e.message);
+    }
+  } else {
+    dtLog('⚠️ 请先采集再跟踪');
+  }
+}
+
+async function loadDyHistory() {
+  // 在历史 Tab 中加载跟踪列表
+  const chList = document.getElementById('chList');
+  if (!chList) return;
+  
+  // 先清除旧的跟踪列表
+  let dySection = document.getElementById('dyTrackedSection');
+  if (!dySection) {
+    dySection = document.createElement('div');
+    dySection.id = 'dyTrackedSection';
+    chList.appendChild(dySection);
+  }
+  
+  try {
+    const r = await fetch('/api/scrape/tracked-videos');
+    const d = await r.json();
+    if (d.status !== 'ok') return;
+    
+    const items = d.items || [];
+    if (!items.length) { dySection.innerHTML = ''; return; }
+    
+    let html = '<div style="margin-top:8px"><strong style="font-size:11px">🎵 抖音跟踪列表</strong></div>';
+    html += '<div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">';
+    items.forEach(item => {
+      html += '<div style="background:var(--bg3);border-radius:4px;padding:6px;border:1px solid var(--border)">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:2px">'
+        + '<span style="font-size:10px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (item.title || item.url?.slice(0, 40) || '?') + '</span>'
+        + '<span style="font-size:9px;color:var(--text2)">' + (item.stats?.likes || '?') + '👍</span>'
+        + '<span style="font-size:9px;color:var(--text2)">' + (item.stats?.comments || '?') + '💬</span>'
+        + '<span style="font-size:9px;color:var(--text2)">' + (item.collected_at || '').slice(0, 16) + '</span>'
+        + '<div style="display:flex;gap:2px">'
+        + '<button class="dt-refresh-btn" data-id="' + item.id + '" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:1px 5px;border-radius:3px;cursor:pointer;font-size:9px">🔄</button>'
+        + '<button class="dt-del-btn" data-id="' + item.id + '" style="background:#ef4444;color:#fff;border:none;padding:1px 5px;border-radius:3px;cursor:pointer;font-size:9px">✕</button>'
+        + '</div>'
+        + '</div>'
+        + '<div class="dt-history-comments" id="dtHc_' + item.id + '" style="display:none;margin-top:4px;padding:4px;background:var(--bg2);border-radius:4px;font-size:9px;max-height:150px;overflow-y:auto"></div>'
+        + '</div>';
+    });
+    html += '</div>';
+    chList.innerHTML += html;
+    
+    // 绑定刷新按钮
+    document.querySelectorAll('.dt-refresh-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        btn.textContent = '⏳';
+        try {
+          const r = await fetch('/api/scrape/refresh-video/' + id, { method: 'POST' });
+          const d = await r.json();
+          if (d.status === 'ok') {
+            btn.textContent = '✅';
+            setTimeout(() => btn.textContent = '🔄', 2000);
+            // 刷新父元素显示
+            const parent = btn.closest('[style*="background"]');
+            if (parent) {
+              const spans = parent.querySelectorAll('span');
+              if (spans.length >= 3) {
+                spans[1].textContent = d.item.stats.likes + '👍';
+                spans[2].textContent = d.item.stats.comments + '💬';
+                if (spans[3]) spans[3].textContent = (d.item.collected_at || '').slice(0, 16);
+              }
+            }
+            // 显示评论
+            const hc = document.getElementById('dtHc_' + id);
+            if (hc && d.item.comment_texts?.length) {
+              hc.style.display = 'block';
+              hc.innerHTML = d.item.comment_texts.map(c => {
+                const t = typeof c === 'string' ? c : (c.text || c.content || '');
+                return '<div style="padding:2px 0">💬 ' + t + '</div>';
+              }).join('');
+            }
+          } else {
+            btn.textContent = '❌';
+          }
+        } catch(e) {
+          btn.textContent = '❌';
+        }
+      });
+    });
+    // 绑定删除按钮
+    document.querySelectorAll('.dt-del-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('确认删除这条跟踪记录？')) return;
+        const id = btn.dataset.id;
+        btn.textContent = '⏳';
+        try {
+          const r = await fetch('/api/scrape/delete-tracked/' + id, { method: 'POST' });
+          const d = await r.json();
+          if (d.status === 'ok') {
+            btn.closest('[style*="background"]')?.remove();
+          } else {
+            btn.textContent = '✕';
+          }
+        } catch(e) {
+          btn.textContent = '✕';
+        }
+      });
+    });
+  } catch (e) {
+    // 静默失败，不影响原历史
+    console.warn('抖追踪历史加载失败:', e.message);
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// 🎵 抖追踪增强功能
+// ═══════════════════════════════════════════════════════════
+
+function updateBatchBtn() {
+  const btn = document.getElementById('dtBatchCollectBtn');
+  if (btn) btn.style.display = _dyVideos.length > 0 ? 'inline-block' : 'none';
+}
+
+async function doBatchCollect() {
+  const btn = document.getElementById('dtBatchCollectBtn');
+  if (btn) { btn.textContent = '⏳ 采集中...'; btn.disabled = true; }
+  
+  for (let i = 0; i < _dyVideos.length; i++) {
+    const statsEl = document.getElementById('dtStats_' + i);
+    // 跳过已采集的
+    if (statsEl?.dataset?.collected) continue;
+    await doCollectVideo(i);
+    // 小延迟避免请求过快
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  
+  if (btn) { btn.textContent = '⚡ 全部采集'; btn.disabled = false; }
+  dtLog('✅ 全部采集完成');
+}
+
+function showCommentModal(title, comments) {
+  // 移除旧弹窗
+  const old = document.getElementById('dtCommentModal');
+  if (old) old.remove();
+  
+  const overlay = document.createElement('div');
+  overlay.id = 'dtCommentModal';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center';
+  
+  let commentHtml = '';
+  if (comments && comments.length) {
+    comments.forEach(c => {
+      const text = typeof c === 'string' ? c : (c.text || c.content || '');
+      const author = typeof c === 'string' ? '' : (c.nickname || c.author || '');
+      const likes = typeof c === 'string' ? '' : (c.likes || c.digg_count || '');
+      commentHtml += '<div style="padding:6px 0;border-bottom:1px solid var(--border)">'
+        + (author ? '<span style="font-size:9px;color:var(--text2)">👤 ' + author + '</span>' : '')
+        + (likes ? '<span style="font-size:9px;color:var(--text2);float:right">👍 ' + likes + '</span>' : '')
+        + '<div style="font-size:11px;margin-top:2px;word-break:break-word">' + text + '</div>'
+        + '</div>';
+    });
+  } else {
+    commentHtml = '<div style="text-align:center;padding:20px;color:var(--text2)">暂无评论数据</div>';
+  }
+  
+  overlay.innerHTML = '<div style="background:var(--bg2);border-radius:12px;padding:16px;max-width:500px;width:90%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,0.3)">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    + '<span style="font-size:13px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">💬 ' + (title || '评论') + '</span>'
+    + '<span style="font-size:10px;color:var(--text2)">共 ' + (comments?.length || 0) + ' 条</span>'
+    + '<button id="dtCommentClose" style="background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:14px;padding:2px 6px">✕</button>'
+    + '</div>'
+    + '<div style="overflow-y:auto;flex:1;font-size:11px">' + commentHtml + '</div>'
+    + '</div>';
+  
+  document.body.appendChild(overlay);
+  document.getElementById('dtCommentClose').onclick = () => overlay.remove();
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+}
+
+// 重写 showDyComments — 改为弹窗
+function showDyComments(idx, container, comments) {
+  if (!container) return;
+  const v = _dyVideos[idx];
+  const title = v?.title || '';
+  
+  container.innerHTML = '<span style="color:var(--primary);cursor:pointer;font-size:9px">💬 查看 ' + (comments?.length || 0) + ' 条评论 →</span>';
+  container.style.display = 'block';
+  container.onclick = () => showCommentModal(title, comments);
+}
+
+// 重写 renderDyVideos — 增加状态显示和全部采集按钮
+function updateRenderDyVideos() {
+  const listEl = document.getElementById('dtVideoList');
+  if (listEl) renderDyVideos(listEl);
+  updateBatchBtn();
+  document.querySelectorAll('.dt-sel-cb').forEach(cb => cb.addEventListener('change', updateSelButtons));
+}
+
+// 将 renderDyVideos 末尾加上 updateBatchBtn
+// 修改 renderDyVideos 的最后一行
+
+
+
+
+
+// ═══════════════════════════════════════════════════════════
+// 🎵 增强功能：采集选中 / 跟踪选中 / 跟踪专项页
+// ═══════════════════════════════════════════════════════════
+
+function getSelectedIndices() {
+  const cbs = document.querySelectorAll('.dt-sel-cb:checked');
+  return Array.from(cbs).map(cb => parseInt(cb.dataset.idx)).filter(i => !isNaN(i));
+}
+
+function updateSelButtons() {
+  const hasSel = getSelectedIndices().length > 0;
+  const sel1 = document.getElementById('dtCollectSelectedBtn');
+  const sel2 = document.getElementById('dtTrackSelectedBtn');
+  if (sel1) sel1.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
+  if (sel2) sel2.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
+  
+  // 全选勾选框同步
+  const allCb = document.getElementById('dtSelAll');
+  const total = document.querySelectorAll('.dt-sel-cb').length;
+  const checked = document.querySelectorAll('.dt-sel-cb:checked').length;
+  if (allCb) {
+    allCb.checked = total > 0 && checked === total;
+    allCb.indeterminate = checked > 0 && checked < total;
+  }
+}
+
+async function doCollectSelected() {
+  const indices = getSelectedIndices();
+  if (!indices.length) { alert('请先勾选视频'); return; }
+  for (const i of indices) {
+    await doCollectVideo(i);
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  dtLog('✅ 选中采集完成: ' + indices.length + ' 条');
+}
+
+async function doTrackSelected() {
+  const indices = getSelectedIndices();
+  if (!indices.length) { alert('请先勾选视频'); return; }
+  let count = 0;
+  for (const i of indices) {
+    const v = _dyVideos[i];
+    if (!v) continue;
+    _dyTracked.add(v.id);
+    const cb = document.querySelector('.dt-track-cb[data-id="' + v.id + '"]');
+    if (cb) cb.checked = true;
+    const statsEl = document.getElementById('dtStats_' + i);
+    if (statsEl?.dataset?.collected) {
+      await trackVideo(i);
+      count++;
+    }
+  }
+  dtLog('✅ 已跟踪 ' + count + ' 条视频');
+}
+
+async function loadDyTracking() {
+  const listEl = document.getElementById('dtTrackingList');
+  if (!listEl) return;
+  
+  // 清除旧的刷新状态
+  if (window._dtRefreshing) return;
+  
+  try {
+    const r = await fetch('/api/scrape/tracked-videos');
+    const d = await r.json();
+    if (d.status !== 'ok') { listEl.innerHTML = '❌ 加载失败'; return; }
+    
+    const items = d.items || [];
+    if (!items.length) {
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:12px">暂无跟踪数据</div>';
+      return;
+    }
+    
+    let html = '<div style="display:flex;flex-direction:column;gap:4px">';
+    
+    // 头部：统计 + 一键刷新
+    html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;margin-bottom:2px;font-size:10px;color:var(--text2)">'
+      + '<span>共 ' + items.length + ' 条</span>'
+      + '<button id="dtRefreshAllBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新全部</button>'
+      + '<button id="dtCopySelectedBtn" style="display:none;background:#6366f1;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制已选</button>'
+      + '<button id="dtCopyAllBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制全部</button>'
+      + '<span id="dtRefreshStatus" style="font-size:9px;font-family:monospace"></span>'
+      + '</div>';
+    
+    items.forEach((item, idx) => {
+      const stats = item.stats || {};
+      const itemId = item.id || idx;
+      const vUrl = item.url || '';
+      html += '<div id="dtTrack_' + itemId + '" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">'
+        + '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
+        + '<input type="checkbox" class="dt-trk-sel" data-idx="' + idx + '" style="flex-shrink:0;cursor:pointer">'
+        + '<a href="' + vUrl + '" target="_blank" style="font-size:10px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--primary);text-decoration:none" title="' + (item.title || '') + '">' + (item.title || '?') + '</a>'
+        + '<button class="dt-copy-link-btn" data-url="' + vUrl + '" data-title="' + (item.title || '').replace(/"/g,'&quot;') + '" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:0 5px;border-radius:3px;cursor:pointer;font-size:8px">📋</button>'
+        + '<span style="font-size:9px;color:var(--text2)">' + (stats.likes || 0) + '👍</span>'
+        + '<span style="font-size:9px;color:var(--text2)">' + (stats.comments || 0) + '💬</span>'
+        + '<span style="font-size:9px;color:var(--text2)">' + (stats.collects || 0) + '⭐</span>'
+        + '<span style="font-size:8px;color:var(--text2)">' + (item.collected_at || '').slice(0, 10) + '</span>'
+        + '<button class="dt-refresh-btn" data-id="' + item.id + '" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px">🔄</button>'
+        + '<button class="dt-del-btn" data-id="' + item.id + '" style="background:#ef4444;color:#fff;border:none;padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px">✕</button>'
+        + '</div>';
+      
+      // 评论区（默认展开前5条，点「展开全部」看全部）
+      if (item.comment_texts?.length) {
+        const allText = item.comment_texts.map(c => {
+          const t = typeof c === 'string' ? c : (c.text || '');
+          const n = typeof c === 'string' ? '' : (c.nickname || '');
+          return (n ? '👤' + n + ': ' : '💬') + t;
+        });
+        const preview = allText.slice(0, 5).join('<br>');
+        html += '<div class="dt-cmt-area" id="dtCmt_' + item.id + '" style="margin-top:4px;padding:4px;background:var(--bg2);border-radius:4px;font-size:9px;max-height:400px;overflow-y:auto">'
+          + '<div class="dt-cmt-collapsed">' + preview + '</div>'
+          + '<div class="dt-cmt-full" style="display:none">' + allText.join('<br>') + '</div>'
+          + '</div>';
+        if (allText.length > 5) {
+          html += '<div style="font-size:8px;margin-top:1px"><span class="dt-cmt-toggle" data-id="' + item.id + '" style="color:var(--primary);cursor:pointer">💬 展开全部 ' + allText.length + ' 条</span></div>';
+        }
+      }
+      
+      html += '</div>';
+    });
+    html += '</div>';
+    listEl.innerHTML = html;
+    
+    // 绑定刷新按钮
+    listEl.querySelectorAll('.dt-refresh-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.textContent = '⏳';
+        const r = await fetch('/api/scrape/refresh-video/' + btn.dataset.id, { method: 'POST' });
+        const d = await r.json();
+        if (d.status === 'ok') {
+          btn.textContent = '✅';
+          setTimeout(() => btn.textContent = '🔄', 1500);
+          loadDyTracking();
+        } else {
+          btn.textContent = '❌';
+        }
+      });
+    });
+    
+    // 绑定复制单条链接按钮
+    listEl.querySelectorAll('.dt-copy-link-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const url = btn.dataset.url;
+        const title = btn.dataset.title;
+        const text = title + '\n' + url;
+        navigator.clipboard.writeText(text).then(() => {
+          const orig = btn.textContent;
+          btn.textContent = '✅';
+          setTimeout(() => btn.textContent = orig, 1500);
+        });
+      });
+    });
+    
+    // 绑定复制全部按钮
+    const copyAllBtn = document.getElementById('dtCopyAllBtn');
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', () => {
+        const lines = items.map(it => {
+          const title = (it.title || '无标题').replace(/\n/g, ' ');
+          return title + '\n' + (it.url || '');
+        }).join('\n\n');
+        navigator.clipboard.writeText(lines).then(() => {
+          const orig = copyAllBtn.textContent;
+          copyAllBtn.textContent = '✅ 已复制';
+          setTimeout(() => copyAllBtn.textContent = orig, 2000);
+        });
+      });
+    }
+    
+    // 勾选框事件：显示/隐藏「复制已选」按钮
+    function updateTrkSelBtn() {
+      const selBtn = document.getElementById('dtCopySelectedBtn');
+      const checked = document.querySelectorAll('.dt-trk-sel:checked').length;
+      if (selBtn) selBtn.style.display = checked > 0 ? 'inline-block' : 'none';
+    }
+    listEl.querySelectorAll('.dt-trk-sel').forEach(cb => {
+      cb.addEventListener('change', updateTrkSelBtn);
+    });
+    
+    // 绑定复制已选按钮
+    const copySelBtn = document.getElementById('dtCopySelectedBtn');
+    if (copySelBtn) {
+      copySelBtn.addEventListener('click', () => {
+        const data = [];
+        listEl.querySelectorAll('.dt-trk-sel:checked').forEach(cb => {
+          const idx = parseInt(cb.dataset.idx);
+          const item = items[idx];
+          if (item) {
+            data.push(((item.title || '无标题').replace(/\n/g, ' ')) + '\n' + (item.url || ''));
+          }
+        });
+        if (!data.length) return;
+        navigator.clipboard.writeText(data.join('\n\n')).then(() => {
+          copySelBtn.textContent = '✅ 已复制';
+          setTimeout(() => copySelBtn.textContent = '📋 复制已选', 2000);
+        });
+      });
+    }
+    
+    // 绑定删除按钮
+    listEl.querySelectorAll('.dt-del-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('确认删除？')) return;
+        btn.textContent = '⏳';
+        const r = await fetch('/api/scrape/delete-tracked/' + btn.dataset.id, { method: 'POST' });
+        if (r.ok) {
+          const el = document.getElementById('dtTrack_' + btn.dataset.id);
+          if (el) el.remove();
+        } else {
+          btn.textContent = '✕';
+        }
+      });
+    });
+    
+    // 绑定展开评论
+    listEl.querySelectorAll('.dt-cmt-toggle').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.dataset.id;
+        const area = document.getElementById('dtCmt_' + id);
+        if (!area) return;
+        const collapsed = area.querySelector('.dt-cmt-collapsed');
+        const full = area.querySelector('.dt-cmt-full');
+        if (collapsed && full) {
+          collapsed.style.display = 'none';
+          full.style.display = 'block';
+        }
+        el.textContent = '💬 收起';
+        el.onclick = () => {
+          collapsed.style.display = 'block';
+          full.style.display = 'none';
+          el.textContent = '💬 展开全部';
+        };
+      });
+    });
+    
+    // 绑定「刷新全部」按钮
+    const refreshAllBtn = document.getElementById('dtRefreshAllBtn');
+    if (refreshAllBtn) {
+      refreshAllBtn.onclick = doRefreshAllTracking;
+    }
+    
+  } catch (e) {
+    listEl.innerHTML = '❌ 加载失败: ' + e.message;
+  }
+}
+
+// ── 一键刷新全部（逐个刷新，间隔 3 秒） ──
+
+async function doRefreshAllTracking() {
+  if (window._dtRefreshing) return;
+  window._dtRefreshing = true;
+  
+  const statusEl = document.getElementById('dtRefreshStatus');
+  const btn = document.getElementById('dtRefreshAllBtn');
+  if (btn) btn.textContent = '⏳ 刷新中...';
+  
+  const items = document.querySelectorAll('.dt-refresh-btn');
+  let success = 0, fail = 0;
+  
+  for (const refreshBtn of items) {
+    if (!window._dtRefreshing) break; // 允许中断
+    
+    const id = refreshBtn.dataset.id;
+    refreshBtn.textContent = '⏳';
+    if (statusEl) statusEl.textContent = '正在刷新 ' + (success + fail + 1) + '/' + items.length;
+    
+    try {
+      const r = await fetch('/api/scrape/refresh-video/' + id, { method: 'POST' });
+      const d = await r.json();
+      if (d.status === 'ok') {
+        refreshBtn.textContent = '✅';
+        success++;
+      } else {
+        refreshBtn.textContent = '❌';
+        fail++;
+      }
+    } catch(e) {
+      refreshBtn.textContent = '❌';
+      fail++;
+    }
+    
+    // 等 3 秒再刷新下一条，防止 CDP 过载
+    await new Promise(r => setTimeout(r, 3000));
+  }
+  
+  if (statusEl) statusEl.textContent = '✅ 完成: ' + success + ' 成功, ' + fail + ' 失败';
+  if (btn) btn.textContent = '🔄 刷新全部';
+  window._dtRefreshing = false;
+  
+  // 刷新列表显示
+  loadDyTracking();
+}
+
+// Modify updateBtn to also show selection buttons
+function updateSelBtnDisplay() {
+  const cbs = document.querySelectorAll('.dt-sel-cb');
+  if (cbs.length > 0) {
+    updateSelButtons();
+  }
+}
+
+// Patch renderDyVideos to add selection listener
+// Override the dt-sel-cb change handler
