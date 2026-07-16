@@ -49,6 +49,8 @@ class AccountService:
         self._oracle_loaded = 0
         # 远程状态缓存 {machine_name: {"accounts": {...}, "cached_at": ts}}
         self._remote_cache = {}
+        # 远程 profile 缓存 {machine_name: {"profiles": {...}, "cached_at": ts}}
+        self._profile_cache = {}
         self._cache_ttl = 300  # 秒（5 分钟）
 
     # ═══════════════════════════════════════════════════════════
@@ -363,21 +365,27 @@ class AccountService:
         return data.get("accounts", {}) if isinstance(data, dict) else {}
 
     def _get_profile_for_account(self, account_id: str, machine: str) -> dict:
-        """通过 guardd HTTP API 获取账号 profile 数据（本机+远程统一路径，遵守联邦对等原则）"""
+        """通过 guardd HTTP API 获取账号 profile 数据（带机器级缓存）"""
         try:
-            data = _guardd_api("GET", "/accounts/profiles", machine=machine)
-            if isinstance(data, dict):
-                profiles = data.get("profiles", {})
-                p = profiles.get(account_id, {})
-                if p and p.get("nickname"):
-                    return {
-                        "nickname": p.get("nickname", ""),
-                        "fans": str(p.get("fans", "")),
-                        "avatar": p.get("avatar", ""),
-                        "following": str(p.get("following", "")),
-                        "likes": str(p.get("likes", "")),
-                        "posts": str(p.get("posts", "")),
-                    }
+            # 检查缓存
+            now = time.time()
+            cached = self._profile_cache.get(machine)
+            if not cached or now - cached.get("cached_at", 0) >= self._cache_ttl:
+                data = _guardd_api("GET", "/accounts/profiles", machine=machine)
+                profiles = data.get("profiles", {}) if isinstance(data, dict) else {}
+                self._profile_cache[machine] = {"profiles": profiles, "cached_at": now}
+            else:
+                profiles = cached.get("profiles", {})
+            p = profiles.get(account_id, {})
+            if p and p.get("nickname"):
+                return {
+                    "nickname": p.get("nickname", ""),
+                    "fans": str(p.get("fans", "")),
+                    "avatar": p.get("avatar", ""),
+                    "following": str(p.get("following", "")),
+                    "likes": str(p.get("likes", "")),
+                    "posts": str(p.get("posts", "")),
+                }
         except Exception:
             pass
         return {"nickname": "", "fans": "", "following": "", "likes": "", "posts": "", "avatar": ""}
