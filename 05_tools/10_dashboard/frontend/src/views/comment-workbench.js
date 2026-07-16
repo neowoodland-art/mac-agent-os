@@ -238,14 +238,53 @@ window._cwRolePct = (uid, roleId, val) => {
 window._cwParseUrls = async (uid) => {
   const raw = document.getElementById(`cwUrls_${uid}`)?.value?.trim();
   if (!raw) { alert('请先粘贴视频链接'); return; }
-  const urls = raw.split('\n').map(s => s.trim()).filter(Boolean);
-  if (!urls.length) { alert('没有有效的链接'); return; }
+  
+  // 智能解析：识别「标题 + 链接」配对格式
+  const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  const DOUYIN_URL_RE = /https?:\/\/(?:www\.)?(?:v\.)?douyin\.com\//;
+  const entries = [];  // [{url, title}]
+  let pendingTitle = '';
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (DOUYIN_URL_RE.test(line)) {
+      // 这一行是链接 → 配对上一行作为标题
+      entries.push({
+        url: line,
+        title: pendingTitle,
+      });
+      pendingTitle = '';
+    } else {
+      // 这一行不是链接 → 可能是标题
+      // 如果之前有未配对的标题，合并（换行用空格拼接）
+      if (pendingTitle) {
+        pendingTitle += ' ' + line;
+      } else {
+        pendingTitle = line;
+      }
+    }
+  }
+  // 如果有剩余的标题没配对到链接，也处理（作为无链接条目）
+  
+  if (!entries.length) {
+    alert('没有找到有效的抖音链接');
+    return;
+  }
 
-  // 先添加，占位
+  // 添加条目
   const newUrls = [];
-  urls.forEach(url => {
+  entries.forEach(({ url, title }) => {
     if (!_videos.find(v => v.url === url)) {
-      _videos.push({ url, title: '', tags: '', checked: true, industry: '', content_type: '', direction: 'auto', guide_points: '' });
+      _videos.push({
+        url,
+        title: title || '',
+        tags: '',
+        checked: true,
+        industry: '',
+        content_type: '',
+        direction: 'auto',
+        guide_points: '',
+      });
       newUrls.push(url);
     }
   });
