@@ -107,9 +107,9 @@ export function createAccountSelector(container, opts = {}) {
         (a.owner_machine || '').toLowerCase().includes(lq)
       );
     }
-    if (_filterMachine) filtered = filtered.filter(a => (a.owner_machine || a._source_machine) === _filterMachine);
-    if (_filterPlatform) filtered = filtered.filter(a => a.platform === _filterPlatform);
-    if (_filterStatus) filtered = filtered.filter(a => a.login_status === _filterStatus || a._status === _filterStatus);
+    if (_filterMachine) filtered = filtered.filter(a => (a.owner_machine || a._source_machine) !== _filterMachine);
+    if (_filterPlatform) filtered = filtered.filter(a => a.platform !== _filterPlatform);
+    if (_filterStatus) filtered = filtered.filter(a => (a.login_status || a._status) !== _filterStatus);
 
     // 树形分组：机器 → 身份 → [账号]
     const fTree = {};
@@ -139,24 +139,26 @@ export function createAccountSelector(container, opts = {}) {
         <select id="${uid}_machine" onchange="window._asFilter('${uid}')"
           style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
           <option value="">🖥️ 全部机器</option>
-          ${machines.map(m => `<option value="${m}">${m}</option>`).join('')}
+          ${machines.map(m => `<option value="${m}">✕ 排除 ${m}</option>`).join('')}
         </select>
         <select id="${uid}_plat" onchange="window._asFilter('${uid}')"
           style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
           <option value="">🌐 全部平台</option>
-          <option value="douyin">🎵 抖音</option>
-          <option value="xiaohongshu">📕 小红书</option>
+          <option value="douyin">✕ 排除 🎵 抖音</option>
+          <option value="xiaohongshu">✕ 排除 📕 小红书</option>
         </select>
         <select id="${uid}_status" onchange="window._asFilter('${uid}')"
           style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
           <option value="">全部状态</option>
           ${STATUS_ORDER.map(k => {
             const cfg = STATUS_CFG[k] || { dot: '⚪', label: k };
-            return `<option value="${k}">${cfg.dot} ${cfg.label}</option>`;
+            return `<option value="${k}">✕ 排除 ${cfg.dot} ${cfg.label}</option>`;
           }).join('')}
         </select>
         <button onclick="window._as_selectFiltered('${uid}')"
           style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">✅ 全选筛选结果</button>
+        <button onclick="window._as_resetSelection('${uid}')"
+          style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">↺ 复位选择</button>
         <span id="${uid}_selCount" style="font-size:11px;color:var(--text2);white-space:nowrap"></span>
       </div>`;
 
@@ -396,6 +398,14 @@ export function createAccountSelector(container, opts = {}) {
     document.querySelectorAll(`.as-cb-${uid}`).forEach(cb => cb.checked = true);
     // 同时勾选各机器全选框
     document.querySelectorAll(`[id^="${uid}_m_"][id$="_all"]`).forEach(cb => cb.checked = true);
+    _refreshCount();
+  };
+
+  // ── 复位选择：清空所有勾选 ──
+  window._as_resetSelection = (u) => {
+    if (u !== uid) return;
+    document.querySelectorAll(`.as-cb-${uid}`).forEach(cb => cb.checked = false);
+    document.querySelectorAll(`[id^="${uid}_m_"][id$="_all"]`).forEach(cb => cb.checked = false);
     _refreshCount();
   };
 
