@@ -1,6 +1,6 @@
 # ════════════════════════════════════════════════════════════════
 # AgentOS 项目模块清单
-# 版本: 1.0 | 最后更新: 2026-07-12
+# 版本: 1.0 | 最后更新: 2026-07-16
 #
 # 用途:
 #   给 AI 智能体和人类开发者的项目"总地图"。
@@ -74,6 +74,8 @@ modules:
     routes:
       - routes/ops.py
       - routes/matrix.py
+    frontend_components:
+      - frontend/src/components/account-selector.js  # 统一账号选择器（含排除筛选）
     frontend_views:
       - frontend/src/views/matrix-*.js      # 所有 matrix- 前缀的视图
       - frontend/src/modules/nurture.js
