@@ -131,17 +131,14 @@ export function createAccountSelector(container, opts = {}) {
 
     let html = '';
 
-    // ── 顶部筛选栏 ──
+    // ── 快速条件栏（机器/平台/状态 → 只筛选显示，不自动选中）──
     if (!compact) {
       const machines = [...new Set(allAccts.map(a => a.owner_machine || a._source_machine || '').filter(Boolean))];
 
       html += `<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
-        <input id="${uid}_q" placeholder="🔍 搜索账号ID/昵称/手机号"
-          oninput="window._asFilter('${uid}')"
-          style="flex:1;min-width:80px;padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
         <select id="${uid}_machine" onchange="window._asFilter('${uid}')"
           style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
-          <option value="">全部机器</option>
+          <option value="">🖥️ 全部机器</option>
           ${machines.map(m => `<option value="${m}">${m}</option>`).join('')}
         </select>
         <select id="${uid}_plat" onchange="window._asFilter('${uid}')"
@@ -158,6 +155,16 @@ export function createAccountSelector(container, opts = {}) {
             return `<option value="${k}">${cfg.dot} ${cfg.label}</option>`;
           }).join('')}
         </select>
+        <button onclick="window._as_selectFiltered('${uid}')"
+          style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">✅ 全选筛选结果</button>
+        <span id="${uid}_selCount" style="font-size:11px;color:var(--text2);white-space:nowrap"></span>
+      </div>`;
+
+      // ── 搜索栏（进一步缩小显示范围）──
+      html += `<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
+        <input id="${uid}_q" placeholder="🔍 搜索账号ID/昵称/手机号"
+          oninput="window._asFilter('${uid}')"
+          style="flex:1;min-width:80px;padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
         <span style="font-size:11px;color:var(--text2);white-space:nowrap">共 ${filtered.length} 个</span>
       </div>`;
     }
@@ -286,6 +293,8 @@ export function createAccountSelector(container, opts = {}) {
     const checked = document.querySelectorAll(`.as-cb-${uid}:checked`).length;
     const countEl = document.getElementById(`${uid}_count`);
     if (countEl) countEl.textContent = `已选 ${checked} 个`;
+    const selCountEl = document.getElementById(`${uid}_selCount`);
+    if (selCountEl) selCountEl.textContent = `已选 ${checked} 个`;
 
     const batchBar = document.getElementById(`${uid}_batchBar`);
     const batchCount = document.getElementById(`${uid}_batchCount`);
@@ -380,6 +389,15 @@ export function createAccountSelector(container, opts = {}) {
       } catch(e) { alert('❌ ' + e.message); }
     };
   }
+
+  // ── 全选筛选结果：勾选当前筛选条件下所有可见账号 ──
+  window._as_selectFiltered = (u) => {
+    if (u !== uid) return;
+    document.querySelectorAll(`.as-cb-${uid}`).forEach(cb => cb.checked = true);
+    // 同时勾选各机器全选框
+    document.querySelectorAll(`[id^="${uid}_m_"][id$="_all"]`).forEach(cb => cb.checked = true);
+    _refreshCount();
+  };
 
   // ── 全局函数 ──
   window._asFilter = (u) => {

@@ -1107,6 +1107,7 @@ async function loadDyTracking() {
       + '<span>共 ' + items.length + ' 条</span>'
       + '<button id="dtRefreshAllBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新全部</button>'
       + '<button id="dtCopySelectedBtn" style="display:none;background:#6366f1;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制已选</button>'
+      + '<button id="dtRefreshSelectedBtn" style="display:none;background:#f97316;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 更新选中</button>'
       + '<button id="dtCopyAllBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制全部</button>'
       + '<span id="dtRefreshStatus" style="font-size:9px;font-family:monospace"></span>'
       + '</div>';
@@ -1198,9 +1199,12 @@ async function loadDyTracking() {
     
     // 勾选框事件：显示/隐藏「复制已选」按钮
     function updateTrkSelBtn() {
-      const selBtn = document.getElementById('dtCopySelectedBtn');
       const checked = document.querySelectorAll('.dt-trk-sel:checked').length;
-      if (selBtn) selBtn.style.display = checked > 0 ? 'inline-block' : 'none';
+      const show = checked > 0 ? 'inline-block' : 'none';
+      const selBtn = document.getElementById('dtCopySelectedBtn');
+      if (selBtn) selBtn.style.display = show;
+      const refBtn = document.getElementById('dtRefreshSelectedBtn');
+      if (refBtn) refBtn.style.display = show;
     }
     listEl.querySelectorAll('.dt-trk-sel').forEach(cb => {
       cb.addEventListener('change', updateTrkSelBtn);
@@ -1223,6 +1227,33 @@ async function loadDyTracking() {
           copySelBtn.textContent = '✅ 已复制';
           setTimeout(() => copySelBtn.textContent = '📋 复制已选', 2000);
         });
+      });
+    }
+    
+    // 绑定更新选中按钮
+    const refSelBtn = document.getElementById('dtRefreshSelectedBtn');
+    if (refSelBtn) {
+      refSelBtn.addEventListener('click', async () => {
+        const selected = listEl.querySelectorAll('.dt-trk-sel:checked');
+        if (!selected.length) return;
+        const statusEl = document.getElementById('dtRefreshStatus');
+        refSelBtn.textContent = '⏳ 更新中...';
+        let ok = 0, fail = 0, total = selected.length;
+        for (const cb of selected) {
+          const idx = parseInt(cb.dataset.idx);
+          const item = items[idx];
+          if (!item) { fail++; continue; }
+          if (statusEl) statusEl.textContent = '更新中 ' + (ok+fail+1) + '/' + total;
+          try {
+            const r = await fetch('/api/scrape/refresh-video/' + item.id, { method: 'POST' });
+            const d = await r.json();
+            if (d.status === 'ok') ok++; else fail++;
+          } catch(e) { fail++; }
+          await new Promise(r => setTimeout(r, 3000));
+        }
+        if (statusEl) statusEl.textContent = '✅ ' + ok + '成功 ' + fail + '失败';
+        refSelBtn.textContent = '🔄 更新选中';
+        loadDyTracking();
       });
     }
     

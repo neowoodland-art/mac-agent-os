@@ -284,9 +284,9 @@ function registerGlobals(uid) {
               <span style="font-size:10px;color:var(--text2)">${escapeHtml((data.title||'').slice(0,30))}</span>
             </div>
             <div style="display:flex;gap:6px;align-items:center">
-              <input class="sc-preview-input" data-url="${escapeHtml(url)}" value="${escapeHtml(data.comment||'')}"
-                     style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px;font-size:11px">
-              <span style="font-size:9px;color:var(--text2);cursor:pointer" onclick="navigator.clipboard.writeText(this.parentElement.querySelector('input').value)">📋</span>
+              <textarea class="sc-preview-input" data-url="${escapeHtml(url)}" rows="2"
+                     style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px;font-size:11px;resize:vertical;font-family:inherit">${escapeHtml(data.comment||'')}</textarea>
+              <span style="font-size:9px;color:var(--text2);cursor:pointer" onclick="navigator.clipboard.writeText(this.parentElement.querySelector('.sc-preview-input').value)">📋</span>
             </div>
           </div>
         `).join('')}
