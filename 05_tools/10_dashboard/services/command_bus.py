@@ -18,7 +18,7 @@ command_bus.py — 统一命令传输层 v6
   Dashboard → API → CommandBus → MachineSession(队列) → mc run → 引擎 → Camoufox
 """
 
-import asyncio, copy, json, logging, os, shlex, socket, subprocess, sys, time, threading, urllib.request, urllib.error
+import asyncio, copy, json, logging, os, shlex, signal, socket, subprocess, sys, time, threading, urllib.request, urllib.error
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -195,6 +195,87 @@ def _get_machine_info(machine_name: str) -> dict:
     return {}
 
 
+def _pkill_exact(account_id: str, ssh_target: str = ""):
+    """精确匹配账号 ID 的僵尸进程清理（非精确不杀）
+
+    设计意图：只杀已经无人管理的残留僵尸进程，不碰 guardd 调度器正在管理的 active 任务。
+    使用方式：
+      - 先由调用方确认 guardd 无 active 任务（通过 _guardd_api 查询 /scheduler/tasks）
+      - 再调用本函数做僵尸兜底清理
+
+    匹配规则：
+      1. pgrep -f 取所有含 "mc run"/"mc task"/"mc collect"/"mc smart-login" 的进程 PID
+      2. ps 取每个 PID 的完整命令行
+      3. 解析 --accounts= 参数的值，按逗号分割
+      4. 仅当 account_id 在分割后的列表中精确匹配时才 kill
+    """
+    if not account_id:
+        return
+
+    # 远程机器 → SSH 执行（guardd HTTP 优先，SSH 是兜底）
+    if ssh_target:
+        _ssh_remote_exact_pkill(ssh_target, account_id)
+        return
+
+    # 本地
+    prefixes = ["mc run", "mc task", "mc collect", "mc smart-login"]
+    for prefix in prefixes:
+        try:
+            r = subprocess.run(["pgrep", "-f", prefix], capture_output=True, text=True, timeout=3)
+            pids = r.stdout.strip().split()
+        except:
+            continue
+        for pid_str in pids:
+            if not pid_str:
+                continue
+            try:
+                cmdline = subprocess.run(["ps", "-p", pid_str, "-o", "command="],
+                                         capture_output=True, text=True, timeout=2).stdout.strip()
+            except:
+                continue
+            # 在命令行中查找 --accounts= 参数，精确匹配
+            for part in cmdline.split():
+                if part.startswith("--accounts="):
+                    vals = part.split("=", 1)[1].split(",")
+                    if account_id in vals:
+                        logger.debug(f"  🧹 清理僵尸: PID {pid_str} ({cmdline[:60]})")
+                        try:
+                            os.kill(int(pid_str), signal.SIGTERM)
+                        except:
+                            pass
+                        break
+
+
+def _ssh_remote_exact_pkill(ssh_target: str, account_id: str):
+    """远程机器精确匹配僵尸进程清理（通过 SSH 执行 shell 脚本）"""
+    script = (
+        f'for _pid in $(pgrep -f "mc run" 2>/dev/null || true); do '
+        f'_cmd=$(ps -p $_pid -o command= 2>/dev/null || true); '
+        f'if echo "$_cmd" | grep -Eq -- \'--accounts=(.*,)?{account_id}(,.*)?\' 2>/dev/null; then '
+        f'kill $_pid 2>/dev/null || true; fi; done; '
+        f'for _pid in $(pgrep -f "mc task" 2>/dev/null || true); do '
+        f'_cmd=$(ps -p $_pid -o command= 2>/dev/null || true); '
+        f'if echo "$_cmd" | grep -Eq -- \'--accounts=(.*,)?{account_id}(,.*)?\' 2>/dev/null; then '
+        f'kill $_pid 2>/dev/null || true; fi; done; '
+        f'for _pid in $(pgrep -f "mc collect" 2>/dev/null || true); do '
+        f'_cmd=$(ps -p $_pid -o command= 2>/dev/null || true); '
+        f'if echo "$_cmd" | grep -Eq -- \'--accounts=(.*,)?{account_id}(,.*)?\' 2>/dev/null; then '
+        f'kill $_pid 2>/dev/null || true; fi; done; '
+        f'for _pid in $(pgrep -f "mc smart-login" 2>/dev/null || true); do '
+        f'_cmd=$(ps -p $_pid -o command= 2>/dev/null || true); '
+        f'if echo "$_cmd" | grep -Eq -- \'--accounts=(.*,)?{account_id}(,.*)?\' 2>/dev/null; then '
+        f'kill $_pid 2>/dev/null || true; fi; done; true'
+    )
+    try:
+        subprocess.run(
+            ["ssh", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no",
+             ssh_target, script],
+            capture_output=True, timeout=10
+        )
+    except:
+        pass
+
+
 class MachineSession:
     """单台机器的命令执行会话（v6: 每台机器一个队列）"""
 
@@ -229,12 +310,17 @@ class MachineSession:
         """优雅退出：执行前清理同机残留进程。
 
         只杀无 active 命令的僵尸进程；若有 active 命令，由 guardd 调度器排他管理，不抢杀。
+
+        判断链路：
+          1. MachineSession 内是否有 active 命令
+          2. guardd 调度器是否有该账号的 active 任务
+          3. 以上都无 → 精确匹配 pkill（只杀同名僵尸，不误杀其他账号）
         """
         for cmd in self.commands[:]:
             if cmd.status.is_active and (account_id is None or account_id in cmd.accounts):
                 self.cancel(cmd)
 
-        # 僵尸进程清理：只杀无 active 命令的残留
+        # 检查 MachineSession 内是否有 active 命令
         active_for_account = any(
             cmd.status.is_active and (account_id is None or account_id in cmd.accounts)
             for cmd in self.commands
@@ -242,26 +328,27 @@ class MachineSession:
         if active_for_account:
             return
 
-        # 无 active 命令 → pkill 清理僵尸进程
+        # 检查 guardd 调度器是否有 active 任务（对外对内统一路径）
+        if account_id:
+            try:
+                guardd_data = _guardd_api("GET", "/scheduler/tasks", machine=self.machine)
+                if guardd_data:
+                    for task in guardd_data.get("active", []):
+                        if account_id in task.get("accounts", []):
+                            logger.debug(f"  ✅ [{account_id}] guardd 调度器有 active 任务，跳过清理")
+                            return
+            except Exception:
+                pass  # guardd 不可用时，走 pkill 兜底
+
+        # 无 active 任务 → 精确匹配清理僵尸进程
+        target = account_id or ""
+        if not target:
+            return
+
         if self.is_local:
-            target = account_id or ""
-            try:
-                subprocess.run(["pkill", "-f", f"mc run.*{target}"], capture_output=True, timeout=3)
-                subprocess.run(["pkill", "-f", f"mc task.*{target}"], capture_output=True, timeout=3)
-                subprocess.run(["pkill", "-f", f"mc collect.*{target}"], capture_output=True, timeout=3)
-                subprocess.run(["pkill", "-f", f"mc smart-login.*{target}"], capture_output=True, timeout=3)
-            except:
-                pass
+            _pkill_exact(target)
         elif self.ssh_target:
-            target = account_id or ""
-            try:
-                subprocess.run(
-                    ["ssh", "-o", "ConnectTimeout=5", self.ssh_target,
-                     f"pkill -f 'mc (run|collect|smart-login|task).*{target}' 2>/dev/null; true"],
-                    capture_output=True, timeout=5
-                )
-            except:
-                pass
+            _pkill_exact(target, ssh_target=self.ssh_target)
 
     def preflight(self) -> dict:
         with self._lock:

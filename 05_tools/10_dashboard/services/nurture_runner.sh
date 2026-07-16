@@ -36,9 +36,20 @@ RESULT_FILE="$RESULTS_DIR/$RUN_ID.json"
 LOG_FILE="$LOGS_DIR/$RUN_ID.log"
 HOSTNAME=$(hostname -s)
 
-# ── 预清理：杀掉同名账号残留进程 ──
-pkill -f "mc run.*$ACCOUNT" 2>/dev/null || true
-pkill -f "camoufox.*$ACCOUNT" 2>/dev/null || true
+# ── 预清理：精确匹配同名账号的残留僵尸进程 ──
+# 用 pgrep 取 PID → ps 取命令行 → 只在 --accounts= 中精确匹配才杀
+for _pid in $(pgrep -f "mc run" 2>/dev/null || true); do
+  _cmd=$(ps -p $_pid -o command= 2>/dev/null || true)
+  if echo "$_cmd" | grep -Eq -- '--accounts=(.*,)?'$ACCOUNT'(,.*)?' 2>/dev/null; then
+    kill $_pid 2>/dev/null || true
+  fi
+done
+for _pid in $(pgrep -f "camoufox" 2>/dev/null || true); do
+  _cmd=$(ps -p $_pid -o command= 2>/dev/null || true)
+  if echo "$_cmd" | grep -Eq -- '(accounts|identity).*'$ACCOUNT 2>/dev/null; then
+    kill $_pid 2>/dev/null || true
+  fi
+done
 
 # ── 写初始状态 ──
 START_TS=$(date +%s)
