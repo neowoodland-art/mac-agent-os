@@ -1,5 +1,38 @@
 # AgentOS 项目变更日志
 
+## [4.3.0] - 2026-07-15/16
+
+### 抖追踪系统 + CDP 采集引擎
+
+#### 新增：抖追踪全链路
+- **🎵 抖追踪 Tab** — 从 tyhtak API 导入视频列表 → CDP 采集 → 跟踪 → 历史
+- **📡 跟踪中 Tab** — 独立跟踪专项页，显示 👍/💬/⭐ 数据 + 评论区
+- **全选/勾选机制** — 列表全选勾选框 + 单条勾选 + 采集选中/跟踪选中
+- **一键复制** — 单条复制、复制已选、复制全部（标题+链接）
+- **刷新全部 / 更新选中** — 逐个刷新（3 秒间隔）+ 进度显示，支持选择性刷新
+- **评论展开** — 默认 5 条，点「展开全部」看 20 条
+
+#### 新增：MediaCrawler 风格 CDP 采集引擎
+- **`mediacrawler_adapter.py`** — Chrome CDP 模式，复用 Chrome 登录态调抖音官方 API
+- 全局单例 Session，不复用已关闭 tab，避免重复开浏览器
+- CDP 不可用时自动降级 Playwright 标准模式
+- 获取准确数据：点赞/评论/收藏/分享/20条热评
+
+#### 新增：Chrome 远程调试开机自启
+- **`com.agentos.chrome-debug.plist`** — launchd 管理，KeepAlive 崩溃后自动重启
+- **`chrome_debug.sh`** — 检测 9222 端口，不在线自动启动 Chrome
+
+#### 修复：评论工作台
+- 粘贴解析支持「标题+链接」配对格式（检测 douyin.com 链接模式）
+- 视频列表显示双行排版：标题 + 网址（小字灰色）
+
+#### 修复：前端导航/路由
+- 浏览器标题跟随路由页面切换（`AgentOS - 矩阵总览` 等）
+- 删除 `_tryMigratedView` 双路由系统
+- 修复 `#view-dynamic` display 问题
+- 删除废弃视图文件：matrix-record/backup/export/run/settings
+- 构建产物加入 `.gitignore`（`static/assets/`）
+
 ## [4.2.2] - 2026-06-26
 
 ### 定向评论B模式修复 — 输入方式+登录检测
