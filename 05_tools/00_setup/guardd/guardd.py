@@ -285,6 +285,7 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
                     oracle = yaml.safe_load(oracle_path.read_text())
                     # 只处理分配给本机的账号
                     this_machine = HOSTNAME
+                    details = {}
                     for entry in oracle.get("accounts", []):
                         machine = entry.get("machine") or entry.get("assigned_machine", "")
                         if machine != this_machine and machine != os.uname().nodename:
@@ -298,6 +299,8 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
 
                         # 1. 查日志
                         log_status = "no_log"
+                        log_detail = ""
+                        log_time = ""
                         if tasks_dir.exists():
                             candidate = None
                             try:
@@ -310,17 +313,24 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
                             except PermissionError:
                                 pass
                             if candidate:
-                                _, log_file = candidate
+                                mtime, log_file = candidate
+                                log_time = datetime.fromtimestamp(mtime).strftime("%m-%d %H:%M")
                                 try:
                                     text = log_file.read_text(encoding="utf-8", errors="replace")
+                                    err_lines = [l.strip() for l in text.split("\n") if any(k in l for k in ["❌", "Error", "error", "failed", "短信", "登录", "✅", "SUCCESS"])]
+                                    log_detail = err_lines[0][:80] if err_lines else ""
                                     if any(kw in text for kw in ["短信验证", "auto_verify 返回 False", "需手动登录", "sms_login", "SmsRecovery"]):
                                         log_status = "sms_skip"
+                                        if not log_detail: log_detail = "短信验证待处理"
                                     elif "✅" in text and "🛑 浏览器已关闭" in text:
                                         log_status = "success"
+                                        if not log_detail: log_detail = "执行成功 浏览器已关闭"
                                     elif "❌" in text or "Error" in text or "failed" in text.lower():
                                         log_status = "failed"
+                                        if not log_detail: log_detail = "执行失败"
                                     else:
                                         log_status = "running"
+                                        log_detail = "执行中"
                                 except Exception:
                                     pass
 
@@ -328,23 +338,30 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
                         cookie_path = identities_dir / hint / "user_data" / "cookies.sqlite"
                         has_cookie = cookie_path.exists() and cookie_path.stat().st_size >= 100
 
-                        # 3. 综合判断
+                        # 3. 综合判断 + 记录原因
                         for plat, aid in platforms.items():
                             if log_status == "success":
                                 accounts[aid] = "logged_in"
+                                details[aid] = f"执行成功 {log_time}"
                             elif log_status == "sms_skip":
                                 accounts[aid] = "sms_skip"
+                                details[aid] = f"{log_detail} {log_time}" if log_detail else f"短信待验证 {log_time}"
                             elif log_status == "failed":
                                 accounts[aid] = "need_login" if has_cookie else "no_cookie"
+                                detail_str = log_detail or ("有Cookie但上次登录失败" if has_cookie else "无Cookie")
+                                details[aid] = f"{detail_str} {log_time}".strip()
                             elif log_status == "running":
                                 accounts[aid] = "running"
+                                details[aid] = f"执行中 {log_time}"
                             else:
                                 accounts[aid] = "logged_in" if has_cookie else "no_cookie"
+                                details[aid] = "有Cookie文件" if has_cookie else "无Cookie文件"
 
                 self._send_json(200, {
                     "hostname": HOSTNAME,
                     "machine_uid": MACHINE_UID,
                     "accounts": accounts,
+                    "details": details,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                     "source": "file_check",
                 })

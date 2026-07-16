@@ -239,6 +239,7 @@ function renderTable(accounts, filterFn) {
     accts.forEach(a => {
       const st = a.login_status || 'unknown';
       const cfg = STATUS_CFG[st] || { dot: '⚪', label: st, color: '#8b8fa3' };
+      const detail = a.status_detail || '';
       const idEsc = a.id.replace(/'/g, "\\'");
       // data 属性用于筛选
       const industry = a.industry || 'general';

@@ -121,8 +121,10 @@ class AccountService:
             }
 
             # 登录状态（所有机器对等：统一走 guardd HTTP API）
-            remote_status = self._get_remote_account_status(machine, aid)
+            remote_status, status_detail = self._get_remote_account_status(machine, aid)
             acct["login_status"] = remote_status
+            if status_detail:
+                acct["status_detail"] = status_detail
             # 补充 profile 数据
             if is_local:
                 local = local_map.get(aid, {})
@@ -288,10 +290,13 @@ class AccountService:
             logger.warning(f"获取本机账号失败: {e}")
             return []
 
-    def _get_remote_account_status(self, machine: str, account_id: str) -> str:
-        """获取单个远程账号的登录状态（走缓存或即时查询）"""
-        statuses = self._get_all_remote_statuses(machine)
-        return statuses.get(account_id, "unknown")
+    def _get_remote_account_status(self, machine: str, account_id: str):
+        """获取单个远程账号的登录状态 + 详情
+        Returns: (status_str, detail_str)
+        """
+        statuses, details = self._get_all_remote_statuses(machine)
+        detail = details.get(account_id, "") if details else ""
+        return (statuses.get(account_id, "unknown"), detail)
 
     def _prefetch_remote_statuses(self, machines: list[str]):
         """并行预取远程机器状态
@@ -316,9 +321,10 @@ class AccountService:
             for future in as_completed(future_map):
                 machine = future_map[future]
                 try:
-                    statuses = future.result()
+                    statuses, details = future.result()
                     self._remote_cache[machine] = {
                         "accounts": statuses,
+                        "details": details,
                         "cached_at": now,
                     }
                     logger.debug(f"远程状态已缓存: {machine} ({len(statuses)} 个账号)")
@@ -326,35 +332,36 @@ class AccountService:
                     logger.debug(f"远程状态查询失败 {machine}: {e}")
                     self._remote_cache[machine] = {"accounts": {}, "cached_at": now}
 
-    def _get_all_remote_statuses(self, machine: str) -> dict:
-        """获取一台远程机器上所有账号的状态
+    def _get_all_remote_statuses(self, machine: str):
+        """获取一台远程机器上所有账号的状态 + 详情
         使用 30 秒 TTL 缓存
+        Returns: (accounts_dict, details_dict)
         """
         now = time.time()
         cached = self._remote_cache.get(machine)
         if cached and now - cached.get("cached_at", 0) < self._cache_ttl:
-            return cached.get("accounts", {})
+            return (cached.get("accounts", {}), cached.get("details", {}))
 
-        statuses = self._query_remote_statuses(machine)
+        statuses, details = self._query_remote_statuses(machine)
         self._remote_cache[machine] = {
             "accounts": statuses,
+            "details": details,
             "cached_at": now,
         }
-        return statuses
+        return (statuses, details)
 
-    def _query_remote_statuses(self, machine: str) -> dict:
-        """通过 guardd HTTP API 查询远程机器账号状态
-
-        使用 raw socket 方式（同 command_bus._guardd_api），
-        urllib 在 Dashboard 环境下有兼容问题（502 Bad Gateway）。
+    def _query_remote_statuses(self, machine: str):
+        """通过 guardd HTTP API 查询远程机器账号状态 + 详情
+        Returns: (accounts_dict, details_dict)
         """
         if not machine:
-            return {}
+            return ({}, {})
 
         from services.command_bus import _guardd_api
-        # 统一走 command_bus 的 guardd API 客户端（本机/远程无差别）
         data = _guardd_api("GET", "/accounts/status", machine=machine)
-        return data.get("accounts", {}) if isinstance(data, dict) else {}
+        if isinstance(data, dict):
+            return (data.get("accounts", {}), data.get("details", {}))
+        return ({}, {})
 
     def _get_profile_for_account(self, account_id: str, machine: str) -> dict:
         """通过 guardd HTTP API 获取账号 profile 数据（带机器级缓存）"""
