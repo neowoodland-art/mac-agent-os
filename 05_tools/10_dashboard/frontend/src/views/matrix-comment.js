@@ -97,7 +97,7 @@ export async function loadView(container, params) {
   // 加载账号 + 语料分类
   try {
     const [acctRes, corpRes] = await Promise.all([
-      apiRequest('/matrix/accounts'),
+      apiRequest('/v2/accounts'),
       apiRequest('/matrix/corpus').catch(() => ({ categories: [] })),
     ]);
     const accts = Array.isArray(acctRes) ? acctRes : (acctRes.accounts || []);

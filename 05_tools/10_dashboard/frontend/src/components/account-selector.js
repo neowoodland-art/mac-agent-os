@@ -29,17 +29,16 @@ let _uidCounter = 0;
 // ── 状态配置（与 accounts-center.js 一致）──
 const STATUS_CFG = {
   logged_in:       { color: '#22c55e', dot: '🟢', label: '已登录' },
-  cookie_expiring: { color: '#eab308', dot: '🟡', label: 'Cookie将过期' },
-  no_cookie:       { color: '#ef4444', dot: '🔴', label: '无Cookie' },
+  need_login:      { color: '#ef4444', dot: '🔴', label: '需重新登录' },
+  no_cookie:       { color: '#8b8fa3', dot: '⚪', label: '无Cookie' },
   no_identity:     { color: '#8b8fa3', dot: '⚪', label: '未配置' },
   banned:          { color: '#000',    dot: '⚫', label: '已封号' },
+  sms_skip:        { color: '#f97316', dot: '📱', label: '短信待验证' },
+  running:         { color: '#3b82f6', dot: '🔵', label: '执行中' },
   disabled:        { color: '#d1d5db', dot: '⬜', label: '已禁用' },
-  no_session:      { color: '#f59e0b', dot: '🟠', label: 'Cookie无Session' },
-  empty_cookie:    { color: '#f59e0b', dot: '🟠', label: 'Cookie为空' },
-  new:             { color: '#3b82f6', dot: '🔵', label: '新建' },
   unknown:         { color: '#8b8fa3', dot: '⚪', label: '未知' },
 };
-const STATUS_ORDER = ['banned','no_cookie','cookie_expiring','no_session','empty_cookie','disabled','unknown','new','logged_in'];
+const STATUS_ORDER = ['banned', 'need_login', 'sms_skip', 'no_cookie', 'running', 'disabled', 'unknown', 'logged_in'];
 
 // ── 身份颜色池（按身份分配，方便辨识同一身份的不同平台账号）──
 const IDENTITY_COLORS = [

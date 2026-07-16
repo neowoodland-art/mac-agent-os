@@ -11,43 +11,6 @@ const API = '';
 let currentView = 'productions';
 
 // ── Sidebar ──
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const btn = document.getElementById('sidebarToggleBtn');
-  const isCollapsed = sb.classList.toggle('collapsed');
-  btn.textContent = isCollapsed ? '▶' : '◀';
-  btn.title = isCollapsed ? '展开侧边栏' : '折叠侧边栏';
-}
-function toggleGroup(el) {
-  const body = el.nextElementSibling;
-  if (!body || !body.classList) return;
-  // 手风琴: 关闭其他所有分组
-  document.querySelectorAll('.nav-group-header').forEach(h => {
-    if (h === el) return;
-    const b = h.nextElementSibling;
-    if (b && b.classList && !b.classList.contains('collapsed')) {
-      b.classList.add('collapsed');
-      h.dataset.collapsed = 'true';
-      const arrow = h.querySelector('span:last-child');
-      if (arrow) arrow.textContent = '▶';
-    }
-  });
-  // 切换当前分组
-  const isCollapsed = body.classList.toggle('collapsed');
-  el.dataset.collapsed = isCollapsed ? 'true' : 'false';
-  el.querySelector('span:last-child').textContent = isCollapsed ? '▶' : '▼';
-}
-function collapseAllGroups() {
-  document.querySelectorAll('.nav-group-header').forEach(h => {
-    const body = h.nextElementSibling;
-    if (body && body.classList && !body.classList.contains('collapsed')) {
-      body.classList.add('collapsed');
-      h.dataset.collapsed = 'true';
-      const arrow = h.querySelector('span:last-child');
-      if (arrow) arrow.textContent = '▶';
-    }
-  });
-}
 let currentPage = 0;
 const PAGE_SIZE = 30;
 let searchTimer;
@@ -4698,12 +4661,6 @@ function filterAcctTable() {
 // ═══════════════════════════════════════════════
 // ES Module 全局暴露（原本是 <script> 全局作用域）
 // ═══════════════════════════════════════════════
-window.toggleSidebar = toggleSidebar;
-window.toggleGroup = toggleGroup;
-window.collapseAllGroups = collapseAllGroups;
-window.switchView = switchView;
-window.loadStats = loadStats;
-window.debounceSearch = debounceSearch;
 window.showDetail = showDetail;
 window.closeDetail = closeDetail;
 window.debounceAssetSearch = debounceAssetSearch;

@@ -62,7 +62,7 @@ export async function loadView(container) {
   try {
     const BASE = '/api';
     const [accountsR, proxiesR] = await Promise.all([
-      fetch(BASE + '/matrix/sms/accounts').then(r => r.ok ? r.json() : { accounts: [] }).catch(() => ({ accounts: [] })),
+      fetch(BASE + '/v2/accounts').then(r => r.ok ? r.json() : { accounts: [] }).catch(() => ({ accounts: [] })),
       fetch(BASE + '/matrix/proxies').then(r => r.ok ? r.json() : { proxies: [] }).catch(() => ({ proxies: [] })),
     ]);
 

@@ -5,11 +5,11 @@ export async function loadView(container) {
   container.innerHTML = '<div class="loading">加载中...</div>';
   // 矩阵养号运营数据看板
   try {
-    const sr = await fetch('/api/matrix/sms/accounts');
+    const sr = await fetch('/api/v2/accounts');
     const sd = await sr.json();
     const accts = (sd.accounts || []).filter(a => a.is_local);
-    const online = accts.filter(a => a.has_cookie);
-    const profiled = accts.filter(a => a.has_profile);
+    const online = accts.filter(a => a.login_status === 'logged_in');
+    const profiled = accts.filter(a => a.nickname && a.nickname.trim());
 
     let html = `<div style="padding:16px">
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">

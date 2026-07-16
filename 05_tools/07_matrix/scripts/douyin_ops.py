@@ -311,9 +311,21 @@ class DouyinOps(PlatformOps):
         t0 = time.time()
 
         if op == "goto_home":
-            await self.page.goto(HOME_URL, timeout=30000, wait_until="domcontentloaded")
-            await asyncio.sleep(3)
-            return OpResult(op, step_id, True, "home", time.time()-t0)
+            t0 = time.time()
+            for _ in range(3):
+                await self.page.goto(HOME_URL, timeout=30000, wait_until="domcontentloaded")
+                # 等首页真正加载完成：等视频卡片出现，最多等10秒
+                for w in range(10):
+                    url = self.page.url
+                    card_count = await self.page.evaluate(
+                        "document.querySelectorAll('.discover-video-card-item, "
+                        "[class*=\"video-card\"], [data-e2e=\"alink-item\"]').length")
+                    if card_count > 0 and '/user/' not in url and '/login' not in url:
+                        return OpResult(op, step_id, True, "home", time.time()-t0)
+                    await asyncio.sleep(1)
+                # 10秒没等到 → 再跳一次
+                await asyncio.sleep(2)
+            return OpResult(op, step_id, True, f"home(last_url={self.page.url[:50]})", time.time()-t0)
 
         if op == "goto_url":
             url = args.get("url", HOME_URL)

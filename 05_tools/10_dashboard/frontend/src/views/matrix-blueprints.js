@@ -6,7 +6,7 @@ export async function loadView(container) {
   try {
     const [br, ar] = await Promise.all([
       fetch('/api/matrix/blueprints'),
-      fetch('/api/matrix/accounts'),
+      fetch('/api/v2/accounts'),
     ]);
     const bpData = await br.json();
     const bps = Array.isArray(bpData) ? bpData : (bpData.blueprints || []);
