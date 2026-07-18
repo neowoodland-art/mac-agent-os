@@ -127,11 +127,6 @@ accounts:
   platforms:
     douyin: douyin_146
     xiaohongshu: xhs_16
-- phone: '15370103682'
-  platforms:
-    xiaohongshu: xhs_15370103682
-  machine: chengzigedeAir
-  identity: xhs_15370103682
 - phone: '13382501975'
   platforms:
     xiaohongshu: xhs_13382501975
@@ -222,6 +217,51 @@ accounts:
   platforms:
     douyin: douyin_13382504732
   machine: chengzigedeAir
+- phone: '15370103682'
+  machine: chengzigedeAir
+  identity: douyin_15370103682
+  platforms:
+    douyin: douyin_15370103682
+- phone: '18550099212'
+  machine: chengzigedeAir
+  identity: douyin_18550099212
+  platforms:
+    douyin: douyin_18550099212
+- phone: '13382501591'
+  machine: chengzigedeAir
+  identity: douyin_13382501591
+  platforms:
+    douyin: douyin_13382501591
+- phone: '18550099523'
+  machine: chengzigedeAir
+  identity: douyin_18550099523
+  platforms:
+    douyin: douyin_18550099523
+- phone: '13382504572'
+  machine: chengzigedeAir
+  identity: douyin_13382504572
+  platforms:
+    douyin: douyin_13382504572
+- phone: '18550099685'
+  machine: chengzigedeAir
+  identity: douyin_18550099685
+  platforms:
+    douyin: douyin_18550099685
+- phone: '13382508495'
+  machine: chengzigedeAir
+  identity: douyin_13382508495
+  platforms:
+    douyin: douyin_13382508495
+- phone: '13382504927'
+  machine: chengzigedeAir
+  identity: douyin_13382504927
+  platforms:
+    douyin: douyin_13382504927
+- phone: '13382502283'
+  machine: chengzigedeAir
+  identity: douyin_13382502283
+  platforms:
+    douyin: douyin_13382502283
 tasks:
 - name: nurture_morning
   schedule: 30 9 * * *

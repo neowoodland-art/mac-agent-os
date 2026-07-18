@@ -8,7 +8,8 @@ PIDFILE="/tmp/chrome-debug.pid"
 
 # 检查 9222 是否已监听
 if curl -s http://127.0.0.1:9222/json/version >/dev/null 2>&1; then
-    # 已经 OK，不需要做任何事
+    # 已经 OK，保持进程不退出
+    while true; do sleep 60; done
     exit 0
 fi
 
@@ -36,6 +37,8 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
     sleep 1
     if curl -s http://127.0.0.1:9222/json/version >/dev/null 2>&1; then
         echo "Chrome debug 启动成功"
+        # 保持进程不退出，避免 launchd KeepAlive 无限重启
+        while true; do sleep 60; done
         exit 0
     fi
 done
