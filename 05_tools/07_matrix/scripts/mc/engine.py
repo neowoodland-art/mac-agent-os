@@ -285,6 +285,12 @@ class BatchEngine:
         report = AccountRunReport(account_id, blueprint_name, round_idx)
 
         bp = resolve_blueprint(blueprint_name)
+        # 蓝图与账号平台不匹配→自动切换（例如xhs账号用了douyin_daily_clean）
+        if bp and bp.get("platform") and bp["platform"] != platform:
+            old_bp = blueprint_name
+            blueprint_name = PLATFORM_DAILY_BLUEPRINTS.get(platform, blueprint_name)
+            log.info(f"  🔄 蓝图 [{old_bp}] 与平台 [{platform}] 不匹配，自动切换为 [{blueprint_name}]")
+            bp = resolve_blueprint(blueprint_name)
         if not bp:
             report.skipped = True
             return report

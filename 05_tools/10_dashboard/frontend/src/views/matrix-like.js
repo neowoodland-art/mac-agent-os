@@ -34,7 +34,7 @@ export async function loadView(container) {
     </div>`;
 
   try {
-    const r = await apiRequest('/matrix/accounts');
+    const r = await apiRequest('/v2/accounts');
     const accts = Array.isArray(r) ? r : (r.accounts || []);
     const listEl = document.getElementById(`acctList_${uid}`);
     if (listEl) {

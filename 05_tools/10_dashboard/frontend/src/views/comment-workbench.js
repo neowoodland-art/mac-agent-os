@@ -148,7 +148,7 @@ export async function loadView(container) {
 
   // 加载账号
   try {
-    const acctRes = await apiRequest('/matrix/accounts');
+    const acctRes = await apiRequest('/v2/accounts');
     const accts = Array.isArray(acctRes) ? acctRes : (acctRes.accounts || []);
     const listEl = document.getElementById(`cwAcctList_${_uid}`);
     if (listEl) {

@@ -8,8 +8,19 @@ PIDFILE="/tmp/chrome-debug.pid"
 
 # 检查 9222 是否已监听
 if curl -s http://127.0.0.1:9222/json/version >/dev/null 2>&1; then
-    # 已经 OK，保持进程不退出
-    while true; do sleep 60; done
+    # 已经 OK，保持进程不退出，定时检查 9222
+    while true; do
+        sleep 15
+        if ! curl -s http://127.0.0.1:9222/json/version >/dev/null 2>&1; then
+            nohup "$CHROME" \
+                --remote-debugging-port=9222 \
+                --user-data-dir="$USER_DATA_DIR" \
+                --no-first-run --no-default-browser-check \
+                --disable-features=ChromeWhatsNewUI \
+                about:blank \
+                > /tmp/chrome_debug_launchd.log 2>&1 &
+        fi
+    done
     exit 0
 fi
 
@@ -37,8 +48,20 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
     sleep 1
     if curl -s http://127.0.0.1:9222/json/version >/dev/null 2>&1; then
         echo "Chrome debug 启动成功"
-        # 保持进程不退出，避免 launchd KeepAlive 无限重启
-        while true; do sleep 60; done
+        # 保持进程不退出，定时检查 9222，挂了就重启
+        while true; do
+            sleep 15
+            if ! curl -s http://127.0.0.1:9222/json/version >/dev/null 2>&1; then
+                # 9222 挂了，重启 Chrome
+                nohup "$CHROME" \
+                    --remote-debugging-port=9222 \
+                    --user-data-dir="$USER_DATA_DIR" \
+                    --no-first-run --no-default-browser-check \
+                    --disable-features=ChromeWhatsNewUI \
+                    about:blank \
+                    > /tmp/chrome_debug_launchd.log 2>&1 &
+            fi
+        done
         exit 0
     fi
 done

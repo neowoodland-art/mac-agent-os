@@ -1297,6 +1297,16 @@ async function loadDyTracking() {
     const refreshAllBtn = document.getElementById('dtRefreshAllBtn');
     if (refreshAllBtn) {
       refreshAllBtn.onclick = doRefreshAllTracking;
+      // 更新按钮显示（如果正在刷新，改为停止按钮）
+      if (window._dtRefreshing) {
+        refreshAllBtn.textContent = '⏹ 停止';
+        refreshAllBtn.style.background = '#ef4444';
+        refreshAllBtn.style.color = '#fff';
+      } else {
+        refreshAllBtn.textContent = '🔄 刷新全部';
+        refreshAllBtn.style.background = '';
+        refreshAllBtn.style.color = '';
+      }
     }
     
   } catch (e) {
@@ -1307,12 +1317,21 @@ async function loadDyTracking() {
 // ── 一键刷新全部（逐个刷新，间隔 3 秒） ──
 
 async function doRefreshAllTracking() {
-  if (window._dtRefreshing) return;
+  // 如果正在刷新，点击即为停止
+  if (window._dtRefreshing) {
+    window._dtRefreshing = false;
+    const statusEl = document.getElementById('dtRefreshStatus');
+    if (statusEl) statusEl.textContent += ' ⏹ 已停止';
+    const btn = document.getElementById('dtRefreshAllBtn');
+    if (btn) { btn.textContent = '🔄 刷新全部'; btn.style.background = ''; btn.style.color = ''; }
+    return;
+  }
+  
   window._dtRefreshing = true;
   
   const statusEl = document.getElementById('dtRefreshStatus');
   const btn = document.getElementById('dtRefreshAllBtn');
-  if (btn) btn.textContent = '⏳ 刷新中...';
+  if (btn) { btn.textContent = '⏹ 停止'; btn.style.background = '#ef4444'; btn.style.color = '#fff'; }
   
   const items = document.querySelectorAll('.dt-refresh-btn');
   let success = 0, fail = 0;
@@ -1344,7 +1363,7 @@ async function doRefreshAllTracking() {
   }
   
   if (statusEl) statusEl.textContent = '✅ 完成: ' + success + ' 成功, ' + fail + ' 失败';
-  if (btn) btn.textContent = '🔄 刷新全部';
+  if (btn) { btn.textContent = '🔄 刷新全部'; btn.style.background = ''; btn.style.color = ''; }
   window._dtRefreshing = false;
   
   // 刷新列表显示
