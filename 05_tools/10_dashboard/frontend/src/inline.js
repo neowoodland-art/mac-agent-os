@@ -1074,7 +1074,7 @@ async function _loadAccounts() {
     return {accounts: _allAccounts, hpIndex: _hpIndex, collectedAt: _collectedAt};
   }
   const [r1, r2] = await Promise.all([
-    fetch('/api/matrix/accounts'),
+    fetch('/api/v2/accounts'),
     fetch('/api/matrix/homepage-info').catch(() => ({json: () => ({})}))
   ]);
   const accts = await r1.json();
@@ -2601,7 +2601,7 @@ async function loadNurtureAccounts() {
   if (!el) return;
   try {
     const [r1, r2] = await Promise.all([
-      fetch('/api/matrix/accounts'),
+      fetch('/api/v2/accounts'),
       fetch('/api/matrix/homepage-info').catch(() => ({json: () => ({})}))
     ]);
     const accts = await r1.json();
