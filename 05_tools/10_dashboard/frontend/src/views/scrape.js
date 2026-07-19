@@ -1124,7 +1124,7 @@ async function loadDyTracking() {
         + '<span style="font-size:9px;color:var(--text2)">' + (stats.likes || 0) + '👍</span>'
         + '<span style="font-size:9px;color:var(--text2)">' + (stats.comments || 0) + '💬</span>'
         + '<span style="font-size:9px;color:var(--text2)">' + (stats.collects || 0) + '⭐</span>'
-        + '<span style="font-size:8px;color:var(--text2)">' + (item.collected_at || '').slice(0, 10) + '</span>'
+        + '<span class="dt-track-time" style="font-size:8px;color:var(--text2)">' + (item.collected_at || '').slice(0, 19) + '</span>'
         + '<button class="dt-refresh-btn" data-id="' + item.id + '" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px">🔄</button>'
         + '<button class="dt-del-btn" data-id="' + item.id + '" style="background:#ef4444;color:#fff;border:none;padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px">✕</button>'
         + '</div>';
@@ -1349,6 +1349,8 @@ async function doRefreshAllTracking() {
       if (d.status === 'ok') {
         refreshBtn.textContent = '✅';
         success++;
+        // 逐条更新前端显示，不刷新整个列表
+        updateTrackedRow(id, d.item);
       } else {
         refreshBtn.textContent = '❌';
         fail++;
@@ -1358,7 +1360,7 @@ async function doRefreshAllTracking() {
       fail++;
     }
     
-    // 等 3 秒再刷新下一条，防止 CDP 过载
+    // 等 3 秒再刷新下一条
     await new Promise(r => setTimeout(r, 3000));
   }
   
@@ -1380,3 +1382,24 @@ function updateSelBtnDisplay() {
 
 // Patch renderDyVideos to add selection listener
 // Override the dt-sel-cb change handler
+
+
+// ═══════════════════════════════════════════════════════════
+// 逐条更新跟踪行（刷新全部时，不重绘整个列表）
+// ═══════════════════════════════════════════════════════════
+
+function updateTrackedRow(id, item) {
+  if (!item) return;
+  const div = document.getElementById('dtTrack_' + id);
+  if (!div) return;
+  const stats = item.stats || {};
+  // 更新点赞/评论/收藏/时间
+  const spans = div.querySelectorAll('span');
+  if (spans.length >= 3) {
+    spans[1].textContent = (stats.likes || 0) + '👍';
+    spans[2].textContent = (stats.comments || 0) + '💬';
+    if (spans.length >= 4) spans[3].textContent = (stats.collects || 0) + '⭐';
+  }
+  const timeEl = div.querySelector('.dt-track-time');
+  if (timeEl) timeEl.textContent = (item.collected_at || '').slice(0, 19);
+}

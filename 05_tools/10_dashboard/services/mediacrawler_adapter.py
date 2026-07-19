@@ -14,6 +14,7 @@ logger = logging.getLogger("dashboard.mediacrawler_adapter")
 
 CDP_PORT = 9222
 _SESSION = None  # 全局单例
+_CDP_SEMAPHORE = asyncio.Semaphore(3)  # 限制最多 3 个并发 CDP 操作
 
 class ChromeCDPSession:
     """管理 Chrome CDP 连接的全局单例"""
@@ -184,15 +185,17 @@ async def get_video_data(url: str) -> dict:
         return result
 
     # 每个请求开一个独立 tab，不复用旧的（避免互扰）
-    try:
-        ctx = session.browser.contexts[0] if session.browser.contexts else await session.browser.new_context()
-        page = await ctx.new_page()
-        await page.goto("https://www.douyin.com/", wait_until="domcontentloaded", timeout=15000)
-        await page.wait_for_timeout(2000)
-        cdp_data = await _fetch_video_data_cdp(aweme_id, page)
-        await page.close()
-    except Exception as e:
-        cdp_data = {"success": False, "error": str(e)}
+    # 用信号量限制并发，最多 3 个同时采集
+    async with _CDP_SEMAPHORE:
+        try:
+            ctx = session.browser.contexts[0] if session.browser.contexts else await session.browser.new_context()
+            page = await ctx.new_page()
+            await page.goto("https://www.douyin.com/", wait_until="domcontentloaded", timeout=15000)
+            await page.wait_for_timeout(2000)
+            cdp_data = await _fetch_video_data_cdp(aweme_id, page)
+            await page.close()
+        except Exception as e:
+            cdp_data = {"success": False, "error": str(e)}
 
     if cdp_data.get("success"):
         result.update(cdp_data["data"])
