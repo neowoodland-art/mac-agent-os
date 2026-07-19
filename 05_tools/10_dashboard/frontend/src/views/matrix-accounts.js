@@ -11,7 +11,7 @@ export async function loadView(container) {
   try {
     const BASE = '/api';
     const [ar, hr] = await Promise.all([
-      fetch(BASE + '/matrix/accounts').then(r => r.ok ? r.json() : { accounts: [] }).catch(() => ({ accounts: [] })),
+      fetch(BASE + '/v2/accounts').then(r => r.ok ? r.json() : { accounts: [] }).catch(() => ({ accounts: [] })),
       fetch(BASE + '/matrix/homepage-info').then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] })),
     ]);
     const allAccounts = Array.isArray(ar) ? ar : (ar.accounts || []);
@@ -208,7 +208,7 @@ export async function loadView(container) {
           if (d.status === 'ok') {
             overlay.remove();
             // 重新获取数据 → 动态刷新页面内容
-            const r2 = await fetch(BASE + '/matrix/accounts');
+            const r2 = await fetch(BASE + '/v2/accounts');
             const d2 = await r2.json();
             window._allAccounts = Array.isArray(d2) ? d2 : (d2.accounts || []);
             window._filterAcct();

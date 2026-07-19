@@ -56,7 +56,7 @@ async function loadAccounts(uid) {
   if (!listEl) return;
   try {
     const [ar, hr] = await Promise.all([
-      apiRequest('/matrix/accounts'),
+      apiRequest('/v2/accounts'),
       apiRequest('/matrix/homepage-info').catch(() => ({ results: [] })),
     ]);
     const allAccts = Array.isArray(ar) ? ar.filter(a => a.enabled !== false) : (ar.accounts || []).filter(a => a.enabled !== false);
