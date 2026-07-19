@@ -38,7 +38,14 @@ def _get_matrix_mgr():
 
 @router.get("/accounts")
 def api_matrix_accounts():
-    """获取所有账号列表（含 profiles 昵称/粉丝数据）"""
+    """
+    🚫 DEPRECATED — 数据读取请使用 /api/v2/accounts
+
+    此接口供旧系统（inline.js / modules/）向后兼容。
+    所有新的视图代码（views/*.js）已迁移到 /api/v2/accounts。
+    新增功能请勿调用此接口。
+    """
+    logger.warning("🚫 DEPRECATED: /api/matrix/accounts 被调用，请使用 /api/v2/accounts")
     try:
         mgr = _get_matrix_mgr()
         accounts = mgr.list_accounts()

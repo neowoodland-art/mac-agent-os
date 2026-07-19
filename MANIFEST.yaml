@@ -91,8 +91,9 @@ modules:
       - xhs_          # 账号标识
     redlines:
       - "services/command_bus.py — 养号命令分发核心，禁止修改"
-      - "05_tools/07_matrix/scripts/ — 养号引擎代码，非必要不修改"
-      - "inline.js 中 loadMatrixCollect() — 旧系统内联函数，只减不增"
+    - "05_tools/07_matrix/scripts/ — 养号引擎代码，非必要不修改"
+    - "inline.js 中 loadMatrixCollect() — 旧系统内联函数，只减不增"
+    - 🚫 "/api/matrix/accounts（读）— 已废弃，全部视图已迁移到 /api/v2/accounts"
 
   # ──────────────────────────────────────────────────────────────
   # 模块 B: 内容抓取
