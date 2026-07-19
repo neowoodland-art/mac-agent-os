@@ -10,7 +10,7 @@ let _selector = null;
 
 export async function loadView(container) {
   const uid = container.id || 'nurture';
-  const data = await apiRequest('/matrix/accounts');
+  const data = await apiRequest('/v2/accounts');
   const allAccts = Array.isArray(data) ? data : (data.accounts || []);
 
   container.innerHTML = `

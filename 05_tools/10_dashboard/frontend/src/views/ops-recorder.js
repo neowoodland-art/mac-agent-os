@@ -196,7 +196,7 @@ export async function loadView(container) {
     const sel = document.getElementById(`recAcct_${u}`);
     if (!sel) return;
     try {
-      const r = await fetch('/api/matrix/accounts');
+      const r = await fetch('/api/v2/accounts');
       const d = await r.json();
       const accts = Array.isArray(d) ? d : (d.accounts||[]);
       const local = accts.filter(a => a.is_local && a.platform);
