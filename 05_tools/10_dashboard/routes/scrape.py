@@ -90,6 +90,33 @@ async def api_scrape_resolve(data: dict = {}):
         return {"status": "error", "message": str(e)}
 
 
+@router.get("/title")
+async def api_scrape_title(url: str = ""):
+    """获取网页标题（扫码级轻量请求，供互动页导入用）"""
+    if not url:
+        return {"status": "ok", "title": ""}
+    if not url.startswith("http"):
+        url = "https://" + url
+    try:
+        import urllib.request, re
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept": "text/html",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read(65536).decode("utf-8", errors="replace")
+        m = re.search(r'<title[^>]*>([^<]+)</title>', html, re.IGNORECASE)
+        title = m.group(1).strip() if m else ""
+        # 抖音特殊处理：去掉 " - 抖音" 后缀
+        for suffix in [" - 抖音", " - 抖音视频", " - 快手", " - 小红书"]:
+            if title.endswith(suffix):
+                title = title[:-len(suffix)]
+                break
+        return {"status": "ok", "title": title}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "title": ""}
+
+
 @router.get("/result")
 async def api_scrape_result(run_id: str = ""):
     """查询异步任务结果"""

@@ -1122,6 +1122,87 @@ class CommandBus:
                             "cmd_line": f"mc run --accounts={aid} --blueprints={bp} --rounds={r} --mix --interval=45-90",
                             "run_id": f"{cmd_type}_{now_ts}_{machine}_{aid}",
                         })
+            elif cmd_type == "interact" and params.get("actions"):
+                # 🎯 批量互动 v2 — 按百分比执行多动作
+                # 前端传入: actions: {like:80, collect:100, comment:30, follow:20, browse:{rate:40, count:3, mode:'interact'}}
+                url = params.get("url", "")
+                title = params.get("title", "")
+                actions = params.get("actions", {})
+                interval = params.get("interval", "300-600")
+
+                # 动作→蓝图映射（部分蓝图待录制）
+                BLUEPRINT_MAP = {
+                    "like":    {"name": "interact_like",    "status": "existing"},
+                    "collect": {"name": "interact_collect", "status": "placeholder"},
+                    "comment": {"name": "interact_comment", "status": "existing"},
+                    "follow":  {"name": "interact_follow",  "status": "placeholder"},
+                    "browse":  {"name": "browse_author_page", "status": "placeholder"},
+                }
+
+                for a in accts:
+                    aid = a["id"]
+                    sampled = []
+                    # 采样：根据百分比决定是否执行
+                    import random
+
+                    # 顶层动作采样
+                    for action_key in ["like", "collect", "comment", "follow"]:
+                        rate = actions.get(action_key, 0)
+                        if isinstance(rate, (int, float)) and rate > 0 and random.randint(1, 100) <= rate:
+                            sampled.append(action_key)
+
+                    # 浏览其他作品采样（独立逻辑）
+                    browse_cfg = actions.get("browse", {})
+                    browse_rate = 0
+                    browse_count = 3
+                    browse_mode = "interact"
+                    if isinstance(browse_cfg, dict):
+                        browse_rate = browse_cfg.get("rate", 0)
+                        browse_count = browse_cfg.get("count", 3)
+                        browse_mode = browse_cfg.get("mode", "interact")
+                    elif isinstance(browse_cfg, (int, float)):
+                        browse_rate = int(browse_cfg)
+
+                    browse_triggered = browse_rate > 0 and random.randint(1, 100) <= browse_rate
+                    if browse_triggered:
+                        sampled.append(f"browse_{browse_mode}")
+
+                    if not sampled:
+                        continue
+
+                    # 构建命令 — 使用蓝图组合执行
+                    action_descs = []
+                    for s in sampled:
+                        bp_key = s.replace("_view", "").replace("_interact", "")
+                        bp_info = BLUEPRINT_MAP.get(bp_key, {})
+                        bp_name = bp_info.get("name", bp_key)
+                        bp_status = bp_info.get("status", "placeholder")
+                        action_descs.append(f"{s}({bp_name}:{bp_status})")
+
+                    # 主命令：用第一个动作的蓝图
+                    primary_bp = BLUEPRINT_MAP.get(sampled[0], {}).get("name", "interact_comment")
+                    cmd_line = f"mc run --accounts={aid} --blueprints={primary_bp} --rounds=1 --url={url} --interval={interval}"
+
+                    tasks.append({
+                        "machine": machine, "cmd_type": "interact",
+                        "ids_str": aid, "is_local": is_local,
+                        "nickname": a.get("nickname", ""),
+                        "platform": a.get("platform", "douyin"),
+                        "cmd_line": cmd_line,
+                        "run_id": f"interact_{now_ts}_{machine}_{aid}_{int(random.random()*1000)}",
+                        "params": {
+                            "url": url,
+                            "title": title,
+                            "sampled_actions": sampled,
+                            "browse_count": browse_count if browse_triggered else 0,
+                            "browse_mode": browse_mode if browse_triggered else "",
+                            "blueprint": primary_bp,
+                            "rounds": 1,
+                            "interval": interval,
+                        },
+                    })
+                    logger.info(f"  🎯 [{aid}] {title[:20]}: {', '.join(action_descs)}")
+
             elif cmd_type == "smart_comment":
                 # 智能评论：先分析视频，再按账号拆解
                 urls = params.get("urls", [])
