@@ -74,6 +74,8 @@ modules:
     routes:
       - routes/ops.py
       - routes/matrix.py
+    frontend_shared:
+      - frontend/src/config/status-config.js         # 账号状态配置（STATUS_CFG 唯一来源）
     frontend_components:
       - frontend/src/components/account-selector.js  # 统一账号选择器（含排除筛选）
     frontend_views:
