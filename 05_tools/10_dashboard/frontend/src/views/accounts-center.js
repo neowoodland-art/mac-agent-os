@@ -195,6 +195,7 @@ function renderBatchBar() {
   bar.innerHTML = `
     <span id="batchCount" style="font-size:12px;font-weight:600"></span>
     <button data-action="collect" class="batch-btn" style="background:var(--primary);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">📡 采集</button>
+    <button data-action="remove_tag" class="batch-btn" style="background:#ef4444;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🏷️ 删除标签</button>
     <button data-action="login" class="batch-btn" style="background:var(--primary);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🔑 登录</button>
     <button data-action="nurture" class="batch-btn" style="background:var(--primary);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🏃 养号</button>
     <button data-action="smart_comment" class="batch-btn" style="background:#16a34a;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">🤖 智能评论</button>
@@ -830,6 +831,64 @@ async function handleBatchAction(action) {
     // 智能评论 → 跳转到评论页面（默认启用智能分析模式）
     try { window.switchView('matrix-comment', { accounts: ids }); }
     catch(e) { alert('评论页面不可用'); }
+    return;
+  }
+
+  if (action === 'remove_tag') {
+    // 批量删除标签：弹出选择器，选一个标签对所有选中账号删除
+    const allTags = [...new Set(ids.flatMap(id => {
+      const a = (window._v2Accounts || []).find(x => x.id === id);
+      return a ? (a.tags || []) : [];
+    }))].sort();
+    if (!allTags.length) { alert('选中的账号都没有标签'); return; }
+
+    // 弹出标签选择器
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:99999;display:flex;align-items:center;justify-content:center';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+      <div style="background:var(--bg2);border-radius:10px;padding:16px;max-width:320px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,0.3)">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">🏷️ 批量删除标签</div>
+        <div style="font-size:10px;color:var(--text2);margin-bottom:8px">已选 ${ids.length} 个账号，选择要删除的标签：</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px">
+          ${allTags.map(t => `<span class="tag-remove-pick" data-tag="${t.replace(/"/g,'&quot;')}" style="display:inline-block;background:#6366f1;color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">✕ ${t}</span>`).join('')}
+        </div>
+        <div style="text-align:right">
+          <button onclick="this.closest('div[style*=\\'fixed\\']').remove()" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 16px;font-size:12px;cursor:pointer;margin-right:4px">取消</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.querySelectorAll('.tag-remove-pick').forEach(el => {
+      el.addEventListener('click', async () => {
+        const tag = el.dataset.tag;
+        el.style.opacity = '.5'; el.textContent = '⏳';
+        let ok = 0, fail = 0;
+        for (const id of ids) {
+          const acct = (window._v2Accounts || []).find(x => x.id === id);
+          if (!acct) continue;
+          const tags = (acct.tags || []).filter(t => t !== tag);
+          if (tags.length === (acct.tags || []).length) { ok++; continue; } // 无此标签
+          acct.tags = tags;
+          try {
+            await fetch(`/api/v2/accounts/${encodeURIComponent(id)}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tags }),
+            });
+            ok++;
+          } catch(e) { fail++; }
+          // 更新界面标签
+          const row = document.querySelector(`.acct-row[data-id="${id}"] .tag-list`);
+          if (row) {
+            row.querySelectorAll(`.tag-chip[data-tag="${tag}"]`).forEach(c => c.remove());
+          }
+        }
+        overlay.remove();
+        alert(`✅ 已从 ${ok} 个账号中删除标签「${tag}」` + (fail ? `\n⚠️ ${fail} 个失败` : ''));
+        if (ok > 0) clearSelection();
+      });
+    });
     return;
   }
 
