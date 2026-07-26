@@ -138,7 +138,26 @@ function renderFilterBar() {
   createBtn.style.cssText = 'background:var(--primary);color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600';
   createBtn.onclick = showCreateAccountDialog;
 
-  div.append(search, machineSel, platSel, statusSel, createBtn);
+  // 标签筛选
+  const tagSel = document.createElement('select');
+  tagSel.style.cssText = 'padding:4px 8px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;max-width:120px';
+  tagSel.innerHTML = '<option value="">全部标签</option>';
+  // 动态收集所有账号的标签
+  const allTags = new Set();
+  accts.forEach(a => (a.tags || []).forEach(t => allTags.add(t)));
+  [...allTags].sort().forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = `🏷️ ${t}`;
+    tagSel.appendChild(opt);
+  });
+
+  // 标签筛选模式：包含/排除
+  const tagMode = document.createElement('select');
+  tagMode.style.cssText = 'padding:4px 8px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;width:70px';
+  tagMode.innerHTML = '<option value="include">包含</option><option value="exclude">排除</option>';
+
+  div.append(search, machineSel, platSel, statusSel, tagMode, tagSel, createBtn);
 
   // 计数
   const count = document.createElement('span');
@@ -151,6 +170,8 @@ function renderFilterBar() {
   machineSel.onchange = doFilter;
   platSel.onchange = doFilter;
   statusSel.onchange = doFilter;
+  tagSel.onchange = doFilter;
+  tagMode.onchange = doFilter;
   window._doAcctFilter = doFilter;
 
   // 用闭包存储引用
@@ -158,6 +179,8 @@ function renderFilterBar() {
   div._machine = machineSel;
   div._plat = platSel;
   div._status = statusSel;
+  div._tag = tagSel;
+  div._tagMode = tagMode;
 
   return div;
 }
@@ -219,6 +242,7 @@ function renderTable(accounts, filterFn) {
     + '<th style="padding:4px 6px;font-weight:400;text-align:left;width:55px">行业</th>'
     + '<th style="padding:4px 6px;font-weight:400;text-align:right">粉丝</th>'
     + '<th style="padding:4px 6px;font-weight:400;text-align:left">状态</th>'
+    + '<th style="padding:4px 6px;font-weight:400;text-align:left;width:80px">备注</th>'
     + '<th style="padding:4px 6px;font-weight:400;text-align:left">操作</th></tr></thead><tbody>';
 
   MACHINE_ORDER.filter(m => groups[m]).forEach(m => {
@@ -242,6 +266,15 @@ function renderTable(accounts, filterFn) {
       html += `<td style="padding:3px 6px;font-size:10px">${industry === 'health' ? '<span style="background:rgba(34,197,94,.15);color:#16a34a;padding:1px 5px;border-radius:3px">🏥健康</span>' : '<span style="color:var(--text2)">🌐通用</span>'}</td>`;
       html += `<td style="padding:3px 6px;text-align:right">${a.fans || '-'}</td>`;
       html += `<td style="padding:3px 6px;font-size:10px;white-space:nowrap"><span style="color:${cfg.color}">${cfg.dot}</span> ${cfg.label}</td>`;
+      // 标签列：彩色标签块
+      const tags = a.tags || [];
+      html += '<td style="padding:3px 6px;max-width:100px">';
+      html += `<div class="tag-list" data-id="${a.id}" style="display:flex;gap:2px;flex-wrap:wrap;align-items:center">`;
+      tags.forEach(t => {
+        html += `<span class="tag-chip" data-tag="${t.replace(/"/g,'&quot;')}" style="display:inline-flex;align-items:center;gap:1px;background:#6366f1;color:#fff;border-radius:3px;padding:0 4px;font-size:9px;line-height:16px;white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;cursor:default">${t}</span>`;
+      });
+      html += `<span class="tag-add" style="cursor:pointer;font-size:10px;color:var(--text2);padding:0 2px" title="添加标签">+</span>`;
+      html += '</div></td>'
       // 首次登录检测：无 Cookie 或未配置 → 显示首次登录按钮
       const isNewAccount = st === 'no_cookie' || st === 'no_identity' || st === 'empty_cookie';
       let actionBtns = '';
@@ -523,6 +556,8 @@ function doFilter() {
   const machine = bar._machine?.value || '';
   const plat = bar._plat?.value || '';
   const status = bar._status?.value || '';
+  const tag = bar._tag?.value || '';
+  const tagMode = bar._tagMode?.value || 'include';
 
   const rows = document.querySelectorAll('.acct-row');
   let visible = 0;
@@ -533,6 +568,13 @@ function doFilter() {
     if (machine && row.dataset.machine !== machine) show = false;
     if (plat && row.dataset.platform !== plat) show = false;
     if (status && row.dataset.status !== status) show = false;
+    // 标签筛选
+    if (tag) {
+      const acct = (window._v2Accounts || []).find(a => a.id === row.dataset.id);
+      const hasTag = acct && (acct.tags || []).includes(tag);
+      if (tagMode === 'include' && !hasTag) show = false;
+      if (tagMode === 'exclude' && hasTag) show = false;
+    }
     row.style.display = show ? '' : 'none';
     // 隐藏对应的详情行
     const detail = document.querySelector(`.acct-detail-row[data-parent="${row.dataset.id}"]`);
@@ -546,7 +588,123 @@ function doFilter() {
 }
 
 
-// ── 全选/取消全选 ──
+// ── 保存标签（PATCH API）──
+window._saveTags = async (accountId, tags) => {
+  try {
+    await fetch(`/api/v2/accounts/${encodeURIComponent(accountId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+    });
+  } catch(e) { /* 静默失败 */ }
+};
+
+// ── 标签交互 ──
+document.addEventListener('click', function(e) {
+  // 点击标签→删除
+  const chip = e.target.closest('.tag-chip');
+  if (chip) {
+    e.stopPropagation();
+    const list = chip.closest('.tag-list');
+    if (!list) return;
+    const id = list.dataset.id;
+    const tag = chip.dataset.tag;
+    const acct = (window._v2Accounts || []).find(a => a.id === id);
+    if (!acct) return;
+    const tags = (acct.tags || []).filter(t => t !== tag);
+    acct.tags = tags;
+    chip.remove();
+    window._saveTags(id, tags);
+    return;
+  }
+  // 点击 + → 打开标签选择器
+  const addBtn = e.target.closest('.tag-add');
+  if (addBtn) {
+    e.stopPropagation();
+    const list = addBtn.closest('.tag-list');
+    if (!list) return;
+    const id = list.dataset.id;
+    const acct = (window._v2Accounts || []).find(a => a.id === id);
+    if (!acct) return;
+
+    // 收集所有已有标签（去重排序）
+    const allTags = [...new Set((window._v2Accounts || []).flatMap(a => a.tags || []))].sort();
+
+    // 创建标签选择器浮层
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:99999;display:flex;align-items:center;justify-content:center';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+
+    let html = '<div style="background:var(--bg2);border-radius:10px;padding:16px;max-width:300px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,0.3)">';
+    html += '<div style="font-size:13px;font-weight:600;margin-bottom:8px">🏷️ 选择或输入标签</div>';
+
+    // 已有标签列表
+    if (allTags.length) {
+      html += '<div style="font-size:10px;color:var(--text2);margin-bottom:4px">快捷选择：</div>';
+      html += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">';
+      allTags.forEach(t => {
+        const disabled = (acct.tags || []).includes(t) ? 'opacity:.3;pointer-events:none' : '';
+        html += `<span class="tag-pick" data-tag="${t.replace(/"/g,'&quot;')}" style="display:inline-block;background:#6366f1;color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;${disabled}">${t}</span>`;
+      });
+      html += '</div>';
+    }
+
+    // 输入新标签
+    html += '<div style="font-size:10px;color:var(--text2);margin-bottom:4px">或输入新标签：</div>';
+    html += '<div style="display:flex;gap:4px">';
+    html += `<input id="tagNewInput" placeholder="输入标签名称" style="flex:1;padding:4px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px" maxlength="20">`;
+    html += `<button id="tagNewBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">添加</button>`;
+    html += '</div></div>';
+
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+
+    // 点击已有标签
+    overlay.querySelectorAll('.tag-pick').forEach(el => {
+      el.addEventListener('click', () => {
+        const t = el.dataset.tag;
+        if (!acct.tags) acct.tags = [];
+        if (acct.tags.includes(t)) return;
+        acct.tags.push(t);
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip';
+        chip.dataset.tag = t;
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:1px;background:#6366f1;color:#fff;border-radius:3px;padding:0 4px;font-size:9px;line-height:16px;white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;cursor:default';
+        chip.textContent = t;
+        list.insertBefore(chip, addBtn);
+        window._saveTags(id, acct.tags);
+        overlay.remove();
+      });
+    });
+
+    // 输入框回车
+    const input = overlay.querySelector('#tagNewInput');
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('tagNewBtn').click();
+    });
+    setTimeout(() => input.focus(), 100);
+
+    // 添加新标签按钮
+    overlay.querySelector('#tagNewBtn').addEventListener('click', () => {
+      const t = input.value.trim();
+      if (!t) return;
+      if (acct.tags && acct.tags.includes(t)) { overlay.remove(); return; }
+      if (!acct.tags) acct.tags = [];
+      acct.tags.push(t);
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.dataset.tag = t;
+      chip.style.cssText = 'display:inline-flex;align-items:center;gap:1px;background:#6366f1;color:#fff;border-radius:3px;padding:0 4px;font-size:9px;line-height:16px;white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;cursor:default';
+      chip.textContent = t;
+      list.insertBefore(chip, addBtn);
+      window._saveTags(id, acct.tags);
+      overlay.remove();
+    });
+
+    return;
+  }
+});
+
 window._toggleAll = () => {
   const checked = document.querySelector('#acctSelectAll')?.checked || false;
   document.querySelectorAll('.acct-cb').forEach(cb => {
@@ -709,7 +867,6 @@ async function handleBatchAction(action) {
 
 // ── 养号弹窗 ──
 function showNurtureDialog(accountIds) {
-  // 参数：蓝图按平台过滤，轮次 1-20
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
@@ -722,8 +879,7 @@ function showNurtureDialog(accountIds) {
         <label>
           蓝图
           <select id="nurtureBlueprint" style="width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;margin-top:3px">
-            <option value="douyin_daily">🎵 douyin_daily</option>
-            <option value="xhs_daily">📕 xhs_daily</option>
+            <option value="">⏳ 加载中...</option>
           </select>
         </label>
         <label>
@@ -741,6 +897,67 @@ function showNurtureDialog(accountIds) {
     </div>`;
 
   document.body.appendChild(overlay);
+
+  // 动态加载蓝图列表（从 API，非硬编码）
+  (async () => {
+    try {
+      const r = await fetch('/api/matrix/blueprints');
+      const data = await r.json();
+      const bps = Array.isArray(data) ? data : (data.blueprints || data.data || []);
+      const sel = document.querySelector('#nurtureBlueprint');
+      if (!sel) return;
+      sel.innerHTML = '';
+
+      // 判断选中账号的平台
+      const platform = (() => {
+        const firstId = accountIds[0];
+        const acct = (window._v2Accounts || []).find(a => a.id === firstId);
+        return acct ? (acct.platform || 'douyin') : 'douyin';
+      })();
+
+      // 按平台分组展示
+      const douyin = bps.filter(b => (b.platform || b.file || '').includes('douyin'));
+      const xiaohongshu = bps.filter(b => (b.platform || b.file || '').includes('xhs') || (b.platform || b.file || '').includes('xiaohongshu'));
+
+      // 默认选中策略：抖音→douyin_daily_clean，小红书→xhs_daily
+      let selectedValue = '';
+
+      if (platform === 'douyin') {
+        douyin.forEach(b => {
+          const opt = document.createElement('option');
+          const val = b.file ? b.file.replace('.json','') : b.id || b.name;
+          opt.value = val; opt.textContent = `🎵 ${b.name || val}`;
+          sel.appendChild(opt);
+          // 默认选中纯净养号
+          if (val === 'douyin_daily_clean') { opt.selected = true; selectedValue = val; }
+        });
+        // 如果没找到 douyin_daily_clean，选第一个
+        if (!selectedValue && douyin.length) { sel.options[0].selected = true; }
+      }
+      if (xiaohongshu.length) {
+        if (platform === 'douyin' && douyin.length) {
+          const sep = document.createElement('option');
+          sep.disabled = true; sep.textContent = '──────────';
+          sel.appendChild(sep);
+        }
+        xiaohongshu.forEach(b => {
+          const opt = document.createElement('option');
+          const val = b.file ? b.file.replace('.json','') : b.id || b.name;
+          opt.value = val; opt.textContent = `📕 ${b.name || val}`;
+          sel.appendChild(opt);
+          // 小红书默认选中 xhs_daily
+          if (platform === 'xiaohongshu' && val === 'xhs_daily') { opt.selected = true; selectedValue = val; }
+        });
+        if (!selectedValue && xiaohongshu.length && platform === 'xiaohongshu') { sel.options[0].selected = true; }
+      }
+    } catch(e) {
+      // 加载失败时回退到硬编码
+      const sel = document.querySelector('#nurtureBlueprint');
+      if (sel) {
+        sel.innerHTML = '<option value="douyin_daily_clean">🎵 douyin_daily_clean (纯净养号)</option><option value="xhs_daily">📕 xhs_daily</option>';
+      }
+    }
+  })();
 
   // 轮次预设按钮
   overlay.querySelectorAll('.round-preset').forEach(btn => {

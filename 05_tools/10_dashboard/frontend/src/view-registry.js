@@ -19,12 +19,12 @@ const MIGRATED_VIEWS = [
   'matrix-collect',
   'matrix-publish',
   'matrix-blueprints',
-  'matrix-comment',
   'matrix-interact',
+  'matrix-dm',
+  'matrix-live',
   'matrix-schedule',
   'matrix-corpus',
   'matrix-sms-proxy',
-  'matrix-like',
   // 'matrix-login', // 已合并到信息采集
   'matrix-atom-ops',
 

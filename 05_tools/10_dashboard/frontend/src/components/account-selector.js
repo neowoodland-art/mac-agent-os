@@ -53,6 +53,8 @@ export function createAccountSelector(container, opts = {}) {
   let _filterMachine = '';
   let _filterPlatform = '';
   let _filterStatus = '';
+  let _filterTag = '';
+  let _filterTagMode = 'include';
 
   // ── 状态图标辅助 ──
   function _statusHtml(st) {
@@ -98,6 +100,13 @@ export function createAccountSelector(container, opts = {}) {
     if (_filterMachine) filtered = filtered.filter(a => (a.owner_machine || a._source_machine) !== _filterMachine);
     if (_filterPlatform) filtered = filtered.filter(a => a.platform !== _filterPlatform);
     if (_filterStatus) filtered = filtered.filter(a => (a.login_status || a._status) !== _filterStatus);
+    if (_filterTag) {
+      filtered = filtered.filter(a => {
+        const tags = a.tags || [];
+        const hasTag = tags.includes(_filterTag);
+        return _filterTagMode === 'include' ? hasTag : !hasTag;
+      });
+    }
 
     // 树形分组：机器 → 身份 → [账号]
     const fTree = {};
@@ -142,6 +151,16 @@ export function createAccountSelector(container, opts = {}) {
             const cfg = STATUS_CFG[k] || { dot: '⚪', label: k };
             return `<option value="${k}">✕ 排除 ${cfg.dot} ${cfg.label}</option>`;
           }).join('')}
+        </select>
+        <select id="${uid}_tagMode" onchange="window._asFilter('${uid}')"
+          style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;width:60px">
+          <option value="include">🏷️ 含</option>
+          <option value="exclude">🚫 排除</option>
+        </select>
+        <select id="${uid}_tag" onchange="window._asFilter('${uid}')"
+          style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;max-width:100px">
+          <option value="">全部标签</option>
+          ${[...new Set(allAccts.flatMap(a => a.tags || []))].sort().map(t => `<option value="${t}">🏷️ ${t}</option>`).join('')}
         </select>
         <button onclick="window._as_selectFiltered('${uid}')"
           style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">✅ 全选筛选结果</button>
@@ -191,6 +210,7 @@ export function createAccountSelector(container, opts = {}) {
           <div style="flex:1;min-width:100px;font-weight:400">🎵 昵称</div>
           <div style="width:40px;text-align:right;font-weight:400">粉丝</div>
           <div style="width:80px;font-weight:400">状态</div>
+          <div style="width:60px;font-weight:400">🏷️</div>
         </div>`;
 
         // 按身份顺序输出
@@ -233,6 +253,9 @@ export function createAccountSelector(container, opts = {}) {
             html += `<div style="width:40px;text-align:right;font-size:10px">${fans || '-'}</div>`;
             // 状态列
             html += `<div style="width:80px;font-size:10px">${_statusHtml(st)}</div>`;
+            // 标签列
+            const tags = a.tags || [];
+            html += `<div style="width:60px;font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--text2)">${tags.length ? tags.slice(0,2).join(',') + (tags.length > 2 ? '…' : '') : ''}</div>`;
 
             html += `</div>`;
           });
@@ -404,6 +427,8 @@ export function createAccountSelector(container, opts = {}) {
     _filterMachine = document.getElementById(`${uid}_machine`)?.value || '';
     _filterPlatform = document.getElementById(`${uid}_plat`)?.value || '';
     _filterStatus = document.getElementById(`${uid}_status`)?.value || '';
+    _filterTag = document.getElementById(`${uid}_tag`)?.value || '';
+    _filterTagMode = document.getElementById(`${uid}_tagMode`)?.value || 'include';
     _render();
   };
 

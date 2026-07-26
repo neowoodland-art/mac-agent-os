@@ -29,11 +29,6 @@ machines:
     os: macOS arm64
     note: 养号工人机器（大量账号）
 accounts:
-- identity: phone_15370103682
-  phone: '15370103682'
-  machine: chengzigedeAir
-  platforms:
-    douyin: douyin_test
 - identity: douyin_133
   phone: '13382504284'
   machine: chengzigedeAir

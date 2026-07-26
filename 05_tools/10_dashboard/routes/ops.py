@@ -423,23 +423,31 @@ def _get_batch_log_dir():
 
 @router.post("/clear-all")
 def api_ops_clear_all(data: dict = {}):
-    """清空所有机器的所有任务（杀死运行中 + 清空队列 + 重置状态）"""
-    from services.command_bus import _guardd_api, ORACLE_PATH
+    """清空所有机器的所有任务（杀死运行中 + 清空队列 + 重置状态）
+
+    改进：增加超时、逐台返回结果、整体 status 反映实际结果
+    """
+    from services.command_bus import _guardd_api, ORACLE_PATH, HOSTNAME
     import yaml
     try:
         oracle = yaml.safe_load(ORACLE_PATH.read_text())
         machines = list(oracle.get("machines", {}).keys())
     except Exception:
-        machines = [__import__("utils.identity", fromlist=["resolve_hostname"]).resolve_hostname()]
+        machines = [HOSTNAME]
 
     results = {}
+    all_ok = True
     for m in machines:
         try:
-            r = _guardd_api("POST", "/scheduler/clear-all", machine=m)
-            results[m] = r.get("status", "error")
+            r = _guardd_api("POST", "/scheduler/clear-all", machine=m, timeout=10)
+            r_status = r.get("status", "error")
+            results[m] = r_status
+            if r_status != "ok":
+                all_ok = False
         except Exception as e:
-            results[m] = str(e)
-    return {"status": "ok", "machines": results}
+            results[m] = str(e)[:60]
+            all_ok = False
+    return {"status": "ok" if all_ok else "partial", "machines": results}
 
 
 @router.post("/collect-p2")

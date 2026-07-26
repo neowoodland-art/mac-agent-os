@@ -43,19 +43,11 @@ def api_v2_accounts(
     status: str = "",
     q: str = "",
 ):
-    """获取所有账号的统一视图
-
-    参数:
-        machine: 按机器筛选（空=全部）
-        platform: 按平台筛选（douyin / xiaohongshu）
-        status: 按状态筛选
-        q: 搜索关键词（手机号/昵称/账号ID/身份目录）
-    """
+    """获取所有账号的统一视图"""
     try:
         svc = _get_svc()
         accounts = svc.get_all_accounts()
 
-        # 筛选
         if machine:
             accounts = [a for a in accounts if a.get("owner_machine") == machine]
         if platform:
@@ -64,20 +56,11 @@ def api_v2_accounts(
             accounts = [a for a in accounts if a.get("login_status") == status]
         if q:
             lq = q.lower()
-            accounts = [
-                a for a in accounts
-                if lq in a["id"].lower()
-                or lq in a.get("phone", "").lower()
-                or lq in a.get("nickname", "").lower()
-                or lq in a.get("identity_dir", "").lower()
-                or lq in a.get("owner_machine", "").lower()
-            ]
+            accounts = [a for a in accounts if lq in a["id"].lower() or lq in a.get("phone", "").lower()
+                        or lq in a.get("nickname", "").lower() or lq in a.get("identity_dir", "").lower()
+                        or lq in a.get("owner_machine", "").lower()]
 
-        return {
-            "accounts": accounts,
-            "total": len(accounts),
-            "generated_at": time.time(),
-        }
+        return {"accounts": accounts, "total": len(accounts), "generated_at": time.time()}
     except Exception as e:
         logger.error(f"v2/accounts 查询失败: {e}", exc_info=True)
         raise HTTPException(500, detail=str(e))
@@ -98,21 +81,51 @@ def api_v2_account_detail(account_id: str):
         raise HTTPException(500, detail=str(e))
 
 
+@router.get("/status-summary")
+def api_v2_status_summary():
+    """获取账号状态汇总"""
+    try:
+        svc = _get_svc()
+        accounts = svc.get_all_accounts()
+        summary = {"total": len(accounts), "logged_in": 0, "cookie_expiring": 0,
+                    "no_cookie": 0, "banned": 0, "disabled": 0, "unknown": 0}
+        for a in accounts:
+            s = a.get("login_status", "unknown")
+            if s in summary:
+                summary[s] += 1
+            else:
+                summary["unknown"] += 1
+        return summary
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
+@router.patch("/accounts/{account_id}")
+def api_v2_update_notes(account_id: str, data: dict):
+    """更新账号备注"""
+    try:
+        import yaml
+        sys.path.insert(0, str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"))
+        from matrix_mgmt import MatrixManager
+        mgr = MatrixManager()
+        update_data = {}
+        if "notes" in data:
+            update_data["notes"] = data["notes"]
+        if "tags" in data:
+            update_data["tags"] = data["tags"]
+        mgr.update_account(account_id, update_data)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+
 # ═══════════════════════════════════════════════════════════
 # 批量操作
 # ═══════════════════════════════════════════════════════════
 
 @router.post("/accounts/batch")
 def api_v2_accounts_batch(data: dict):
-    """批量操作选中的账号
-
-    Body:
-        account_ids: [str] — 选中的账号ID列表
-        action: str — 操作类型 (collect / login / nurture / comment)
-        params: dict — 操作参数（选填）
-
-    按机器分组后分别提交到 guardd 执行。
-    """
+    """批量操作选中的账号"""
     account_ids = data.get("account_ids", [])
     action = data.get("action", "")
     params = data.get("params", {})
@@ -128,42 +141,26 @@ def api_v2_accounts_batch(data: dict):
 
     try:
         from services.command_bus import CommandBus
-
-        # 获取所有账号信息，按机器分组
         svc = _get_svc()
         all_accounts = svc.get_all_accounts()
         acct_map = {a["id"]: a for a in all_accounts}
-
-        # 按机器分组
-        by_machine = {}
+        machine_groups = {}
         for aid in account_ids:
-            acct = acct_map.get(aid)
-            if not acct:
-                continue
-            machine = acct.get("owner_machine", "")
-            if machine not in by_machine:
-                by_machine[machine] = []
-            by_machine[machine].append(aid)
+            a = acct_map.get(aid)
+            if not a:
+                raise HTTPException(400, detail=f"账号 {aid} 不存在")
+            m = a.get("owner_machine", "")
+            if m not in machine_groups:
+                machine_groups[m] = []
+            machine_groups[m].append(aid)
 
-        # 逐个机器提交
         results = []
-        for machine, accounts_on_machine in by_machine.items():
-            r = CommandBus.dispatch(action, accounts_on_machine, params)
-            results.append({
-                "machine": machine,
-                "account_count": len(accounts_on_machine),
-                "accounts": accounts_on_machine,
-                "commands": r.get("commands", []),
-            })
-
-        return {
-            "status": "ok",
-            "action": action,
-            "total_selected": len(account_ids),
-            "machine_count": len(results),
-            "machines": results,
-        }
-
+        for machine, ids in machine_groups.items():
+            r = CommandBus.dispatch(action, ids, params)
+            results.append(r)
+        return {"status": "ok", "results": results}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"v2/accounts/batch 失败: {e}")
         raise HTTPException(500, detail=str(e))
@@ -175,42 +172,11 @@ def api_v2_accounts_batch(data: dict):
 
 @router.post("/accounts/refresh")
 def api_v2_accounts_refresh(data: dict):
-    """强制刷新账号状态
-
-    Body:
-        account_ids: [str] | null — 指定刷新哪些账号，null 则全部刷新
-    """
+    """强制刷新账号状态"""
     try:
         svc = _get_svc()
         account_ids = data.get("account_ids")
         result = svc.batch_refresh_status(account_ids)
-        return {
-            "status": "ok",
-            "refreshed": len(result),
-            "accounts": result,
-        }
-    except Exception as e:
-        raise HTTPException(500, detail=str(e))
-
-
-@router.get("/status-summary")
-def api_v2_status_summary():
-    """获取账号状态汇总（用于仪表盘顶部概要）
-
-    Returns:
-        {total, logged_in, cookie_expiring, no_cookie, banned, disabled, unknown}
-    """
-    try:
-        svc = _get_svc()
-        accounts = svc.get_all_accounts()
-        summary = {"total": len(accounts), "logged_in": 0, "cookie_expiring": 0,
-                    "no_cookie": 0, "banned": 0, "disabled": 0, "unknown": 0}
-        for a in accounts:
-            s = a.get("login_status", "unknown")
-            if s in summary:
-                summary[s] += 1
-            else:
-                summary["unknown"] += 1
-        return summary
+        return {"status": "ok", "refreshed": len(result), "accounts": result}
     except Exception as e:
         raise HTTPException(500, detail=str(e))

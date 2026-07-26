@@ -213,7 +213,7 @@ async def api_scrape_delete_source(source_id: int):
 
 # ── 抖音追踪系统（隔离于养号） ──
 
-import json as _js, os as _os, time as _time
+import json as _js, os as _os, time as _time, subprocess as _sp
 from pathlib import Path as _Path
 
 _TRACKER_DB = _Path(_os.environ.get("AGENT_LOCAL",
@@ -353,7 +353,15 @@ async def api_refresh_video(item_id: str):
         return {"status": "error", "message": "未找到该视频"}
     stats = await get_video_data(found["url"])
     if "error" in stats:
-        return {"status": "error", "message": stats["error"]}
+        resp = {"status": "error", "message": stats["error"]}
+        if stats.get("login_expired"):
+            resp["login_expired"] = True
+            resp["message"] = "⛔ 抖音登录已过期，请重新登录。点击顶部「📱 打开抖音登录」按钮"
+        return resp
+    # 保存旧数据（用于对比）
+    if "stats" in found:
+        found["prev_stats"] = found.get("stats")
+        found["prev_collected_at"] = found.get("collected_at", "")
     found["stats"] = {
         "likes": stats.get("likes", 0),
         "comments": stats.get("comments", 0),
@@ -364,3 +372,34 @@ async def api_refresh_video(item_id: str):
     found["collected_at"] = _time.strftime("%Y-%m-%d %H:%M:%S")
     _save_tracker(items)
     return {"status": "ok", "item": found}
+
+
+@router.get("/chrome-status")
+async def api_chrome_status():
+    """检查采集 Chrome 是否可用（只检查 profile 目录，不检查 CDP 端口）"""
+    CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    profile_ok = _os.path.exists("/tmp/chrome-douyin-profile/Default/Cookies")
+    chrome_installed = _os.path.exists(CHROME)
+    return {"status": "ok", "online": True, "chrome_installed": chrome_installed, "profile_ok": profile_ok}
+
+
+@router.get("/check-login")
+async def api_check_login():
+    """检查抖音登录状态"""
+    from services.mediacrawler_adapter import check_login_status
+    try:
+        result = await check_login_status()
+        return {"status": "ok", **result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/open-login")
+async def api_open_login():
+    """在 Chrome 中打开抖音登录页"""
+    from services.mediacrawler_adapter import open_login_page
+    try:
+        result = await open_login_page()
+        return result
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

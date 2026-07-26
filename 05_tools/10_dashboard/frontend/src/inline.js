@@ -44,13 +44,13 @@ window.switchView = function(view) {
     'matrix-collect': '信息采集',
     'matrix-publish': '发布管理',
     'matrix-blueprints': '蓝图管理',
-    'matrix-comment': '评论管理',
+    'matrix-dm': '私信沟通',
     'comment-workbench': '评论工作台',
     'matrix-interact': '互动管理',
     'matrix-schedule': '定时任务',
     'matrix-corpus': '语料库',
     'matrix-sms-proxy': '短信与代理',
-    'matrix-like': '点赞管理',
+    'matrix-live': '直播互动',
     'matrix-atom-ops': '原子操作',
     'matrix-commands': '命令管理器',
     'matrix-login': '登录管理',
@@ -104,7 +104,7 @@ window.switchView = function(view) {
   });
 
   // 矩阵养号：点击父级或子项时展开子菜单
-  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','comment-workbench','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-like','matrix-login','ops-command'];
+  const matrixSubViews = ['matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-dm','matrix-live','comment-workbench','matrix-schedule','matrix-corpus','matrix-sms-proxy','matrix-login','ops-command'];
   const isMatrix = view === 'plugin-matrix' || matrixSubViews.includes(view);
   document.querySelectorAll('.nav-sub[data-group="matrix"]').forEach(e => {
     e.style.display = isMatrix ? 'block' : 'none';
@@ -133,7 +133,7 @@ window.switchView = function(view) {
       e.classList.toggle('active', e.dataset.view === view);
     });
     // Hide ALL other views first
-    ['comment-workbench','matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
+    ['comment-workbench','matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-dm','matrix-live','matrix-schedule','matrix-corpus',
      'ave-render','ave-script','ave-materials','ave-templates',
      'crawl-tasks','crawl-sources','crawl-history',
      'machines','fleet-sync','fleet-reconcile','fleet-exec',
@@ -160,7 +160,7 @@ window.switchView = function(view) {
 
   // 视图显隐
   // 视图显隐
-  const viewIds = ['comment-workbench','matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-comment','matrix-schedule','matrix-corpus',
+  const viewIds = ['comment-workbench','matrix-sms-proxy','matrix-nurture','matrix-collect','matrix-publish','matrix-blueprints','matrix-interact','matrix-dm','matrix-live','matrix-schedule','matrix-corpus',
                    'ave-render','ave-script','ave-materials','ave-templates',
                    'crawl-tasks','crawl-sources','crawl-history',
                    'machines','fleet-sync','fleet-reconcile','fleet-exec',
@@ -305,9 +305,9 @@ async function loadPlugins() {
         {view:'matrix-publish', label:'📤 内容发布'},
         {view:'matrix-interact', label:'💬 评论互动'},
         {view:'ops-command', label:'🚀 联邦指挥台'},
-        {view:'matrix-comment', label:'💬 定向评论'},
+        {view:'matrix-dm', label:'💬 私信沟通'},
+        {view:'matrix-live', label:'🔴 直播互动'},
         {view:'comment-workbench', label:'🎭 评论工作台'},
-        {view:'matrix-like', label:'❤️ 收藏点赞'},
         {view:'matrix-blueprints', label:'📋 蓝图管理'},
         {view:'matrix-login', label:'🔑 登录管理'},
         {view:'matrix-schedule', label:'⏱ 定时任务'},

@@ -1,166 +1,150 @@
 """
-mediacrawler_adapter.py — MediaCrawler 风格适配器 (v2)
+mediacrawler_adapter.py — 抖音视频数据采集器 v3
 
-核心改动：
-  1. 连接 Chrome CDP 一次，复用整个 session
-  2. 每个视频打开其视频页，而非首页（获取正确的 cookie 上下文）
-  3. 采集完关闭 tab，不关浏览器
-  4. 全局单例 Session 管理
+全新架构：不再依赖 CDP/Playwright/浏览器页面。
+直接从 Chrome profile 读取 cookie，通过 HTTP 请求调用抖音 API。
+全程无窗口、无标签页、无闪烁。
 """
-import asyncio, json, logging, os, re, time
+import asyncio, json, logging, os, re, time, sqlite3, urllib.request, urllib.error
 from pathlib import Path
 
 logger = logging.getLogger("dashboard.mediacrawler_adapter")
 
-CDP_PORT = 9222
-_SESSION = None  # 全局单例
-_CDP_SEMAPHORE = asyncio.Semaphore(3)  # 限制最多 3 个并发 CDP 操作
+# HTTP 请求头（模拟浏览器）
+DOUYIN_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/150.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Referer": "https://www.douyin.com/",
+    "Origin": "https://www.douyin.com",
+}
 
-class ChromeCDPSession:
-    """管理 Chrome CDP 连接的全局单例"""
+
+# ── Playwright CDP 连接管理（复用，避免反复建连） ──
+# Chrome 新版把 cookie 值加密存在 SQLite 里，必须通过 CDP 读解密后的值。
+
+_PW = None
+_BROWSER = None
+
+async def _ensure_cdp():
+    """确保 Playwright CDP 连接可用（全局复用）"""
+    global _PW, _BROWSER
+    if _BROWSER and _PW:
+        try:
+            if _BROWSER.is_connected():
+                return _BROWSER.contexts[0] if _BROWSER.contexts else None
+        except:
+            pass
+        # 断连了，重建
+        try:
+            await _BROWSER.close()
+        except:
+            pass
+        try:
+            await _PW.stop()
+        except:
+            pass
+        _BROWSER = None
+        _PW = None
     
-    def __init__(self):
-        self._pw = None
-        self.browser = None
-        self._lock = asyncio.Lock()
-        self._tabs = []
-
-    async def ensure_connected(self):
-        if self.browser and self.browser.is_connected():
-            return True
-        try:
-            from playwright.async_api import async_playwright
-            self._pw = await async_playwright().start()
-            self.browser = await self._pw.chromium.connect_over_cdp(f"http://127.0.0.1:{CDP_PORT}")
-            ctx = self.browser.contexts[0] if self.browser.contexts else await self.browser.new_context()
-            # 访问抖音首页建立 cookie（后续所有 tab 共享上下文）
-            page = await ctx.new_page()
-            await page.goto("https://www.douyin.com/", wait_until="domcontentloaded", timeout=20000)
-            await page.wait_for_timeout(2000)
-            await page.close()
-            logger.info("CDP Session 已建立")
-            return True
-        except Exception as e:
-            self.browser = None
-            logger.warning(f"CDP 连接失败: {e}")
-            return False
-
-    async def close(self):
-        if self.browser:
-            try:
-                await self.browser.close()
-            except:
-                pass
-            self.browser = None
-        if self._pw:
-            try:
-                await self._pw.stop()
-            except:
-                pass
-            self._pw = None
-
-
-async def _get_session() -> ChromeCDPSession:
-    global _SESSION
-    if _SESSION is None:
-        _SESSION = ChromeCDPSession()
-    return _SESSION
-
-
-async def _fetch_video_data_cdp(aweme_id: str, page) -> dict:
-    """
-    在指定 page 上下文中获取单个视频的数据
-    page 需已导航到抖音首页（cookie 已建立）
-    """
     try:
-        # 导航到视频页（获取正确的 referer 和 cookie 上下文）
-        await page.goto(
-            f"https://www.douyin.com/video/{aweme_id}",
-            wait_until="domcontentloaded", timeout=20000
-        )
-        await page.wait_for_timeout(3000)
-
-        # 调抖音内部 API 获取视频详情
-        detail_json = await page.evaluate(f"""async () => {{
-            try {{
-                const r = await fetch(
-                    'https://www.douyin.com/aweme/v1/web/aweme/detail/?aweme_id={aweme_id}&version_code=170400&app_name=aweme&device_platform=web',
-                    {{ headers: {{ 'Accept': 'application/json, text/plain, */*', 'Referer': 'https://www.douyin.com/' }} }}
-                );
-                const data = await r.json();
-                return JSON.stringify(data);
-            }} catch(e) {{
-                return JSON.stringify({{error: e.message}});
-            }}
-        }}""")
-
-        detail = json.loads(detail_json)
-        if "error" in detail:
-            return {"success": False, "error": detail["error"]}
-
-        aweme = detail.get("aweme_detail", {})
-        if not aweme:
-            return {"success": False, "error": f"API 未返回数据: {str(detail)[:200]}"}
-
-        statistics = aweme.get("statistics", {})
-        author_info = aweme.get("author", {})
-
-        data = {
-            "title": aweme.get("desc", ""),
-            "author": author_info.get("nickname", ""),
-            "likes": int(statistics.get("digg_count", 0)),
-            "comments": int(statistics.get("comment_count", 0)),
-            "collects": int(statistics.get("collect_count", 0)),
-            "shares": int(statistics.get("share_count", 0)),
-            "comment_texts": [],
-        }
-
-        # 获取热评
-        try:
-            cmt_json = await page.evaluate(f"""async () => {{
-                try {{
-                    const r = await fetch(
-                        'https://www.douyin.com/aweme/v1/web/comment/list/?aweme_id={aweme_id}&count=20&cursor=0',
-                        {{ headers: {{ 'Accept': 'application/json, text/plain, */*', 'Referer': 'https://www.douyin.com/' }} }}
-                    );
-                    const data = await r.json();
-                    return JSON.stringify(data);
-                }} catch(e) {{
-                    return JSON.stringify({{comments_error: e.message}});
-                }}
-            }}""")
-            cmt_result = json.loads(cmt_json)
-            cmts = cmt_result.get("comments", [])
-            for c in cmts[:20]:
-                user = c.get("user", {})
-                data["comment_texts"].append({
-                    "nickname": user.get("nickname", ""),
-                    "text": c.get("text", ""),
-                    "likes": c.get("digg_count", 0),
-                })
-        except Exception as e:
-            logger.debug(f"评论获取失败: {e}")
-
-        return {"success": True, "data": data}
-
+        from playwright.async_api import async_playwright
+        _PW = await async_playwright().start()
+        _BROWSER = await _PW.chromium.connect_over_cdp("http://127.0.0.1:9222")
+        ctx = _BROWSER.contexts[0] if _BROWSER.contexts else None
+        return ctx
     except Exception as e:
-        return {"success": False, "error": f"页面操作失败: {e}"}
+        _BROWSER = None
+        _PW = None
+        logger.warning(f"CDP 连接失败: {e}")
+        return None
 
+
+async def _get_cookies() -> dict:
+    """从 CDP 连接读取 Chrome cookie（解密后的值）"""
+    ctx = await _ensure_cdp()
+    if not ctx:
+        return {}
+    try:
+        all_cookies = await ctx.cookies()
+        result = {}
+        for c in all_cookies:
+            domain = c.get("domain", "")
+            if "douyin" in domain or "amemv" in domain:
+                result[c["name"]] = c["value"]
+        return result
+    except Exception as e:
+        logger.warning(f"读 cookie 失败: {e}")
+        return {}
+
+
+def _cookie_str(cookies: dict) -> str:
+    """将 cookie 字典转为 HTTP Header 字符串"""
+    return "; ".join(f"{k}={v}" for k, v in cookies.items())
+
+
+# ── HTTP API 请求（不打开任何浏览器页面） ──
+
+def _http_get(url: str, cookies: dict, timeout: int = 15) -> dict:
+    """发起 HTTP GET 请求并返回 JSON（cookies 必传，由调用方从 CDP 获取）"""
+    req = urllib.request.Request(
+        url,
+        headers={
+            **DOUYIN_HEADERS,
+            "Cookie": _cookie_str(cookies),
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
+# ── 工具函数 ──
+
+def _extract_aweme_id(url: str):
+    m = re.search(r'douyin\.com/video/(\d+)', url)
+    if m:
+        return m.group(1)
+    m = re.search(r'iesdouyin\.com/share/video/(\d+)', url)
+    if m:
+        return m.group(1)
+    return None
+
+
+def _resolve_shortlink(url: str):
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["curl", "-sI", url], capture_output=True, text=True, timeout=10
+        )
+        for line in result.stdout.split("\n"):
+            if line.lower().startswith("location:"):
+                loc = line.split(":", 1)[1].strip()
+                m = re.search(r'/video/(\d+)', loc)
+                if m:
+                    return m.group(1)
+    except Exception:
+        pass
+    return None
+
+
+# ── 核心：获取视频数据（纯 HTTP，无浏览器） ──
 
 async def get_video_data(url: str) -> dict:
     """
     统一入口：传入抖音视频 URL，返回完整数据
-    复用 Chrome CDP Session，不重复打开浏览器
+    通过 HTTP API 获取，不打开任何浏览器页面
     """
-    import time as _time
-
     aweme_id = _extract_aweme_id(url)
     if not aweme_id:
         aweme_id = _resolve_shortlink(url)
     if not aweme_id:
         return {"error": f"无法解析视频 ID: {url}"}
 
-    t0 = _time.time()
+    t0 = time.time()
     result = {
         "aweme_id": aweme_id,
         "title": "",
@@ -170,107 +154,122 @@ async def get_video_data(url: str) -> dict:
         "collects": 0,
         "shares": 0,
         "comment_texts": [],
-        "collected_at": _time.strftime("%Y-%m-%d %H:%M:%S"),
+        "collected_at": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
-    session = await _get_session()
-    connected = await session.ensure_connected()
-    if not connected:
-        logger.warning("CDP 不可用，降级 Playwright")
-        pw_data = await _fetch_via_playwright(aweme_id)
-        if pw_data.get("success"):
-            result.update(pw_data["data"])
-        else:
-            result["error"] = pw_data.get("error", "所有采集方法均失败")
+    # 读取登录态 cookie（通过 CDP，解密后的值）
+    cookies = await _get_cookies()
+    has_session = bool(cookies.get("sessionid"))
+    if not has_session:
+        result["error"] = "抖音登录已过期，请点击顶部「📱 打开抖音登录」按钮重新登录"
+        result["login_expired"] = True
         return result
 
-    # 每个请求开一个独立 tab，不复用旧的（避免互扰）
-    # 用信号量限制并发，最多 3 个同时采集
-    async with _CDP_SEMAPHORE:
-        try:
-            ctx = session.browser.contexts[0] if session.browser.contexts else await session.browser.new_context()
-            page = await ctx.new_page()
-            await page.goto("https://www.douyin.com/", wait_until="domcontentloaded", timeout=15000)
-            await page.wait_for_timeout(2000)
-            cdp_data = await _fetch_video_data_cdp(aweme_id, page)
-            await page.close()
-        except Exception as e:
-            cdp_data = {"success": False, "error": str(e)}
+    # 调抖音 API 获取视频详情
+    try:
+        api_url = (
+            f"https://www.douyin.com/aweme/v1/web/aweme/detail/"
+            f"?aweme_id={aweme_id}&version_code=170400&app_name=aweme&device_platform=web"
+        )
+        detail = await asyncio.to_thread(_http_get, api_url, cookies)
+    except urllib.error.HTTPError as e:
+        result["error"] = f"HTTP {e.code}: {e.reason}"
+        return result
+    except Exception as e:
+        result["error"] = f"请求失败: {e}"
+        return result
 
-    if cdp_data.get("success"):
-        result.update(cdp_data["data"])
-        result["_method"] = "cdp"
-        result["_duration"] = round(_time.time() - t0, 2)
-    else:
-        logger.warning(f"CDP 采集失败: {cdp_data.get('error')}，降级")
-        pw_data = await _fetch_via_playwright(aweme_id)
-        if pw_data.get("success"):
-            result.update(pw_data["data"])
-            result["_method"] = "playwright"
-        else:
-            result["error"] = pw_data.get("error", "所有采集方法均失败")
+    aweme = detail.get("aweme_detail", {})
+    if not aweme:
+        if detail.get("status_code") == 2:
+            result["error"] = "抖音登录已过期，请重新登录"
+            result["login_expired"] = True
+            return result
+        result["error"] = f"API 未返回数据: {str(detail)[:200]}"
+        return result
 
+    statistics = aweme.get("statistics", {})
+    author_info = aweme.get("author", {})
+
+    result.update({
+        "title": aweme.get("desc", ""),
+        "author": author_info.get("nickname", ""),
+        "likes": int(statistics.get("digg_count", 0)),
+        "comments": int(statistics.get("comment_count", 0)),
+        "collects": int(statistics.get("collect_count", 0)),
+        "shares": int(statistics.get("share_count", 0)),
+    })
+
+    # 获取热评（复用已有 Chrome 页面，不创建新标签页）
+    # Chrome 已有 douyin.com 页面，直接用它的 JS 上下文执行 fetch
+    # ⚠️ 不要 new_page() — 那会在 Chrome 中闪出新标签页
+    try:
+        _ctx2 = await _ensure_cdp()
+        if _ctx2:
+            _pages = _ctx2.pages
+            if _pages:
+                _page = _pages[0]  # 复用已有页面（about:blank 或 douyin.com）
+                _cmt_json = await _page.evaluate(f"""async () => {{
+                    try {{
+                        const r = await fetch(
+                            'https://www.douyin.com/aweme/v1/web/comment/list/?aweme_id={aweme_id}&count=20&cursor=0',
+                            {{ headers: {{ 'Accept': 'application/json, text/plain, */*', 'Referer': 'https://www.douyin.com/' }} }}
+                        );
+                        return JSON.stringify(await r.json());
+                    }} catch(e) {{ return JSON.stringify({{error: e.message}}); }}
+                }}""")
+                _cmt_data = json.loads(_cmt_json)
+                if "error" not in _cmt_data:
+                    for c in _cmt_data.get("comments", [])[:20]:
+                        user = c.get("user", {})
+                        result["comment_texts"].append({
+                            "nickname": user.get("nickname", ""),
+                            "text": c.get("text", ""),
+                            "likes": c.get("digg_count", 0),
+                        })
+    except Exception as e:
+        logger.debug(f"评论获取失败: {e}")
+
+    result["_method"] = "http_api"
+    result["_duration"] = round(time.time() - t0, 2)
     return result
 
 
-# ── 降级方案 (Playwright 标准模式，不依赖 CDP) ──
+# ── 登录状态检测（从 cookie 文件直接读取，无窗口操作） ──
 
-async def _fetch_via_playwright(aweme_id: str) -> dict:
+async def check_login_status() -> dict:
+    """检测抖音登录状态（通过 CDP，无页面操作）"""
+    cookies = await _get_cookies()
+    has_session = bool(cookies.get("sessionid"))
+    return {
+        "logged_in": has_session,
+        "cookie_sessionid": has_session,
+        "cookies_count": len(cookies),
+    }
+
+
+# ── 打开登录页（用 AppleScript 控制 Chrome，不需要 CDP） ──
+
+async def open_login_page():
+    """在 Chrome 中打开抖音首页，让用户登录
+    
+    使用 macOS 的 open 命令（比 AppleScript 更可靠，不依赖辅助功能权限）。
+    登录后 cookie 自动保存到 Chrome profile，两个 Chrome 都会检测。
+    """
+    import subprocess as _sp
+    
     try:
-        from playwright.async_api import async_playwright
-    except ImportError:
-        return {"success": False, "error": "Playwright 未安装"}
-    try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(f"https://www.douyin.com/video/{aweme_id}", wait_until="domcontentloaded", timeout=20000)
-            await page.wait_for_timeout(3000)
-            text = await page.inner_text("body")
-            title, author = "", ""
-            ld = await page.evaluate('''() => { const el = document.querySelector('script[type="application/ld+json"]'); if (!el) return null; try { return JSON.parse(el.textContent); } catch(e) { return null; } }''')
-            if ld and ld.get("itemListElement"):
-                for item in ld["itemListElement"]:
-                    if item.get("position") == 2:
-                        author = item.get("name", "")
-            m = re.search(r'获赞([\d.]+[万wW]?)', text)
-            likes = _parse_num(m.group(1)) if m else 0
-            lines = [l.strip() for l in text.split("\n") if l.strip()]
-            for l in lines:
-                if "#" in l and len(l) > 10:
-                    title = l.split("#")[0].strip()
-                    break
-            await browser.close()
-            return {"success": True, "data": {"title": title, "author": author, "likes": likes, "comments": 0, "collects": 0, "shares": 0, "comment_texts": [], "_notice": "Playwright 降级"}}
+        # 先用 open 命令让 Chrome 激活并打开抖音首页
+        # open -a 会激活已有的 Chrome 窗口（无论是日常还是采集）
+        _sp.run(
+            ["open", "-a", "Google Chrome", "https://www.douyin.com/"],
+            capture_output=True, timeout=10
+        )
+        logger.info("已请求 Chrome 打开抖音首页")
+        return {
+            "success": True,
+            "message": "已打开抖音首页，请在 Chrome 中点击右上角「登录」扫码",
+        }
     except Exception as e:
-        return {"success": False, "error": f"Playwright: {e}"}
-
-
-# ── 工具函数 ──
-
-def _extract_aweme_id(url: str):
-    m = re.search(r'douyin\.com/video/(\d+)', url)
-    if m: return m.group(1)
-    m = re.search(r'iesdouyin\.com/share/video/(\d+)', url)
-    if m: return m.group(1)
-    return None
-
-def _resolve_shortlink(url: str):
-    import subprocess
-    try:
-        result = subprocess.run(["curl", "-sI", url], capture_output=True, text=True, timeout=10)
-        for line in result.stdout.split("\n"):
-            if line.lower().startswith("location:"):
-                loc = line.split(":", 1)[1].strip()
-                m = re.search(r'/video/(\d+)', loc)
-                if m: return m.group(1)
-    except: pass
-    return None
-
-def _parse_num(s: str) -> int:
-    s = s.strip().replace(" ", "")
-    if "万" in s or "w" in s.lower():
-        try: return int(float(s.replace("万", "").replace("w", "").replace("W", "")) * 10000)
-        except: return 0
-    try: return int(float(s))
-    except: return 0
+        logger.error(f"打开抖音首页失败: {e}")
+        return {"success": False, "error": f"打开失败: {e}"}

@@ -48,8 +48,12 @@ def _guardd_url(machine: str = "") -> str:
         return f"http://{ip}:{GUARDD_PORT}"
     return ""
 
-def _guardd_api(method, path, data=None, machine=""):
-    """call guardd HTTP API via socket (avoids urllib+Tailscale timeout issue)"""
+def _guardd_api(method, path, data=None, machine="", timeout=5):
+    """call guardd HTTP API via socket (avoids urllib+Tailscale timeout issue)
+    
+    Args:
+        timeout: 连接超时秒数（默认 5，clear-all 等批量操作建议 10）
+    """
     url = _guardd_url(machine)
     if not url:
         logger.warning("guardd_api: machine {} URL empty".format(machine))
@@ -61,7 +65,7 @@ def _guardd_api(method, path, data=None, machine=""):
         port = int(ps)
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(5)
+        s.settimeout(timeout)
         s.connect((host, port))
         if method == "GET":
             s.sendall("GET {} HTTP/1.0\r\nHost: {}\r\nConnection: close\r\n\r\n".format(path, host).encode())
@@ -411,7 +415,7 @@ class MachineSession:
             "accounts": cmd.accounts,
             "blueprint": cmd.params.get("blueprint", ""),
             "rounds": cmd.params.get("rounds", 1),
-            "priority": cmd.params.get("priority", 0 if cmd.cmd_type in ("interact", "comment") else 1),
+            "priority": cmd.params.get("priority", 0 if cmd.cmd_type in ("interact", "comment", "dm", "live", "publish") else 1),
             "interval": cmd.params.get("interval", 0),
             "params": cmd.params,
             "command_line": cmd.command_line,
@@ -489,7 +493,7 @@ class MachineSession:
             "accounts": cmd.accounts,
             "blueprint": cmd.params.get("blueprint", ""),
             "rounds": cmd.params.get("rounds", 1),
-            "priority": cmd.params.get("priority", 0 if cmd.cmd_type in ("interact", "comment") else 1),
+            "priority": cmd.params.get("priority", 0 if cmd.cmd_type in ("interact", "comment", "dm", "live", "publish") else 1),
             "interval": cmd.params.get("interval", 0),
             "params": cmd.params,
             "command_line": cmd.command_line,

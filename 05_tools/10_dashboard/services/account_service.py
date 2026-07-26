@@ -40,6 +40,34 @@ try:
 except Exception:
     HOSTNAME = os.uname().nodename
 
+# ── Registry 标签读取 ──
+_REGISTRY_PATH = AGENT_SYNC / "05_tools" / "07_matrix" / "accounts_registry.yaml"
+def _load_registry_tags(account_id: str) -> list:
+    """从 accounts_registry.yaml 读取账号的 tags"""
+    if not _REGISTRY_PATH.exists():
+        return []
+    try:
+        import yaml
+        data = yaml.safe_load(_REGISTRY_PATH.read_text()) or {}
+        for acct in data.get("accounts", []):
+            if acct.get("id") == account_id:
+                return acct.get("tags", [])
+    except Exception:
+        pass
+    return []
+
+
+def _load_tags_cache(account_id: str) -> list:
+    """从本地缓存文件读取远程账号的 tags（由 sync_tags.sh 同步）"""
+    _CACHE_PATH = AGENT_LOCAL / "data" / "account_tags_cache.json"
+    if not _CACHE_PATH.exists():
+        return []
+    try:
+        data = json.loads(_CACHE_PATH.read_text())
+        return data.get(account_id, [])
+    except Exception:
+        return []
+
 
 class AccountService:
     """账户统一聚合服务"""
@@ -136,6 +164,18 @@ class AccountService:
                 acct["avatar"] = local.get("avatar", "")
                 acct["_banned"] = local.get("_banned", False)
                 acct["_identity_dir_exists"] = local.get("_identity_dir_exists", False)
+                acct["notes"] = local.get("notes", "")
+                acct["tags"] = local.get("tags", [])
+                # 从 registry 补充 tags
+                if not acct.get("tags"):
+                    _reg_tags = _load_registry_tags(aid)
+                    if _reg_tags:
+                        acct["tags"] = _reg_tags
+            # 远程账号：从缓存文件读取 tags（由远程机器 SSH 同步）
+            if not acct.get("tags"):
+                _cache_tags = _load_tags_cache(aid)
+                if _cache_tags:
+                    acct["tags"] = _cache_tags
             else:
                 profile = self._get_profile_for_account(aid, machine)
                 acct.update(profile)

@@ -57,6 +57,15 @@ function renderLayout() {
       <div id="collectStats" style="padding:6px 14px;font-size:10px;color:var(--text2);font-family:monospace"></div>
     </div>
 
+    <!-- 抖音登录状态栏（采集不需要 Chrome 保持运行） -->
+    <div id="loginBar" style="display:flex;align-items:center;gap:6px;padding:4px 8px;margin-bottom:6px;background:var(--bg2);border-radius:6px;border:1px solid var(--border);font-size:10px;color:var(--text2)">
+      <span>🎵 抖音</span>
+      <span id="loginStatusIcon" title="抖音登录状态">⚪</span>
+      <span id="loginStatusText" style="font-size:9px;color:var(--text2)">检测中...</span>
+      <span style="flex:1"></span>
+      <button id="loginOpenBtn" style="display:none;background:#6366f1;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:9px">📱 打开抖音登录</button>
+    </div>
+
     <!-- Tab: 新建抓取 -->
     <div id="collectTabRun" class="collect-tab-content">
 
@@ -214,7 +223,71 @@ function bindEvents(container) {
   const dtTrackSelBtn = document.getElementById('dtTrackSelectedBtn');
   if (dtTrackSelBtn) dtTrackSelBtn.addEventListener('click', doTrackSelected);
 
+  // ── 登录按钮事件 ──
+  const loginBtn = document.getElementById('loginOpenBtn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', async () => {
+      loginBtn.textContent = '⏳ 打开中...';
+      loginBtn.disabled = true;
+      document.getElementById('loginStatusText').textContent = '正在打开登录页...';
+      try {
+        const r = await fetch('/api/scrape/open-login', { method: 'POST' });
+        const d = await r.json();
+        if (d.success) {
+          document.getElementById('loginStatusText').textContent = d.message || '请在 Chrome 窗口登录';
+          document.getElementById('loginStatusIcon').textContent = '⏳';
+          loginBtn.textContent = '已打开 ✅';
+          // 10 秒后开始检测登录状态
+          setTimeout(checkLoginStatus, 10000);
+          // 如果 60 秒后还没登录，继续检测
+          setTimeout(checkLoginStatus, 60000);
+        } else {
+          document.getElementById('loginStatusText').textContent = '❌ ' + (d.error || '打开失败');
+        }
+      } catch(e) {
+        document.getElementById('loginStatusText').textContent = '❌ ' + e.message;
+      }
+      loginBtn.textContent = '📱 打开抖音登录';
+      loginBtn.disabled = false;
+    });
+  }
+
+  // ── 登录状态首次检测 ──
+  setTimeout(checkLoginStatus, 1000);
+
 }
+
+// ── 抖音登录状态检测（无需浏览器，直接读 cookie 文件）──
+
+async function checkLoginStatus() {
+  const icon = document.getElementById('loginStatusIcon');
+  const text = document.getElementById('loginStatusText');
+  const btn = document.getElementById('loginOpenBtn');
+  if (!icon || !text) return;
+  try {
+    const r = await fetch('/api/scrape/check-login');
+    const d = await r.json();
+    if (d.logged_in) {
+      icon.textContent = '🟢';
+      text.textContent = '抖音已登录';
+      text.style.color = 'var(--green, #22c55e)';
+      if (btn) btn.style.display = 'none';
+    } else {
+      icon.textContent = '🔴';
+      text.textContent = '抖音未登录';
+      text.style.color = '#ef4444';
+      if (btn) btn.style.display = 'inline-block';
+    }
+  } catch(e) {
+    icon.textContent = '⚪';
+    text.textContent = '登录检测失败';
+    text.style.color = 'var(--text2)';
+    if (btn) btn.style.display = 'none';
+  }
+}
+
+// 每 60 秒检查一次登录状态
+setInterval(checkLoginStatus, 60000);
 
 // ── Tab 切换 ──
 
@@ -705,7 +778,10 @@ function renderDyVideos(container) {
     let html = '<div style="display:flex;align-items:center;gap:4px;padding:2px 8px;margin-bottom:2px;font-size:9px;color:var(--text2)">'
     + '<input type="checkbox" id="dtSelAll" style="flex-shrink:0" onchange="var x=document.querySelectorAll(\'.dt-sel-cb\');for(var j=0;j<x.length;j++){x[j].checked=this.checked}updateSelButtons()">'
     + '<span>全选</span>'
-    + '<span style="margin-left:auto">共 ' + _dyVideos.length + ' 条</span>'
+    + '<button id="dtTrackAllBtn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:1px 5px;border-radius:3px;cursor:pointer;font-size:9px">📌 全选跟踪</button>'
+    + '<span style="flex:1"></span>'
+    + '<button id="dtCopySelectedBtn" style="background:#6366f1;color:#fff;border:none;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">📋 复制选中</button>'
+    + '<span>共 ' + _dyVideos.length + ' 条</span>'
     + '</div>';
   html += '<div style="display:flex;flex-direction:column;gap:6px">';
   _dyVideos.forEach((v, i) => {
@@ -754,6 +830,36 @@ function renderDyVideos(container) {
   });
   updateBatchBtn();
   document.querySelectorAll('.dt-sel-cb').forEach(cb => cb.addEventListener('change', updateSelButtons));
+  
+  // 全选跟踪按钮
+  const trackAllBtn = document.getElementById('dtTrackAllBtn');
+  if (trackAllBtn && !trackAllBtn._bound) {
+    trackAllBtn._bound = true;
+    trackAllBtn.addEventListener('click', () => {
+      const allChecked = document.querySelectorAll('.dt-track-cb:checked').length === document.querySelectorAll('.dt-track-cb').length;
+      document.querySelectorAll('.dt-track-cb').forEach(cb => cb.checked = !allChecked);
+      trackAllBtn.textContent = allChecked ? '📌 全选跟踪' : '✅ 已全选';
+      setTimeout(() => trackAllBtn.textContent = '📌 全选跟踪', 1500);
+    });
+  }
+
+  // 复制选中按钮（无勾选时复制全部）
+  const copyBtn = document.getElementById('dtCopySelectedBtn');
+  if (copyBtn && !copyBtn._bound) {
+    copyBtn._bound = true;
+    copyBtn.addEventListener('click', () => {
+      const indices = getSelectedIndices();
+      const items = indices.length ? indices.map(i => _dyVideos[i]).filter(Boolean) : _dyVideos;
+      if (!items.length) return;
+      const lines = items.map(v => ((v.title || '').replace(/\n/g, ' ') || '无标题') + '\n' + (v.url || '')).filter(Boolean);
+      if (!lines.length) return;
+      navigator.clipboard.writeText(lines.join('\n\n')).then(() => {
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✅ 已复制';
+        setTimeout(() => copyBtn.textContent = orig, 2000);
+      });
+    });
+  }
 }
 
 async function doCollectVideo(idx) {
@@ -1018,6 +1124,36 @@ function updateRenderDyVideos() {
   if (listEl) renderDyVideos(listEl);
   updateBatchBtn();
   document.querySelectorAll('.dt-sel-cb').forEach(cb => cb.addEventListener('change', updateSelButtons));
+  
+  // 全选跟踪按钮
+  const trackAllBtn = document.getElementById('dtTrackAllBtn');
+  if (trackAllBtn && !trackAllBtn._bound) {
+    trackAllBtn._bound = true;
+    trackAllBtn.addEventListener('click', () => {
+      const allChecked = document.querySelectorAll('.dt-track-cb:checked').length === document.querySelectorAll('.dt-track-cb').length;
+      document.querySelectorAll('.dt-track-cb').forEach(cb => cb.checked = !allChecked);
+      trackAllBtn.textContent = allChecked ? '📌 全选跟踪' : '✅ 已全选';
+      setTimeout(() => trackAllBtn.textContent = '📌 全选跟踪', 1500);
+    });
+  }
+
+  // 复制选中按钮（无勾选时复制全部）
+  const copyBtn = document.getElementById('dtCopySelectedBtn');
+  if (copyBtn && !copyBtn._bound) {
+    copyBtn._bound = true;
+    copyBtn.addEventListener('click', () => {
+      const indices = getSelectedIndices();
+      const items = indices.length ? indices.map(i => _dyVideos[i]).filter(Boolean) : _dyVideos;
+      if (!items.length) return;
+      const lines = items.map(v => ((v.title || '').replace(/\n/g, ' ') || '无标题') + '\n' + (v.url || '')).filter(Boolean);
+      if (!lines.length) return;
+      navigator.clipboard.writeText(lines.join('\n\n')).then(() => {
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✅ 已复制';
+        setTimeout(() => copyBtn.textContent = orig, 2000);
+      });
+    });
+  }
 }
 
 // 将 renderDyVideos 末尾加上 updateBatchBtn
@@ -1040,8 +1176,10 @@ function updateSelButtons() {
   const hasSel = getSelectedIndices().length > 0;
   const sel1 = document.getElementById('dtCollectSelectedBtn');
   const sel2 = document.getElementById('dtTrackSelectedBtn');
+  const copyBtn = document.getElementById('dtCopySelectedBtn');
   if (sel1) sel1.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
   if (sel2) sel2.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
+  if (copyBtn) copyBtn.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
   
   // 全选勾选框同步
   const allCb = document.getElementById('dtSelAll');
@@ -1114,17 +1252,39 @@ async function loadDyTracking() {
     
     items.forEach((item, idx) => {
       const stats = item.stats || {};
+      const prev = item.prev_stats || null;
       const itemId = item.id || idx;
       const vUrl = item.url || '';
+      
+      // 变化标记
+      function diffHtml(label, key) {
+        const cur = stats[key] || 0;
+        if (!prev) return `<span style="font-size:9px;color:var(--text2)">${label} ${cur}</span>`;
+        const old = prev[key] || 0;
+        const diff = cur - old;
+        let color = '#6b7280', arrow = '➡️', curColor = 'var(--text)';
+        if (diff > 0) { color = '#22c55e'; arrow = '📈'; curColor = '#22c55e'; }
+        if (diff < 0) { color = '#ef4444'; arrow = '📉'; curColor = '#ef4444'; }
+        return `<span style="font-size:9px;color:var(--text2);white-space:nowrap">
+          <span style="color:#9ca3af">${label}</span>
+          <span style="color:#9ca3af;font-size:8px">${old}</span>
+          <span style="font-size:8px;color:#9ca3af">→</span>
+          <span style="font-weight:600;color:${curColor}">${cur}</span>
+          <span style="color:${color};font-size:8px">${arrow}${diff > 0 ? '+' : ''}${diff}</span>
+        </span>`;
+      }
+      
       html += '<div id="dtTrack_' + itemId + '" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">'
         + '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
         + '<input type="checkbox" class="dt-trk-sel" data-idx="' + idx + '" style="flex-shrink:0;cursor:pointer">'
         + '<a href="' + vUrl + '" target="_blank" style="font-size:10px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--primary);text-decoration:none" title="' + (item.title || '') + '">' + (item.title || '?') + '</a>'
         + '<button class="dt-copy-link-btn" data-url="' + vUrl + '" data-title="' + (item.title || '').replace(/"/g,'&quot;') + '" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:0 5px;border-radius:3px;cursor:pointer;font-size:8px">📋</button>'
-        + '<span style="font-size:9px;color:var(--text2)">' + (stats.likes || 0) + '👍</span>'
-        + '<span style="font-size:9px;color:var(--text2)">' + (stats.comments || 0) + '💬</span>'
-        + '<span style="font-size:9px;color:var(--text2)">' + (stats.collects || 0) + '⭐</span>'
-        + '<span class="dt-track-time" style="font-size:8px;color:var(--text2)">' + (item.collected_at || '').slice(0, 19) + '</span>'
+        + diffHtml('👍', 'likes')
+        + diffHtml('💬', 'comments')
+        + diffHtml('⭐', 'collects')
+        + (prev
+          ? `<span style="font-size:8px;color:#9ca3af">⏱ ${(item.prev_collected_at||'').slice(5,16)}→${(item.collected_at||'').slice(5,16)}</span>`
+          : `<span style="font-size:8px;color:var(--text2)">⏱ ${(item.collected_at||'').slice(5,16)}</span>`)
         + '<button class="dt-refresh-btn" data-id="' + item.id + '" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px">🔄</button>'
         + '<button class="dt-del-btn" data-id="' + item.id + '" style="background:#ef4444;color:#fff;border:none;padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px">✕</button>'
         + '</div>';
@@ -1151,18 +1311,32 @@ async function loadDyTracking() {
     html += '</div>';
     listEl.innerHTML = html;
     
-    // 绑定刷新按钮
+    // 绑定刷新按钮（单条）
     listEl.querySelectorAll('.dt-refresh-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         btn.textContent = '⏳';
-        const r = await fetch('/api/scrape/refresh-video/' + btn.dataset.id, { method: 'POST' });
-        const d = await r.json();
-        if (d.status === 'ok') {
-          btn.textContent = '✅';
-          setTimeout(() => btn.textContent = '🔄', 1500);
-          loadDyTracking();
-        } else {
+        const statusEl = document.getElementById('dtRefreshStatus');
+        try {
+          const r = await fetch('/api/scrape/refresh-video/' + btn.dataset.id, { method: 'POST' });
+          const d = await r.json();
+          if (d.status === 'ok') {
+            btn.textContent = '✅';
+            if (statusEl) statusEl.textContent = '';
+            setTimeout(() => btn.textContent = '🔄', 1500);
+            loadDyTracking();
+          } else {
+            btn.textContent = '❌';
+            if (statusEl) statusEl.textContent = '❌ ' + (d.message || '采集失败');
+            setTimeout(() => btn.textContent = '🔄', 3000);
+            // 如果是登录过期，立即刷新登录状态
+            if (d.login_expired) {
+              setTimeout(checkLoginStatus, 500);
+            }
+          }
+        } catch(e) {
           btn.textContent = '❌';
+          if (statusEl) statusEl.textContent = '❌ 网络错误: ' + e.message;
+          setTimeout(() => btn.textContent = '🔄', 3000);
         }
       });
     });
@@ -1248,6 +1422,13 @@ async function loadDyTracking() {
             const r = await fetch('/api/scrape/refresh-video/' + item.id, { method: 'POST' });
             const d = await r.json();
             if (d.status === 'ok') ok++; else fail++;
+            // 登录过期 → 立即停止
+            if (d.login_expired) {
+              if (statusEl) statusEl.textContent = '⛔ 登录已过期，已停止。请先登录';
+              refSelBtn.textContent = '🔄 更新选中';
+              checkLoginStatus();
+              return;  // 跳出整个循环
+            }
           } catch(e) { fail++; }
           await new Promise(r => setTimeout(r, 3000));
         }

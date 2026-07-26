@@ -104,6 +104,7 @@ class MatrixManager:
             "proxy": data.get("proxy", None),
             "enabled": data.get("enabled", True),
             "notes": data.get("notes", ""),
+            "tags": data.get("tags", []),
         }
         accounts.append(new_acct)
         self._write_accounts_yaml(accounts)
@@ -127,6 +128,7 @@ class MatrixManager:
                         "platform": data.get("platform", "douyin"),
                         "created_at": datetime.now().isoformat(),
                         "notes": data.get("notes", ""),
+                        "tags": data.get("tags", []),
                     },
                 }, default_flow_style=False),
                 encoding="utf-8",
@@ -153,12 +155,12 @@ class MatrixManager:
                     break
             if not found:
                 raise ValueError(f"账号 {account_id} 不存在")
-            for key in ["phone", "window", "window_position", "proxy", "enabled", "notes", "platform"]:
+            for key in ["phone", "window", "window_position", "proxy", "enabled", "notes", "tags", "platform"]:
                 if key in data:
                     found[key] = data[key]
             self._write_accounts_yaml(accounts)
         else:
-            for key in ["notes", "window", "window_position", "platform"]:
+            for key in ["notes", "tags", "window", "window_position", "platform"]:
                 if key in data:
                     reg_found[key] = data[key]
             self.REGISTRY_PATH.write_text(
@@ -1266,6 +1268,7 @@ class MatrixManager:
             merged["enabled"] = ovr.get("enabled", acct.get("enabled", True))
             merged["is_local"] = is_local(acct)
             merged["owner_machine"] = acct.get("assigned_machine", "")
+            merged["tags"] = ovr.get("tags", acct.get("tags", []))
 
             # identity_dir 解析: 优先 override, 再 registry hint
             identity_hint = acct.get("identity_hint", aid)
