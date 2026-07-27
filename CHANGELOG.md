@@ -1,5 +1,30 @@
 # AgentOS 项目变更日志
 
+## [4.2.2] - 2026-07-26/27
+
+### 运维改进 + 账号中心增强
+
+#### 修复：clear-all 清不完远程机器队列
+- **`_guardd_api()` 加 timeout 参数** — 默认 5s，clear-all 用 10s
+- **clear-all 返回逐台结果** — 全部成功返回 `ok`，有失败返回 `partial`
+- 解决了远程机器偶尔连通性差导致队列清不干净的问题
+
+#### 新增：账号中心批量删除标签
+- 选中多个账号后底部弹出「🏷️ 删除标签」按钮
+- 弹窗列出选中账号的所有标签，点击即删除
+- 逐账号 PATCH 更新，界面自动更新
+
+#### 修复：5kecheng guardd POST 挂死
+- guardd 运行 28 天后 `do_POST` handler 卡死（`rfile.read` 阻塞）
+- 重启后恢复，guardd 版本号更新至 v2.3.1
+
+#### 修复：mediacrawler_adapter CDP 采集优化
+- 去掉 Playwright 降级方案（headless 模式有封号风险）
+- CDP 断连时全量重建 Playwright 实例，不重用旧 state
+- 新增 Chrome 状态检测 + 一键重启 API
+- 新增登录状态检测 + 打开登录页功能
+- 复用已有 Chrome 页面执行 fetch，不创建新标签页（零闪烁）
+
 ## [4.3.0] - 2026-07-15/16
 
 ### 抖追踪系统 + CDP 采集引擎
