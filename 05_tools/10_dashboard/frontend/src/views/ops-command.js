@@ -172,7 +172,8 @@ function renderAlerts(queueData) {
   const alerts = [];
   for (const [name, s] of Object.entries(queueData?.machines || {})) {
     if (s?.error) alerts.push({machine:name, level:'error', msg:`🔴 不可达: ${s.error}`});
-    if ((s?.counts?.failed||0) > 0) alerts.push({machine:name, level:'warning', msg:`❌ ${s.counts.failed} 个任务失败`});
+    // 不再显示历史失败累计数（TaskStore 不清理历史，数值只增不减，无告警意义）
+    // 如需要近期失败告警，可改为检查最近 24h 内失败数
   }
   if (alerts.length) {
     el.style.display = 'block';
