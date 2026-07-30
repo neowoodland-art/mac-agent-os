@@ -1248,7 +1248,8 @@ async function loadDyTracking() {
       + '<button id="dtRefreshSelectedBtn" style="display:none;background:#f97316;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 更新选中</button>'
       + '<button id="dtCopyAllBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制全部</button>'
       + '<span id="dtRefreshStatus" style="font-size:9px;font-family:monospace"></span>'
-      + '</div>';
+      + '</div>'
+      + '<div id="dtRefreshRecovery" style="display:none"></div>';  // F5 恢复提示占位
     
     items.forEach((item, idx) => {
       const stats = item.stats || {};
@@ -1490,14 +1491,47 @@ async function loadDyTracking() {
       }
     }
     
+    // 检查 F5 恢复提示
+    showRefreshRecovery();
+    
   } catch (e) {
     listEl.innerHTML = '❌ 加载失败: ' + e.message;
+  }
+}
+
+// ── sessionStorage 恢复提示（F5 后展示上次刷新进度） ──
+
+function showRefreshRecovery() {
+  const raw = sessionStorage.getItem('dt_refresh_progress');
+  if (!raw) return;
+  try {
+    const prog = JSON.parse(raw);
+    // 超过 5 分钟的不提示
+    if (Date.now() - prog.started_at > 300000) { sessionStorage.removeItem('dt_refresh_progress'); return; }
+    // 已完成的直接清掉
+    if (prog.status === 'completed') { sessionStorage.removeItem('dt_refresh_progress'); return; }
+    
+    const elapsed = Math.round((Date.now() - prog.started_at) / 1000);
+    const recoveryEl = document.getElementById('dtRefreshRecovery');
+    if (!recoveryEl) return;
+    recoveryEl.style.display = 'block';
+    recoveryEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;margin-bottom:4px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px">
+      <span>⏸️</span>
+      <span style="flex:1">上次全部更新中断（${prog.done||0}/${prog.total||'?'}，已完成${elapsed}秒前），<strong>✅${prog.success||0} ❌${prog.fail||0}</strong></span>
+      <button onclick="sessionStorage.removeItem('dt_refresh_progress');this.closest('#dtRefreshRecovery').style.display='none'" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:10px">✕ 关闭</button>
+    </div>`;
+  } catch(e) {
+    sessionStorage.removeItem('dt_refresh_progress');
   }
 }
 
 // ── 一键刷新全部（逐个刷新，间隔 3 秒） ──
 
 async function doRefreshAllTracking() {
+  // 清除之前的恢复提示
+  sessionStorage.removeItem('dt_refresh_progress');
+  const recoveryEl = document.getElementById('dtRefreshRecovery');
+  if (recoveryEl) recoveryEl.style.display = 'none';
   // 如果正在刷新，点击即为停止
   if (window._dtRefreshing) {
     window._dtRefreshing = false;
@@ -1516,13 +1550,22 @@ async function doRefreshAllTracking() {
   
   const items = document.querySelectorAll('.dt-refresh-btn');
   let success = 0, fail = 0;
+  const total = items.length;
+  
+  // 写入 sessionStorage（F5 不丢）
+  sessionStorage.setItem('dt_refresh_progress', JSON.stringify({
+    started_at: Date.now(),
+    total, success, fail,
+    done: 0, status: 'running'
+  }));
   
   for (const refreshBtn of items) {
     if (!window._dtRefreshing) break; // 允许中断
     
     const id = refreshBtn.dataset.id;
     refreshBtn.textContent = '⏳';
-    if (statusEl) statusEl.textContent = '正在刷新 ' + (success + fail + 1) + '/' + items.length;
+    const done = success + fail;
+    if (statusEl) statusEl.textContent = '正在刷新 ' + (done + 1) + '/' + total;
     
     try {
       const r = await fetch('/api/scrape/refresh-video/' + id, { method: 'POST' });
@@ -1541,9 +1584,23 @@ async function doRefreshAllTracking() {
       fail++;
     }
     
+    // 每完成一条更新 sessionStorage
+    sessionStorage.setItem('dt_refresh_progress', JSON.stringify({
+      started_at: Date.now(),
+      total, success, fail,
+      done: success + fail, status: 'running'
+    }));
+    
     // 等 3 秒再刷新下一条
     await new Promise(r => setTimeout(r, 3000));
   }
+  
+  // 完成标记
+  sessionStorage.setItem('dt_refresh_progress', JSON.stringify({
+    started_at: Date.now(),
+    total, success, fail,
+    done: success + fail, status: 'completed'
+  }));
   
   if (statusEl) statusEl.textContent = '✅ 完成: ' + success + ' 成功, ' + fail + ' 失败';
   if (btn) { btn.textContent = '🔄 刷新全部'; btn.style.background = ''; btn.style.color = ''; }
