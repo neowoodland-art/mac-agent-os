@@ -374,6 +374,272 @@ async def api_refresh_video(item_id: str):
     return {"status": "ok", "item": found}
 
 
+# ── 抖音博主监控（跟踪博主 + 每日快照 + 新视频发现） ──
+# 数据流：
+#   视频URL/博主主页URL → 拿 uid（数字ID）→ 存 douyin_authors.json
+#   → profile/other 打基线（粉丝/获赞/作品数）
+#   → aweme/post 拉最新视频 → 发现新视频自动加入视频跟踪
+# 存储：agent-local/data/douyin_authors.json
+#   [{author_id, nickname, unique_id, uid, added_at, last_collected_at,
+#     snapshots: [{date, fans, total_favorited, works, new_videos: [id]}],
+#     video_ids: [已见视频ID集合，用于新视频发现]}]
+
+_AUTHORS_DB = _Path(_os.environ.get("AGENT_LOCAL",
+    str(_Path.home() / "workbuddy-agent-os" / "agent-local"))) / "data" / "douyin_authors.json"
+
+
+def _load_authors() -> list:
+    if _AUTHORS_DB.exists():
+        try:
+            return _js.loads(_AUTHORS_DB.read_text())
+        except:
+            pass
+    return []
+
+
+def _save_authors(items: list):
+    _AUTHORS_DB.parent.mkdir(parents=True, exist_ok=True)
+    _AUTHORS_DB.write_text(_js.dumps(items, ensure_ascii=False, indent=2))
+
+
+def _author_id_from_url(url: str) -> str:
+    """从 URL 提取博主 ID：支持 /user/{sec_uid} 或 /video/{id}"""
+    import re as _re
+    m = _re.search(r'douyin\.com/user/([^/?#]+)', url)
+    if m:
+        return m.group(1)
+    return ""
+
+
+@router.post("/track-author")
+async def api_track_author(data: dict = {}):
+    """加入博主跟踪（传视频URL或博主主页URL，自动解析 uid 并打基线）"""
+    from services.mediacrawler_adapter import get_video_data, get_author_profile, get_author_videos
+    url = (data.get("url") or data.get("video_url") or "").strip()
+    if not url:
+        return {"status": "error", "message": "url 必填（视频链接或博主主页链接）"}
+
+    # 情况1：博主主页链接 douyin.com/user/xxx → xxx 可能是 sec_uid
+    author_id = _author_id_from_url(url)
+    if author_id:
+        # 主页链接里的 ID 是 sec_uid，需要解析成数字 uid
+        # 方式：先当作视频无解，直接尝试用 sec_uid 查 profile（会失败），
+        # 因此这里先提示用视频链接，或尝试用 sec_uid 反查
+        return await _add_author_by_sec_uid(author_id, url)
+
+    # 情况2：视频链接 → 先采视频详情拿 uid
+    stats = await get_video_data(url)
+    if "error" in stats:
+        return {"status": "error", "message": stats["error"]}
+    uid = str(stats.get("author_uid", ""))
+    nickname = stats.get("author", "")
+    if not uid:
+        return {"status": "error", "message": "未能从视频解析博主ID"}
+    return await _add_author_by_uid(uid, nickname, url)
+
+
+async def _add_author_by_sec_uid(sec_uid: str, source_url: str):
+    """通过 sec_uid 添加博主（先采集一次打基线）"""
+    # sec_uid 不能直接查 profile/other（会报 UserId不合法）
+    # 尝试通过视频详情反查：没有视频 URL 时先用 sec_uid 查 aweme/post（同样要数字uid）
+    # 目前无法直接转换 → 提示用户使用视频链接
+    return {"status": "error", "message": "博主主页链接暂不支持直接添加，请改用视频链接（主页 ID 是加密格式）"}
+
+
+async def _add_author_by_uid(uid: str, nickname: str, source_url: str):
+    """通过数字 uid 添加博主并打基线"""
+    from services.mediacrawler_adapter import get_author_profile, get_author_videos
+    authors = _load_authors()
+    for a in authors:
+        if a.get("uid") == uid:
+            return {"status": "ok", "message": f"博主 {nickname} 已在跟踪中", "item": a, "already": True}
+
+    profile = await get_author_profile(uid)
+    if "error" in profile:
+        return {"status": "error", "message": profile["error"]}
+
+    # 拉最新视频（用于新视频发现基线）
+    videos_res = await get_author_videos(uid, count=20)
+    video_ids = [v["aweme_id"] for v in videos_res.get("videos", [])]
+
+    author = {
+        "author_id": f"author_{uid}",
+        "uid": uid,
+        "nickname": profile.get("nickname", nickname),
+        "unique_id": profile.get("unique_id", ""),
+        "sec_uid": profile.get("sec_uid", ""),
+        "added_at": _time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source_url": source_url,
+        "last_collected_at": _time.strftime("%Y-%m-%d %H:%M:%S"),
+        "snapshots": [{
+            "date": _time.strftime("%Y-%m-%d"),
+            "fans": profile.get("fans", 0),
+            "total_favorited": profile.get("total_favorited", 0),
+            "works": profile.get("works", 0),
+            "new_videos": video_ids,
+        }],
+        "video_ids": video_ids,
+    }
+    authors.insert(0, author)
+    _save_authors(authors)
+    return {"status": "ok", "message": f"已跟踪博主 {author['nickname']}", "item": author}
+
+
+@router.get("/tracked-authors")
+async def api_tracked_authors():
+    """博主跟踪列表（含最新快照、今日涨粉）"""
+    authors = _load_authors()
+    today = _time.strftime("%Y-%m-%d")
+    result = []
+    for a in authors:
+        snaps = a.get("snapshots", [])
+        latest = snaps[-1] if snaps else {}
+        prev = snaps[-2] if len(snaps) > 1 else {}
+        result.append({
+            "author_id": a.get("author_id"),
+            "uid": a.get("uid"),
+            "nickname": a.get("nickname"),
+            "unique_id": a.get("unique_id"),
+            "added_at": a.get("added_at"),
+            "last_collected_at": a.get("last_collected_at"),
+            "fans": latest.get("fans", 0),
+            "fans_delta": (latest.get("fans", 0) - prev.get("fans", 0)) if prev else 0,
+            "total_favorited": latest.get("total_favorited", 0),
+            "works": latest.get("works", 0),
+            "snapshot_count": len(snaps),
+            "last_snapshot_date": latest.get("date", ""),
+            "today_collected": latest.get("date") == today,
+        })
+    return {"status": "ok", "items": result}
+
+
+@router.post("/refresh-author/{author_id}")
+async def api_refresh_author(author_id: str):
+    """手动刷新单个博主：采主页快照 + 发现新视频（自动加入视频跟踪）"""
+    from services.mediacrawler_adapter import get_author_profile, get_author_videos
+    authors = _load_authors()
+    found = next((a for a in authors if a.get("author_id") == author_id), None)
+    if not found:
+        return {"status": "error", "message": "未找到该博主"}
+
+    profile = await get_author_profile(found["uid"])
+    if "error" in profile:
+        resp = {"status": "error", "message": profile["error"]}
+        if profile.get("login_expired"):
+            resp["login_expired"] = True
+            resp["message"] = "⛔ 抖音登录已过期，请重新登录"
+        return resp
+
+    # 拉最新视频，发现新视频
+    videos_res = await get_author_videos(found["uid"], count=20)
+    new_videos = []
+    known = set(found.get("video_ids", []))
+    for v in videos_res.get("videos", []):
+        if v["aweme_id"] not in known:
+            new_videos.append(v["aweme_id"])
+            # 自动加入视频跟踪
+            await api_track_video({"url": v["url"]})
+    found["video_ids"] = list(known) + new_videos
+
+    # 存快照
+    today = _time.strftime("%Y-%m-%d")
+    found.setdefault("snapshots", []).append({
+        "date": today,
+        "fans": profile.get("fans", 0),
+        "total_favorited": profile.get("total_favorited", 0),
+        "works": profile.get("works", 0),
+        "new_videos": new_videos,
+    })
+    # 同一天重复刷新 → 替换今天的快照（不重复堆积）
+    snaps = found["snapshots"]
+    same_day = [i for i, s in enumerate(snaps) if s.get("date") == today]
+    if len(same_day) > 1:
+        # 保留第一次，删除后续同日快照
+        for i in sorted(same_day[1:], reverse=True):
+            snaps.pop(i)
+    found["last_collected_at"] = _time.strftime("%Y-%m-%d %H:%M:%S")
+    _save_authors(authors)
+
+    return {"status": "ok", "item": {
+        "author_id": found["author_id"],
+        "nickname": found["nickname"],
+        "fans": profile.get("fans", 0),
+        "total_favorited": profile.get("total_favorited", 0),
+        "works": profile.get("works", 0),
+        "new_videos": new_videos,
+        "new_video_count": len(new_videos),
+    }}
+
+
+@router.post("/refresh-all-authors")
+async def api_refresh_all_authors():
+    """刷新全部博主（限速 3 秒/个）"""
+    from services.mediacrawler_adapter import get_author_profile
+    authors = _load_authors()
+    results = []
+    for a in authors:
+        try:
+            r = await api_refresh_author(a["author_id"])
+            results.append({"author_id": a["author_id"], "nickname": a.get("nickname"), "status": r.get("status"), "new_videos": r.get("item", {}).get("new_video_count", 0)})
+        except Exception as e:
+            results.append({"author_id": a["author_id"], "nickname": a.get("nickname"), "status": "error", "error": str(e)[:100]})
+        await asyncio.sleep(3)
+    return {"status": "ok", "results": results, "total": len(authors)}
+
+
+@router.get("/author-history/{author_id}")
+async def api_author_history(author_id: str):
+    """博主历史趋势（每日序列）"""
+    authors = _load_authors()
+    found = next((a for a in authors if a.get("author_id") == author_id), None)
+    if not found:
+        return {"status": "error", "message": "未找到该博主"}
+    return {"status": "ok", "item": {
+        "author_id": found["author_id"],
+        "nickname": found["nickname"],
+        "uid": found["uid"],
+        "snapshots": found.get("snapshots", []),
+    }}
+
+
+@router.get("/author-videos/{author_id}")
+async def api_author_videos(author_id: str):
+    """博主最新视频列表（实时拉取）"""
+    from services.mediacrawler_adapter import get_author_videos
+    authors = _load_authors()
+    found = next((a for a in authors if a.get("author_id") == author_id), None)
+    if not found:
+        return {"status": "error", "message": "未找到该博主"}
+    res = await get_author_videos(found["uid"], count=30)
+    return {"status": "ok", "videos": res.get("videos", []), "has_more": res.get("has_more", False)}
+
+
+@router.delete("/tracked-authors/{author_id}")
+async def api_delete_tracked_author(author_id: str):
+    """取消博主跟踪"""
+    authors = _load_authors()
+    before = len(authors)
+    authors = [a for a in authors if a.get("author_id") != author_id]
+    if len(authors) < before:
+        _save_authors(authors)
+        return {"status": "ok"}
+    return {"status": "error", "message": "未找到"}
+
+
+@router.get("/author-new-videos")
+async def api_author_new_videos():
+    """全部博主的新视频汇总（最近一次刷新发现的新视频）"""
+    authors = _load_authors()
+    items = []
+    for a in authors:
+        snaps = a.get("snapshots", [])
+        if snaps:
+            latest = snaps[-1]
+            for vid in latest.get("new_videos", []):
+                items.append({"author_id": a.get("author_id"), "nickname": a.get("nickname"), "video_id": vid})
+    return {"status": "ok", "items": items}
+
+
 @router.get("/chrome-status")
 async def api_chrome_status():
     """检查采集 Chrome 是否可用（只检查 profile 目录，不检查 CDP 端口）"""

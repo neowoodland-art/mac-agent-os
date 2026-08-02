@@ -194,6 +194,9 @@ async def get_video_data(url: str) -> dict:
     result.update({
         "title": aweme.get("desc", ""),
         "author": author_info.get("nickname", ""),
+        "author_uid": author_info.get("uid", ""),          # 数字ID（博主精确身份）
+        "author_sec_uid": author_info.get("sec_uid", ""),  # 加密ID
+        "author_unique_id": author_info.get("unique_id", ""),  # 抖音号
         "likes": int(statistics.get("digg_count", 0)),
         "comments": int(statistics.get("comment_count", 0)),
         "collects": int(statistics.get("collect_count", 0)),
@@ -232,6 +235,111 @@ async def get_video_data(url: str) -> dict:
 
     result["_method"] = "http_api"
     result["_duration"] = round(time.time() - t0, 2)
+    return result
+
+
+# ── 博主采集（抖音博主监控） ──
+# ⚠️ 注意：profile/other 和 aweme/post 接口要用「数字 uid」，
+#    不能用 sec_user_id（会报 UserId不合法）。
+#    数字 uid 从视频详情 API 的 author.uid 字段获取。
+
+async def get_author_profile(uid: str) -> dict:
+    """获取博主主页信息（粉丝数/获赞数/作品数/昵称/签名）
+    
+    Args:
+        uid: 博主数字 ID（从视频详情的 author.uid 获取）
+    
+    Returns:
+        {"uid", "nickname", "unique_id", "fans", "total_favorited",
+         "works", "following", "signature", "avatar", "sec_uid", ...}
+        失败时含 "error" 字段
+    """
+    result = {"uid": str(uid)}
+    cookies = await _get_cookies()
+    has_session = bool(cookies.get("sessionid"))
+    if not has_session:
+        result["error"] = "抖音登录已过期"
+        result["login_expired"] = True
+        return result
+
+    try:
+        api_url = (
+            f"https://www.douyin.com/aweme/v1/web/user/profile/other/"
+            f"?user_id={uid}&device_platform=webapp&aid=6383"
+        )
+        data = await asyncio.to_thread(_http_get, api_url, cookies)
+    except urllib.error.HTTPError as e:
+        result["error"] = f"HTTP {e.code}: {e.reason}"
+        return result
+    except Exception as e:
+        result["error"] = f"请求失败: {e}"
+        return result
+
+    user = data.get("user", {})
+    if not user:
+        result["error"] = f"未返回用户数据: {data.get('status_msg', '')} (code={data.get('status_code')})"
+        return result
+
+    result.update({
+        "nickname": user.get("nickname", ""),
+        "unique_id": user.get("unique_id", ""),
+        "sec_uid": user.get("sec_uid", ""),
+        "fans": user.get("follower_count", 0),
+        "total_favorited": user.get("total_favorited", 0),
+        "works": user.get("aweme_count", 0),
+        "following": user.get("following_count", 0),
+        "signature": user.get("signature", ""),
+        "avatar": (user.get("avatar_thumb") or {}).get("url_list", [""])[0] if user.get("avatar_thumb") else "",
+        "collected_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    })
+    return result
+
+
+async def get_author_videos(uid: str, count: int = 20) -> dict:
+    """获取博主最新发布的视频列表（按发布时间倒序）
+    
+    Args:
+        uid: 博主数字 ID
+        count: 拉取条数（默认20）
+    
+    Returns:
+        {"uid", "videos": [{aweme_id, title, likes, comments, collects,
+                            shares, create_time, url}], "has_more"}
+    """
+    result = {"uid": str(uid), "videos": [], "has_more": False}
+    cookies = await _get_cookies()
+    has_session = bool(cookies.get("sessionid"))
+    if not has_session:
+        result["error"] = "抖音登录已过期"
+        result["login_expired"] = True
+        return result
+
+    try:
+        api_url = (
+            f"https://www.douyin.com/aweme/v1/web/aweme/post/"
+            f"?user_id={uid}&count={count}&max_cursor=0&device_platform=webapp&aid=6383"
+        )
+        data = await asyncio.to_thread(_http_get, api_url, cookies)
+    except urllib.error.HTTPError as e:
+        result["error"] = f"HTTP {e.code}: {e.reason}"
+        return result
+    except Exception as e:
+        result["error"] = f"请求失败: {e}"
+        return result
+
+    result["has_more"] = bool(data.get("has_more"))
+    for a in data.get("aweme_list", [])[:count]:
+        st = a.get("statistics", {})
+        result["videos"].append({
+            "aweme_id": str(a.get("aweme_id", "")),
+            "title": a.get("desc", ""),
+            "likes": int(st.get("digg_count", 0)),
+            "comments": int(st.get("comment_count", 0)),
+            "collects": int(st.get("collect_count", 0)),
+            "shares": int(st.get("share_count", 0)),
+            "create_time": a.get("create_time", 0),
+            "url": f"https://www.douyin.com/video/{a.get('aweme_id', '')}",
+        })
     return result
 
 

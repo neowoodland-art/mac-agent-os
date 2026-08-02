@@ -52,6 +52,7 @@ function renderLayout() {
       <div class="collect-tab" data-tab="sources" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">📋 抓取源</div>
       <div class="collect-tab" data-tab="dy-track" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">🎵 抖追踪</div>
       <div class="collect-tab" data-tab="dy-tracking" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">📡 跟踪中</div>
+      <div class="collect-tab" data-tab="dy-authors" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">👥 博主监控</div>
       <div class="collect-tab" data-tab="history" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">📜 历史</div>
       <div style="flex:1"></div>
       <div id="collectStats" style="padding:6px 14px;font-size:10px;color:var(--text2);font-family:monospace"></div>
@@ -138,6 +139,20 @@ function renderLayout() {
     <div id="collectTabDy-tracking" class="collect-tab-content" style="display:none">
       <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
         <div id="dtTrackingList" style="font-size:11px"></div>
+      </div>
+    </div>
+
+    <!-- Tab: 博主监控 -->
+    <div id="collectTabDy-authors" class="collect-tab-content" style="display:none">
+      <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+          <input id="daUrlInput" type="text" placeholder="粘贴视频链接或博主主页链接，跟踪博主" 
+                 style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+          <button id="daAddBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">👤 跟踪博主</button>
+          <button id="daRefreshAllBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新全部</button>
+          <span id="daStatus" style="font-size:10px;color:var(--text2);font-family:monospace"></span>
+        </div>
+        <div id="daAuthorList" style="font-size:11px"></div>
       </div>
     </div>
 
@@ -310,6 +325,7 @@ async function switchTab(tab) {
   }
   if (tab === 'dy-track') loadDyTrack();
   if (tab === 'dy-tracking') loadDyTracking();
+  if (tab === 'dy-authors') loadDyAuthors();
 }
 
 // ── 日志 ──
@@ -1278,6 +1294,8 @@ async function loadDyTracking() {
       html += '<div id="dtTrack_' + itemId + '" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">'
         + '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
         + '<input type="checkbox" class="dt-trk-sel" data-idx="' + idx + '" style="flex-shrink:0;cursor:pointer">'
+        + (item.author ? '<span style="font-size:9px;color:var(--text2);white-space:nowrap">👤 ' + item.author + '</span>' : '')
+        + '<button class="dt-track-author-btn" data-url="' + vUrl + '" style="background:#6366f1;color:#fff;border:none;padding:0 6px;border-radius:3px;cursor:pointer;font-size:8px;line-height:16px" title="跟踪这个博主">👤 跟踪</button>'
         + '<a href="' + vUrl + '" target="_blank" style="font-size:10px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--primary);text-decoration:none" title="' + (item.title || '') + '">' + (item.title || '?') + '</a>'
         + '<button class="dt-copy-link-btn" data-url="' + vUrl + '" data-title="' + (item.title || '').replace(/"/g,'&quot;') + '" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:0 5px;border-radius:3px;cursor:pointer;font-size:8px">📋</button>'
         + diffHtml('👍', 'likes')
@@ -1475,6 +1493,33 @@ async function loadDyTracking() {
       });
     });
     
+    // 绑定「跟踪博主」按钮
+    listEl.querySelectorAll('.dt-track-author-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.textContent = '⏳';
+        btn.disabled = true;
+        try {
+          const r = await fetch('/api/scrape/track-author', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: btn.dataset.url }),
+          });
+          const d = await r.json();
+          if (d.status === 'ok') {
+            btn.textContent = '✓ 已跟踪';
+            btn.style.background = '#22c55e';
+          } else {
+            btn.textContent = '❌ ' + (d.message || '失败');
+            btn.style.background = '#ef4444';
+          }
+        } catch(e) {
+          btn.textContent = '❌ ' + e.message;
+          btn.style.background = '#ef4444';
+        }
+        setTimeout(() => { btn.textContent = '👤 跟踪'; btn.style.background = '#6366f1'; btn.disabled = false; }, 3000);
+      });
+    });
+    
     // 绑定「刷新全部」按钮
     const refreshAllBtn = document.getElementById('dtRefreshAllBtn');
     if (refreshAllBtn) {
@@ -1499,7 +1544,149 @@ async function loadDyTracking() {
   }
 }
 
-// ── sessionStorage 恢复提示（F5 后展示上次刷新进度） ──
+// ── 博主监控（跟踪博主列表 + 刷新 + 趋势） ──
+
+async function loadDyAuthors() {
+  const listEl = document.getElementById('daAuthorList');
+  if (!listEl) return;
+  listEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text2);font-size:11px">⏳ 加载博主列表...</div>';
+
+  // 绑定添加按钮
+  const addBtn = document.getElementById('daAddBtn');
+  const urlInput = document.getElementById('daUrlInput');
+  if (addBtn) addBtn.onclick = async () => {
+    const url = (urlInput?.value || '').trim();
+    if (!url) { alert('请粘贴视频链接或博主主页链接'); return; }
+    addBtn.textContent = '⏳';
+    addBtn.disabled = true;
+    try {
+      const r = await fetch('/api/scrape/track-author', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const d = await r.json();
+      if (d.status === 'ok') {
+        urlInput.value = '';
+        alert('✅ ' + (d.message || '已跟踪'));
+        loadDyAuthors();
+      } else {
+        alert('❌ ' + (d.message || '失败'));
+      }
+    } catch(e) { alert('❌ ' + e.message); }
+    addBtn.textContent = '👤 跟踪博主';
+    addBtn.disabled = false;
+  };
+
+  // 绑定刷新全部按钮
+  const refreshAllBtn = document.getElementById('daRefreshAllBtn');
+  const statusEl = document.getElementById('daStatus');
+  if (refreshAllBtn) refreshAllBtn.onclick = async () => {
+    refreshAllBtn.textContent = '⏳ 刷新中...';
+    refreshAllBtn.disabled = true;
+    if (statusEl) statusEl.textContent = '正在刷新全部博主（3秒/个）...';
+    try {
+      const r = await fetch('/api/scrape/refresh-all-authors', { method: 'POST' });
+      const d = await r.json();
+      if (statusEl) statusEl.textContent = '✅ 完成: ' + (d.results || []).map(x => x.nickname + (x.status === 'ok' ? '✓' : '✗')).join(' ');
+    } catch(e) {
+      if (statusEl) statusEl.textContent = '❌ ' + e.message;
+    }
+    refreshAllBtn.textContent = '🔄 刷新全部';
+    refreshAllBtn.disabled = false;
+    loadDyAuthors();
+  };
+
+  try {
+    const r = await fetch('/api/scrape/tracked-authors');
+    const d = await r.json();
+    const authors = d.items || [];
+    if (!authors.length) {
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:12px">暂无跟踪博主<br><span style="font-size:10px">在上方粘贴视频链接，或到「跟踪中」列表点视频行的「👤 跟踪」按钮</span></div>';
+      return;
+    }
+
+    let html = '';
+    for (const a of authors) {
+      const fansDelta = a.fans_delta || 0;
+      const deltaColor = fansDelta > 0 ? '#22c55e' : (fansDelta < 0 ? '#ef4444' : '#6b7280');
+      const deltaArrow = fansDelta > 0 ? '📈' : (fansDelta < 0 ? '📉' : '➡️');
+      const collected = a.today_collected ? '<span style="color:#22c55e;font-size:9px">✅ 今日已采集</span>' : '<span style="color:#f59e0b;font-size:9px">⏳ 今日未采集</span>';
+
+      html += `<div class="da-author-row" data-id="${a.author_id}" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:600">👤 ${a.nickname || a.uid}</span>
+          ${a.unique_id ? `<span style="font-size:9px;color:var(--text2)">@${a.unique_id}</span>` : ''}
+          <span style="font-size:9px;color:var(--text2)">⭐ ${a.works || 0} 作品</span>
+          <span style="font-size:10px">👥 ${a.fans || 0} <span style="font-size:9px;color:${deltaColor}">${deltaArrow}${fansDelta > 0 ? '+' : ''}${fansDelta}</span></span>
+          ${collected}
+          <span style="flex:1"></span>
+          <button class="da-refresh-btn" data-id="${a.author_id}" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:0 6px;border-radius:3px;cursor:pointer;font-size:9px">🔄</button>
+          <button class="da-history-btn" data-id="${a.author_id}" style="background:#6366f1;color:#fff;border:none;padding:0 8px;border-radius:3px;cursor:pointer;font-size:9px">📈 趋势</button>
+          <button class="da-del-btn" data-id="${a.author_id}" style="background:#ef4444;color:#fff;border:none;padding:0 6px;border-radius:3px;cursor:pointer;font-size:9px">✕</button>
+        </div>
+        <div class="da-history-area" id="daHistory_${a.author_id}" style="display:none;margin-top:6px;padding:6px;background:var(--bg2);border-radius:4px;font-size:10px"></div>
+      </div>`;
+    }
+    listEl.innerHTML = html;
+
+    // 绑定刷新单个
+    listEl.querySelectorAll('.da-refresh-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.textContent = '⏳';
+        const r = await fetch('/api/scrape/refresh-author/' + btn.dataset.id, { method: 'POST' });
+        const d = await r.json();
+        btn.textContent = d.status === 'ok' ? '✅' : '❌';
+        if (d.status === 'ok' && d.item?.new_video_count > 0) alert(`✅ ${d.item.nickname} 发现 ${d.item.new_video_count} 个新视频，已加入跟踪`);
+        setTimeout(() => loadDyAuthors(), 1500);
+      });
+    });
+
+    // 绑定删除
+    listEl.querySelectorAll('.da-del-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('取消跟踪该博主？')) return;
+        const r = await fetch('/api/scrape/tracked-authors/' + btn.dataset.id, { method: 'DELETE' });
+        if (r.ok) loadDyAuthors();
+      });
+    });
+
+    // 绑定趋势展开
+    listEl.querySelectorAll('.da-history-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const area = document.getElementById('daHistory_' + id);
+        if (!area) return;
+        if (area.style.display === 'block') { area.style.display = 'none'; return; }
+        area.style.display = 'block';
+        area.innerHTML = '⏳ 加载趋势...';
+        try {
+          const r = await fetch('/api/scrape/author-history/' + id);
+          const d = await r.json();
+          const snaps = d.item?.snapshots || [];
+          if (!snaps.length) { area.innerHTML = '暂无数据'; return; }
+          // 趋势行
+          const rows = snaps.map(s => {
+            const prev = null;
+            const fans = s.fans || 0;
+            return `<div style="display:flex;gap:8px;align-items:center;padding:2px 0;border-bottom:1px dashed var(--border)">
+              <span style="font-size:9px;color:var(--text2);width:70px">${s.date || ''}</span>
+              <span style="font-size:10px;width:80px">👥 ${fans}</span>
+              <span style="font-size:9px;color:var(--text2);width:60px">⭐ ${s.works || 0}</span>
+              <span style="font-size:9px">${(s.new_videos || []).length ? '🆕 ' + s.new_videos.length + '个新视频' : ''}</span>
+            </div>`;
+          }).join('');
+          area.innerHTML = '<div style="font-size:10px;font-weight:600;margin-bottom:4px">📈 历史快照 (' + snaps.length + ' 天)</div>' + rows;
+        } catch(e) {
+          area.innerHTML = '❌ ' + e.message;
+        }
+      });
+    });
+  } catch (e) {
+    listEl.innerHTML = '❌ 加载失败: ' + e.message;
+  }
+}
+
 
 function showRefreshRecovery() {
   const raw = sessionStorage.getItem('dt_refresh_progress');
