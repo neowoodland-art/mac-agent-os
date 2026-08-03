@@ -300,6 +300,7 @@ async def api_track_video(data: dict = {}):
         "url": url,
         "title": stats.get("title", ""),
         "author": stats.get("author", ""),
+        "author_uid": stats.get("author_uid", ""),  # 博主数字ID（用于判断是否已跟踪）
         "stats": {
             "likes": stats.get("likes", 0),
             "comments": stats.get("comments", 0),

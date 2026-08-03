@@ -1312,9 +1312,18 @@ async function loadDyTracking() {
   if (window._dtRefreshing) return;
   
   try {
-    const r = await fetch('/api/scrape/tracked-videos');
+    // 并行加载：跟踪视频列表 + 已跟踪博主列表（用于判断"已跟踪"状态）
+    const [r, rAuth] = await Promise.all([
+      fetch('/api/scrape/tracked-videos'),
+      fetch('/api/scrape/tracked-authors').then(x => x.ok ? x.json() : { items: [] }).catch(() => ({ items: [] })),
+    ]);
     const d = await r.json();
     if (d.status !== 'ok') { listEl.innerHTML = '❌ 加载失败'; return; }
+    
+    // 已跟踪博主集合（uid + 昵称双匹配，防止重复跟踪）
+    const trackedAuthors = rAuth.items || [];
+    const trackedUids = new Set(trackedAuthors.map(a => String(a.uid)));
+    const trackedNames = new Set(trackedAuthors.map(a => (a.nickname || '').trim()));
     
     const items = d.items || [];
     if (!items.length) {
@@ -1324,9 +1333,14 @@ async function loadDyTracking() {
     
     let html = '<div style="display:flex;flex-direction:column;gap:4px">';
     
-    // 头部：统计 + 一键刷新
-    html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;margin-bottom:2px;font-size:10px;color:var(--text2)">'
-      + '<span>共 ' + items.length + ' 条</span>'
+    // 头部：统计 + 搜索 + 全选 + 操作按钮
+    html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;margin-bottom:2px;font-size:10px;color:var(--text2);flex-wrap:wrap">'
+      + '<input type="checkbox" id="dtTrkSelAll" title="全选当前显示" style="flex-shrink:0;cursor:pointer" onchange="window._dtTrkToggleAll(this.checked)">'
+      + '<span>全选</span>'
+      + '<input id="dtTrkFilter" type="text" placeholder="🔍 标题/博主搜索" style="width:140px;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 6px;border-radius:4px;font-size:10px" title="动态筛选标题/博主">'
+      + '<button id="dtTrkDelSelBtn" style="display:none;background:#ef4444;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 删除选中</button>'
+      + '<span id="dtTrkCount">共 ' + items.length + ' 条</span>'
+      + '<span style="flex:1"></span>'
       + '<button id="dtRefreshAllBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新全部</button>'
       + '<button id="dtCopySelectedBtn" style="display:none;background:#6366f1;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制已选</button>'
       + '<button id="dtRefreshSelectedBtn" style="display:none;background:#f97316;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 更新选中</button>'
@@ -1340,6 +1354,12 @@ async function loadDyTracking() {
       const prev = item.prev_stats || null;
       const itemId = item.id || idx;
       const vUrl = item.url || '';
+      // 判断博主是否已跟踪（uid 精确匹配，无 uid 时用昵称兜底）
+      const authorUid = item.author_uid ? String(item.author_uid) : '';
+      const authorName = (item.author || '').trim();
+      const isTracked = (authorUid && trackedUids.has(authorUid)) || (!authorUid && authorName && trackedNames.has(authorName));
+      // 行筛选数据
+      const trkFilterData = ((item.title || '') + ' ' + authorName).toLowerCase();
       
       // 变化标记
       function diffHtml(label, key) {
@@ -1359,11 +1379,16 @@ async function loadDyTracking() {
         </span>`;
       }
       
-      html += '<div id="dtTrack_' + itemId + '" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">'
+      // 已跟踪 → 显示绿色"已跟踪"标记，不可再点；未跟踪 → 显示"跟踪"按钮
+      const authorBtn = isTracked
+        ? '<span style="background:#22c55e;color:#fff;border:none;padding:0 6px;border-radius:3px;font-size:8px;line-height:16px" title="已跟踪该博主">✓ 已跟踪</span>'
+        : '<button class="dt-track-author-btn" data-url="' + vUrl + '" data-author="' + authorName.replace(/"/g,'&quot;') + '" style="background:#6366f1;color:#fff;border:none;padding:0 6px;border-radius:3px;cursor:pointer;font-size:8px;line-height:16px" title="跟踪这个博主">👤 跟踪</button>';
+      
+      html += '<div id="dtTrack_' + itemId + '" class="dt-trk-row" data-filter="' + trkFilterData.replace(/"/g,'&quot;') + '" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border)">'
         + '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
-        + '<input type="checkbox" class="dt-trk-sel" data-idx="' + idx + '" style="flex-shrink:0;cursor:pointer">'
-        + (item.author ? '<span style="font-size:9px;color:var(--text2);white-space:nowrap">👤 ' + item.author + '</span>' : '')
-        + '<button class="dt-track-author-btn" data-url="' + vUrl + '" style="background:#6366f1;color:#fff;border:none;padding:0 6px;border-radius:3px;cursor:pointer;font-size:8px;line-height:16px" title="跟踪这个博主">👤 跟踪</button>'
+        + '<input type="checkbox" class="dt-trk-sel" data-idx="' + idx + '" style="flex-shrink:0;cursor:pointer" onchange="window._dtTrkSelChange()">'
+        + (authorName ? '<span style="font-size:9px;color:var(--text2);white-space:nowrap">👤 ' + authorName + '</span>' : '')
+        + authorBtn
         + '<a href="' + vUrl + '" target="_blank" style="font-size:10px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--primary);text-decoration:none" title="' + (item.title || '') + '">' + (item.title || '?') + '</a>'
         + '<button class="dt-copy-link-btn" data-url="' + vUrl + '" data-title="' + (item.title || '').replace(/"/g,'&quot;') + '" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:0 5px;border-radius:3px;cursor:pointer;font-size:8px">📋</button>'
         + diffHtml('👍', 'likes')
@@ -1441,6 +1466,97 @@ async function loadDyTracking() {
         });
       });
     });
+    
+    // ── 全选 / 搜索 / 删除选中 / 跟踪按钮 ──
+    // 全选：勾选当前所有可见行
+    window._dtTrkToggleAll = (checked) => {
+      listEl.querySelectorAll('.dt-trk-row').forEach(row => {
+        if (row.style.display !== 'none') {
+          const cb = row.querySelector('.dt-trk-sel');
+          if (cb) cb.checked = checked;
+        }
+      });
+      window._dtTrkSelChange();
+    };
+    // 选中变化：显示/隐藏"删除选中"按钮
+    window._dtTrkSelChange = () => {
+      const checked = listEl.querySelectorAll('.dt-trk-sel:checked').length;
+      const delBtn = document.getElementById('dtTrkDelSelBtn');
+      if (delBtn) delBtn.style.display = checked > 0 ? 'inline-block' : 'none';
+    };
+    // 搜索：只切换行的显示，不重建 DOM（输入框不失焦）
+    const trkFilterInput = document.getElementById('dtTrkFilter');
+    if (trkFilterInput && !trkFilterInput._bound) {
+      trkFilterInput._bound = true;
+      trkFilterInput.addEventListener('input', () => {
+        const kw = trkFilterInput.value.trim().toLowerCase();
+        let visible = 0;
+        listEl.querySelectorAll('.dt-trk-row').forEach(row => {
+          const fd = row.dataset.filter || '';
+          const show = !kw || fd.includes(kw);
+          row.style.display = show ? '' : 'none';
+          if (show) visible++;
+        });
+        const cntEl = document.getElementById('dtTrkCount');
+        if (cntEl) cntEl.textContent = '共 ' + visible + ' / ' + items.length + ' 条';
+        window._dtTrkSelChange();
+      });
+    }
+    // 删除选中（清理无效跟踪）
+    const delSelBtn = document.getElementById('dtTrkDelSelBtn');
+    if (delSelBtn && !delSelBtn._bound) {
+      delSelBtn._bound = true;
+      delSelBtn.addEventListener('click', async () => {
+        const checkedCbs = [...listEl.querySelectorAll('.dt-trk-sel:checked')];
+        const ids = checkedCbs.map(cb => {
+          const row = cb.closest('.dt-trk-row');
+          return row ? row.id.replace('dtTrack_', '') : null;
+        }).filter(Boolean);
+        if (!ids.length) return;
+        if (!confirm(`确认删除选中的 ${ids.length} 条跟踪视频？`)) return;
+        delSelBtn.textContent = '⏳';
+        let ok = 0, fail = 0;
+        for (const id of ids) {
+          try {
+            const r = await fetch('/api/scrape/delete-tracked/' + id, { method: 'POST' });
+            if (r.ok) ok++; else fail++;
+          } catch(e) { fail++; }
+        }
+        delSelBtn.textContent = `✅ ${ok} 删 / ${fail} 失败`;
+        setTimeout(() => delSelBtn.textContent = '🗑 删除选中', 2000);
+        loadDyTracking();
+      });
+    }
+    // 跟踪博主：点击后重新加载列表（后端已加博主，重新渲染显示"已跟踪"）
+    listEl.querySelectorAll('.dt-track-author-btn').forEach(btn => {
+      if (btn._bound) return;
+      btn._bound = true;
+      btn.addEventListener('click', async () => {
+        btn.textContent = '⏳';
+        btn.disabled = true;
+        try {
+          const r = await fetch('/api/scrape/track-author', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: btn.dataset.url }),
+          });
+          const d = await r.json();
+          if (d.status === 'ok') {
+            // 跟踪成功 → 重新加载列表，该行变成绿色"已跟踪"
+            loadDyTracking();
+            return;
+          } else {
+            btn.textContent = '❌ ' + (d.message || '失败');
+            btn.style.background = '#ef4444';
+          }
+        } catch(e) {
+          btn.textContent = '❌ ' + e.message;
+          btn.style.background = '#ef4444';
+        }
+        setTimeout(() => { btn.textContent = '👤 跟踪'; btn.style.background = '#6366f1'; btn.disabled = false; }, 3000);
+      });
+    });
+    window._dtTrkSelChange();
     
     // 绑定复制全部按钮
     const copyAllBtn = document.getElementById('dtCopyAllBtn');
@@ -1558,33 +1674,6 @@ async function loadDyTracking() {
           full.style.display = 'none';
           el.textContent = '💬 展开全部';
         };
-      });
-    });
-    
-    // 绑定「跟踪博主」按钮
-    listEl.querySelectorAll('.dt-track-author-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        btn.textContent = '⏳';
-        btn.disabled = true;
-        try {
-          const r = await fetch('/api/scrape/track-author', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: btn.dataset.url }),
-          });
-          const d = await r.json();
-          if (d.status === 'ok') {
-            btn.textContent = '✓ 已跟踪';
-            btn.style.background = '#22c55e';
-          } else {
-            btn.textContent = '❌ ' + (d.message || '失败');
-            btn.style.background = '#ef4444';
-          }
-        } catch(e) {
-          btn.textContent = '❌ ' + e.message;
-          btn.style.background = '#ef4444';
-        }
-        setTimeout(() => { btn.textContent = '👤 跟踪'; btn.style.background = '#6366f1'; btn.disabled = false; }, 3000);
       });
     });
     
