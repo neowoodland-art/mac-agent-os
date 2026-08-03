@@ -172,7 +172,14 @@ function renderLayout() {
                  style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px"
                  value="https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1">
           <button id="dtImportBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📥 导入</button>
+          <select id="dtPageSizeSel" title="每页条数" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 4px;border-radius:4px;font-size:10px">
+            <option value="100">100条/页</option>
+            <option value="200">200条/页</option>
+          </select>
+          <button id="dtPrevPageBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">⏮ 上一页</button>
           <button id="dtNextPageBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📄 下一页</button>
+          <input id="dtPageJump" type="number" min="1" placeholder="页码" style="display:none;width:50px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:4px;font-size:10px">
+          <button id="dtPageGoBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px">跳转</button>
           <button id="dtBatchCollectBtn" style="display:none;background:#f97316;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">⚡ 全部采集</button>
           <button id="dtCollectSelectedBtn" style="display:none;background:#22c55e;color:#000;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">✅ 采集选中</button>
           <button id="dtTrackSelectedBtn" style="display:none;background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📌 跟踪选中</button>
@@ -230,7 +237,17 @@ function bindEvents(container) {
   const dtImportBtn = document.getElementById('dtImportBtn');
   if (dtImportBtn) dtImportBtn.addEventListener('click', () => doImportDyTopics(true));
   const dtNextPageBtn = document.getElementById('dtNextPageBtn');
-  if (dtNextPageBtn) dtNextPageBtn.addEventListener('click', () => doImportDyTopics(false));
+  if (dtNextPageBtn) dtNextPageBtn.addEventListener('click', () => doImportDyTopics(false, _dyPage + 1));
+  const dtPrevPageBtn = document.getElementById('dtPrevPageBtn');
+  if (dtPrevPageBtn) dtPrevPageBtn.addEventListener('click', () => doImportDyTopics(false, Math.max(1, _dyPage - 1)));
+  const dtPageGoBtn = document.getElementById('dtPageGoBtn');
+  if (dtPageGoBtn) dtPageGoBtn.addEventListener('click', () => {
+    const jumpEl = document.getElementById('dtPageJump');
+    const p = parseInt(jumpEl?.value || '1');
+    if (p >= 1) doImportDyTopics(false, p);
+  });
+  const dtPageJump = document.getElementById('dtPageJump');
+  if (dtPageJump) dtPageJump.addEventListener('keydown', e => { if (e.key === 'Enter') dtPageGoBtn?.click(); });
   const dtBatchBtn = document.getElementById('dtBatchCollectBtn');
   if (dtBatchBtn) dtBatchBtn.addEventListener('click', doBatchCollect);
   const dtCollectSelBtn = document.getElementById('dtCollectSelectedBtn');
@@ -735,21 +752,26 @@ function dtLog(msg) {
   el.scrollTop = el.scrollHeight;
 }
 
-async function doImportDyTopics(reset = true) {
+async function doImportDyTopics(reset = true, targetPage = null) {
   const apiUrl = document.getElementById('dtApiUrl')?.value.trim();
   if (!apiUrl) { alert('请输入 API URL'); return; }
   const statusEl = document.getElementById('dtStatus');
   const pageInfoEl = document.getElementById('dtPageInfo');
   const nextBtnEl = document.getElementById('dtNextPageBtn');
+  const prevBtnEl = document.getElementById('dtPrevPageBtn');
+  const jumpEl = document.getElementById('dtPageJump');
+  const goBtnEl = document.getElementById('dtPageGoBtn');
+  const pageSizeSel = document.getElementById('dtPageSizeSel');
+  const pageSize = parseInt(pageSizeSel?.value || '100');
   if (statusEl) statusEl.textContent = '⏳ 导入中...';
   
-  const page = reset ? 1 : (_dyPage + 1);
+  const page = reset ? 1 : (targetPage || (_dyPage + 1));
   
   try {
     const r = await fetch('/api/scrape/import-topics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_url: apiUrl, page, page_size: 100 }),
+      body: JSON.stringify({ api_url: apiUrl, page, page_size: pageSize }),
     });
     const d = await r.json();
     if (d.status !== 'ok') {
@@ -758,26 +780,23 @@ async function doImportDyTopics(reset = true) {
       return;
     }
     const items = d.items || [];
-    if (reset) {
-      _dyVideos = items;
-      _dyPage = 1;
-      _dyApiUrl = apiUrl;
-      _dyTotal = d.total || items.length;
-    } else {
-      _dyVideos = _dyVideos.concat(items);
-      _dyPage = page;
-      _dyTotal = d.total || (_dyVideos.length + items.length);
-    }
+    // 翻页模式：直接替换当前列表（方便单独看某一页）；首次导入 reset=true 同样替换
+    _dyVideos = items;
+    _dyPage = page;
+    _dyApiUrl = apiUrl;
+    _dyTotal = d.total || (_dyPage * pageSize);
     
-    if (statusEl) statusEl.textContent = `✅ ${reset ? '已导入' : '已追加'} ${_dyVideos.length} 条视频`;
+    if (statusEl) statusEl.textContent = `✅ 第 ${_dyPage} 页，${_dyVideos.length} 条视频`;
     if (pageInfoEl) {
       pageInfoEl.style.display = 'inline';
-      pageInfoEl.textContent = `📄 第 ${_dyPage} 页 / 共 ${_dyTotal} 条`;
+      pageInfoEl.textContent = `📄 第 ${_dyPage} 页 / 每页 ${pageSize} 条`;
     }
-    if (nextBtnEl) {
-      nextBtnEl.style.display = items.length >= 5 ? 'inline-block' : 'none';
-    }
-    dtLog(`✅ ${reset ? '导入' : '追加'} ${items.length} 条视频（第${_dyPage}页）`);
+    // 上一页/下一页 按钮显隐
+    if (prevBtnEl) prevBtnEl.style.display = _dyPage > 1 ? 'inline-block' : 'none';
+    if (nextBtnEl) nextBtnEl.style.display = items.length >= Math.min(5, pageSize) ? 'inline-block' : 'none';
+    if (jumpEl) jumpEl.style.display = 'inline-block';
+    if (goBtnEl) goBtnEl.style.display = 'inline-block';
+    dtLog(`✅ 加载第 ${_dyPage} 页（每页 ${pageSize} 条），共 ${items.length} 条`);
     const listEl = document.getElementById('dtVideoList');
     if (listEl) renderDyVideos(listEl);
   } catch (e) {
