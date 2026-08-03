@@ -471,6 +471,7 @@ async def _add_author_by_uid(uid: str, nickname: str, source_url: str):
         "added_at": _time.strftime("%Y-%m-%d %H:%M:%S"),
         "source_url": source_url,
         "last_collected_at": _time.strftime("%Y-%m-%d %H:%M:%S"),
+        "latest_videos": videos_res.get("videos", [])[:3],  # 最新3条视频（标题+数据）
         "snapshots": [{
             "date": _time.strftime("%Y-%m-%d"),
             "fans": profile.get("fans", 0),
@@ -509,6 +510,7 @@ async def api_tracked_authors():
             "snapshot_count": len(snaps),
             "last_snapshot_date": latest.get("date", ""),
             "today_collected": latest.get("date") == today,
+            "latest_videos": a.get("latest_videos", []),  # 最新3条视频（标题+数据）
         })
     return {"status": "ok", "items": result}
 
@@ -540,6 +542,8 @@ async def api_refresh_author(author_id: str):
             # 自动加入视频跟踪
             await api_track_video({"url": v["url"]})
     found["video_ids"] = list(known) + new_videos
+    # 更新最新3条视频（标题+数据）
+    found["latest_videos"] = videos_res.get("videos", [])[:3]
 
     # 存快照
     today = _time.strftime("%Y-%m-%d")

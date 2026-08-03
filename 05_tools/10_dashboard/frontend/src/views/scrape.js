@@ -1613,6 +1613,20 @@ async function loadDyAuthors() {
       const deltaArrow = fansDelta > 0 ? '📈' : (fansDelta < 0 ? '📉' : '➡️');
       const collected = a.today_collected ? '<span style="color:#22c55e;font-size:9px">✅ 今日已采集</span>' : '<span style="color:#f59e0b;font-size:9px">⏳ 今日未采集</span>';
 
+      // 最新3条视频（标题+点赞/评论/收藏）
+      const latestVideos = a.latest_videos || [];
+      const videoBlock = latestVideos.length
+        ? '<div style="margin-top:6px;display:flex;flex-direction:column;gap:2px">' + latestVideos.map(v => {
+            const title = (v.title || '?').slice(0, 30);
+            return `<div style="display:flex;align-items:center;gap:6px;font-size:9px;color:var(--text2);padding:2px 6px;background:var(--bg2);border-radius:3px;overflow:hidden;white-space:nowrap">
+              <a href="${v.url}" target="_blank" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--primary);text-decoration:none" title="${title.replace(/"/g,'&quot;')}">${title}</a>
+              <span style="flex-shrink:0">👍 ${v.likes ?? 0}</span>
+              <span style="flex-shrink:0">💬 ${v.comments ?? 0}</span>
+              <span style="flex-shrink:0">⭐ ${v.collects ?? 0}</span>
+            </div>`;
+          }).join('') + '</div>'
+        : '';
+
       html += `<div class="da-author-row" data-id="${a.author_id}" style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);margin-bottom:4px">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:600">👤 ${a.nickname || a.uid}</span>
@@ -1625,6 +1639,7 @@ async function loadDyAuthors() {
           <button class="da-history-btn" data-id="${a.author_id}" style="background:#6366f1;color:#fff;border:none;padding:0 8px;border-radius:3px;cursor:pointer;font-size:9px">📈 趋势</button>
           <button class="da-del-btn" data-id="${a.author_id}" style="background:#ef4444;color:#fff;border:none;padding:0 6px;border-radius:3px;cursor:pointer;font-size:9px">✕</button>
         </div>
+        ${videoBlock}
         <div class="da-history-area" id="daHistory_${a.author_id}" style="display:none;margin-top:6px;padding:6px;background:var(--bg2);border-radius:4px;font-size:10px"></div>
       </div>`;
     }
