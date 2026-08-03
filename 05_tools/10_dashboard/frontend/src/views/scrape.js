@@ -175,6 +175,7 @@ function renderLayout() {
           <select id="dtPageSizeSel" title="每页条数" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 4px;border-radius:4px;font-size:10px">
             <option value="100">100条/页</option>
             <option value="200">200条/页</option>
+            <option value="300">300条/页</option>
           </select>
           <button id="dtPrevPageBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">⏮ 上一页</button>
           <button id="dtNextPageBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📄 下一页</button>
@@ -730,6 +731,7 @@ let _dyTracked = new Set();
 let _dyPage = 1;
 let _dyTotal = 0;
 let _dyApiUrl = '';
+let _dyFilter = '';  // 标题/作者关键字筛选
 
 async function loadDyTrack() {
   const listEl = document.getElementById('dtVideoList');
@@ -810,21 +812,30 @@ function renderDyVideos(container) {
     container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:12px">无视频数据</div>';
     return;
   }
+  // 标题关键字动态筛选（不重新请求后端）
+  const kw = (window._dyFilter || '').trim().toLowerCase();
+  const filtered = kw
+    ? _dyVideos.filter(v => (v.title || '').toLowerCase().includes(kw) || (v.author || '').toLowerCase().includes(kw))
+    : _dyVideos;
+
     let html = '<div style="display:flex;align-items:center;gap:4px;padding:2px 8px;margin-bottom:2px;font-size:9px;color:var(--text2)">'
     + '<input type="checkbox" id="dtSelAll" style="flex-shrink:0" onchange="var x=document.querySelectorAll(\'.dt-sel-cb\');for(var j=0;j<x.length;j++){x[j].checked=this.checked}updateSelButtons()">'
     + '<span>全选</span>'
     + '<button id="dtTrackAllBtn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:1px 5px;border-radius:3px;cursor:pointer;font-size:9px">📌 全选跟踪</button>'
     + '<span style="flex:1"></span>'
+    + '<input id="dtFilterInput" type="text" placeholder="🔍 标题/作者关键字筛选" value="' + (window._dyFilter || '').replace(/"/g,'&quot;') + '" style="width:160px;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 6px;border-radius:4px;font-size:10px" title="输入关键字动态筛选标题/作者">'
     + '<button id="dtCopySelectedBtn" style="background:#6366f1;color:#fff;border:none;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">📋 复制选中</button>'
-    + '<span>共 ' + _dyVideos.length + ' 条</span>'
+    + '<span>共 ' + filtered.length + ' / ' + _dyVideos.length + ' 条</span>'
     + '</div>';
   html += '<div style="display:flex;flex-direction:column;gap:6px">';
-  _dyVideos.forEach((v, i) => {
+  filtered.forEach((v, i) => {
     const tracked = _dyTracked.has(v.id);
+    // data-idx 用原始数组索引（保证采集/复制按钮对应正确视频）
+    const origIdx = _dyVideos.indexOf(v);
     html += `<div style="background:var(--bg3);border-radius:6px;padding:6px 8px;border:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:3px;flex-wrap:nowrap">
-        <input type="checkbox" class="dt-sel-cb" data-idx="${i}" style="flex-shrink:0">
-        <button class="dt-collect-btn" data-idx="${i}" style="background:#22c55e;color:#000;border:none;padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px;font-weight:600;flex-shrink:0">🔍</button>
+        <input type="checkbox" class="dt-sel-cb" data-idx="${origIdx}" style="flex-shrink:0">
+        <button class="dt-collect-btn" data-idx="${origIdx}" style="background:#22c55e;color:#000;border:none;padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px;font-weight:600;flex-shrink:0">🔍</button>
         <label style="display:flex;align-items:center;gap:1px;font-size:9px;color:var(--text2);cursor:pointer;flex-shrink:0;white-space:nowrap">
           <input type="checkbox" class="dt-track-cb" data-id="${v.id}" ${tracked ? 'checked' : ''}>跟
         </label>
@@ -833,9 +844,9 @@ function renderDyVideos(container) {
         <a href="${v.url || '#'}" target="_blank" style="font-size:8px;color:var(--primary);flex-shrink:0">🔗</a>
       </div>
       <!-- 采集结果 -->
-      <div id="dtResult_${i}" style="display:none;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">
-        <div id="dtStats_${i}" style="font-size:10px;color:var(--text2)">⏳ 采集数据中...</div>
-        <div id="dtComments_${i}" style="display:none;margin-top:4px;padding:4px;background:var(--bg2);border-radius:4px;font-size:10px;max-height:200px;overflow-y:auto"></div>
+      <div id="dtResult_${origIdx}" style="display:none;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">
+        <div id="dtStats_${origIdx}" style="font-size:10px;color:var(--text2)">⏳ 采集数据中...</div>
+        <div id="dtComments_${origIdx}" style="display:none;margin-top:4px;padding:4px;background:var(--bg2);border-radius:4px;font-size:10px;max-height:200px;overflow-y:auto"></div>
       </div>
     </div>`;
   });
@@ -866,6 +877,17 @@ function renderDyVideos(container) {
   updateBatchBtn();
   document.querySelectorAll('.dt-sel-cb').forEach(cb => cb.addEventListener('change', updateSelButtons));
   
+  // 标题关键字筛选（动态过滤当前列表）
+  const filterInput = document.getElementById('dtFilterInput');
+  if (filterInput && !filterInput._bound) {
+    filterInput._bound = true;
+    filterInput.addEventListener('input', () => {
+      window._dyFilter = filterInput.value;
+      const listEl = document.getElementById('dtVideoList');
+      if (listEl) renderDyVideos(listEl);
+    });
+  }
+
   // 全选跟踪按钮
   const trackAllBtn = document.getElementById('dtTrackAllBtn');
   if (trackAllBtn && !trackAllBtn._bound) {
@@ -1160,6 +1182,17 @@ function updateRenderDyVideos() {
   updateBatchBtn();
   document.querySelectorAll('.dt-sel-cb').forEach(cb => cb.addEventListener('change', updateSelButtons));
   
+  // 标题关键字筛选（动态过滤当前列表）
+  const filterInput = document.getElementById('dtFilterInput');
+  if (filterInput && !filterInput._bound) {
+    filterInput._bound = true;
+    filterInput.addEventListener('input', () => {
+      window._dyFilter = filterInput.value;
+      const listEl = document.getElementById('dtVideoList');
+      if (listEl) renderDyVideos(listEl);
+    });
+  }
+
   // 全选跟踪按钮
   const trackAllBtn = document.getElementById('dtTrackAllBtn');
   if (trackAllBtn && !trackAllBtn._bound) {
