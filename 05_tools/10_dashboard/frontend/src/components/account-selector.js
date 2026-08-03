@@ -97,9 +97,9 @@ export function createAccountSelector(container, opts = {}) {
         (a.owner_machine || '').toLowerCase().includes(lq)
       );
     }
-    if (_filterMachine) filtered = filtered.filter(a => (a.owner_machine || a._source_machine) !== _filterMachine);
-    if (_filterPlatform) filtered = filtered.filter(a => a.platform !== _filterPlatform);
-    if (_filterStatus) filtered = filtered.filter(a => (a.login_status || a._status) !== _filterStatus);
+    if (_filterMachine) filtered = filtered.filter(a => (a.owner_machine || a._source_machine) === _filterMachine);
+    if (_filterPlatform) filtered = filtered.filter(a => a.platform === _filterPlatform);
+    if (_filterStatus) filtered = filtered.filter(a => (a.login_status || a._status) === _filterStatus);
     if (_filterTag) {
       filtered = filtered.filter(a => {
         const tags = a.tags || [];
@@ -136,31 +136,31 @@ export function createAccountSelector(container, opts = {}) {
         <select id="${uid}_machine" onchange="window._asFilter('${uid}')"
           style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
           <option value="">🖥️ 全部机器</option>
-          ${machines.map(m => `<option value="${m}">✕ 排除 ${m}</option>`).join('')}
+          ${machines.map(m => `<option value="${m}"${m === _filterMachine ? ' selected' : ''}>${m === 'chengzigedeAir' ? '🖥️' : '☁️'} ${m}</option>`).join('')}
         </select>
         <select id="${uid}_plat" onchange="window._asFilter('${uid}')"
           style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
           <option value="">🌐 全部平台</option>
-          <option value="douyin">✕ 排除 🎵 抖音</option>
-          <option value="xiaohongshu">✕ 排除 📕 小红书</option>
+          <option value="douyin"${_filterPlatform === 'douyin' ? ' selected' : ''}>🎵 抖音</option>
+          <option value="xiaohongshu"${_filterPlatform === 'xiaohongshu' ? ' selected' : ''}>📕 小红书</option>
         </select>
         <select id="${uid}_status" onchange="window._asFilter('${uid}')"
           style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
           <option value="">全部状态</option>
           ${STATUS_ORDER.map(k => {
             const cfg = STATUS_CFG[k] || { dot: '⚪', label: k };
-            return `<option value="${k}">✕ 排除 ${cfg.dot} ${cfg.label}</option>`;
+            return `<option value="${k}"${k === _filterStatus ? ' selected' : ''}>${cfg.dot} ${cfg.label}</option>`;
           }).join('')}
         </select>
         <select id="${uid}_tagMode" onchange="window._asFilter('${uid}')"
           style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;width:60px">
-          <option value="include">🏷️ 含</option>
-          <option value="exclude">🚫 排除</option>
+          <option value="include"${_filterTagMode === 'include' ? ' selected' : ''}>🏷️ 含</option>
+          <option value="exclude"${_filterTagMode === 'exclude' ? ' selected' : ''}>🚫 排除</option>
         </select>
         <select id="${uid}_tag" onchange="window._asFilter('${uid}')"
           style="padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;max-width:100px">
           <option value="">全部标签</option>
-          ${[...new Set(allAccts.flatMap(a => a.tags || []))].sort().map(t => `<option value="${t}">🏷️ ${t}</option>`).join('')}
+          ${[...new Set(allAccts.flatMap(a => a.tags || []))].sort().map(t => `<option value="${t}"${t === _filterTag ? ' selected' : ''}>🏷️ ${t}</option>`).join('')}
         </select>
         <button onclick="window._as_selectFiltered('${uid}')"
           style="background:#6366f1;color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">✅ 全选筛选结果</button>
@@ -172,6 +172,7 @@ export function createAccountSelector(container, opts = {}) {
       // ── 搜索栏（进一步缩小显示范围）──
       html += `<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
         <input id="${uid}_q" placeholder="🔍 搜索账号ID/昵称/手机号"
+          value="${_filterQ}"
           oninput="window._asFilter('${uid}')"
           style="flex:1;min-width:80px;padding:3px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px">
         <span style="font-size:11px;color:var(--text2);white-space:nowrap">共 ${filtered.length} 个</span>
