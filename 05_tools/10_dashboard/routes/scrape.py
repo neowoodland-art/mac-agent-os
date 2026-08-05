@@ -313,8 +313,16 @@ async def api_track_video(data: dict = {}):
     # 保存
     items = _load_tracker()
     # 去重（同 ID 替换）
+    # ⚠️ 修复：不能整个删掉重建（会丢失 prev_stats 对比链）。
+    #   视频已存在时 → 保留旧 stats 作为 prev_stats，再更新新 stats。
     for i, it in enumerate(items):
         if it["id"] == item_id:
+            # 已存在：保留历史对比数据
+            if "stats" in it:
+                record["prev_stats"] = it.get("stats")
+                record["prev_collected_at"] = it.get("collected_at", "")
+            # 保留旧的 video 级字段（author_uid 等）
+            record["author_uid"] = record.get("author_uid") or it.get("author_uid", "")
             items.pop(i)
             break
     items.insert(0, record)
