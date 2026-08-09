@@ -363,7 +363,7 @@ async function _ia_exec(uid) {
         },
       }),
     });
-    if (d.status === 'ok') {
+    if (d.status === 'ok' || d.status === 'accepted') {
       log.textContent += `\n✅ 计划已提交: ${d.total_tasks || d.tasks?.length || '?'} 个互动任务\n`;
       if (d.summary) log.textContent += `   评论≈${d.summary.comment} | 点赞≈${d.summary.like} | 收藏≈${d.summary.collect}\n`;
       if (d.errors?.length) log.textContent += `⚠️ ${d.errors.length} 个错误: ${d.errors[0].message}\n`;
