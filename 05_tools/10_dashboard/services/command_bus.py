@@ -1096,7 +1096,7 @@ def _build_interact_plan(machine_groups: dict, params: dict, now_ts: int) -> lis
             _sys.path.insert(0, _scripts_dir)
         from mc.corpus import CorpusManager
         _cm = CorpusManager()
-        _comment_pool = _cm.get_comments(category="douyin", count=50) or []
+        _comment_pool = _cm.get_comments(platform="douyin", count=50) or []
     except Exception:
         _comment_pool = []
     if not _comment_pool:
@@ -1116,12 +1116,16 @@ def _build_interact_plan(machine_groups: dict, params: dict, now_ts: int) -> lis
         picked_comments = comment_pool_accounts[:comment_per_video]
         for a in picked_comments:
             comment_used[a["id"]] += 1
-            comment_text = random.choice(_comment_pool)
+            # 语料库项可能是 dict {text, role} 或纯字符串，统一取文本
+            _raw = random.choice(_comment_pool)
+            comment_text = _raw.get("text", "") if isinstance(_raw, dict) else str(_raw)
+            if not comment_text:
+                comment_text = "不错哦"
             tasks.append({
                 "machine": a["machine"], "cmd_type": "interact",
                 "ids_str": a["id"], "is_local": a["is_local"],
                 "nickname": a["nickname"], "platform": a["platform"],
-                "cmd_line": f"mc run --accounts={a['id']} --blueprints=interact_comment --rounds=1 --url={shlex.quote(url)} --interval={interval['comment']} --comment_text={shlex.quote(comment_text)}",
+                "cmd_line": f"mc run --accounts={a['id']} --blueprints=interact_comment --rounds=1 --url={shlex.quote(url)} --interval={interval['comment']} --comment-text={shlex.quote(comment_text)}",
                 "run_id": f"plan_c_{now_ts}_{a['machine']}_{a['id']}_{vi}_{int(random.random()*1000)}",
                 "params": {"url": url, "title": title, "action": "comment", "comment_text": comment_text,
                            "interval": interval["comment"], "blueprint": "interact_comment", "rounds": 1},
