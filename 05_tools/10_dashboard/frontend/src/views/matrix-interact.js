@@ -110,6 +110,42 @@ export async function loadView(container) {
           <button onclick="window._ia_exec_${uid}()" style="background:#22c55e;color:#000;border:none;padding:5px 16px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">🚀 执行所选互动</button>
         </div>
 
+        <!-- 📊 互动策略（防封号） -->
+        <div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);margin-bottom:8px">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">📊 互动策略 <span style="font-size:9px;color:var(--text2)">（账号轮动 + 评论配额 + 限流，模拟真人防封号）</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px">
+            <div style="display:flex;align-items:center;gap:4px">
+              <span>💬 每视频评论上限</span>
+              <input type="number" id="ia_cpv_${uid}" min="0" max="20" value="5" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="每条视频最多 N 条评论，超出则随机跳过（0=不评论）">
+              <span style="font-size:9px;color:var(--text2)">条</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span>📮 每账号评论日上限</span>
+              <input type="number" id="ia_cdl_${uid}" min="1" max="100" value="12" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="每个评论账号每天最多评论 N 条（防封号）">
+              <span style="font-size:9px;color:var(--text2)">条</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span>👍 点赞组账号数</span>
+              <input type="number" id="ia_glk_${uid}" min="0" max="100" value="30" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px">
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span>💬 评论组账号数</span>
+              <input type="number" id="ia_gcm_${uid}" min="0" max="100" value="5" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px">
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span>⭐ 收藏组账号数</span>
+              <input type="number" id="ia_gcl_${uid}" min="0" max="100" value="5" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px">
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span>🏃 执行节奏</span>
+              <select id="ia_pace_${uid}" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px">
+                <option value="loose">🐢 宽松（慢，安全）</option>
+                <option value="compact">⚡ 紧凑（快，风险高）</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <!-- 日志 -->
         <div id="log_${uid}" style="font-size:10px;background:var(--bg);border-radius:6px;padding:6px;max-height:200px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
       </div>
@@ -284,6 +320,16 @@ async function _ia_exec(uid) {
   };
   const interval = document.getElementById(`ia_interval_${uid}`)?.value?.trim() || '300-600';
 
+  // 互动策略参数（防封号）
+  const strategy = {
+    comment_per_video: parseInt(document.getElementById(`ia_cpv_${uid}`)?.value || '5'),
+    comment_daily_limit: parseInt(document.getElementById(`ia_cdl_${uid}`)?.value || '12'),
+    group_like: parseInt(document.getElementById(`ia_glk_${uid}`)?.value || '30'),
+    group_comment: parseInt(document.getElementById(`ia_gcm_${uid}`)?.value || '5'),
+    group_collect: parseInt(document.getElementById(`ia_gcl_${uid}`)?.value || '5'),
+    pace: document.getElementById(`ia_pace_${uid}`)?.value || 'loose',
+  };
+
   // 确认
   let detail = `链接: ${urls.length} 条\n`;
   const actionLabels = [];
@@ -295,46 +341,37 @@ async function _ia_exec(uid) {
     }
   }
   detail += `动作: ${actionLabels.join(' | ')}\n`;
+  detail += `策略: 每视频评论≤${strategy.comment_per_video}条 | 每账号评论≤${strategy.comment_daily_limit}条/天 | 分组 ${strategy.group_like}赞/${strategy.group_comment}评/${strategy.group_collect}藏 | ${strategy.pace==='compact'?'⚡紧凑':'🐢宽松'}\n`;
   detail += `间隔: ${interval}s`;
 
   if (!await confirmExecute(`🎯 ${selected.length} 个账号 × ${urls.length} 条链接`, detail)) return;
 
-  log.textContent = `🚀 执行中: ${selected.length} 个账号 × ${urls.length} 条链接\n`;
-  log.textContent += `   动作: ${actionLabels.join(', ')}\n`;
+  log.textContent = `🚀 提交互动计划: ${selected.length} 个账号 × ${urls.length} 条链接\n`;
+  log.textContent += `   策略: 每视频评论≤${strategy.comment_per_video}条 | 每账号≤${strategy.comment_daily_limit}条 | ${strategy.group_like}赞/${strategy.group_comment}评/${strategy.group_collect}藏\n`;
 
-  // 按机器分组
-  const byMachine = {};
-  selected.forEach(s => {
-    const m = s.machine || 'unknown';
-    if (!byMachine[m]) byMachine[m] = [];
-    byMachine[m].push(s.id);
-  });
-
-  let done = 0, ok = 0, total = Object.keys(byMachine).length * urls.length;
-
-  for (const [machine, ids] of Object.entries(byMachine)) {
-    for (const item of urls) {
-      try {
-        const d = await apiRequest('/ops/run', {
-          method: 'POST',
-          body: JSON.stringify({
-            type: 'interact',
-            accounts: ids,
-            params: {
-              url: item.url,
-              title: item.title,
-              actions,
-              interval,
-            },
-          }),
-        });
-        done++; ok += d.status === 'ok' || d.status === 'accepted' ? 1 : 0;
-        log.textContent += `  [${item.title.slice(0,20)}] ${d.status || 'OK'} (${done}/${total})\n`;
-      } catch(e) {
-        done++;
-        log.textContent += `  ❌ [${item.title.slice(0,20)}] ${e.message}\n`;
-      }
+  try {
+    const d = await apiRequest('/ops/run', {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'interact',
+        accounts: selected.map(s => s.id),
+        params: {
+          urls,            // 所有视频一次性提交，由后端计划生成器分配
+          actions,
+          strategy,
+          interval,
+        },
+      }),
+    });
+    if (d.status === 'ok') {
+      log.textContent += `\n✅ 计划已提交: ${d.total_tasks || d.tasks?.length || '?'} 个互动任务\n`;
+      if (d.summary) log.textContent += `   评论≈${d.summary.comment} | 点赞≈${d.summary.like} | 收藏≈${d.summary.collect}\n`;
+      if (d.errors?.length) log.textContent += `⚠️ ${d.errors.length} 个错误: ${d.errors[0].message}\n`;
+    } else {
+      log.textContent += `\n❌ 提交失败: ${d.message || d.detail || '未知错误'}\n`;
+      if (d.errors?.length) log.textContent += `   ${d.errors.map(e => e.message).join('; ')}\n`;
     }
+  } catch(e) {
+    log.textContent += `\n❌ 网络错误: ${e.message}\n`;
   }
-  log.textContent += `\n✅ ${ok}/${done} 提交完成\n`;
 }

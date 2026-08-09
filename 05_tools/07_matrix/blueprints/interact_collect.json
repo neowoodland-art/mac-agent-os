@@ -1,0 +1,16 @@
+{
+  "id": "interact_collect",
+  "name": "互动-收藏",
+  "description": "打开视频链接 → 等待加载 → 点击收藏按钮",
+  "version": "1.0",
+  "platform": "douyin",
+  "steps": [
+    {"step_id": 1, "op": "goto_url", "args": {"url": "@url"}, "pre": {}, "post": {}},
+    {"step_id": 2, "op": "wait_watch", "args": {"seconds": null}, "pre": {}, "post": {}},
+    {"step_id": 3, "op": "collect", "args": {}, "pre": {}, "post": {}},
+    {"step_id": 4, "op": "wait_watch", "args": {"seconds": 2}, "pre": {}, "post": {}}
+  ],
+  "args_schema": {
+    "url": {"type": "string", "required": true, "desc": "目标视频链接"}
+  }
+}

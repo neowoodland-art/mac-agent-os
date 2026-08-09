@@ -1030,6 +1030,133 @@ CMD_POLL_STRATEGY = {
 DEFAULT_POLL_STRATEGY = {"grace_period": 30, "timeout": 600, "check_process": True, "check_log_completed": []}
 
 
+# ── 互动计划生成器（防封号核心）──────────────────────────────
+# 把"账号×视频"的全量组合，转成受控的互动计划：
+#   ① 账号分组：like/comment/collect 三组（按数量随机分配）
+#   ② 每视频评论配额：每条视频最多 comment_per_video 条评论
+#   ③ 每账号限流：评论账号每天最多 comment_daily_limit 条（点赞/关注不限制）
+#   ④ 评论内容：从语料库随机取（随机生成评论，避免重复）
+#   ⑤ 节奏控制：compact（快）/ loose（慢）两种间隔档
+# 产出 tasks（单账号单视频单动作），由 CommandBus 按机器分发。
+
+def _build_interact_plan(machine_groups: dict, params: dict, now_ts: int) -> list:
+    """生成受控互动计划任务列表"""
+    import random
+    strategy = params.get("strategy", {})
+    urls = params.get("urls", [])  # [{title, url}, ...]
+    if isinstance(urls, str):
+        urls = [{"title": "", "url": urls}]
+    if not urls:
+        return []
+
+    # ── 策略参数 ──
+    comment_per_video = int(strategy.get("comment_per_video", 5))     # 每视频评论上限
+    comment_daily_limit = int(strategy.get("comment_daily_limit", 12))  # 每账号评论日上限
+    group_like = int(strategy.get("group_like", 30))     # 点赞组账号数
+    group_comment = int(strategy.get("group_comment", 5))  # 评论组账号数
+    group_collect = int(strategy.get("group_collect", 5))  # 收藏组账号数
+    pace = strategy.get("pace", "loose")  # compact / loose
+
+    # 节奏 → 间隔秒数（紧凑快、宽松慢）
+    if pace == "compact":
+        interval = {"like": "20-60", "comment": "45-120", "collect": "30-90", "cross": "60-180"}
+    else:
+        interval = {"like": "60-180", "comment": "120-300", "collect": "90-240", "cross": "300-600"}
+
+    # ── 账号池（跨机器合并）──
+    all_accts = []  # [{id, machine, is_local, nickname, platform}]
+    for machine, accts in machine_groups.items():
+        for a in accts:
+            all_accts.append({
+                "id": a["id"],
+                "machine": machine,
+                "is_local": (machine == HOSTNAME),
+                "nickname": a.get("nickname", ""),
+                "platform": a.get("platform", "douyin"),
+            })
+    if not all_accts:
+        return []
+
+    # ── ① 账号分组：随机打乱后按数量切三组 ──
+    random.shuffle(all_accts)
+    n = len(all_accts)
+    comment_group = all_accts[:group_comment]
+    collect_group = all_accts[group_comment:group_comment + group_collect]
+    like_group = all_accts[group_comment + group_collect:]
+
+    # ── ③ 评论限流计数 ──
+    comment_used = {a["id"]: 0 for a in comment_group}
+
+    # ── 评论内容池（从语料库随机，避免重复文案） ──
+    _comment_pool = []
+    try:
+        import sys as _sys
+        _scripts_dir = str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts")
+        if _scripts_dir not in _sys.path:
+            _sys.path.insert(0, _scripts_dir)
+        from mc.corpus import CorpusManager
+        _cm = CorpusManager()
+        _comment_pool = _cm.get_comments(category="douyin", count=50) or []
+    except Exception:
+        _comment_pool = []
+    if not _comment_pool:
+        _comment_pool = ["不错哦", "学到了", "很有道理", "支持一下", "太棒了",
+                         "有意思", "点个赞", "加油", "说得对", "路过支持"]
+
+    tasks = []
+    for vi, item in enumerate(urls):
+        url = item.get("url", "") if isinstance(item, dict) else str(item)
+        title = item.get("title", "") if isinstance(item, dict) else ""
+        if not url:
+            continue
+
+        # ── ② 评论配额：从评论组抽 comment_per_video 个（随机轮动 + 限流）──
+        comment_pool_accounts = [a for a in comment_group if comment_used[a["id"]] < comment_daily_limit]
+        random.shuffle(comment_pool_accounts)
+        picked_comments = comment_pool_accounts[:comment_per_video]
+        for a in picked_comments:
+            comment_used[a["id"]] += 1
+            comment_text = random.choice(_comment_pool)
+            tasks.append({
+                "machine": a["machine"], "cmd_type": "interact",
+                "ids_str": a["id"], "is_local": a["is_local"],
+                "nickname": a["nickname"], "platform": a["platform"],
+                "cmd_line": f"mc run --accounts={a['id']} --blueprints=interact_comment --rounds=1 --url={shlex.quote(url)} --interval={interval['comment']} --comment_text={shlex.quote(comment_text)}",
+                "run_id": f"plan_c_{now_ts}_{a['machine']}_{a['id']}_{vi}_{int(random.random()*1000)}",
+                "params": {"url": url, "title": title, "action": "comment", "comment_text": comment_text,
+                           "interval": interval["comment"], "blueprint": "interact_comment", "rounds": 1},
+            })
+
+        # ── 点赞组（随机部分点赞，非全部，避免机械）──
+        like_sample_n = max(1, int(len(like_group) * random.uniform(0.6, 1.0)))
+        random.shuffle(like_group)
+        for a in like_group[:like_sample_n]:
+            tasks.append({
+                "machine": a["machine"], "cmd_type": "interact",
+                "ids_str": a["id"], "is_local": a["is_local"],
+                "nickname": a["nickname"], "platform": a["platform"],
+                "cmd_line": f"mc run --accounts={a['id']} --blueprints=interact_like --rounds=1 --url={shlex.quote(url)} --interval={interval['like']}",
+                "run_id": f"plan_l_{now_ts}_{a['machine']}_{a['id']}_{vi}_{int(random.random()*1000)}",
+                "params": {"url": url, "title": title, "action": "like",
+                           "interval": interval["like"], "blueprint": "interact_like", "rounds": 1},
+            })
+
+        # ── 收藏组 ──
+        for a in collect_group:
+            tasks.append({
+                "machine": a["machine"], "cmd_type": "interact",
+                "ids_str": a["id"], "is_local": a["is_local"],
+                "nickname": a["nickname"], "platform": a["platform"],
+                "cmd_line": f"mc run --accounts={a['id']} --blueprints=interact_collect --rounds=1 --url={shlex.quote(url)} --interval={interval['collect']}",
+                "run_id": f"plan_s_{now_ts}_{a['machine']}_{a['id']}_{vi}_{int(random.random()*1000)}",
+                "params": {"url": url, "title": title, "action": "collect",
+                           "interval": interval["collect"], "blueprint": "interact_collect", "rounds": 1},
+            })
+
+    logger.info(f"  📋 互动计划生成: {len(urls)}视频 | 评论≈{sum(1 for t in tasks if 'plan_c' in t['run_id'])} 点赞≈{sum(1 for t in tasks if 'plan_l' in t['run_id'])} 收藏≈{sum(1 for t in tasks if 'plan_s' in t['run_id'])}")
+    return tasks
+
+
 # ── 命令总线 ────────────────────────────────────────────────
 class CommandBus:
     """全局命令总线 — 所有操作的统一入口"""
@@ -1100,12 +1227,27 @@ class CommandBus:
 
         results = []
 
+        # ── 互动计划生成器（strategy 模式）────────────────────────
+        # 前端传入 strategy 时（评论配额/账号分组/限流/节奏），不走常规循环，
+        # 由 _build_interact_plan 一次性生成全局互动计划（跨机器账号池）。
+        _plan_tasks = None
+        if cmd_type == "interact" and params.get("strategy"):
+            try:
+                _plan_tasks = _build_interact_plan(machine_groups, params, now_ts)
+            except Exception as e:
+                logger.error(f"互动计划生成失败: {e}")
+                errors.append({"account": "all", "message": f"互动计划生成失败: {e}"})
+
         # 第二步：按机器分组构建命令任务
         # 返回 list[dict] = {machine, cmd_type, ids_str, is_local, cmd_line, params, run_id}
         tasks = []
         for machine, accts in machine_groups.items():
             is_local = (machine == HOSTNAME)
             all_ids = ",".join(a["id"] for a in accts)
+
+            # strategy 模式：计划已整体生成，跳过常规循环
+            if _plan_tasks is not None:
+                continue
 
             if cmd_type == "nurture":
                 plat_groups = {}
@@ -1366,6 +1508,10 @@ class CommandBus:
                         "run_id": f"{cmd_type}_{now_ts}_{machine}",
                     })
 
+        # strategy 模式：合并计划生成器产出的任务
+        if _plan_tasks:
+            tasks.extend(_plan_tasks)
+
         # 第三步：并行分发到各台机器
         dispatched_cmds = []
         from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -1475,6 +1621,16 @@ class CommandBus:
             except Exception:
                 pass
 
+        # ── 计划统计（interact strategy 模式）──
+        _plan_summary = None
+        if _plan_tasks is not None:
+            _plan_summary = {
+                "comment": sum(1 for t in _plan_tasks if t.get("run_id", "").startswith("plan_c")),
+                "like": sum(1 for t in _plan_tasks if t.get("run_id", "").startswith("plan_l")),
+                "collect": sum(1 for t in _plan_tasks if t.get("run_id", "").startswith("plan_s")),
+                "total": len(_plan_tasks),
+            }
+
         return {
             "status": "completed" if (wait and all_terminal) else ("accepted" if not dry_run else "plan"),
             "total_accounts": total_accounts or None,
@@ -1484,6 +1640,8 @@ class CommandBus:
             "per_machine": per_machine if per_machine else None,
             "errors": errors if errors else None,
             "warnings": warnings if warnings else None,
+            "total_tasks": _plan_summary["total"] if _plan_summary else None,
+            "summary": _plan_summary,
         }
 
     @classmethod
