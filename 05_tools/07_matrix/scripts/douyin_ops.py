@@ -135,15 +135,23 @@ class DouyinOps(PlatformOps):
                 all_p = json.loads(PROFILES_JSON.read_text())
             else:
                 all_p = {}
+
+            # v5 防覆盖保护：新值有效（非 ?/空）才覆盖，否则保留旧值
+            def _pick(new_v, old_v):
+                if new_v not in (None, "", "?"):
+                    return new_v
+                return old_v if old_v not in (None, "") else "?"
+
+            old_p = all_p.get(self._account_id, {}) if isinstance(all_p, dict) else {}
             ban_status = prof.get("_status", "normal")
             all_p[self._account_id] = {
-                "nickname": prof.get("nickname", "?"),
-                "user_id": prof.get("user_id", "?"),
-                "following": prof.get("following", "?"),
-                "fans": prof.get("fans", "?"),
-                "likes": prof.get("likes", "?"),
-                "posts": prof.get("posts", "?"),
-                "bio": prof.get("bio", "?"),
+                "nickname": _pick(prof.get("nickname"), old_p.get("nickname")),
+                "user_id": _pick(prof.get("user_id"), old_p.get("user_id")),
+                "following": _pick(prof.get("following"), old_p.get("following")),
+                "fans": _pick(prof.get("fans"), old_p.get("fans")),
+                "likes": _pick(prof.get("likes"), old_p.get("likes")),
+                "posts": _pick(prof.get("posts"), old_p.get("posts")),
+                "bio": _pick(prof.get("bio"), old_p.get("bio")),
                 "status": ban_status,
                 "platform": "douyin",
                 "updated": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -174,12 +182,12 @@ class DouyinOps(PlatformOps):
             if entry.get("douyin") is None:
                 entry["douyin"] = {}
             entry["douyin"].update({
-                "nickname": prof.get("nickname", ""),
-                "fans": prof.get("fans", "0"),
-                "following": prof.get("following", "0"),
-                "likes": prof.get("likes", "0"),
-                "posts": prof.get("posts", "0"),
-                "bio": prof.get("bio", ""),
+                "nickname": _pick(prof.get("nickname"), entry["douyin"].get("nickname")),
+                "fans": _pick(prof.get("fans"), entry["douyin"].get("fans")),
+                "following": _pick(prof.get("following"), entry["douyin"].get("following")),
+                "likes": _pick(prof.get("likes"), entry["douyin"].get("likes")),
+                "posts": _pick(prof.get("posts"), entry["douyin"].get("posts")),
+                "bio": _pick(prof.get("bio"), entry["douyin"].get("bio")),
                 "status": ban_status,
                 "updated": time.strftime("%Y-%m-%dT%H:%M:%S"),
             })
@@ -187,6 +195,161 @@ class DouyinOps(PlatformOps):
 
         except Exception as e:
             print(f"[douyin_ops] _save_profiles_json 失败: {e}")
+
+    # ═══════════════════════════════════════════════════════════
+    # v5 主页数据 API 采集（不依赖 DOM 结构，抖音改版不再影响）
+    # ═══════════════════════════════════════════════════════════
+
+    def _known_user_id(self) -> str:
+        """从已有 profiles.json 读取该账号的 user_id（供 other 接口降级用）"""
+        try:
+            if PROFILES_JSON.exists():
+                all_p = json.loads(PROFILES_JSON.read_text())
+                p = all_p.get(self._account_id, {})
+                uid = str(p.get("user_id", "") or "")
+                if uid and uid != "?":
+                    return uid
+        except Exception:
+            pass
+        return ""
+
+    @staticmethod
+    def _profile_from_api_user(u: dict) -> dict:
+        """把 API user 对象转成统一 profile 结构"""
+        avatar = ""
+        try:
+            avatar = (u.get("avatar_thumb") or {}).get("url_list", [""])[0]
+        except Exception:
+            pass
+        def _num(v):
+            return "" if v is None else str(v)
+        return {
+            "nickname": u.get("nickname", "") or "",
+            "user_id": str(u.get("uid", u.get("unique_id", "")) or ""),
+            "following": _num(u.get("following_count")),
+            "fans": _num(u.get("follower_count")),
+            "likes": _num(u.get("total_favorited")),
+            "posts": _num(u.get("aweme_count")),
+            "bio": (u.get("signature", "") or "").strip()[:50],
+            "avatar": avatar,
+        }
+
+    async def _fetch_profile_api(self) -> dict:
+        """v5: 通过抖音 Web API 获取主页数据（同源 fetch，不依赖 DOM）
+
+        优先 /aweme/v1/web/user/profile/self/（无需 uid）
+        失败降级 /aweme/v1/web/user/profile/other/（用已有 user_id）
+        返回统一 profile 结构；失败返回空 dict
+        """
+        # 1. 先尝试 self 接口（当前登录用户）
+        js_self = """async () => {
+            try {
+                const r = await fetch('/aweme/v1/web/user/profile/self/?device_platform=webapp&aid=6383', {
+                    headers: { 'Accept': 'application/json, text/plain, */*', 'Referer': 'https://www.douyin.com/' }
+                });
+                const d = await r.json();
+                return JSON.stringify({ok: !!(d && d.user), data: (d && d.user) || {}});
+            } catch(e) {
+                return JSON.stringify({ok: false, error: e.message});
+            }
+        }"""
+        try:
+            raw = await self.page.evaluate(js_self)
+            payload = json.loads(raw)
+            if payload.get("ok"):
+                prof = self._profile_from_api_user(payload["data"])
+                print(f"[douyin_ops] ✅ API self 成功: {prof['nickname']} 粉丝={prof['fans']}")
+                return prof
+        except Exception as e:
+            print(f"[douyin_ops] API self 异常: {e}")
+
+        # 2. 降级 other 接口（需要数字 uid，从已有 profiles.json 读取）
+        uid = self._known_user_id()
+        if uid:
+            js_other = f"""async () => {{
+                try {{
+                    const r = await fetch('/aweme/v1/web/user/profile/other/?user_id={uid}&device_platform=webapp&aid=6383', {{
+                        headers: {{ 'Accept': 'application/json, text/plain, */*', 'Referer': 'https://www.douyin.com/' }}
+                    }});
+                    const d = await r.json();
+                    return JSON.stringify({{ok: !!(d && d.user), data: (d && d.user) || {{}}}});
+                }} catch(e) {{
+                    return JSON.stringify({{ok: false, error: e.message}});
+                }}
+            }}"""
+            try:
+                raw2 = await self.page.evaluate(js_other)
+                payload2 = json.loads(raw2)
+                if payload2.get("ok"):
+                    prof2 = self._profile_from_api_user(payload2["data"])
+                    print(f"[douyin_ops] ✅ API other 成功: {prof2['nickname']} 粉丝={prof2['fans']}")
+                    return prof2
+            except Exception as e:
+                print(f"[douyin_ops] API other 异常: {e}")
+        else:
+            print("[douyin_ops] ⚠️ 无已知 user_id，跳过 other 接口降级")
+        return {}
+
+    async def _collect_profile_dom(self) -> dict:
+        """DOM 兜底解析（v4 旧逻辑，仅当 API 全部失败时使用）"""
+        profile = await self.page.evaluate("""() => {
+            try {
+                const text = (document.body.innerText || '').trim();
+                // 昵称：优先从标题取，失败则尝试 DOM 选择器
+                var nickFromTitle = (document.title || '').replace(' - 抖音', '').replace('的抖音', '').trim();
+                // DOM 兜底：找页面中可能包含昵称的元素
+                var nickFromDom = '';
+                var nickEl = document.querySelector('[data-e2e="user-info"] span, [class*="profile"] [class*="name"], .user-info .name, .profile-info span');
+                if (nickEl && nickEl.textContent) nickFromDom = nickEl.textContent.trim();
+                const nickname = nickFromTitle || nickFromDom || '?';
+                const uidM = text.match(/抖音号[：:]\\s*(\\S+)/);
+                // 正则匹配两种顺序："数字 标签" 和 "标签 数字"
+                function extractNum(label) {
+                    var m1 = text.match(new RegExp('(\\\\d+(?:\\\\.\\\\d+)?[万w]?)\\\\s*' + label));
+                    if (m1) return m1[1];
+                    var m2 = text.match(new RegExp(label + '\\\\s*(\\\\d+(?:\\\\.\\\\d+)?[万w]?)'));
+                    if (m2) return m2[1];
+                    return null;
+                }
+                const folM = extractNum('关注');
+                const fanM = extractNum('粉丝');
+                const likM = extractNum('获赞');
+                const posM = extractNum('作品');
+                // e2e 兜底：从原始文本中只提取数字部分
+                function e2eNum(s) {
+                    try {
+                        var el = document.querySelector('[data-e2e="'+s+'"]');
+                        if (!el) return null;
+                        var m = (el.textContent||'').trim().match(/\\d+(?:\\.\\d+)?[万w]?/);
+                        return m ? m[0] : null;
+                    } catch(e) { return null; }
+                }
+                // DOM 兜底：data-e2e 容器内的数字（结构: <div data-e2e="xxx"><div>标签</div><div>数字</div></div>）
+                function statByE2e(e2eName) {
+                    try {
+                        var container = document.querySelector('[data-e2e="'+e2eName+'"]');
+                        if (!container) return null;
+                        var divs = container.querySelectorAll('div');
+                        for (var j = 0; j < divs.length; j++) {
+                            var m = (divs[j].textContent||'').trim().match(/^\\d+(?:\\.\\d+)?[万w]?$/);
+                            if (m) return m[0];
+                        }
+                    } catch(e) {}
+                    return null;
+                }
+                return {
+                    nickname: nickname, user_id: uidM ? uidM[1] : '?',
+                    following: folM || (e2eNum('user-info-follow')||statByE2e('user-info-follow')||'?'),
+                    fans: fanM || (e2eNum('user-info-fans')||statByE2e('user-info-fans')||'?'),
+                    likes: likM || (e2eNum('user-info-like')||statByE2e('user-info-like')||'?'),
+                    posts: posM || (e2eNum('user-tab-count')||statByE2e('user-tab-count')||'?'),
+                    bio: (document.querySelector('[data-e2e="user-bio"]')?.textContent?.trim() || '?').slice(0, 50),
+                };
+            } catch(e) {
+                return { nickname: '?', user_id: '?', following: '?', fans: '?', likes: '?', posts: '?', bio: '?', _error: e.message };
+            }
+        }""")
+        return profile
 
     def supported_ops(self) -> list:
         return ["goto_home", "goto_url", "like", "collect", "follow",
@@ -1392,7 +1555,13 @@ class DouyinOps(PlatformOps):
     # ═══════════════════════════════════════════════════════════
 
     async def goto_profile(self, step_id: int = 0) -> dict:
-        """AO_PROFILE: 进入个人主页，一次性采集全部字段"""
+        """AO_PROFILE: 进入个人主页，一次性采集全部字段
+
+        v5 策略（2026-08-15）：API 优先，DOM 兜底
+          1. 同源 fetch 抖音 Web API（profile/self → profile/other）
+             —— 不依赖页面 DOM 结构，抖音改版不再影响
+          2. API 失败 → DOM innerText 正则（旧逻辑保留）
+        """
         t0 = time.time()
         await self.page.goto("https://www.douyin.com/user/self", timeout=20000, wait_until="domcontentloaded")
         # 检查登录状态，未登录时自动处理弹窗
@@ -1404,63 +1573,13 @@ class DouyinOps(PlatformOps):
         else:
             print("⚠️ 未能登录，但仍尝试采集数据")
             await asyncio.sleep(3)
-        profile = await self.page.evaluate("""() => {
-            try {
-                const text = (document.body.innerText || '').trim();
-                // 昵称：优先从标题取，失败则尝试 DOM 选择器
-                var nickFromTitle = (document.title || '').replace(' - 抖音', '').replace('的抖音', '').trim();
-                // DOM 兜底：找页面中可能包含昵称的元素
-                var nickFromDom = '';
-                var nickEl = document.querySelector('[data-e2e="user-info"] span, [class*="profile"] [class*="name"], .user-info .name, .profile-info span');
-                if (nickEl && nickEl.textContent) nickFromDom = nickEl.textContent.trim();
-                const nickname = nickFromTitle || nickFromDom || '?';
-                const uidM = text.match(/抖音号[：:]\\s*(\\S+)/);
-                // 正则匹配两种顺序："数字 标签" 和 "标签 数字"
-                function extractNum(label) {
-                    var m1 = text.match(new RegExp('(\\\\d+(?:\\\\.\\\\d+)?[万w]?)\\\\s*' + label));
-                    if (m1) return m1[1];
-                    var m2 = text.match(new RegExp(label + '\\\\s*(\\\\d+(?:\\\\.\\\\d+)?[万w]?)'));
-                    if (m2) return m2[1];
-                    return null;
-                }
-                const folM = extractNum('关注');
-                const fanM = extractNum('粉丝');
-                const likM = extractNum('获赞');
-                const posM = extractNum('作品');
-                // e2e 兜底：从原始文本中只提取数字部分
-                function e2eNum(s) {
-                    try {
-                        var el = document.querySelector('[data-e2e="'+s+'"]');
-                        if (!el) return null;
-                        var m = (el.textContent||'').trim().match(/\\d+(?:\\.\\d+)?[万w]?/);
-                        return m ? m[0] : null;
-                    } catch(e) { return null; }
-                }
-                // DOM 兜底：data-e2e 容器内的数字（结构: <div data-e2e="xxx"><div>标签</div><div>数字</div></div>）
-                function statByE2e(e2eName) {
-                    try {
-                        var container = document.querySelector('[data-e2e="'+e2eName+'"]');
-                        if (!container) return null;
-                        var divs = container.querySelectorAll('div');
-                        for (var j = 0; j < divs.length; j++) {
-                            var m = (divs[j].textContent||'').trim().match(/^\\d+(?:\\.\\d+)?[万w]?$/);
-                            if (m) return m[0];
-                        }
-                    } catch(e) {}
-                    return null;
-                }
-                return {
-                    nickname: nickname, user_id: uidM ? uidM[1] : '?',
-                    following: folM || (e2eNum('user-info-follow')||statByE2e('user-info-follow')||'?'),
-                    fans: fanM || (e2eNum('user-info-fans')||statByE2e('user-info-fans')||'?'),
-                    likes: likM || (e2eNum('user-info-like')||statByE2e('user-info-like')||'?'),
-                    posts: posM || (e2eNum('user-tab-count')||statByE2e('user-tab-count')||'?'),
-                    bio: (document.querySelector('[data-e2e="user-bio"]')?.textContent?.trim() || '?').slice(0, 50),
-                };
-            } catch(e) {
-                return { nickname: '?', user_id: '?', following: '?', fans: '?', likes: '?', posts: '?', bio: '?', _error: e.message };
-            }
-        }""")
+
+        # ── v5: API 优先（不依赖 DOM 结构）──
+        profile = await self._fetch_profile_api()
+        if not profile or not profile.get("nickname"):
+            print("[douyin_ops] ⚠️ API 采集失败，降级 DOM 解析")
+            profile = await self._collect_profile_dom()
+
         self._profile = profile
 
         # 抖音封号检测
