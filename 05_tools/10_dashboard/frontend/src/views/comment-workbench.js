@@ -171,6 +171,7 @@ function renderRoleSliders() {
   const groups = [
     { key: 'filler', label: '灌水/搞怪', items: ROLES_CONFIG.filter(r => r.group === 'filler' || r.group === 'funny') },
     { key: 'emotion', label: '情感类', items: ROLES_CONFIG.filter(r => r.group === 'emotion') },
+    { key: 'qa', label: '疑问类（一问一答）', items: ROLES_CONFIG.filter(r => r.group === 'qa') },
     { key: 'guide', label: '引导类（穿插埋入）', items: ROLES_CONFIG.filter(r => r.group === 'guide') },
   ];
   wrap.innerHTML = groups.map(g => `
@@ -196,6 +197,7 @@ function _sliderColor(role) {
     filler:'#8b8fa3', funny:'#a78bfa',
     sympathizer:'#f59e0b', sharer:'#22c55e',
     angry:'#ef4444', oppose:'#dc2626',
+    questioner:'#fb923c', answerer:'#38bdf8',
     guide_analyze:'#3b82f6', guide_share:'#06b6d4',
     guide_agree:'#10b981', guide_benefit:'#f97316',
     guide_compare:'#8b5cf6',
@@ -475,19 +477,21 @@ const CONTENT_TYPES = [
   { id: 'other', label: '其他' },
 ];
 
-// 角色定义：灌水 → 情感 → 引导，含 AI 用到的角色描述
+// 角色定义：灌水 → 情感 → 疑问问答 → 引导，含 AI 用到的角色描述
 const ROLES_CONFIG = [
-  { id: 'filler', label: '灌水/路过', group: 'filler', pct: 0.30, desc: '路过灌水' },
-  { id: 'funny', label: '😜 搞怪', group: 'funny', pct: 0.08, desc: '搞怪吐槽' },
-  { id: 'sympathizer', label: '感同身受', group: 'emotion', pct: 0.12, desc: '共情感同身受' },
-  { id: 'sharer', label: '喜欢赞扬', group: 'emotion', pct: 0.12, desc: '赞美赞扬' },
-  { id: 'angry', label: '愤世嫉俗', group: 'emotion', pct: 0.08, desc: '愤怒吐槽现实' },
-  { id: 'oppose', label: '坚决抵制', group: 'emotion', pct: 0.05, desc: '反对抵制' },
-  { id: 'guide_analyze', label: '客观分析引导', group: 'guide', pct: 0.08, desc: '客观分析夸优点引导' },
-  { id: 'guide_share', label: '经验分享引导', group: 'guide', pct: 0.06, desc: '相同经历经验分享引导' },
-  { id: 'guide_agree', label: '赞同博主引导', group: 'guide', pct: 0.04, desc: '赞同博主引导' },
-  { id: 'guide_benefit', label: '薅羊毛推荐引导', group: 'guide', pct: 0.04, desc: '利益分享薅羊毛引导' },
-  { id: 'guide_compare', label: '对比反证引导', group: 'guide', pct: 0.03, desc: '对比其他差评反证引导' },
+  { id: 'filler', label: '灌水/路过', group: 'filler', pct: 0.23, desc: '路过灌水' },
+  { id: 'funny', label: '😜 搞怪', group: 'funny', pct: 0.06, desc: '搞怪吐槽' },
+  { id: 'sympathizer', label: '感同身受', group: 'emotion', pct: 0.08, desc: '共情感同身受' },
+  { id: 'sharer', label: '喜欢赞扬', group: 'emotion', pct: 0.09, desc: '赞美赞扬' },
+  { id: 'angry', label: '愤世嫉俗', group: 'emotion', pct: 0.05, desc: '愤怒吐槽现实' },
+  { id: 'oppose', label: '坚决抵制', group: 'emotion', pct: 0.03, desc: '反对抵制' },
+  { id: 'questioner', label: '🙋 提问', group: 'qa', pct: 0.17, desc: '追问细节求解答' },
+  { id: 'answerer', label: '💬 回答', group: 'qa', pct: 0.12, desc: '回应提问给方案' },
+  { id: 'guide_analyze', label: '客观分析引导', group: 'guide', pct: 0.05, desc: '客观分析夸优点引导' },
+  { id: 'guide_share', label: '经验分享引导', group: 'guide', pct: 0.04, desc: '相同经历经验分享引导' },
+  { id: 'guide_agree', label: '赞同博主引导', group: 'guide', pct: 0.03, desc: '赞同博主引导' },
+  { id: 'guide_benefit', label: '薅羊毛推荐引导', group: 'guide', pct: 0.03, desc: '利益分享薅羊毛引导' },
+  { id: 'guide_compare', label: '对比反证引导', group: 'guide', pct: 0.02, desc: '对比其他差评反证引导' },
 ];
 
 function _videoLabel(v) {

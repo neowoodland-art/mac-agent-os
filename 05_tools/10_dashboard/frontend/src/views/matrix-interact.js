@@ -13,6 +13,30 @@ import { createAccountSelector } from '../components/account-selector.js';
 
 let _selector = null;
 let _parsedItems = [];  // [{title, url}]
+let _commentMap = {};   // {url: [{text, role, role_label}]} — 用户设定的评论内容
+
+// 评论内容设置的 13 个角色（数字=生成条数）
+const IA_ROLES = [
+  { id: 'filler', label: '灌水', group: '灌水/搞怪' },
+  { id: 'funny', label: '搞怪', group: '灌水/搞怪' },
+  { id: 'sympathizer', label: '感同身受', group: '情感' },
+  { id: 'sharer', label: '喜欢赞扬', group: '情感' },
+  { id: 'angry', label: '愤世嫉俗', group: '情感' },
+  { id: 'oppose', label: '坚决抵制', group: '情感' },
+  { id: 'questioner', label: '提问', group: '疑问问答' },
+  { id: 'answerer', label: '回答', group: '疑问问答' },
+  { id: 'guide_analyze', label: '客观分析引导', group: '引导' },
+  { id: 'guide_share', label: '经验分享引导', group: '引导' },
+  { id: 'guide_agree', label: '赞同博主引导', group: '引导' },
+  { id: 'guide_benefit', label: '薅羊毛推荐引导', group: '引导' },
+  { id: 'guide_compare', label: '对比反证引导', group: '引导' },
+];
+
+// 无标题视频兜底用的灌水/搞怪池
+const IA_FILLER_POOL = [
+  '路过看看', '学到了', '不错', '支持一下', '挺有意思的', '点个赞走了',
+  '哈哈哈哈', '这操作绝了', '笑死我了', '666', '离谱但真实', '我直接好家伙',
+];
 
 export async function loadView(container) {
   const uid = (container.id || 'interact').replace(/-/g, '_');
@@ -22,7 +46,7 @@ export async function loadView(container) {
   container.innerHTML = `
     <div style="padding:16px">
       <div style="background:var(--bg2);border-radius:10px;padding:12px;border:1px solid var(--border)">
-        <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎯 批量互动 <span style="font-size:10px;color:var(--text2);font-weight:400">导入链接 → 按百分比执行多动作</span></div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px">🎯 批量互动 <span style="font-size:10px;color:var(--text2);font-weight:400">账号全量 × 视频按比例 × 多动作连做</span></div>
 
         <!-- 账号选择器 -->
         <div id="acctList_${uid}" style="margin-bottom:6px"></div>
@@ -41,65 +65,54 @@ export async function loadView(container) {
           <div id="ia_parsedList_${uid}" style="display:none;font-size:10px;margin-top:4px;max-height:120px;overflow-y:auto"></div>
         </div>
 
-        <!-- 动作滑条 -->
+        <!-- 动作设置（账号全量 × 视频按比例） -->
         <div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);margin-bottom:8px">
-          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">🎚️ 互动动作（滑条=执行概率，100%=每条都做，0%=不做）</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">🎚️ 互动动作 <span style="font-size:9px;color:var(--text2)">（所有账号全量执行；比例 = 多少比例的视频执行该动作，0-100）</span></div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px">
             <div style="display:flex;align-items:center;gap:4px">
               <span style="width:14px">👍</span>
-              <span style="width:50px">点赞</span>
-              <input type="range" id="ia_rate_like_${uid}" min="0" max="100" value="80" style="flex:1;height:4px"
-                oninput="document.getElementById('ia_val_like_${uid}').textContent=this.value+'%'">
-              <span id="ia_val_like_${uid}" style="width:36px;text-align:right;font-size:10px;color:var(--text2);font-family:monospace">80%</span>
+              <span style="width:60px">点赞</span>
+              <span style="font-size:9px;color:var(--text2)">视频比例</span>
+              <input type="number" id="ia_ratio_like_${uid}" min="0" max="100" step="5" value="90" style="width:48px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="0-100，90 = 90% 的视频被全部账号点赞">
+              <span style="font-size:9px;color:var(--text2)">%</span>
             </div>
             <div style="display:flex;align-items:center;gap:4px">
               <span style="width:14px">⭐</span>
-              <span style="width:50px">收藏</span>
-              <input type="range" id="ia_rate_collect_${uid}" min="0" max="100" value="100" style="flex:1;height:4px"
-                oninput="document.getElementById('ia_val_collect_${uid}').textContent=this.value+'%'">
-              <span id="ia_val_collect_${uid}" style="width:36px;text-align:right;font-size:10px;color:var(--text2);font-family:monospace">100%</span>
+              <span style="width:60px">收藏</span>
+              <span style="font-size:9px;color:var(--text2)">视频比例</span>
+              <input type="number" id="ia_ratio_collect_${uid}" min="0" max="100" step="5" value="30" style="width:48px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="0-100，30 = 30% 的视频被全部账号收藏">
+              <span style="font-size:9px;color:var(--text2)">%</span>
             </div>
             <div style="display:flex;align-items:center;gap:4px">
               <span style="width:14px">💬</span>
-              <span style="width:50px">评论</span>
-              <input type="range" id="ia_rate_comment_${uid}" min="0" max="100" value="30" style="flex:1;height:4px"
-                oninput="document.getElementById('ia_val_comment_${uid}').textContent=this.value+'%'">
-              <span id="ia_val_comment_${uid}" style="width:36px;text-align:right;font-size:10px;color:var(--text2);font-family:monospace">30%</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:4px">
-              <span style="width:14px">👤</span>
-              <span style="width:50px">关注</span>
-              <input type="range" id="ia_rate_follow_${uid}" min="0" max="100" value="20" style="flex:1;height:4px"
-                oninput="document.getElementById('ia_val_follow_${uid}').textContent=this.value+'%'">
-              <span id="ia_val_follow_${uid}" style="width:36px;text-align:right;font-size:10px;color:var(--text2);font-family:monospace">20%</span>
+              <span style="width:60px">评论</span>
+              <span style="font-size:9px;color:var(--text2)">视频比例</span>
+              <input type="number" id="ia_ratio_comment_${uid}" min="0" max="100" step="5" value="60" style="width:48px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="0-100，60 = 60% 的视频有评论（每视频随机挑账号，受下方闸门控制）">
+              <span style="font-size:9px;color:var(--text2)">%</span>
             </div>
           </div>
-
-          <!-- 浏览其他作品（可折叠） -->
-          <div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
-            <div onclick="window._ia_toggleBrowse_${uid}()" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;user-select:none">
-              <span id="ia_browseArrow_${uid}">▶</span>
-              <span>🎬 浏览作者其他作品</span>
-              <span id="ia_browseSummary_${uid}" style="font-size:9px;color:var(--text2)"></span>
-            </div>
-            <div id="ia_browseBody_${uid}" style="display:none;margin-top:4px;padding-left:16px">
-              <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;font-size:10px">
-                <span>触发概率</span>
-                <input type="range" id="ia_rate_browse_${uid}" min="0" max="100" value="40" style="flex:1;height:4px;max-width:120px"
-                  oninput="window._ia_updateBrowseSummary_${uid}()">
-                <span id="ia_val_browse_${uid}" style="width:36px;font-family:monospace">40%</span>
-                <span style="margin-left:8px">浏览篇数</span>
-                <input id="ia_browseCount_${uid}" type="number" min="1" max="20" value="3" style="width:40px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px">
-              </div>
-              <div style="font-size:10px;color:var(--text2);margin-bottom:2px">操作模式</div>
-              <div style="display:flex;gap:8px;font-size:10px">
-                <label style="cursor:pointer"><input type="radio" name="ia_browseMode_${uid}" value="view" onchange="window._ia_updateBrowseSummary_${uid}()"> 仅浏览</label>
-                <label style="cursor:pointer"><input type="radio" name="ia_browseMode_${uid}" value="interact" checked onchange="window._ia_updateBrowseSummary_${uid}()"> 互动操作（复用上方百分数）</label>
-              </div>
-            </div>
-          </div>
+          <div style="font-size:9px;color:var(--text2);margin-top:4px">💡 评论还受下方闸门控制：每视频最多 N 条（随机挑账号）、每账号每天最多 N 条（到限自动降级为只赞藏）。未命中任何动作的视频直接跳过。</div>
         </div>
+
+          <!-- 评论内容设置（可折叠） -->
+          <div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
+            <div onclick="window._ia_toggleCommentCfg_${uid}()" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;user-select:none">
+              <span id="ia_cfgArrow_${uid}">▶</span>
+              <span>⚙️ 评论内容设置</span>
+              <span id="ia_cfgSummary_${uid}" style="font-size:9px;color:var(--text2)"></span>
+            </div>
+            <div id="ia_cfgBody_${uid}" style="display:none;margin-top:4px;padding-left:16px">
+              <div style="font-size:10px;color:var(--text2);margin-bottom:4px">按角色设定评论内容（数字=该角色生成几条；默认引导类各1条）。生成的评论执行时直接使用，不再随机取语料。</div>
+              <div id="ia_roleGrid_${uid}" style="display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;font-size:10px"></div>
+              <div style="display:flex;gap:4px;margin-top:6px;align-items:center;flex-wrap:wrap">
+                <span id="ia_roleTotal_${uid}" style="font-size:10px;color:var(--text2)">合计 0 条</span>
+                <button onclick="window._ia_genComments_${uid}()" style="background:var(--primary);color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">🚀 为所有视频生成评论</button>
+                <button onclick="window._ia_clearComments_${uid}()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">🗑 清空</button>
+              </div>
+              <div id="ia_cfgResult_${uid}" style="margin-top:6px;max-height:320px;overflow-y:auto;display:grid;gap:4px"></div>
+            </div>
+          </div>
 
         <!-- 执行区 -->
         <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
@@ -110,31 +123,19 @@ export async function loadView(container) {
           <button onclick="window._ia_exec_${uid}()" style="background:#22c55e;color:#000;border:none;padding:5px 16px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">🚀 执行所选互动</button>
         </div>
 
-        <!-- 📊 互动策略（防封号） -->
+        <!-- 📊 互动策略（评论闸门 + 节奏，防封号） -->
         <div style="background:var(--bg3);border-radius:6px;padding:8px;border:1px solid var(--border);margin-bottom:8px">
-          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">📊 互动策略 <span style="font-size:9px;color:var(--text2)">（账号轮动 + 评论配额 + 限流，模拟真人防封号）</span></div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">📊 评论闸门与节奏 <span style="font-size:9px;color:var(--text2)">（评论两道硬闸门 + 执行节奏，模拟真人防封号）</span></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px">
             <div style="display:flex;align-items:center;gap:4px">
               <span>💬 每视频评论上限</span>
-              <input type="number" id="ia_cpv_${uid}" min="0" max="20" value="5" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="每条视频最多 N 条评论，超出则随机跳过（0=不评论）">
+              <input type="number" id="ia_cpv_${uid}" min="0" max="20" value="5" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="0-20，每条视频最多 N 条评论（随机挑 N 个账号评；0=不评论）">
               <span style="font-size:9px;color:var(--text2)">条</span>
             </div>
             <div style="display:flex;align-items:center;gap:4px">
               <span>📮 每账号评论日上限</span>
-              <input type="number" id="ia_cdl_${uid}" min="1" max="100" value="12" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="每个评论账号每天最多评论 N 条（防封号）">
+              <input type="number" id="ia_cdl_${uid}" min="1" max="100" value="20" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="1-100，每个账号每天最多评论 N 条，到限自动降级为只赞藏">
               <span style="font-size:9px;color:var(--text2)">条</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:4px">
-              <span>👍 点赞组账号数</span>
-              <input type="number" id="ia_glk_${uid}" min="0" max="100" value="30" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px">
-            </div>
-            <div style="display:flex;align-items:center;gap:4px">
-              <span>💬 评论组账号数</span>
-              <input type="number" id="ia_gcm_${uid}" min="0" max="100" value="5" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px">
-            </div>
-            <div style="display:flex;align-items:center;gap:4px">
-              <span>⭐ 收藏组账号数</span>
-              <input type="number" id="ia_gcl_${uid}" min="0" max="100" value="5" style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px">
             </div>
             <div style="display:flex;align-items:center;gap:4px">
               <span>🏃 执行节奏</span>
@@ -163,9 +164,15 @@ export async function loadView(container) {
   window[`_ia_parse_${self}`] = () => _ia_parse(self);
   window[`_ia_fetchTitles_${self}`] = () => _ia_fetchTitles(self);
   window[`_ia_toggleList_${self}`] = () => _ia_toggleList(self);
-  window[`_ia_toggleBrowse_${self}`] = () => _ia_toggleBrowse(self);
-  window[`_ia_updateBrowseSummary_${self}`] = () => _ia_updateBrowseSummary(self);
   window[`_ia_exec_${self}`] = () => _ia_exec(self);
+  window[`_ia_toggleCommentCfg_${self}`] = () => _ia_toggleCommentCfg(self);
+  window[`_ia_updateRoleTotal_${self}`] = () => _ia_updateRoleTotal(self);
+  window[`_ia_genComments_${self}`] = () => _ia_genComments(self);
+  window[`_ia_clearComments_${self}`] = () => _ia_clearComments(self);
+  window[`_ia_editComment_${self}`] = (el, ui, ci) => _ia_editComment(el, ui, ci);
+  window[`_ia_delComment_${self}`] = (ui, ci) => _ia_delComment(ui, ci);
+  window[`_ia_delVideo_${self}`] = (ui) => _ia_delVideo(ui);
+  window[`_ia_regenVideo_${self}`] = (ui) => _ia_regenVideo(ui);
 }
 
 // ── 解析标题+链接 ──
@@ -270,30 +277,208 @@ function _ia_toggleList(uid) {
   toggle.textContent = isHidden ? '收起列表 ▲' : '展开列表 ▼';
 }
 
-// ── 浏览设置展开/收起 ──
+// ── 评论内容设置（角色数字输入 → 按视频生成/编辑） ──
 
-function _ia_toggleBrowse(uid) {
-  const body = document.getElementById(`ia_browseBody_${uid}`);
-  const arrow = document.getElementById(`ia_browseArrow_${uid}`);
+function _ia_toggleCommentCfg(uid) {
+  const body = document.getElementById(`ia_cfgBody_${uid}`);
+  const arrow = document.getElementById(`ia_cfgArrow_${uid}`);
   if (!body || !arrow) return;
   const isHidden = body.style.display === 'none';
   body.style.display = isHidden ? 'block' : 'none';
   arrow.textContent = isHidden ? '▼' : '▶';
-  if (isHidden) _ia_updateBrowseSummary(uid);
+  if (isHidden) {
+    _ia_renderRoleGrid(uid);
+    _ia_updateRoleTotal(uid);
+    _ia_renderCommentResults(uid);
+  }
 }
 
-function _ia_updateBrowseSummary(uid) {
-  const rate = parseInt(document.getElementById(`ia_rate_browse_${uid}`)?.value || '0');
-  const count = document.getElementById(`ia_browseCount_${uid}`)?.value || '3';
-  const modeEl = document.querySelector(`input[name="ia_browseMode_${uid}"]:checked`);
-  const mode = modeEl?.value || 'interact';
-  const summary = document.getElementById(`ia_browseSummary_${uid}`);
-  const val = document.getElementById(`ia_val_browse_${uid}`);
-  if (val) val.textContent = rate + '%';
-  if (summary) {
-    const modeLabel = mode === 'view' ? '仅浏览' : '互动操作';
-    summary.textContent = ` ${rate}% × ${count}篇 (${modeLabel})`;
+function _ia_renderRoleGrid(uid) {
+  const grid = document.getElementById(`ia_roleGrid_${uid}`);
+  if (!grid) return;
+  const groups = ['灌水/搞怪', '情感', '疑问问答', '引导'];
+  grid.innerHTML = groups.map(g => `
+    <div style="grid-column:1/-1;font-size:9px;color:var(--text2);margin-top:3px;font-weight:500;border-top:1px solid var(--border);padding-top:3px">${g}</div>
+    ${IA_ROLES.filter(r => r.group === g).map(r => `
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="flex:1;min-width:64px">${r.label}</span>
+        <input type="number" id="ia_role_${r.id}_${uid}" min="0" max="20" value="${r.id.startsWith('guide_') ? 1 : 0}"
+               oninput="window._ia_updateRoleTotal_${uid}()"
+               style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px">
+      </div>`).join('')}
+  `).join('');
+}
+
+function _ia_collectRoleCounts(uid) {
+  const counts = {};
+  IA_ROLES.forEach(r => {
+    const el = document.getElementById(`ia_role_${r.id}_${uid}`);
+    const v = el ? parseInt(el.value || '0', 10) : 0;
+    if (v > 0) counts[r.id] = v;
+  });
+  return counts;
+}
+
+function _ia_updateRoleTotal(uid) {
+  const counts = _ia_collectRoleCounts(uid);
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const el = document.getElementById(`ia_roleTotal_${uid}`);
+  if (el) el.textContent = `合计 ${total} 条`;
+  return total;
+}
+
+function _ia_escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function _ia_genComments(uid) {
+  if (!_parsedItems.length) { alert('请先解析内容链接'); return; }
+  const roleCounts = _ia_collectRoleCounts(uid);
+  if (!Object.keys(roleCounts).length) { alert('请至少填一个角色的评论条数'); return; }
+  const perVideo = Object.values(roleCounts).reduce((a, b) => a + b, 0);
+
+  // 校验：角色合计 vs 每视频评论上限（评论池建议 = 上限，保证每个视频恰好领满）
+  const cpv = parseInt(document.getElementById(`ia_cpv_${uid}`)?.value || '5');
+  if (perVideo !== cpv) {
+    if (!confirm(`角色合计 ${perVideo} 条 ≠ 每视频评论上限 ${cpv} 条。\n建议评论池条数 = 每视频评论上限（${cpv} 条），这样每个视频恰好能领满，不会缺评论。\n仍按 ${perVideo} 条生成？（不足的视频评论数会少于上限）`)) return;
   }
+
+  const resultEl = document.getElementById(`ia_cfgResult_${uid}`);
+  if (resultEl) resultEl.innerHTML = '<div style="font-size:10px;color:var(--text2)">⏳ 生成中...</div>';
+  _commentMap = {};
+
+  let noTitleCount = 0;
+  for (let i = 0; i < _parsedItems.length; i++) {
+    const item = _parsedItems[i];
+    const title = (item.title || '').trim();
+    let comments = [];
+    if (title) {
+      try {
+        const r = await fetch('/api/comment-workbench/generate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            video_title: title,
+            role_counts: roleCounts,
+            ai_enhance: false,
+            long_ratio: 0,
+          }),
+        });
+        const d = await r.json();
+        comments = (d.comments || []).map(c => ({
+          text: c.text || '', role: c.role || 'filler', role_label: c.role_label || c.role || '灌水',
+        }));
+      } catch (e) {
+        comments = [];
+      }
+    } else {
+      // 无标题视频：用灌水/搞怪池填充（条数 = 角色合计）
+      noTitleCount++;
+      const pool = [...IA_FILLER_POOL];
+      for (let k = 0; k < perVideo && pool.length; k++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        comments.push({ text: pool.splice(idx, 1)[0], role: 'filler', role_label: '灌水/搞怪' });
+      }
+    }
+    if (comments.length) _commentMap[item.url] = comments;
+  }
+
+  _ia_renderCommentResults(uid);
+  _ia_renderCommentSummary(uid);
+  if (noTitleCount) alert(`⚠️ ${noTitleCount} 个视频无标题，已用灌水/搞怪评论填充`);
+}
+
+function _ia_renderCommentSummary(uid) {
+  const el = document.getElementById(`ia_cfgSummary_${uid}`);
+  if (!el) return;
+  const n = Object.keys(_commentMap).length;
+  const total = Object.values(_commentMap).reduce((a, cs) => a + cs.length, 0);
+  el.textContent = n ? `已设定 ${n} 个视频 / ${total} 条评论` : '';
+}
+
+function _ia_renderCommentResults(uid) {
+  const el = document.getElementById(`ia_cfgResult_${uid}`);
+  if (!el) return;
+  const urls = Object.keys(_commentMap);
+  if (!urls.length) { el.innerHTML = ''; return; }
+  el.innerHTML = urls.map((url, ui) => {
+    const item = _parsedItems.find(p => p.url === url) || {};
+    const title = (item.title || url).slice(0, 34);
+    const comments = _commentMap[url];
+    return `
+      <div style="border:1px solid var(--border);border-radius:6px;padding:6px;background:var(--bg3)">
+        <div style="display:flex;align-items:center;gap:4px;font-size:10px;margin-bottom:4px">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${_ia_escapeHtml(title)}</span>
+          <span style="font-size:9px;color:var(--text2)">${comments.length} 条</span>
+          <button onclick="window._ia_regenVideo_${uid}(${ui})" title="重新生成此视频评论" style="font-size:9px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:3px;cursor:pointer;padding:1px 5px">🔄</button>
+          <button onclick="window._ia_delVideo_${uid}(${ui})" title="删除此视频全部评论" style="font-size:9px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:3px;cursor:pointer;padding:1px 5px">🗑</button>
+        </div>
+        ${comments.map((c, ci) => `
+          <div style="display:flex;gap:4px;align-items:center;margin-bottom:2px">
+            <span style="font-size:9px;color:var(--text2);width:52px;flex-shrink:0">${_ia_escapeHtml(c.role_label)}</span>
+            <input type="text" value="${_ia_escapeHtml(c.text)}"
+                   onchange="window._ia_editComment_${uid}(this, ${ui}, ${ci})"
+                   style="flex:1;font-size:10px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px">
+            <button onclick="window._ia_delComment_${uid}(${ui}, ${ci})" title="删除此条" style="font-size:9px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:3px;cursor:pointer;padding:1px 5px">✕</button>
+          </div>`).join('')}
+      </div>`;
+  }).join('');
+}
+
+function _ia_editComment(el, ui, ci) {
+  const url = Object.keys(_commentMap)[ui];
+  if (!url || !_commentMap[url] || !_commentMap[url][ci]) return;
+  const v = (el.value || '').trim();
+  if (v) _commentMap[url][ci].text = v;
+  else el.value = _commentMap[url][ci].text;  // 空值还原
+}
+
+function _ia_delComment(uid, ui, ci) {
+  const url = Object.keys(_commentMap)[ui];
+  if (!url || !_commentMap[url]) return;
+  _commentMap[url].splice(ci, 1);
+  if (!_commentMap[url].length) delete _commentMap[url];
+  _ia_renderCommentResults(uid);
+  _ia_renderCommentSummary(uid);
+}
+
+function _ia_delVideo(uid, ui) {
+  const url = Object.keys(_commentMap)[ui];
+  if (!url) return;
+  delete _commentMap[url];
+  _ia_renderCommentResults(uid);
+  _ia_renderCommentSummary(uid);
+}
+
+async function _ia_regenVideo(uid, ui) {
+  const url = Object.keys(_commentMap)[ui];
+  const item = _parsedItems.find(p => p.url === url);
+  if (!item || !url) return;
+  const roleCounts = _ia_collectRoleCounts(uid);
+  if (!Object.keys(roleCounts).length) { alert('请至少填一个角色的评论条数'); return; }
+  const title = (item.title || '').trim();
+  let comments = [];
+  if (title) {
+    try {
+      const r = await fetch('/api/comment-workbench/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_title: title, role_counts: roleCounts, ai_enhance: false, long_ratio: 0 }),
+      });
+      const d = await r.json();
+      comments = (d.comments || []).map(c => ({
+        text: c.text || '', role: c.role || 'filler', role_label: c.role_label || c.role || '灌水',
+      }));
+    } catch (e) { comments = []; }
+  }
+  if (comments.length) _commentMap[url] = comments;
+  _ia_renderCommentResults(uid);
+  _ia_renderCommentSummary(uid);
+}
+
+function _ia_clearComments(uid) {
+  _commentMap = {};
+  _ia_renderCommentResults(uid);
+  _ia_renderCommentSummary(uid);
 }
 
 // ── 执行 ──
@@ -305,49 +490,45 @@ async function _ia_exec(uid) {
   if (!_parsedItems.length) { log.textContent = '❌ 请先解析内容链接\n'; return; }
   if (!selected.length) { log.textContent = '❌ 请选择账号\n'; return; }
 
-  // 收集参数
+  // 收集参数（账号全量 × 视频按比例）
   const urls = _parsedItems;
-  const actions = {
-    like: parseInt(document.getElementById(`ia_rate_like_${uid}`)?.value || '0'),
-    collect: parseInt(document.getElementById(`ia_rate_collect_${uid}`)?.value || '0'),
-    comment: parseInt(document.getElementById(`ia_rate_comment_${uid}`)?.value || '0'),
-    follow: parseInt(document.getElementById(`ia_rate_follow_${uid}`)?.value || '0'),
-    browse: {
-      rate: parseInt(document.getElementById(`ia_rate_browse_${uid}`)?.value || '0'),
-      count: parseInt(document.getElementById(`ia_browseCount_${uid}`)?.value || '3'),
-      mode: document.querySelector(`input[name="ia_browseMode_${uid}"]:checked`)?.value || 'interact',
-    },
-  };
+  const likeRatio = parseInt(document.getElementById(`ia_ratio_like_${uid}`)?.value || '90');
+  const collectRatio = parseInt(document.getElementById(`ia_ratio_collect_${uid}`)?.value || '30');
+  const commentRatio = parseInt(document.getElementById(`ia_ratio_comment_${uid}`)?.value || '60');
   const interval = document.getElementById(`ia_interval_${uid}`)?.value?.trim() || '300-600';
 
-  // 互动策略参数（防封号）
+  // 策略参数（带范围保护：比例 0-100，上限 0-20 / 1-100）
   const strategy = {
-    comment_per_video: parseInt(document.getElementById(`ia_cpv_${uid}`)?.value || '5'),
-    comment_daily_limit: parseInt(document.getElementById(`ia_cdl_${uid}`)?.value || '12'),
-    group_like: parseInt(document.getElementById(`ia_glk_${uid}`)?.value || '30'),
-    group_comment: parseInt(document.getElementById(`ia_gcm_${uid}`)?.value || '5'),
-    group_collect: parseInt(document.getElementById(`ia_gcl_${uid}`)?.value || '5'),
+    like_ratio: Math.min(100, Math.max(0, likeRatio)) / 100,
+    collect_ratio: Math.min(100, Math.max(0, collectRatio)) / 100,
+    comment_ratio: Math.min(100, Math.max(0, commentRatio)) / 100,
+    comment_per_video: Math.min(20, Math.max(0, parseInt(document.getElementById(`ia_cpv_${uid}`)?.value || '5'))),
+    comment_daily_limit: Math.min(100, Math.max(1, parseInt(document.getElementById(`ia_cdl_${uid}`)?.value || '20'))),
     pace: document.getElementById(`ia_pace_${uid}`)?.value || 'loose',
   };
 
+  // 用户设定的评论内容 → comment_map（执行时直接取设定内容，不随机）
+  const commentMap = {};
+  for (const [u, cs] of Object.entries(_commentMap)) {
+    const texts = (cs || []).map(c => (c.text || '').trim()).filter(Boolean);
+    if (texts.length) commentMap[u] = texts;
+  }
+  const cmVideoCount = Object.keys(commentMap).length;
+  const cmTotal = Object.values(commentMap).reduce((a, t) => a + t.length, 0);
+
   // 确认
   let detail = `链接: ${urls.length} 条\n`;
-  const actionLabels = [];
-  for (const [k, v] of Object.entries(actions)) {
-    if (k === 'browse') {
-      if (v.rate > 0) actionLabels.push(`🎬 浏览 ${v.rate}%×${v.count}篇 (${v.mode==='view'?'仅浏览':'互动'})`);
-    } else if (v > 0) {
-      actionLabels.push(`${ {like:'👍点赞',collect:'⭐收藏',comment:'💬评论',follow:'👤关注'}[k] || k } ${v}%`);
-    }
-  }
-  detail += `动作: ${actionLabels.join(' | ')}\n`;
-  detail += `策略: 每视频评论≤${strategy.comment_per_video}条 | 每账号评论≤${strategy.comment_daily_limit}条/天 | 分组 ${strategy.group_like}赞/${strategy.group_comment}评/${strategy.group_collect}藏 | ${strategy.pace==='compact'?'⚡紧凑':'🐢宽松'}\n`;
+  detail += `动作(账号全量): 👍点赞 ${strategy.like_ratio*100}%视频 | ⭐收藏 ${strategy.collect_ratio*100}%视频 | 💬评论 ${strategy.comment_ratio*100}%视频\n`;
+  detail += `评论闸门: 每视频≤${strategy.comment_per_video}条 | 每账号≤${strategy.comment_daily_limit}条/天 | ${strategy.pace==='compact'?'⚡紧凑':'🐢宽松'}\n`;
+  detail += `评论内容: ${cmVideoCount ? `已设定 ${cmVideoCount} 个视频 / ${cmTotal} 条（按序分配，用完即止）` : '⚠️ 未设定（将随机取语料）'}\n`;
   detail += `间隔: ${interval}s`;
 
   if (!await confirmExecute(`🎯 ${selected.length} 个账号 × ${urls.length} 条链接`, detail)) return;
 
   log.textContent = `🚀 提交互动计划: ${selected.length} 个账号 × ${urls.length} 条链接\n`;
-  log.textContent += `   策略: 每视频评论≤${strategy.comment_per_video}条 | 每账号≤${strategy.comment_daily_limit}条 | ${strategy.group_like}赞/${strategy.group_comment}评/${strategy.group_collect}藏\n`;
+  log.textContent += `   动作: 点赞${Math.round(strategy.like_ratio*100)}%视频 | 收藏${Math.round(strategy.collect_ratio*100)}%视频 | 评论${Math.round(strategy.comment_ratio*100)}%视频\n`;
+  log.textContent += `   评论闸门: 每视频≤${strategy.comment_per_video}条 | 每账号≤${strategy.comment_daily_limit}条/天 | ${strategy.pace==='compact'?'⚡紧凑':'🐢宽松'}\n`;
+  log.textContent += `   评论内容: ${cmVideoCount ? `已设定 ${cmVideoCount} 个视频 / ${cmTotal} 条` : '⚠️ 未设定（随机语料）'}\n`;
 
   try {
     const d = await apiRequest('/ops/run', {
@@ -357,9 +538,9 @@ async function _ia_exec(uid) {
         accounts: selected.map(s => s.id),
         params: {
           urls,            // 所有视频一次性提交，由后端计划生成器分配
-          actions,
           strategy,
           interval,
+          comment_map: cmVideoCount ? commentMap : undefined,  // 用户设定的评论内容
         },
       }),
     });

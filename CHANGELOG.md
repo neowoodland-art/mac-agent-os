@@ -1,5 +1,33 @@
 # AgentOS 项目变更日志
 
+## [4.5.0] - 2026-08-16
+
+### 新增：评论互动全量模型（v2 重构，替换 4.4.0 分组模型）
+
+#### 核心变化：账号分组 → 账号全量 × 视频按比例 × 动作组合
+- **账号全量执行** — 每个账号对"命中的视频"执行该视频的动作组合（点赞/收藏/评论连做），不再分组分工（删除点赞组/收藏组/评论组概念）
+- **视频比例控制** — 点赞 90% / 收藏 30% / 评论 60%（可调 0-100），每个视频独立随机决定动作组合，未命中任何动作的视频直接跳过
+- **评论两道闸门（防封号）** — 每视频评论上限（默认 5，随机挑账号评）+ 每账号日评论上限（默认 20，到限自动降级为只赞藏）
+- **评论内容可控** — 评论互动内置「⚙️ 评论内容设置」折叠面板（13 角色数字输入 → 按视频生成评论池 → 可编辑/删除/重新生成），执行时按序领取设定内容（`comment_map`），未设定退回随机语料
+- **蓝图组合机制** — 引擎支持 `+` 分隔组合蓝图名（如 `interact_like+interact_collect+interact_comment`），`merge_blueprints()` 合并 steps（goto_url 去重 + 连续 wait 合并），无需新蓝图即可同视频多动作连做
+- **删除误导项** — 删除百分比滑块（strategy 模式下实际不生效）、浏览作者其他作品（默认不执行）、关注动作、账号分组参数
+
+#### 新增：评论工作台疑问类角色（一问一答）
+- **🙋 提问（questioner）** + **💬 回答（answerer）** 两个独立角色，新增「疑问类（一问一答）」分组（提问默认 17% > 回答 12%）
+- 语料库新增「解答」分类（14 条评论 + 5 模板，通用化无行业限制，混用"隔空回应式"/"独立解答式"）
+- 后端 `role_counts` 精确计数模式（`generate` 接口 + `batch_get_comments_by_roles` 支持，每个角色精确取 N 条，不受比例取整误差影响）
+
+#### 修复：抖音页面改版兼容（8 月中 data-e2e 属性变更）
+- **前置条件软条件机制** — `Condition.soft` 标志：like/collect/follow 的按钮 selector 条件失败时不再跳过（skipped），放行底层兜底（键盘 Z / JS 文字查找 / 坐标）；其他操作硬条件行为完全不变（保护旧蓝图）
+- **评论内容生效** — `_resolve_args` 的 `@corpus` 占位符优先使用 `--comment-text`（计划/面板设定的内容），未指定才从语料库随机取
+
+#### 技术说明
+- 计划生成器 `_build_interact_plan` v2 位于 `command_bus.py`，strategy 参数改为 `like_ratio / collect_ratio / comment_ratio / comment_per_video / comment_daily_limit / pace`
+- 组合蓝图实现在 `engine.py` 的 `merge_blueprints()`
+- 前端数字输入全部带范围保护（比例 0-100、评论上限 0-20、日限 1-100、角色条数 0-20）
+- 改动文件：`command_bus.py` / `matrix-interact.js` / `comment-workbench.js` / `comment_workbench.py` / `mc/corpus.py` / `corpus/douyin.yaml` / `engine.py` / `douyin_ops.py` / `ops/_base.py`
+- ⚠️ `01_core/VERSION` 未修改（版本由 ghai 决定），正式发布时同步
+
 ## [4.4.0] - 2026-08-09
 
 ### 新增：互动计划生成器（批量互动防封号核心）

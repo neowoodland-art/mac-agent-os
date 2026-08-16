@@ -1030,17 +1030,28 @@ CMD_POLL_STRATEGY = {
 DEFAULT_POLL_STRATEGY = {"grace_period": 30, "timeout": 600, "check_process": True, "check_log_completed": []}
 
 
-# ── 互动计划生成器（防封号核心）──────────────────────────────
-# 把"账号×视频"的全量组合，转成受控的互动计划：
-#   ① 账号分组：like/comment/collect 三组（按数量随机分配）
-#   ② 每视频评论配额：每条视频最多 comment_per_video 条评论
-#   ③ 每账号限流：评论账号每天最多 comment_daily_limit 条（点赞/关注不限制）
-#   ④ 评论内容：从语料库随机取（随机生成评论，避免重复）
-#   ⑤ 节奏控制：compact（快）/ loose（慢）两种间隔档
-# 产出 tasks（单账号单视频单动作），由 CommandBus 按机器分发。
+# ── 互动计划生成器 v2（全量互动模型）────────────────────────
+# 账号全量 × 视频按比例 × 动作组合：
+#   ① 每个视频独立随机决定动作组合（点赞/收藏/评论，视频比例控制）
+#   ② 账号 100% 全量执行命中的动作（不分组）
+#   ③ 评论两道闸门：每视频评论上限（随机挑账号）+ 每账号日评论上限（到限自动降级为只赞藏）
+#   ④ 评论内容从 comment_map[url] 领取（用户设定，按序分配，用完即止）；未设定退回随机语料
+#   ⑤ 未命中任何动作的视频直接跳过
+#   ⑥ 节奏控制：compact（快）/ loose（慢）两种间隔档
+# 产出 tasks（单账号单视频的组合蓝图任务），由 CommandBus 按机器分发。
 
 def _build_interact_plan(machine_groups: dict, params: dict, now_ts: int) -> list:
-    """生成受控互动计划任务列表"""
+    """生成全量互动计划任务列表（v2）
+
+    params.strategy:
+        like_ratio: 0.9      — 点赞视频比例（0~1）
+        collect_ratio: 0.3   — 收藏视频比例
+        comment_ratio: 0.6   — 评论视频比例
+        comment_per_video: 5     — 每视频评论上限
+        comment_daily_limit: 20  — 每账号日评论上限
+        pace: "loose"/"compact"
+    params.comment_map: {url: [评论, ...]} — 用户设定评论内容
+    """
     import random
     strategy = params.get("strategy", {})
     urls = params.get("urls", [])  # [{title, url}, ...]
@@ -1049,12 +1060,12 @@ def _build_interact_plan(machine_groups: dict, params: dict, now_ts: int) -> lis
     if not urls:
         return []
 
-    # ── 策略参数 ──
-    comment_per_video = int(strategy.get("comment_per_video", 5))     # 每视频评论上限
-    comment_daily_limit = int(strategy.get("comment_daily_limit", 12))  # 每账号评论日上限
-    group_like = int(strategy.get("group_like", 30))     # 点赞组账号数
-    group_comment = int(strategy.get("group_comment", 5))  # 评论组账号数
-    group_collect = int(strategy.get("group_collect", 5))  # 收藏组账号数
+    # ── 策略参数（带范围保护，防止脏输入）──
+    like_ratio = min(max(float(strategy.get("like_ratio", 0.9)), 0.0), 1.0)
+    collect_ratio = min(max(float(strategy.get("collect_ratio", 0.3)), 0.0), 1.0)
+    comment_ratio = min(max(float(strategy.get("comment_ratio", 0.6)), 0.0), 1.0)
+    comment_per_video = max(0, int(strategy.get("comment_per_video", 5)))      # 每视频评论上限
+    comment_daily_limit = max(1, int(strategy.get("comment_daily_limit", 20)))  # 每账号评论日上限
     pace = strategy.get("pace", "loose")  # compact / loose
 
     # 节奏 → 间隔秒数（紧凑快、宽松慢）
@@ -1063,7 +1074,7 @@ def _build_interact_plan(machine_groups: dict, params: dict, now_ts: int) -> lis
     else:
         interval = {"like": "60-180", "comment": "120-300", "collect": "90-240", "cross": "300-600"}
 
-    # ── 账号池（跨机器合并）──
+    # ── 账号池（跨机器合并，全部账号都执行）──
     all_accts = []  # [{id, machine, is_local, nickname, platform}]
     for machine, accts in machine_groups.items():
         for a in accts:
@@ -1077,17 +1088,7 @@ def _build_interact_plan(machine_groups: dict, params: dict, now_ts: int) -> lis
     if not all_accts:
         return []
 
-    # ── ① 账号分组：随机打乱后按数量切三组 ──
-    random.shuffle(all_accts)
-    n = len(all_accts)
-    comment_group = all_accts[:group_comment]
-    collect_group = all_accts[group_comment:group_comment + group_collect]
-    like_group = all_accts[group_comment + group_collect:]
-
-    # ── ③ 评论限流计数 ──
-    comment_used = {a["id"]: 0 for a in comment_group}
-
-    # ── 评论内容池（从语料库随机，避免重复文案） ──
+    # ── 评论内容池（随机语料兜底，未设定评论内容时使用）──
     _comment_pool = []
     try:
         import sys as _sys
@@ -1103,61 +1104,99 @@ def _build_interact_plan(machine_groups: dict, params: dict, now_ts: int) -> lis
         _comment_pool = ["不错哦", "学到了", "很有道理", "支持一下", "太棒了",
                          "有意思", "点个赞", "加油", "说得对", "路过支持"]
 
+    # ── 用户设定评论内容（视频 → 评论列表，按序领取，用完即止）──
+    comment_map = params.get("comment_map", {}) or {}
+    _comment_map_used = {}  # url → 已领条数
+
+    # ── 评论日限计数（全账号，实际领到评论才消耗配额）──
+    comment_used = {a["id"]: 0 for a in all_accts}
+
     tasks = []
+    skipped_videos = 0
     for vi, item in enumerate(urls):
         url = item.get("url", "") if isinstance(item, dict) else str(item)
         title = item.get("title", "") if isinstance(item, dict) else ""
         if not url:
             continue
 
-        # ── ② 评论配额：从评论组抽 comment_per_video 个（随机轮动 + 限流）──
-        comment_pool_accounts = [a for a in comment_group if comment_used[a["id"]] < comment_daily_limit]
-        random.shuffle(comment_pool_accounts)
-        picked_comments = comment_pool_accounts[:comment_per_video]
-        for a in picked_comments:
-            comment_used[a["id"]] += 1
-            # 语料库项可能是 dict {text, role} 或纯字符串，统一取文本
-            _raw = random.choice(_comment_pool)
-            comment_text = _raw.get("text", "") if isinstance(_raw, dict) else str(_raw)
-            if not comment_text:
-                comment_text = "不错哦"
+        # ── ① 每个视频独立随机决定动作组合 ──
+        do_like = random.random() < like_ratio
+        do_collect = random.random() < collect_ratio
+        do_comment = random.random() < comment_ratio
+        if not (do_like or do_collect or do_comment):
+            skipped_videos += 1
+            continue  # 未命中任何动作，直接跳过
+
+        # ── ② 评论账号：随机挑 comment_per_video 个（未到日限）──
+        comment_acct_ids = set()
+        if do_comment:
+            pool_accts = [a for a in all_accts if comment_used[a["id"]] < comment_daily_limit]
+            random.shuffle(pool_accts)
+            comment_acct_ids = {a["id"] for a in pool_accts[:comment_per_video]}
+
+        # 组合间隔：多动作用 cross（宽松），单动作用对应动作间隔
+        n_actions = sum([do_like, do_collect, do_comment])
+        if n_actions > 1:
+            bp_interval = interval["cross"]
+        elif do_like:
+            bp_interval = interval["like"]
+        elif do_collect:
+            bp_interval = interval["collect"]
+        else:
+            bp_interval = interval["comment"]
+
+        # ── ③ 每个账号生成组合任务（蓝图名动态拼接）──
+        for a in all_accts:
+            parts = []
+            if do_like:
+                parts.append("interact_like")
+            if do_collect:
+                parts.append("interact_collect")
+            if do_comment and a["id"] in comment_acct_ids:
+                parts.append("interact_comment")
+            if not parts:
+                continue  # 该账号此视频无动作（如只命中评论但未被挑中）
+
+            # ── ④ 评论内容领取：设定内容优先（按序、用完即止），未设定退回随机语料 ──
+            comment_text = ""
+            if "interact_comment" in parts:
+                _user_comments = comment_map.get(url) if isinstance(comment_map.get(url), list) else []
+                if _user_comments:
+                    _idx = _comment_map_used.get(url, 0)
+                    if _idx < len(_user_comments):
+                        comment_text = str(_user_comments[_idx]).strip()
+                        _comment_map_used[url] = _idx + 1
+                        comment_used[a["id"]] += 1
+                    # 设定内容用完 → 该账号降级为只赞藏（评论动作不发布）
+                else:
+                    # 完全未设定 → 随机语料兜底
+                    _raw = random.choice(_comment_pool)
+                    comment_text = _raw.get("text", "") if isinstance(_raw, dict) else str(_raw)
+                    if comment_text:
+                        comment_used[a["id"]] += 1
+                if not comment_text:
+                    parts.remove("interact_comment")  # 内容用完，评论变点赞收藏
+            if not parts:
+                continue
+
+            bp_name = "+".join(parts)
+            cmd_line = f"mc run --accounts={a['id']} --blueprints={bp_name} --rounds=1 --url={shlex.quote(url)} --interval={bp_interval}"
+            if comment_text:
+                cmd_line += f" --comment-text={shlex.quote(comment_text)}"
             tasks.append({
                 "machine": a["machine"], "cmd_type": "interact",
                 "ids_str": a["id"], "is_local": a["is_local"],
                 "nickname": a["nickname"], "platform": a["platform"],
-                "cmd_line": f"mc run --accounts={a['id']} --blueprints=interact_comment --rounds=1 --url={shlex.quote(url)} --interval={interval['comment']} --comment-text={shlex.quote(comment_text)}",
-                "run_id": f"plan_c_{now_ts}_{a['machine']}_{a['id']}_{vi}_{int(random.random()*1000)}",
-                "params": {"url": url, "title": title, "action": "comment", "comment_text": comment_text,
-                           "interval": interval["comment"], "blueprint": "interact_comment", "rounds": 1},
+                "cmd_line": cmd_line,
+                "run_id": f"plan_{now_ts}_{a['machine']}_{a['id']}_{vi}_{int(random.random()*1000)}",
+                "params": {"url": url, "title": title, "action": bp_name, "comment_text": comment_text,
+                           "interval": bp_interval, "blueprint": bp_name, "rounds": 1},
             })
 
-        # ── 点赞组（随机部分点赞，非全部，避免机械）──
-        like_sample_n = max(1, int(len(like_group) * random.uniform(0.6, 1.0)))
-        random.shuffle(like_group)
-        for a in like_group[:like_sample_n]:
-            tasks.append({
-                "machine": a["machine"], "cmd_type": "interact",
-                "ids_str": a["id"], "is_local": a["is_local"],
-                "nickname": a["nickname"], "platform": a["platform"],
-                "cmd_line": f"mc run --accounts={a['id']} --blueprints=interact_like --rounds=1 --url={shlex.quote(url)} --interval={interval['like']}",
-                "run_id": f"plan_l_{now_ts}_{a['machine']}_{a['id']}_{vi}_{int(random.random()*1000)}",
-                "params": {"url": url, "title": title, "action": "like",
-                           "interval": interval["like"], "blueprint": "interact_like", "rounds": 1},
-            })
-
-        # ── 收藏组 ──
-        for a in collect_group:
-            tasks.append({
-                "machine": a["machine"], "cmd_type": "interact",
-                "ids_str": a["id"], "is_local": a["is_local"],
-                "nickname": a["nickname"], "platform": a["platform"],
-                "cmd_line": f"mc run --accounts={a['id']} --blueprints=interact_collect --rounds=1 --url={shlex.quote(url)} --interval={interval['collect']}",
-                "run_id": f"plan_s_{now_ts}_{a['machine']}_{a['id']}_{vi}_{int(random.random()*1000)}",
-                "params": {"url": url, "title": title, "action": "collect",
-                           "interval": interval["collect"], "blueprint": "interact_collect", "rounds": 1},
-            })
-
-    logger.info(f"  📋 互动计划生成: {len(urls)}视频 | 评论≈{sum(1 for t in tasks if 'plan_c' in t['run_id'])} 点赞≈{sum(1 for t in tasks if 'plan_l' in t['run_id'])} 收藏≈{sum(1 for t in tasks if 'plan_s' in t['run_id'])}")
+    like_n = sum(1 for t in tasks if "interact_like" in t["params"].get("blueprint", ""))
+    collect_n = sum(1 for t in tasks if "interact_collect" in t["params"].get("blueprint", ""))
+    comment_n = sum(1 for t in tasks if "interact_comment" in t["params"].get("blueprint", ""))
+    logger.info(f"  📋 互动计划(v2全量): {len(urls)}视频({skipped_videos}跳过) | 点赞≈{like_n} 收藏≈{collect_n} 评论≈{comment_n} | 任务≈{len(tasks)}")
     return tasks
 
 
@@ -1629,9 +1668,9 @@ class CommandBus:
         _plan_summary = None
         if _plan_tasks is not None:
             _plan_summary = {
-                "comment": sum(1 for t in _plan_tasks if t.get("run_id", "").startswith("plan_c")),
-                "like": sum(1 for t in _plan_tasks if t.get("run_id", "").startswith("plan_l")),
-                "collect": sum(1 for t in _plan_tasks if t.get("run_id", "").startswith("plan_s")),
+                "comment": sum(1 for t in _plan_tasks if "interact_comment" in t.get("params", {}).get("blueprint", "")),
+                "like": sum(1 for t in _plan_tasks if "interact_like" in t.get("params", {}).get("blueprint", "")),
+                "collect": sum(1 for t in _plan_tasks if "interact_collect" in t.get("params", {}).get("blueprint", "")),
                 "total": len(_plan_tasks),
             }
 

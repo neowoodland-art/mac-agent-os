@@ -90,6 +90,7 @@ class Condition:
       'selector'    — DOM 元素可见性（如 '[data-e2e="digg"]' 可见）
       'marker'      — 状态标记匹配（如 liked == False）
       'marker_diff' — 状态标记变化（如 like_count 增加了）
+    soft: bool = False — 软条件：前置检查失败时不阻断执行（仅记录），用于底层有兜底的操作
     """
     type: str = "page_mode"
     target: str = ""            # 目标字段
@@ -97,6 +98,7 @@ class Condition:
     actual: any = None          # 运行时填充的实际值
     passed: bool = False        # 是否通过
     message: str = ""           # 检查结果描述
+    soft: bool = False          # 软条件（失败不阻断）
 
     def to_dict(self) -> dict:
         return {
@@ -106,6 +108,7 @@ class Condition:
             "actual": self.actual,
             "passed": self.passed,
             "message": self.message,
+            "soft": self.soft,
         }
 
 
@@ -217,10 +220,11 @@ class PlatformOps(ABC):
         # 2. 检查前置条件
         pre_conds = self._get_pre_conditions(op)
         pre_results = await self._check_conditions(pre_conds, before)
-        pre_all_pass = all(c.passed for c in pre_results)
+        # soft 条件失败不阻断（底层有兜底的操作放行）
+        pre_all_pass = all(c.passed or c.soft for c in pre_results)
         pre_detail = f"pre:{sum(1 for c in pre_results if c.passed)}/{len(pre_results)}"
 
-        # 前置条件不满足 → 跳过（不是失败）
+        # 前置条件不满足 → 跳过（不是失败）；但全部为软条件失败时也放行
         if not pre_all_pass:
             elapsed = round(time.time() - t0_start, 2)
             result = OpResult(op, step_id, True, f"skipped({pre_detail})",

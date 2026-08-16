@@ -19,13 +19,13 @@ router = APIRouter(prefix="/api/comment-workbench", tags=["comment_workbench"])
 ROLE_LABELS = {
     "sharer": "分享型", "questioner": "提问型", "sympathizer": "共情型",
     "skeptic": "质疑型", "sufferer": "患者型", "filler": "灌水型",
-    "expert_ref": "推荐型",
+    "expert_ref": "推荐型", "answerer": "解答型",
 }
 
 DEFAULT_ROLES = {
     "filler": 0.30, "questioner": 0.17, "sharer": 0.17,
     "sympathizer": 0.13, "sufferer": 0.10, "skeptic": 0.07,
-    "expert_ref": 0.06,
+    "expert_ref": 0.06, "answerer": 0.12,
 }
 
 
@@ -55,14 +55,15 @@ def api_roles(platform: str = "douyin"):
 
 @router.post("/generate")
 def api_generate_comments(data: dict):
-    """按角色比例生成评论
+    """按角色生成评论
 
     Body:
         video_title: str          — 视频标题
         video_tags: [str]         — 视频标签（可选）
         platform: str             — 平台，默认 douyin
-        role_distribution: dict   — 角色比例，空则用默认
-        total: int                — 生成多少条，默认 30
+        role_distribution: dict   — 角色比例，空则用默认（比例模式）
+        role_counts: dict         — 角色精确条数 {"filler": 2, ...}（数字模式，优先于比例）
+        total: int                — 比例模式下生成多少条，默认 30
         ai_enhance: bool          — 是否 AI 改写
         long_ratio: float         — 长评占比 0~1
     """
@@ -74,6 +75,7 @@ def api_generate_comments(data: dict):
     direction = data.get("direction", "auto")
     platform = data.get("platform", "douyin")
     role_dist = data.get("role_distribution", {}) or DEFAULT_ROLES
+    role_counts = data.get("role_counts") or None
     total = data.get("total", 30)
     ai_enhance = data.get("ai_enhance", False)
     long_ratio = data.get("long_ratio", 0.0)
@@ -97,18 +99,28 @@ def api_generate_comments(data: dict):
     tags_str = ", ".join(video_tags) if isinstance(video_tags, list) else str(video_tags)
     logger.info("  📋 视频行业: %s | 内容类型: %s | 引导: %.30s", industry or "通用", content_type or "-", guide_points or "-")
 
-    comments = mgr.batch_get_comments_by_roles(
-        role_distribution=role_dist,
+    gen_kwargs = dict(
         platform=platform,
         video_title=video_title,
         video_industry=industry,
         guide_points=guide_points,
         content_type=content_type,
         video_tags=tags_str,
-        total=total,
         ai_enhance=ai_enhance,
         long_ratio=long_ratio,
     )
+    if role_counts:
+        # 数字模式：精确按角色条数取，total 由后端自动求和
+        comments = mgr.batch_get_comments_by_roles(
+            role_counts=role_counts,
+            **gen_kwargs,
+        )
+    else:
+        comments = mgr.batch_get_comments_by_roles(
+            role_distribution=role_dist,
+            total=total,
+            **gen_kwargs,
+        )
     return {"comments": comments, "total": len(comments)}
 
 

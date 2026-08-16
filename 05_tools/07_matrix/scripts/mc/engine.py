@@ -54,6 +54,56 @@ def resolve_blueprint(name: str) -> Optional[dict]:
     return None
 
 
+def merge_blueprints(names: str) -> Optional[dict]:
+    """组合蓝图：把多个蓝图（+ 分隔）合并为一个执行序列
+
+    规则：
+      1. 第一个 goto_url 保留，后续蓝图的 goto_url 跳过（页面已在目标视频）
+      2. 连续 wait/wait_watch 合并（取较大 seconds）
+    """
+    bps = []
+    for n in names.split("+"):
+        bp = resolve_blueprint(n.strip())
+        if bp:
+            bps.append(bp)
+    if not bps:
+        return None
+    merged_steps = []
+    seen_url_goto = False
+    prev_was_wait = False
+    for bp in bps:
+        for s in bp.get("steps", []):
+            op = s.get("op", "")
+            if op == "goto_url":
+                if seen_url_goto:
+                    continue  # 已在目标视频，跳过重复导航
+                seen_url_goto = True
+                prev_was_wait = False
+                merged_steps.append(s)
+            elif op in ("wait", "wait_watch"):
+                if prev_was_wait:
+                    # 合并连续等待：保留较大 seconds
+                    try:
+                        prev_s = float((merged_steps[-1].get("args", {}) or {}).get("seconds") or 0)
+                        cur_s = float((s.get("args", {}) or {}).get("seconds") or 0)
+                        merged_steps[-1]["args"]["seconds"] = max(prev_s, cur_s)
+                    except Exception:
+                        pass
+                    continue
+                prev_was_wait = True
+                merged_steps.append(s)
+            else:
+                prev_was_wait = False
+                merged_steps.append(s)
+    return {
+        "id": "+".join(b["id"] for b in bps),
+        "name": "+".join(b["name"] for b in bps),
+        "description": "组合蓝图（多动作连做）",
+        "platform": bps[0].get("platform", "douyin"),
+        "steps": merged_steps,
+    }
+
+
 def check_cookie(identity_hint: str) -> str:
     """检查身份目录 cookie 状态 → 'ok'|'no_cookie'|'expired'|'no_identity'"""
     if not identity_hint:
@@ -225,15 +275,20 @@ class BatchEngine:
             if not isinstance(v, str):
                 continue
             if "@corpus" in v:
-                from mc.corpus import CorpusManager
-                cm = CorpusManager()
-                direction = resolved.get("direction", "") or self.task_params.get("direction", "")
-                text = cm.get_comment_for_video(
-                    video_title=self.task_params.get("keyword", ""),
-                    direction=direction,
-                    account_id=account_id,
-                )
-                resolved[k] = v.replace("@corpus", text)
+                # 优先使用命令行/计划指定的评论内容（--comment-text），未指定才从语料库随机取
+                ct = (self.task_params.get("comment_text") or "").strip()
+                if ct:
+                    resolved[k] = v.replace("@corpus", ct)
+                else:
+                    from mc.corpus import CorpusManager
+                    cm = CorpusManager()
+                    direction = resolved.get("direction", "") or self.task_params.get("direction", "")
+                    text = cm.get_comment_for_video(
+                        video_title=self.task_params.get("keyword", ""),
+                        direction=direction,
+                        account_id=account_id,
+                    )
+                    resolved[k] = v.replace("@corpus", text)
             if "@keyword" in v:
                 kw = self.task_params.get("keyword", "")
                 resolved[k] = v.replace("@keyword", kw)
@@ -284,7 +339,12 @@ class BatchEngine:
             blueprint_name = PLATFORM_BLUEPRINTS.get(platform, "douyin_read_profile")
         report = AccountRunReport(account_id, blueprint_name, round_idx)
 
-        bp = resolve_blueprint(blueprint_name)
+        # 组合蓝图（+ 分隔）：合并多个蓝图为同一视频连做序列
+        if "+" in blueprint_name:
+            bp = merge_blueprints(blueprint_name)
+            log.info(f"  🧬 组合蓝图: {blueprint_name} → {len(bp['steps']) if bp else 0} 步")
+        else:
+            bp = resolve_blueprint(blueprint_name)
         # 蓝图与账号平台不匹配→自动切换（例如xhs账号用了douyin_daily_clean）
         if bp and bp.get("platform") and bp["platform"] != platform:
             old_bp = blueprint_name

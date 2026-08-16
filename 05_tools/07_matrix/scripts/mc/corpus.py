@@ -232,6 +232,7 @@ class AIGenerator:
             "sufferer": "你是一个有相同经历的人，讲述自己遇到的类似问题",
             "filler": "你是一个普通用户，用简短的话互动，比如哈哈哈、沙发前排",
             "expert_ref": "你是一个有经验的人，推荐特定的专家或方案",
+            "answerer": "你是一个热心解答的人，回应评论区的问题，用亲身经历或实际做法给出解决办法或建议，口吻自然像普通用户",
             "funny": "你是一个幽默搞怪的用户，用搞笑的方式吐槽或调侃",
             "angry": "你是一个愤世嫉俗的人，对现状感到不满和愤怒",
             "oppose": "你是一个反对者，坚持抵制某个产品或观点",
@@ -594,7 +595,7 @@ class CorpusManager:
         labels = {
             "sharer": "分享型", "questioner": "提问型", "sympathizer": "共情型",
             "skeptic": "质疑型", "sufferer": "患者型", "filler": "灌水型",
-            "expert_ref": "推荐型",
+            "expert_ref": "推荐型", "answerer": "解答型",
             "funny": "搞怪", "angry": "愤世嫉俗", "oppose": "坚决抵制",
             "guide_analyze": "客观分析",
             "guide_share": "经验分享",
@@ -612,6 +613,8 @@ class CorpusManager:
         "sharer": "sharer",
         "angry": "skeptic",       # 愤世嫉俗 ← 从质疑评论取模板
         "oppose": "skeptic",      # 坚决抵制 ← 同上
+        "questioner": "questioner",  # 提问 ← 提问/公众号约号分类
+        "answerer": "answerer",      # 回答 ← 解答分类
         "guide_analyze": "sharer",
         "guide_share": "sharer",
         "guide_agree": "sharer",
@@ -621,7 +624,7 @@ class CorpusManager:
 
     def batch_get_comments_by_roles(
         self,
-        role_distribution: dict,
+        role_distribution: dict = None,
         platform: str = "douyin",
         video_title: str = "",
         video_industry: str = None,
@@ -631,15 +634,18 @@ class CorpusManager:
         total: int = 30,
         ai_enhance: bool = False,
         long_ratio: float = 0.0,
+        role_counts: dict = None,
     ) -> list:
-        """按角色比例批量抽取评论，可选 AI 增强和长评
+        """按角色批量抽取评论，可选 AI 增强和长评
 
         Args:
-            role_distribution: {"filler": 0.3, "questioner": 0.17, ...}
+            role_distribution: {"filler": 0.3, "questioner": 0.17, ...} — 比例模式
+            role_counts: {"filler": 2, "guide_share": 1, ...} — 精确计数模式（优先于比例）
+                每个角色精确取 count 条；total 自动 = 所有 count 之和
             platform: 平台
             video_title: 视频标题（用于模板替换）
             video_industry: 视频行业，如 "health" — 只取 accessible 匹配的分类；None=不过滤
-            total: 总共取多少条
+            total: 比例模式下总共取多少条
             ai_enhance: 是否用 AI 改写每条评论
             long_ratio: 长评占比（0~1）
 
@@ -674,27 +680,55 @@ class CorpusManager:
                     text = str(template)
                 all_by_role.setdefault(c_role, []).append(text)
 
+        # 精确计数模式：total 自动 = 所有 count 之和
+        if role_counts:
+            total = sum(int(c) for c in role_counts.values() if c and int(c) > 0)
+
         result = []
-        for role, proportion in role_distribution.items():
-            corp_role = self.ROLE_CORPUS_MAP.get(role, role)
-            pool = all_by_role.get(corp_role, [])
-            if not pool:
-                log.warning("  ⚠️ 角色 %s 无语料（映射到 %s 也无料），跳过", role, corp_role)
-                continue
-            take = max(1, int(total * proportion))
-            sampled = random.sample(pool, min(take, len(pool)))
-            for text in sampled:
-                if "{keyword}" in text and video_title:
-                    kw = self._extract_first_keyword(video_title)
-                    if kw:
-                        text = text.replace("{keyword}", kw)
-                is_long = random.random() < long_ratio
-                result.append({
-                    "text": text,
-                    "role": role,
-                    "role_label": self.get_role_label(role),
-                    "is_long": is_long,
-                })
+        if role_counts:
+            # 数字模式：按 role_counts 精确取，每个角色 count 条
+            for role, count in role_counts.items():
+                if not count or int(count) <= 0:
+                    continue
+                corp_role = self.ROLE_CORPUS_MAP.get(role, role)
+                pool = all_by_role.get(corp_role, [])
+                if not pool:
+                    log.warning("  ⚠️ 角色 %s 无语料（映射到 %s 也无料），跳过", role, corp_role)
+                    continue
+                sampled = random.sample(pool, min(int(count), len(pool)))
+                for text in sampled:
+                    if "{keyword}" in text and video_title:
+                        kw = self._extract_first_keyword(video_title)
+                        if kw:
+                            text = text.replace("{keyword}", kw)
+                    is_long = random.random() < long_ratio
+                    result.append({
+                        "text": text,
+                        "role": role,
+                        "role_label": self.get_role_label(role),
+                        "is_long": is_long,
+                    })
+        else:
+            for role, proportion in (role_distribution or {}).items():
+                corp_role = self.ROLE_CORPUS_MAP.get(role, role)
+                pool = all_by_role.get(corp_role, [])
+                if not pool:
+                    log.warning("  ⚠️ 角色 %s 无语料（映射到 %s 也无料），跳过", role, corp_role)
+                    continue
+                take = max(1, int(total * proportion))
+                sampled = random.sample(pool, min(take, len(pool)))
+                for text in sampled:
+                    if "{keyword}" in text and video_title:
+                        kw = self._extract_first_keyword(video_title)
+                        if kw:
+                            text = text.replace("{keyword}", kw)
+                    is_long = random.random() < long_ratio
+                    result.append({
+                        "text": text,
+                        "role": role,
+                        "role_label": self.get_role_label(role),
+                        "is_long": is_long,
+                    })
 
         random.shuffle(result)
         result = result[:total]

@@ -383,17 +383,17 @@ class DouyinOps(PlatformOps):
             "like": [
                 Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
                 Condition("selector", '[data-e2e="video-player-digg"]', True,
-                          message="需要点赞按钮可见"),
+                          message="需要点赞按钮可见", soft=True),  # 软条件：按钮选择器失效时放行键盘Z兜底
             ],
             "collect": [
                 Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
                 Condition("selector", '[data-e2e="video-player-collect"]', True,
-                          message="需要收藏按钮可见"),
+                          message="需要收藏按钮可见", soft=True),  # 软条件：放行JS/坐标兜底
             ],
             "follow": [
                 Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),
                 Condition("selector", '[data-e2e="feed-follow-icon"]', True,
-                          message="需要关注按钮可见"),
+                          message="需要关注按钮可见", soft=True),  # 软条件：放行DOM/JS兜底
             ],
             "open_comments": [
                 Condition("page_mode", "page_mode", "player", message="需要在视频播放页"),

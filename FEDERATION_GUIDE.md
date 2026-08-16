@@ -393,6 +393,28 @@ Dashboard
 | `xiaohongshu_read_profile.json` | 小红书读主页 | 8 | 🔵 待测试 |
 | `xhs_test_all.json` | 小红书全量功能测试 | — | 🔵 测试用 |
 
+#### 互动蓝图（评论互动 / 评论工作台用）
+
+| 蓝图 | 说明 | 步数 | 状态 |
+|:-----|:------|:----:|:----:|
+| `interact_comment.json` | 互动-定向评论（打开→等待→开评论区→发评论→验证） | 5 | ✅ 实测通过 |
+| `interact_like.json` | 互动-点赞（点赞视频 + 点赞热评） | 6 | 🔵 页面改版后需验证 |
+| `interact_collect.json` | 互动-收藏 | 4 | 🔵 页面改版后需验证 |
+| `interact_chain.json` | 互动-三级接力（A评论→B回复→C回复） | 8 | 🔵 待测试 |
+| `interact_hot.json` | 互动-热评互动 | — | 🔵 待测试 |
+
+#### 蓝图组合机制（v4.5 新增）
+
+引擎 `engine.py` 支持用 `+` 分隔组合蓝图名，同一视频内多动作连做，**无需录制新蓝图**：
+
+```
+mc run --accounts=A --blueprints=interact_like+interact_collect+interact_comment --url=...
+```
+
+- `merge_blueprints()` 自动合并 steps：重复 `goto_url` 去重（页面已在目标视频）、连续 `wait/wait_watch` 合并（取较大值）
+- 评论互动计划生成器按视频命中比例动态拼接组合名（如只点赞+评论 → `interact_like+interact_comment`）
+- 前置条件支持 `soft=True`（`ops/_base.py`）：like/collect/follow 的按钮选择器在页面改版失效时不跳过，放行底层兜底（键盘 Z / JS 文字查找），其他操作硬条件不变
+
 ### 6.2 养号执行流程
 
 1. **挑选账号**：在 Dashboard "账号管理" 中勾选账号

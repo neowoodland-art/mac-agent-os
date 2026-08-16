@@ -143,6 +143,51 @@ categories:
     - text: '{keyword}大概需要多少钱？'
       role: questioner
 
+  解答:
+    weight: 15
+    enabled: true
+    label: 解答互动
+    comments:
+    - text: 楼上问的这个我刚好弄过，其实没那么难
+      role: answerer
+    - text: 这个问题我也遇到过，后来发现是方法不对
+      role: answerer
+    - text: 有人问怎么入门，我是从最简单的教程开始看的
+      role: answerer
+    - text: 评论区问得最多的就是流程，我踩过坑，按视频里说的来就行
+      role: answerer
+    - text: 看好多人在问，我是直接找官方渠道问的，回复挺快
+      role: answerer
+    - text: 前面有人问在哪里能弄，我是自己搜出来的，其实不难找
+      role: answerer
+    - text: 这个问题我身边也好多人问，最后还是老老实实按博主说的做了
+      role: answerer
+    - text: 我是自己试出来的，第一步先准备好工具，后面就顺了
+      role: answerer
+    - text: 这个我会，注意别跳过准备工作，不然白费劲
+      role: answerer
+    - text: 我用了大概一周就上手了，关键是多练
+      role: answerer
+    - text: 直接搜官方教程就行，别乱买课
+      role: answerer
+    - text: 我是找懂行的人带了一程，少走不少弯路
+      role: answerer
+    - text: 先查清楚注意事项再做，我就是没提前看才返工的
+      role: answerer
+    - text: 其实流程不复杂，跟着步骤来，别自己发挥
+      role: answerer
+    templates:
+    - text: 楼上问{keyword}的，我是这么弄的，亲测有效
+      role: answerer
+    - text: '{keyword}这个问题我也遇到过，后来发现是没注意细节'
+      role: answerer
+    - text: 有人问{keyword}怎么搞，按我自己的经验，先别急慢慢来
+      role: answerer
+    - text: 关于{keyword}，我踩过坑，提前做好准备能省不少事
+      role: answerer
+    - text: 看评论区都在问{keyword}，我分享一下我的做法
+      role: answerer
+
   感慨:
     weight: 15
     enabled: true
