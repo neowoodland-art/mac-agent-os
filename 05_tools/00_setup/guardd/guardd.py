@@ -222,6 +222,117 @@ def _get_tasks() -> list:
         ]
 
 
+# ── 采集 Chrome 管理（v4.5 新增）──────────────────────────
+# 手动启停采集用调试 Chrome 守护（com.agentos.chrome-debug）。
+# 设计：KeepAlive=true 提供运行期自愈（脚本崩溃自动拉起）；
+#      stop = bootout 彻底卸载 + 杀进程；start = bootstrap 重新加载。
+
+_CHROME_LABEL = "com.agentos.chrome-debug"
+_CHROME_PLIST_SRC = _guardd_dir / "com.agentos.chrome-debug.plist"
+_CHROME_PLIST_DST = Path.home() / "Library" / "LaunchAgents" / "com.agentos.chrome-debug.plist"
+_CHROME_PROFILE_DIR = AGENT_LOCAL / "runtime" / "chrome-douyin-profile"
+
+
+def _chrome_9222_alive() -> bool:
+    """9222 CDP 端口是否在线"""
+    try:
+        import urllib.request as _ur
+        with _ur.urlopen("http://127.0.0.1:9222/json/version", timeout=2) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def _chrome_service_loaded() -> bool:
+    """launchd 服务是否已加载"""
+    r = subprocess.run(
+        ["launchctl", "print", f"gui/{os.getuid()}/{_CHROME_LABEL}"],
+        capture_output=True, timeout=5,
+    )
+    return r.returncode == 0
+
+
+def _chrome_pids() -> list:
+    r = subprocess.run(
+        ["pgrep", "-f", "remote-debugging-port=9222"],
+        capture_output=True, timeout=5,
+    )
+    return [p for p in r.stdout.decode().strip().split() if p]
+
+
+def api_chrome_status() -> dict:
+    """查询采集 Chrome 状态（CDP 在线 + launchd 服务 + profile）"""
+    profile_ok = (_CHROME_PROFILE_DIR / "Default" / "Cookies").exists()
+    return {
+        "running": _chrome_9222_alive(),
+        "service_loaded": _chrome_service_loaded(),
+        "chrome_pids": _chrome_pids(),
+        "profile_ok": profile_ok,
+        "profile_dir": str(_CHROME_PROFILE_DIR),
+    }
+
+
+def api_chrome_start() -> dict:
+    """启动采集 Chrome 守护（bootstrap 加载，RunAtLoad 自动拉起 Chrome）"""
+    try:
+        _CHROME_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        plist = _CHROME_PLIST_DST
+        if not plist.exists():
+            if _CHROME_PLIST_SRC.exists():
+                content = _CHROME_PLIST_SRC.read_text(encoding="utf-8")
+                # 仓库 plist 硬编码了本机用户名，复制到其他机器时替换
+                content = content.replace("/Users/chengzige", str(Path.home()))
+                plist.parent.mkdir(parents=True, exist_ok=True)
+                plist.write_text(content, encoding="utf-8")
+                logger.info(f"  已从仓库安装 chrome-debug plist: {plist}")
+        if _chrome_service_loaded():
+            # 已加载 → kickstart 重启（-k 先杀后启）
+            subprocess.run(
+                ["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{_CHROME_LABEL}"],
+                capture_output=True, timeout=10,
+            )
+        else:
+            subprocess.run(
+                ["launchctl", "bootstrap", f"gui/{os.getuid()}", str(plist)],
+                capture_output=True, timeout=10,
+            )
+        # 等最多 20 秒 9222 就绪
+        for _ in range(20):
+            if _chrome_9222_alive():
+                break
+            time.sleep(1)
+        return {
+            "status": "ok",
+            "running": _chrome_9222_alive(),
+            "service_loaded": _chrome_service_loaded(),
+        }
+    except Exception as e:
+        logger.error(f"/chrome/start 失败: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+def api_chrome_stop() -> dict:
+    """停止采集 Chrome：bootout 卸载守护 + 杀健康检查脚本 + 杀调试 Chrome"""
+    try:
+        if _chrome_service_loaded():
+            subprocess.run(
+                ["launchctl", "bootout", f"gui/{os.getuid()}/{_CHROME_LABEL}"],
+                capture_output=True, timeout=10,
+            )
+        # 双保险：杀守护脚本本身 + 杀调试 Chrome 进程
+        subprocess.run(["pkill", "-f", "chrome_debug.sh"], capture_output=True, timeout=5)
+        subprocess.run(["pkill", "-f", "remote-debugging-port=9222"], capture_output=True, timeout=5)
+        time.sleep(1)
+        return {
+            "status": "ok",
+            "running": _chrome_9222_alive(),
+            "service_loaded": _chrome_service_loaded(),
+        }
+    except Exception as e:
+        logger.error(f"/chrome/stop 失败: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 # ── HTTP 任务服务器（v7 新增）─────────────────────────────
 
 class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
@@ -410,6 +521,8 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error(f"/recordings 读取失败: {e}")
                 self._send_json(500, {"error": str(e)})
+        elif path == "/chrome/status":
+            self._send_json(200, api_chrome_status())
         else:
             self._send_json(404, {"error": "not_found"})
 
@@ -487,6 +600,12 @@ class TaskHTTPHandler(http.server.BaseHTTPRequestHandler):
             if _scheduler:
                 _scheduler.clear_all()
             self._send_json(200, {"status": "ok", "message": "所有任务已清空"})
+
+        elif path == "/chrome/start":
+            self._send_json(200, api_chrome_start())
+
+        elif path == "/chrome/stop":
+            self._send_json(200, api_chrome_stop())
 
         else:
             self._send_json(404, {"error": "not_found"})
