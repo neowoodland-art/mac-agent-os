@@ -171,14 +171,13 @@ class AccountService:
                     _reg_tags = _load_registry_tags(aid)
                     if _reg_tags:
                         acct["tags"] = _reg_tags
-            # 远程账号：从缓存文件读取 tags（由远程机器 SSH 同步）
+            # 远程账号：通过 guardd HTTP 获取 profile（昵称/粉丝/采集信息），再补 tags 缓存
+            profile = self._get_profile_for_account(aid, machine)
+            acct.update(profile)
             if not acct.get("tags"):
                 _cache_tags = _load_tags_cache(aid)
                 if _cache_tags:
                     acct["tags"] = _cache_tags
-            else:
-                profile = self._get_profile_for_account(aid, machine)
-                acct.update(profile)
 
             results.append(acct)
 
