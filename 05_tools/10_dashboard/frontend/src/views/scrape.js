@@ -823,7 +823,7 @@ function renderDyVideos(container) {
     + '<button id="dtTrackAllBtn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:1px 5px;border-radius:3px;cursor:pointer;font-size:9px">📌 全选跟踪</button>'
     + '<span style="flex:1"></span>'
     + '<input id="dtFilterInput" type="text" placeholder="🔍 标题/作者关键字筛选" value="' + (window._dyFilter || '').replace(/"/g,'&quot;') + '" style="width:160px;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 6px;border-radius:4px;font-size:10px" title="输入关键字动态筛选标题/作者">'
-    + '<button id="dtCopySelectedBtn" style="background:#6366f1;color:#fff;border:none;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">📋 复制选中</button>'
+    + '<button id="dtCopySelVideos" style="background:#6366f1;color:#fff;border:none;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">📋 复制选中</button>'
     + '<span id="dtFilterCount">共 ' + _dyVideos.length + ' 条</span>'
     + '</div>';
   html += '<div style="display:flex;flex-direction:column;gap:6px">';
@@ -908,13 +908,14 @@ function renderDyVideos(container) {
     });
   }
 
-  // 复制选中按钮（无勾选时复制全部）
-  const copyBtn = document.getElementById('dtCopySelectedBtn');
+  // 复制选中按钮（只复制勾选的，无勾选不复制）
+  const copyBtn = document.getElementById('dtCopySelVideos');
   if (copyBtn && !copyBtn._bound) {
     copyBtn._bound = true;
     copyBtn.addEventListener('click', () => {
       const indices = getSelectedIndices();
-      const items = indices.length ? indices.map(i => _dyVideos[i]).filter(Boolean) : _dyVideos;
+      if (!indices.length) { alert('请先勾选要复制的视频'); return; }
+      const items = indices.map(i => _dyVideos[i]).filter(Boolean);
       if (!items.length) return;
       const lines = items.map(v => ((v.title || '').replace(/\n/g, ' ') || '无标题') + '\n' + (v.url || '')).filter(Boolean);
       if (!lines.length) return;
@@ -1221,13 +1222,14 @@ function updateRenderDyVideos() {
     });
   }
 
-  // 复制选中按钮（无勾选时复制全部）
-  const copyBtn = document.getElementById('dtCopySelectedBtn');
+  // 复制选中按钮（只复制勾选的，无勾选不复制）
+  const copyBtn = document.getElementById('dtCopySelVideos');
   if (copyBtn && !copyBtn._bound) {
     copyBtn._bound = true;
     copyBtn.addEventListener('click', () => {
       const indices = getSelectedIndices();
-      const items = indices.length ? indices.map(i => _dyVideos[i]).filter(Boolean) : _dyVideos;
+      if (!indices.length) { alert('请先勾选要复制的视频'); return; }
+      const items = indices.map(i => _dyVideos[i]).filter(Boolean);
       if (!items.length) return;
       const lines = items.map(v => ((v.title || '').replace(/\n/g, ' ') || '无标题') + '\n' + (v.url || '')).filter(Boolean);
       if (!lines.length) return;
@@ -1260,7 +1262,7 @@ function updateSelButtons() {
   const hasSel = getSelectedIndices().length > 0;
   const sel1 = document.getElementById('dtCollectSelectedBtn');
   const sel2 = document.getElementById('dtTrackSelectedBtn');
-  const copyBtn = document.getElementById('dtCopySelectedBtn');
+  const copyBtn = document.getElementById('dtCopySelVideos');
   if (sel1) sel1.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
   if (sel2) sel2.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
   if (copyBtn) copyBtn.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
@@ -1342,7 +1344,7 @@ async function loadDyTracking() {
       + '<span id="dtTrkCount">共 ' + items.length + ' 条</span>'
       + '<span style="flex:1"></span>'
       + '<button id="dtRefreshAllBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 刷新全部</button>'
-      + '<button id="dtCopySelectedBtn" style="display:none;background:#6366f1;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制已选</button>'
+      + '<button id="dtTrkCopySelBtn" style="display:none;background:#6366f1;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制已选</button>'
       + '<button id="dtRefreshSelectedBtn" style="display:none;background:#f97316;color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">🔄 更新选中</button>'
       + '<button id="dtCopyAllBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制全部</button>'
       + '<span id="dtRefreshStatus" style="font-size:9px;font-family:monospace"></span>'
@@ -1578,7 +1580,7 @@ async function loadDyTracking() {
     function updateTrkSelBtn() {
       const checked = document.querySelectorAll('.dt-trk-sel:checked').length;
       const show = checked > 0 ? 'inline-block' : 'none';
-      const selBtn = document.getElementById('dtCopySelectedBtn');
+      const selBtn = document.getElementById('dtTrkCopySelBtn');
       if (selBtn) selBtn.style.display = show;
       const refBtn = document.getElementById('dtRefreshSelectedBtn');
       if (refBtn) refBtn.style.display = show;
@@ -1588,7 +1590,7 @@ async function loadDyTracking() {
     });
     
     // 绑定复制已选按钮
-    const copySelBtn = document.getElementById('dtCopySelectedBtn');
+    const copySelBtn = document.getElementById('dtTrkCopySelBtn');
     if (copySelBtn) {
       copySelBtn.addEventListener('click', () => {
         const data = [];
