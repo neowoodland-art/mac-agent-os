@@ -102,7 +102,11 @@ def api_v2_status_summary():
 
 @router.patch("/accounts/{account_id}")
 def api_v2_update_notes(account_id: str, data: dict):
-    """更新账号备注"""
+    """更新账号备注/标签
+
+    - 本机账号：写入本机 accounts.yaml（MatrixManager）
+    - 远程账号：本地找不到时，tags 写入集中标签文件（agent-local/data/account_tags_cache.json）
+    """
     try:
         import yaml
         sys.path.insert(0, str(AGENT_SYNC / "05_tools" / "07_matrix" / "scripts"))
@@ -113,10 +117,40 @@ def api_v2_update_notes(account_id: str, data: dict):
             update_data["notes"] = data["notes"]
         if "tags" in data:
             update_data["tags"] = data["tags"]
-        mgr.update_account(account_id, update_data)
+        if not update_data:
+            return {"status": "ok"}
+        try:
+            mgr.update_account(account_id, update_data)
+        except ValueError:
+            # 远程账号（本机 MatrixManager 无此账号）→ tags 写入集中标签文件
+            if "tags" in update_data and update_data["tags"] is not None:
+                _save_remote_tags(account_id, update_data["tags"])
+            else:
+                raise HTTPException(404, detail=f"账号 {account_id} 不存在")
         return {"status": "ok"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, detail=str(e))
+
+
+def _save_remote_tags(account_id: str, tags: list) -> None:
+    """远程账号标签 → 集中标签文件（agent-local/data/account_tags_cache.json）
+
+    读取侧 account_service._load_tags_cache 已从此文件读远程 tags，写入即可生效。
+    """
+    import json as _json
+    _CACHE_PATH = AGENT_LOCAL / "data" / "account_tags_cache.json"
+    data = {}
+    if _CACHE_PATH.exists():
+        try:
+            data = _json.loads(_CACHE_PATH.read_text())
+        except Exception:
+            data = {}
+    data[account_id] = [str(t) for t in (tags or [])]
+    _CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _CACHE_PATH.write_text(_json.dumps(data, ensure_ascii=False, indent=1))
+    logger.info("  🏷️ 远程账号 %s 标签已保存到集中文件 (%d 条)", account_id, len(data[account_id]))
 
 
 # ═══════════════════════════════════════════════════════════

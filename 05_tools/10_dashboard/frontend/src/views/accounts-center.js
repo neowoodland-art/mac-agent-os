@@ -592,12 +592,18 @@ function doFilter() {
 // ── 保存标签（PATCH API）──
 window._saveTags = async (accountId, tags) => {
   try {
-    await fetch(`/api/v2/accounts/${encodeURIComponent(accountId)}`, {
+    const res = await fetch(`/api/v2/accounts/${encodeURIComponent(accountId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tags }),
     });
-  } catch(e) { /* 静默失败 */ }
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(`❌ 标签保存失败: ${d.detail || d.message || res.status}`);
+      return false;
+    }
+    return true;
+  } catch(e) { alert(`❌ 标签保存失败: ${e.message}`); return false; }
 };
 
 // ── 标签交互 ──

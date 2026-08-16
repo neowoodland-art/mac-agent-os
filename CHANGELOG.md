@@ -21,6 +21,7 @@
 - **前置条件软条件机制** — `Condition.soft` 标志：like/collect/follow 的按钮 selector 条件失败时不再跳过（skipped），放行底层兜底（键盘 Z / JS 文字查找 / 坐标）；其他操作硬条件行为完全不变（保护旧蓝图）
 - **评论内容生效** — `_resolve_args` 的 `@corpus` 占位符优先使用 `--comment-text`（计划/面板设定的内容），未指定才从语料库随机取
 - **账号中心远程昵称取不到** — `account_service.py get_all_accounts()` 远程账号 profile 合并被 if/else 逻辑错误挡住（远程账号 tags 为空永远进不了 `_get_profile_for_account` 分支），改为无条件合并远程 profile（guardd `/accounts/profiles`），本机与远程对等
+- **账号标签保存不上** — 远程账号打标签 PATCH 返回 400（本机 MatrixManager 无此账号）；改为远程账号 tags 写入集中标签文件（`agent-local/data/account_tags_cache.json`，读取侧 `_load_tags_cache` 已读此文件）；前端 `_saveTags` 增加响应检查（失败不再静默）
 
 #### 技术说明
 - 计划生成器 `_build_interact_plan` v2 位于 `command_bus.py`，strategy 参数改为 `like_ratio / collect_ratio / comment_ratio / comment_per_video / comment_daily_limit / pace`
