@@ -22,6 +22,7 @@
 - **评论内容生效** — `_resolve_args` 的 `@corpus` 占位符优先使用 `--comment-text`（计划/面板设定的内容），未指定才从语料库随机取
 - **账号中心远程昵称取不到** — `account_service.py get_all_accounts()` 远程账号 profile 合并被 if/else 逻辑错误挡住（远程账号 tags 为空永远进不了 `_get_profile_for_account` 分支），改为无条件合并远程 profile（guardd `/accounts/profiles`），本机与远程对等
 - **账号标签保存不上** — 远程账号打标签 PATCH 返回 400（本机 MatrixManager 无此账号）；改为远程账号 tags 写入集中标签文件（`agent-local/data/account_tags_cache.json`，读取侧 `_load_tags_cache` 已读此文件）；前端 `_saveTags` 增加响应检查（失败不再静默）
+- **评论互动 MD 表格导入** — 导入区新增「📋 MD表格」入口：粘贴 Markdown 表格（`| 标题 | 链接 | 评论数 |`）自动正则提取「标题+链接」对并解析（纯前端正则，0 AI 调用）
 
 #### 技术说明
 - 计划生成器 `_build_interact_plan` v2 位于 `command_bus.py`，strategy 参数改为 `like_ratio / collect_ratio / comment_ratio / comment_per_video / comment_daily_limit / pace`

@@ -59,10 +59,21 @@ export async function loadView(container) {
           <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;align-items:center">
             <button onclick="window._ia_parse_${uid}()" style="background:var(--primary);color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">🔍 解析</button>
             <button onclick="window._ia_fetchTitles_${uid}()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px" title="获取无标题链接的页面标题">🏷️ 获取标题</button>
+            <button onclick="window._ia_toggleMd_${uid}()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px" title="粘贴 Markdown 表格（| 标题 | 链接 | 评论数 |），自动提取标题+链接">📋 MD表格</button>
             <span id="ia_parsedCount_${uid}" style="font-size:10px;color:var(--text2)"></span>
             <span id="ia_listToggle_${uid}" style="display:none;font-size:9px;color:var(--text2);cursor:pointer" onclick="window._ia_toggleList_${uid}()">展开列表 ▼</span>
           </div>
           <div id="ia_parsedList_${uid}" style="display:none;font-size:10px;margin-top:4px;max-height:120px;overflow-y:auto"></div>
+          <!-- MD 表格提取（可折叠） -->
+          <div id="ia_mdPanel_${uid}" style="display:none;margin-top:6px;border-top:1px dashed var(--border);padding-top:6px">
+            <div style="font-size:10px;color:var(--text2);margin-bottom:4px">📋 粘贴 Markdown 表格（格式：<code>| 标题 | 链接 | 评论数 |</code>），自动提取「标题+链接」对填入上方导入框</div>
+            <textarea id="ia_mdInput_${uid}" rows="5" placeholder="| 标题 | https://www.douyin.com/jingxuan?modal_id=xxx | 0 |&#10;| 标题2 | https://www.douyin.com/video/yyy | 12 |"
+              style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:10px;font-family:monospace;resize:vertical"></textarea>
+            <div style="display:flex;gap:4px;margin-top:4px;align-items:center">
+              <button onclick="window._ia_parseMd_${uid}()" style="background:var(--primary);color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">✅ 提取并解析</button>
+              <span id="ia_mdResult_${uid}" style="font-size:10px;color:var(--text2)"></span>
+            </div>
+          </div>
         </div>
 
         <!-- 动作设置（账号全量 × 视频按比例） -->
@@ -164,6 +175,8 @@ export async function loadView(container) {
   window[`_ia_parse_${self}`] = () => _ia_parse(self);
   window[`_ia_fetchTitles_${self}`] = () => _ia_fetchTitles(self);
   window[`_ia_toggleList_${self}`] = () => _ia_toggleList(self);
+  window[`_ia_toggleMd_${self}`] = () => _ia_toggleMd(self);
+  window[`_ia_parseMd_${self}`] = () => _ia_parseMd(self);
   window[`_ia_exec_${self}`] = () => _ia_exec(self);
   window[`_ia_toggleCommentCfg_${self}`] = () => _ia_toggleCommentCfg(self);
   window[`_ia_updateRoleTotal_${self}`] = () => _ia_updateRoleTotal(self);
@@ -275,6 +288,41 @@ function _ia_toggleList(uid) {
   const isHidden = el.style.display === 'none';
   el.style.display = isHidden ? 'block' : 'none';
   toggle.textContent = isHidden ? '收起列表 ▲' : '展开列表 ▼';
+}
+
+// ── MD 表格提取（| 标题 | 链接 | 评论数 |）──
+
+function _ia_toggleMd(uid) {
+  const panel = document.getElementById(`ia_mdPanel_${uid}`);
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function _ia_parseMd(uid) {
+  const text = document.getElementById(`ia_mdInput_${uid}`)?.value || '';
+  const resultEl = document.getElementById(`ia_mdResult_${uid}`);
+  if (!text.trim()) { if (resultEl) resultEl.textContent = '❌ 请粘贴 MD 表格'; return; }
+
+  // 提取表格行: | 标题 | 链接 | 评论数 |（正则：标题 + 抖音链接 + 数字）
+  const out = [];
+  for (const line of text.split('\n')) {
+    const m = line.trim().match(/^\|\s*(.*?)\s*\|\s*(https?:\/\/[^\s|]+)\s*\|\s*\d+\s*\|$/);
+    if (m) {
+      out.push('标题: ' + m[1].trim());
+      out.push(m[2].trim());
+    }
+  }
+  if (!out.length) { if (resultEl) resultEl.textContent = '❌ 未提取到「标题|链接」行（格式: | 标题 | URL | 评论数 |）'; return; }
+
+  // 填入导入框并自动解析
+  const inputEl = document.getElementById(`ia_input_${uid}`);
+  if (inputEl) inputEl.value = out.join('\n');
+  // 新的一组视频 → 清空旧的评论内容设定，避免错配
+  _commentMap = {};
+  _ia_renderCommentResults(uid);
+  _ia_renderCommentSummary(uid);
+  _ia_parse(uid);
+  if (resultEl) resultEl.textContent = `✅ 提取 ${out.length / 2} 条，已填入并解析`;
 }
 
 // ── 评论内容设置（角色数字输入 → 按视频生成/编辑） ──
