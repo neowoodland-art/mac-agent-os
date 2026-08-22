@@ -28,6 +28,7 @@ import logging
 import os
 import random
 import re
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -327,7 +328,7 @@ class AIGenerator:
         )
 
     async def _call_api(self, prompt: str) -> Optional[str]:
-        """调用 OpenAI 兼容 API 生成文本（带熔断防护）"""
+        """调用 OpenAI 兼容 API 生成文本（带熔断防护 + 消耗日志）"""
         if self._fused:
             return None  # 已熔断：直接跳过，不再发请求
         import httpx
@@ -342,6 +343,7 @@ class AIGenerator:
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": self.temperature,
                         "max_tokens": 300,
+                        "thinking": {"type": "disabled"},  # 非思考模式（评论生成无需推理，省 token/成本）
                     },
                 )
                 if resp.status_code != 200:
@@ -355,15 +357,37 @@ class AIGenerator:
                     return None
                 text = choices[0].get("message", {}).get("content", "").strip()
                 if not text:
-                    # 空响应（如思考型模型 max_tokens 被 reasoning 占满）→ 计失败
+                    # 空响应（如 max_tokens 被 reasoning 占满）→ 计失败
                     self._mark_fail()
                     return None
                 self._fail_streak = 0  # 成功重置
+                # 记录 AI 消耗（token 用量 → 看板统计）
+                self._log_usage(data.get("usage", {}))
                 return text
         except Exception as exc:
             log.warning("  ⚠️  AI API 调用失败: %s", exc)
             self._mark_fail()
             return None
+
+    def _log_usage(self, usage: dict) -> None:
+        """记录 AI 消耗到 agent-local/runtime/ai_usage.jsonl（看板首页展示）"""
+        try:
+            path = PROJECT_ROOT / "agent-local/runtime/ai_usage.jsonl"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            entry = {
+                "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "model": self.model,
+                "prompt_tokens": usage.get("prompt_tokens", 0),
+                "completion_tokens": usage.get("completion_tokens", 0),
+                "total_tokens": usage.get("total_tokens", 0),
+                "cache_hit": usage.get("prompt_cache_hit_tokens", 0),
+                "cache_miss": usage.get("prompt_cache_miss_tokens", 0),
+                "reasoning_tokens": (usage.get("completion_tokens_details", {}) or {}).get("reasoning_tokens", 0),
+            }
+            with open(path, "a") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
 
 
 # ═══════════════════════════════════════════════════════════════

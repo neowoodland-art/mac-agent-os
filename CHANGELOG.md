@@ -24,6 +24,7 @@
 - **账号标签保存不上** — 远程账号打标签 PATCH 返回 400（本机 MatrixManager 无此账号）；改为远程账号 tags 写入集中标签文件（`agent-local/data/account_tags_cache.json`，读取侧 `_load_tags_cache` 已读此文件）；前端 `_saveTags` 增加响应检查（失败不再静默）
 - **评论互动 MD 表格导入** — 导入区新增「📋 MD表格」入口：粘贴 Markdown 表格（`| 标题 | 链接 | 评论数 |`）自动正则提取「标题+链接」对并解析（纯前端正则，0 AI 调用）
 - **评论互动引导内容** — 评论内容设置面板新增「🎯 引导内容」输入框 + 「引导引用比例」（默认 80%）：引导类（guide_*）+ 回答型（answerer）角色按比例在 AI 生成时结合引导内容（如"引导关注公众号约号"），其他角色正常；不输入引导内容则行为不变
+- **AI 优化与消耗监控** — AIGenerator 关闭思考模式（`thinking: disabled`，评论生成无需推理，reasoning_tokens 归零，成本直降）；AI 调用记录 token 用量到 `agent-local/runtime/ai_usage.jsonl`；新增 `/api/ops/ai/usage` 聚合接口；看板「统计概览」首页新增「🤖 今日 AI 消耗」卡片（token/费用/次数/缓存命中率，按 flash 官方空闲价估算）
 
 #### 技术说明
 - 计划生成器 `_build_interact_plan` v2 位于 `command_bus.py`，strategy 参数改为 `like_ratio / collect_ratio / comment_ratio / comment_per_video / comment_daily_limit / pace`

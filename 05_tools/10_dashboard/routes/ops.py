@@ -557,6 +557,58 @@ def api_task_events(limit: int = 50):
     return {"events": _TASK_EVENTS[-limit:]}
 
 
+# ── AI 消耗统计（看板首页展示）───────────────
+
+@router.get("/ai/usage")
+def api_ai_usage(days: int = 7):
+    """AI 消耗统计（读 agent-local/runtime/ai_usage.jsonl）
+
+    Returns:
+        today: 今日聚合（calls/tokens/缓存命中/费用估算）
+        total: 总计聚合
+        recent: 最近 20 条明细
+    """
+    import json as _json
+    from datetime import datetime as _dt
+    from pathlib import Path as _Path
+    _log_path = _Path.home() / "workbuddy-agent-os" / "agent-local" / "runtime" / "ai_usage.jsonl"
+    entries = []
+    if _log_path.exists():
+        for line in _log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entries.append(_json.loads(line))
+            except Exception:
+                pass
+
+    today_str = _dt.now().strftime("%Y-%m-%d")
+    today_entries = [e for e in entries if str(e.get("ts", "")).startswith(today_str)]
+
+    # flash 官方空闲价（元/百万 token）：缓存命中 0.05 / 未命中 1.5 / 输出 4.5
+    def _agg(lst: list) -> dict:
+        prompt = sum(e.get("prompt_tokens", 0) for e in lst)
+        completion = sum(e.get("completion_tokens", 0) for e in lst)
+        hit = sum(e.get("cache_hit", 0) for e in lst)
+        miss = sum(e.get("cache_miss", 0) for e in lst)
+        reasoning = sum(e.get("reasoning_tokens", 0) for e in lst)
+        cost = (miss * 1.5 + hit * 0.05 + completion * 4.5) / 1e6
+        return {
+            "calls": len(lst),
+            "prompt_tokens": prompt,
+            "completion_tokens": completion,
+            "total_tokens": prompt + completion,
+            "cache_hit": hit,
+            "cache_miss": miss,
+            "cache_hit_rate": round(hit / (hit + miss), 3) if (hit + miss) else 0,
+            "reasoning_tokens": reasoning,
+            "cost_estimate": round(cost, 4),  # 元（按 flash 空闲价估算）
+        }
+
+    return {"today": _agg(today_entries), "total": _agg(entries), "recent": entries[-20:]}
+
+
 @router.post("/fetch-titles")
 def api_fetch_titles(data: dict = {}):
     """从视频 URL 列表中提取页面标题

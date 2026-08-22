@@ -3,15 +3,20 @@ export async function loadView(container) {
 
   try {
     // Fetch all data sources in parallel
-    const [summaryRes, healthRes, machinesRes] = await Promise.all([
+    const [summaryRes, healthRes, machinesRes, aiUsageRes] = await Promise.all([
       fetch('/api/summary'),
       fetch('/api/federation/health'),
-      fetch('/api/machines')
+      fetch('/api/machines'),
+      fetch('/api/ops/ai/usage'),
     ]);
 
     const summary = summaryRes.ok ? await summaryRes.json() : {};
     const health = healthRes.ok ? await healthRes.json() : {};
     const machines = machinesRes.ok ? await machinesRes.json() : [];
+    const aiUsage = aiUsageRes.ok ? await aiUsageRes.json() : {};
+    const aiToday = aiUsage.today || {};
+
+    const fmtTokens = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n || 0);
 
     // Normalize data
     const totalAccounts = summary.total_accounts ?? summary.accounts ?? summary.totalAccounts ?? 0;
@@ -68,6 +73,12 @@ export async function loadView(container) {
           <div class="summary-card-value">${isHealthy ? '健康' : '异常'}</div>
           <div class="summary-card-label">联邦健康</div>
           <div class="summary-card-sub">${typeof healthStatus === 'string' ? healthStatus : (isHealthy ? 'running' : 'down')}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-icon">🤖</div>
+          <div class="summary-card-value">${fmtTokens(aiToday.total_tokens || 0)}</div>
+          <div class="summary-card-label">今日 AI 消耗</div>
+          <div class="summary-card-sub">¥${(aiToday.cost_estimate || 0).toFixed(3)} · ${aiToday.calls || 0} 次 · 命中${Math.round((aiToday.cache_hit_rate || 0) * 100)}%</div>
         </div>
       </div>
 
