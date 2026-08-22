@@ -212,11 +212,6 @@ accounts:
   platforms:
     douyin: douyin_13382504732
   machine: chengzigedeAir
-- phone: '15370103682'
-  machine: chengzigedeAir
-  identity: douyin_15370103682
-  platforms:
-    douyin: douyin_15370103682
 - phone: '18550099212'
   machine: chengzigedeAir
   identity: douyin_18550099212
@@ -257,6 +252,11 @@ accounts:
   identity: douyin_13382502283
   platforms:
     douyin: douyin_13382502283
+- phone: '15370103682'
+  machine: 5kechengdeAir
+  identity: douyin_15370103682
+  platforms:
+    douyin: douyin_15370103682
 tasks:
 - name: nurture_morning
   schedule: 30 9 * * *

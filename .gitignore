@@ -175,3 +175,4 @@ reports/
 05_tools/10_dashboard/static/assets/
 05_tools/10_dashboard/frontend/node_modules/
 05_tools/10_dashboard/frontend/dist/
+05_tools/07_matrix/config/ai.yaml

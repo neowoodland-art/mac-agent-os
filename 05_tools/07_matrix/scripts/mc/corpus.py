@@ -158,6 +158,11 @@ class AIGenerator:
         self.model = model or config.get("model") or "gpt-4o-mini"
         self.temperature = config.get("temperature", 0.8)
 
+        # ── 防 token 浪费：连续失败熔断 ──
+        self._fail_streak = 0          # 连续失败次数
+        self._max_fail_streak = 3      # 连续失败 3 次熔断（401/5xx/超时/空响应）
+        self._fused = False            # 熔断标记：熔断后不再发 API 请求
+
     # ── 配置加载 ────────────────────────────────────────────
 
     @staticmethod
@@ -178,6 +183,18 @@ class AIGenerator:
     def available(self) -> bool:
         """是否有 API key 可用"""
         return bool(self.api_key)
+
+    @property
+    def usable(self) -> bool:
+        """是否可调用（有 key 且未熔断）"""
+        return self.available and not self._fused
+
+    def _mark_fail(self) -> None:
+        """记录一次失败，达到阈值熔断（防死循环/防 token 非正常消耗）"""
+        self._fail_streak += 1
+        if self._fail_streak >= self._max_fail_streak:
+            self._fused = True
+            log.warning("  🚫 AI 连续 %d 次失败，已熔断停止调用（防 token 浪费）；下次进程重启或新实例可恢复", self._max_fail_streak)
 
     async def generate_comment(
         self,
@@ -310,7 +327,9 @@ class AIGenerator:
         )
 
     async def _call_api(self, prompt: str) -> Optional[str]:
-        """调用 OpenAI 兼容 API 生成文本"""
+        """调用 OpenAI 兼容 API 生成文本（带熔断防护）"""
+        if self._fused:
+            return None  # 已熔断：直接跳过，不再发请求
         import httpx
 
         try:
@@ -327,15 +346,23 @@ class AIGenerator:
                 )
                 if resp.status_code != 200:
                     log.warning("  ⚠️  AI API 返回 %s: %s", resp.status_code, resp.text[:200])
+                    self._mark_fail()
                     return None
                 data = resp.json()
                 choices = data.get("choices", [])
                 if not choices:
+                    self._mark_fail()
                     return None
                 text = choices[0].get("message", {}).get("content", "").strip()
-                return text if text else None
+                if not text:
+                    # 空响应（如思考型模型 max_tokens 被 reasoning 占满）→ 计失败
+                    self._mark_fail()
+                    return None
+                self._fail_streak = 0  # 成功重置
+                return text
         except Exception as exc:
             log.warning("  ⚠️  AI API 调用失败: %s", exc)
+            self._mark_fail()
             return None
 
 

@@ -1,9 +1,0 @@
-# Matrix AI 评论生成配置
-# 本地模型用 oMLX（兼容 OpenAI 格式）
-ai:
-  provider: deepseek          # local / deepseek
-  api_key: "sk-5f5eae18453249e4aea9cf9792dc0f0c"
-  base_url: "https://api.deepseek.com/v1"
-  model: "deepseek-chat"
-  temperature: 0.8
-  max_tokens: 150
