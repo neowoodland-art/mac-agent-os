@@ -79,6 +79,7 @@ def api_generate_comments(data: dict):
     total = data.get("total", 30)
     ai_enhance = data.get("ai_enhance", False)
     long_ratio = data.get("long_ratio", 0.0)
+    guide_ratio = min(max(float(data.get("guide_ratio", 1.0)), 0.0), 1.0)  # 引导结合比例 0~1
 
     if not video_title:
         raise HTTPException(400, detail="video_title 必填")
@@ -108,6 +109,7 @@ def api_generate_comments(data: dict):
         video_tags=tags_str,
         ai_enhance=ai_enhance,
         long_ratio=long_ratio,
+        guide_ratio=guide_ratio,
     )
     if role_counts:
         # 数字模式：精确按角色条数取，total 由后端自动求和

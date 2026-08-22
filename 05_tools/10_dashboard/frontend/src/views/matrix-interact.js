@@ -121,6 +121,18 @@ export async function loadView(container) {
                 <button onclick="window._ia_genComments_${uid}()" style="background:var(--primary);color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">🚀 为所有视频生成评论</button>
                 <button onclick="window._ia_clearComments_${uid}()" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">🗑 清空</button>
               </div>
+              <!-- 引导内容（引导类/回答型评论按比例结合） -->
+              <div style="margin-top:6px;border-top:1px dashed var(--border);padding-top:6px">
+                <div style="font-size:10px;color:var(--text2);margin-bottom:3px">🎯 引导内容（引导类/回答型评论按比例结合）</div>
+                <textarea id="ia_guidePoints_${uid}" rows="2" placeholder="如: 引导关注公众号约号 / 推荐朱晓光主任（不填=不结合引导）"
+                  style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:10px;resize:vertical"></textarea>
+                <div style="display:flex;align-items:center;gap:4px;margin-top:3px;font-size:10px">
+                  <span style="color:var(--text2)">引导引用比例</span>
+                  <input type="number" id="ia_guideRatio_${uid}" min="0" max="100" step="5" value="80" style="width:48px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="0-100，引导类/回答型评论中多少比例结合引导内容">
+                  <span style="font-size:9px;color:var(--text2)">%</span>
+                  <span style="font-size:9px;color:var(--text2);margin-left:4px">（引导类 + 回答型角色按此比例结合，其他角色正常）</span>
+                </div>
+              </div>
               <div id="ia_cfgResult_${uid}" style="margin-top:6px;max-height:320px;overflow-y:auto;display:grid;gap:4px"></div>
             </div>
           </div>
@@ -410,6 +422,8 @@ async function _ia_genComments(uid) {
             role_counts: roleCounts,
             ai_enhance: false,
             long_ratio: 0,
+            guide_points: (document.getElementById(`ia_guidePoints_${uid}`)?.value || '').trim(),
+            guide_ratio: Math.min(100, Math.max(0, parseInt(document.getElementById(`ia_guideRatio_${uid}`)?.value || '80'))) / 100,
           }),
         });
         const d = await r.json();
@@ -510,7 +524,11 @@ async function _ia_regenVideo(uid, ui) {
     try {
       const r = await fetch('/api/comment-workbench/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_title: title, role_counts: roleCounts, ai_enhance: false, long_ratio: 0 }),
+        body: JSON.stringify({
+          video_title: title, role_counts: roleCounts, ai_enhance: false, long_ratio: 0,
+          guide_points: (document.getElementById(`ia_guidePoints_${uid}`)?.value || '').trim(),
+          guide_ratio: Math.min(100, Math.max(0, parseInt(document.getElementById(`ia_guideRatio_${uid}`)?.value || '80'))) / 100,
+        }),
       });
       const d = await r.json();
       comments = (d.comments || []).map(c => ({

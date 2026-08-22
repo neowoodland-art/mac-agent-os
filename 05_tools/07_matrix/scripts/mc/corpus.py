@@ -254,9 +254,9 @@ class AIGenerator:
             video_info_parts.append(f"标签: {tags}")
         video_info = " | ".join(video_info_parts)
 
-        # 引导要点（仅对引导类角色生效）
+        # 引导要点（引导类 + 回答型角色生效）
         guide_part = ""
-        if guide_points and role.startswith("guide_"):
+        if guide_points and (role.startswith("guide_") or role == "answerer"):
             guide_part = f"\n\n引导要求：在评论中自然地融入以下要点（选择1~2个融入即可）：{guide_points}"
 
         desc_part = f"\n视频描述: {video_desc}" if video_desc else ""
@@ -635,6 +635,7 @@ class CorpusManager:
         ai_enhance: bool = False,
         long_ratio: float = 0.0,
         role_counts: dict = None,
+        guide_ratio: float = 1.0,
     ) -> list:
         """按角色批量抽取评论，可选 AI 增强和长评
 
@@ -648,6 +649,7 @@ class CorpusManager:
             total: 比例模式下总共取多少条
             ai_enhance: 是否用 AI 改写每条评论
             long_ratio: 长评占比（0~1）
+            guide_ratio: 引导结合比例（0~1）— AI 增强时，引导类/回答型角色按此概率结合 guide_points
 
         Returns:
             [{"text": "...", "role": "...", "role_label": "...", "is_long": bool}, ...]
@@ -748,13 +750,17 @@ class CorpusManager:
                     loop = _asyncio.new_event_loop()
                 for item in result:
                     try:
+                        # 引导内容只对 引导类(guide_*) + 回答型(answerer) 生效，且按 guide_ratio 概率结合
+                        _role = item.get("role", "")
+                        _can_guide = _role.startswith("guide_") or _role == "answerer"
+                        _gp = guide_points if (_can_guide and random.random() < guide_ratio) else ""
                         enhanced = loop.run_until_complete(
                             self._ai_gen.generate_comment_by_role(
                                 video_title=video_title,
-                                role=item["role"],
+                                role=_role,
                                 role_label=item["role_label"],
                                 is_long=item["is_long"],
-                                guide_points=guide_points,
+                                guide_points=_gp,
                                 industry=video_industry or "",
                                 content_type=content_type,
                                 tags=video_tags,
