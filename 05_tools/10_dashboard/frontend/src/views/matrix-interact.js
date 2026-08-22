@@ -130,7 +130,11 @@ export async function loadView(container) {
                   <span style="color:var(--text2)">引导引用比例</span>
                   <input type="number" id="ia_guideRatio_${uid}" min="0" max="100" step="5" value="80" style="width:48px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="0-100，引导类/回答型评论中多少比例结合引导内容">
                   <span style="font-size:9px;color:var(--text2)">%</span>
-                  <span style="font-size:9px;color:var(--text2);margin-left:4px">（引导类 + 回答型角色按此比例结合，其他角色正常）</span>
+                  <span style="font-size:9px;color:var(--text2);margin-left:4px">（引导类 + 回答型按此比例结合，其他角色 AI 生成但自然不带引导）</span>
+                  <span style="flex:1"></span>
+                  <label style="display:flex;align-items:center;gap:3px;cursor:pointer" title="勾选 = 强制 AI 生成评论（更自然）；不勾选但填了引导内容 = 自动 AI">
+                    <input type="checkbox" id="ia_aiEnhance_${uid}"> <span style="font-size:10px">🧠 AI 改写</span>
+                  </label>
                 </div>
               </div>
               <div id="ia_cfgResult_${uid}" style="margin-top:6px;max-height:320px;overflow-y:auto;display:grid;gap:4px"></div>
@@ -415,14 +419,15 @@ async function _ia_genComments(uid) {
     let comments = [];
     if (title) {
       try {
+        const _gp = (document.getElementById(`ia_guidePoints_${uid}`)?.value || '').trim();
         const r = await fetch('/api/comment-workbench/generate', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             video_title: title,
             role_counts: roleCounts,
-            ai_enhance: false,
+            ai_enhance: document.getElementById(`ia_aiEnhance_${uid}`)?.checked || !!_gp,  // AI改写勾选 或 有引导内容 → 自动 AI 生成
             long_ratio: 0,
-            guide_points: (document.getElementById(`ia_guidePoints_${uid}`)?.value || '').trim(),
+            guide_points: _gp,
             guide_ratio: Math.min(100, Math.max(0, parseInt(document.getElementById(`ia_guideRatio_${uid}`)?.value || '80'))) / 100,
           }),
         });
@@ -522,11 +527,14 @@ async function _ia_regenVideo(uid, ui) {
   let comments = [];
   if (title) {
     try {
+      const _gp = (document.getElementById(`ia_guidePoints_${uid}`)?.value || '').trim();
       const r = await fetch('/api/comment-workbench/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          video_title: title, role_counts: roleCounts, ai_enhance: false, long_ratio: 0,
-          guide_points: (document.getElementById(`ia_guidePoints_${uid}`)?.value || '').trim(),
+          video_title: title, role_counts: roleCounts,
+          ai_enhance: document.getElementById(`ia_aiEnhance_${uid}`)?.checked || !!_gp,  // AI改写勾选 或 有引导内容 → 自动 AI 生成
+          long_ratio: 0,
+          guide_points: _gp,
           guide_ratio: Math.min(100, Math.max(0, parseInt(document.getElementById(`ia_guideRatio_${uid}`)?.value || '80'))) / 100,
         }),
       });
