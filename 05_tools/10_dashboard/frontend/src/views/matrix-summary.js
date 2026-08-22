@@ -23,18 +23,27 @@ async function loadData(uid) {
   if (!gridEl) return;
 
   try {
-    const r = await fetch('/api/matrix/cross-machines');
-    const d = await r.json();
+    // 并行请求：跨机状态 + 系统信息 + AI 消耗（避免串行等待拖慢打开）
+    const [crossRes, sysRes, aiRes] = await Promise.all([
+      fetch('/api/matrix/cross-machines'),
+      fetch('/api/matrix/system-info').catch(() => ({ ok: false })),
+      fetch('/api/ops/ai/usage').catch(() => ({ ok: false })),
+    ]);
+    const d = await crossRes.json();
 
-    // 获取身份目录统计
+    // 身份目录统计
     let identityCount = 0;
-    try {
-      const ir = await fetch('/api/matrix/system-info');
-      const id = await ir.json();
-      identityCount = id.identity_dirs || 0;
-    } catch(e) {}
+    if (sysRes.ok) {
+      try { const id = await sysRes.json(); identityCount = id.identity_dirs || 0; } catch(e) {}
+    }
+    // AI 消耗（今日）
+    let aiToday = {};
+    if (aiRes.ok) {
+      try { const au = await aiRes.json(); aiToday = au.today || {}; } catch(e) {}
+    }
+    const fmt = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n || 0);
 
-    if (metaEl) metaEl.textContent = `${d.total_machines} 机器 · ${d.total_accounts} 账号 · 🪪 ${identityCount} 身份目录`;
+    if (metaEl) metaEl.textContent = `${d.total_machines} 机器 · ${d.total_accounts} 账号 · 🪪 ${identityCount} 身份目录 · 🤖 今日AI ${fmt(aiToday.total_tokens || 0)} tokens ¥${(aiToday.cost_estimate || 0).toFixed(3)}`;
 
     // 检测重复
     const allIds = {};
