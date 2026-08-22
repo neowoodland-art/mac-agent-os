@@ -221,7 +221,8 @@ function _ia_parse(uid) {
     }
     // 链接行
     if (line.match(/^https?:\/\//)) {
-      items.push({ title: currentTitle || '无标题', url: line.split(/[?\s]/)[0] });
+      // 只按空白切分，保留 query string（抖音 jingxuan 链接的 modal_id 在 ? 后，截断会导致所有视频 url 相同）
+      items.push({ title: currentTitle || '无标题', url: line.trim().split(/\s+/)[0] });
       currentTitle = '';
       continue;
     }
@@ -231,7 +232,7 @@ function _ia_parse(uid) {
       continue;
     }
     if (line.match(/^https?:\/\//)) {
-      items.push({ title: currentTitle || '无标题', url: line.split(/[?\s]/)[0] });
+      items.push({ title: currentTitle || '无标题', url: line.trim().split(/\s+/)[0] });
       currentTitle = '';
     }
   }
