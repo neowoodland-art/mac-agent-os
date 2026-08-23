@@ -146,6 +146,8 @@ export async function loadView(container) {
           <span style="font-size:10px;color:var(--text2)">执行间隔</span>
           <input id="ia_interval_${uid}" type="text" value="300-600" style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px" title="每步间隔(秒)">
           <span style="font-size:9px;color:var(--text2)">秒</span>
+          <button onclick="window._ia_saveDefaults_${uid}()" title="把当前互动动作/评论闸门/评论内容设置/引导内容存为默认，下次打开自动填充" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">💾 存为默认</button>
+          <button onclick="window._ia_clearDefaults_${uid}()" title="清除已保存的默认设置，恢复系统默认值" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">↩️ 恢复默认</button>
           <span style="flex:1"></span>
           <button onclick="window._ia_exec_${uid}()" style="background:#22c55e;color:#000;border:none;padding:5px 16px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">🚀 执行所选互动</button>
         </div>
@@ -202,6 +204,11 @@ export async function loadView(container) {
   window[`_ia_delComment_${self}`] = (ui, ci) => _ia_delComment(ui, ci);
   window[`_ia_delVideo_${self}`] = (ui) => _ia_delVideo(ui);
   window[`_ia_regenVideo_${self}`] = (ui) => _ia_regenVideo(ui);
+  window[`_ia_saveDefaults_${self}`] = () => _ia_saveDefaults(self);
+  window[`_ia_clearDefaults_${self}`] = () => _ia_clearDefaults(self);
+
+  // 应用已保存的默认设置（互动动作/闸门/引导/AI开关；角色输入框由 renderRoleGrid 初始化）
+  _ia_loadDefaults(uid);
 }
 
 // ── 解析标题+链接 ──
@@ -362,15 +369,19 @@ function _ia_renderRoleGrid(uid) {
   const grid = document.getElementById(`ia_roleGrid_${uid}`);
   if (!grid) return;
   const groups = ['灌水/搞怪', '情感', '疑问问答', '引导'];
+  const roleDefs = _ia_getDefaultRoles();  // localStorage 角色默认值（存为默认后生效）
   grid.innerHTML = groups.map(g => `
     <div style="grid-column:1/-1;font-size:9px;color:var(--text2);margin-top:3px;font-weight:500;border-top:1px solid var(--border);padding-top:3px">${g}</div>
-    ${IA_ROLES.filter(r => r.group === g).map(r => `
+    ${IA_ROLES.filter(r => r.group === g).map(r => {
+      const initVal = (roleDefs && roleDefs[r.id] !== undefined) ? roleDefs[r.id] : (r.id.startsWith('guide_') ? 1 : 0);
+      return `
       <div style="display:flex;align-items:center;gap:4px">
         <span style="flex:1;min-width:64px">${r.label}</span>
-        <input type="number" id="ia_role_${r.id}_${uid}" min="0" max="20" value="${r.id.startsWith('guide_') ? 1 : 0}"
+        <input type="number" id="ia_role_${r.id}_${uid}" min="0" max="20" value="${initVal}"
                oninput="window._ia_updateRoleTotal_${uid}()"
                style="width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:10px">
-      </div>`).join('')}
+      </div>`;
+    }).join('')}
   `).join('');
 }
 
@@ -395,6 +406,76 @@ function _ia_updateRoleTotal(uid) {
 function _ia_escapeHtml(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── 存为默认 / 恢复默认（localStorage 持久化互动+评论设置） ──
+const IA_DEFAULTS_KEY = 'matrix_interact_defaults_v1';
+
+function _ia_collectDefaults(uid) {
+  const g = id => document.getElementById(`${id}_${uid}`);
+  const v = (id, fb) => { const el = g(id); return el ? el.value : fb; };
+  const roles = {};
+  IA_ROLES.forEach(r => {
+    const el = g(`ia_role_${r.id}`);
+    if (el) roles[r.id] = parseInt(el.value || '0', 10) || 0;
+  });
+  return {
+    ratio_like: v('ia_ratio_like', '90'),
+    ratio_collect: v('ia_ratio_collect', '30'),
+    ratio_comment: v('ia_ratio_comment', '60'),
+    interval: v('ia_interval', '300-600'),
+    cpv: v('ia_cpv', '5'),
+    cdl: v('ia_cdl', '20'),
+    pace: v('ia_pace', 'loose'),
+    guide_points: v('ia_guidePoints', ''),
+    guide_ratio: v('ia_guideRatio', '80'),
+    ai_enhance: g('ia_aiEnhance') ? g('ia_aiEnhance').checked : false,
+    roles,
+  };
+}
+
+function _ia_saveDefaults(uid) {
+  const d = _ia_collectDefaults(uid);
+  try {
+    localStorage.setItem(IA_DEFAULTS_KEY, JSON.stringify(d));
+    alert('✅ 已存为默认（互动动作 + 评论闸门 + 评论内容设置 + 引导内容）\n下次打开自动填充');
+  } catch (e) {
+    alert('❌ 保存失败: ' + e.message);
+  }
+}
+
+// 填充非角色输入框（挂载时调用一次；角色输入框由 renderRoleGrid 用角色默认值初始化）
+function _ia_loadDefaults(uid) {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(IA_DEFAULTS_KEY) || 'null'); } catch (e) { return null; }
+  if (!d) return null;
+  const g = id => document.getElementById(`${id}_${uid}`);
+  const set = (id, val) => { const el = g(id); if (el && val !== undefined && val !== null && val !== '') el.value = val; };
+  set('ia_ratio_like', d.ratio_like);
+  set('ia_ratio_collect', d.ratio_collect);
+  set('ia_ratio_comment', d.ratio_comment);
+  set('ia_interval', d.interval);
+  set('ia_cpv', d.cpv);
+  set('ia_cdl', d.cdl);
+  set('ia_pace', d.pace);
+  set('ia_guidePoints', d.guide_points);
+  set('ia_guideRatio', d.guide_ratio);
+  const aiEl = g('ia_aiEnhance');
+  if (aiEl && d.ai_enhance !== undefined) aiEl.checked = !!d.ai_enhance;
+  return d;
+}
+
+// 只读角色默认值（renderRoleGrid 初始化输入框用，不写 DOM）
+function _ia_getDefaultRoles() {
+  try {
+    const d = JSON.parse(localStorage.getItem(IA_DEFAULTS_KEY) || 'null');
+    return (d && typeof d.roles === 'object') ? d.roles : null;
+  } catch (e) { return null; }
+}
+
+function _ia_clearDefaults(uid) {
+  localStorage.removeItem(IA_DEFAULTS_KEY);
+  location.reload();
 }
 
 async function _ia_genComments(uid) {
