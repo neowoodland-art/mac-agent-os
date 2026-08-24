@@ -132,6 +132,26 @@ function renderLayout() {
           <button id="csAddBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">➕ 添加</button>
         </div>
         <div id="csList" style="font-size:11px"></div>
+
+        <!-- 批量跟踪视频博主（可折叠） -->
+        <div style="margin-top:8px;border-top:1px dashed var(--border);padding-top:6px">
+          <div onclick="toggleBatchTrackPanel()" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;user-select:none">
+            <span id="batchTrackArrow">▶</span>
+            <span>📌 批量跟踪视频博主</span>
+            <span id="batchTrackStatus" style="font-size:9px;color:var(--text2)"></span>
+          </div>
+          <div id="batchTrackBody" style="display:none;margin-top:4px">
+            <div style="font-size:10px;color:var(--text2);margin-bottom:3px">粘贴视频链接（每行一个，支持「标题: xxx + 链接」格式），解析后批量跟踪博主（重复博主自动跳过）</div>
+            <textarea id="batchTrackInput" rows="6" placeholder="标题: 视频标题&#10;https://www.douyin.com/jingxuan?modal_id=xxx&#10;标题: 另一个&#10;https://www.douyin.com/video/yyy"
+              style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:10px;font-family:monospace;resize:vertical"></textarea>
+            <div style="display:flex;gap:4px;margin-top:4px;align-items:center;flex-wrap:wrap">
+              <button id="batchTrackParseBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">🔍 解析链接</button>
+              <button id="batchTrackBtn" style="background:#6366f1;color:#fff;border:none;padding:3px 12px;border-radius:4px;cursor:pointer;font-size:10px">📌 批量跟踪</button>
+              <span id="batchTrackCount" style="font-size:10px;color:var(--text2)"></span>
+            </div>
+            <div id="batchTrackLog" style="margin-top:4px;max-height:200px;overflow-y:auto;background:var(--bg3);border-radius:4px;padding:4px;font-family:monospace;font-size:10px;white-space:pre-wrap"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -230,6 +250,12 @@ function bindEvents(container) {
   if (addBtn) {
     addBtn.addEventListener('click', addSource);
   }
+
+  // 批量跟踪视频博主
+  const btParseBtn = document.getElementById('batchTrackParseBtn');
+  if (btParseBtn) btParseBtn.addEventListener('click', doBatchTrackParse);
+  const btBtn = document.getElementById('batchTrackBtn');
+  if (btBtn) btBtn.addEventListener('click', doBatchTrack);
 
   // 加载远程机器列表
   loadMachines();
@@ -648,6 +674,77 @@ async function addSource() {
   } catch (e) {
     alert('❌ ' + e.message);
   }
+}
+
+// ── 批量跟踪视频博主（抓取源） ──
+
+function toggleBatchTrackPanel() {
+  const body = document.getElementById('batchTrackBody');
+  const arrow = document.getElementById('batchTrackArrow');
+  if (!body || !arrow) return;
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? 'block' : 'none';
+  arrow.textContent = isHidden ? '▼' : '▶';
+}
+
+function _parseBatchTrackUrls() {
+  const text = document.getElementById('batchTrackInput')?.value || '';
+  const urls = [...text.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0].trim()).filter(Boolean);
+  return [...new Set(urls)];  // 去重（同一视频只跟踪一次）
+}
+
+function doBatchTrackParse() {
+  const urls = _parseBatchTrackUrls();
+  const el = document.getElementById('batchTrackCount');
+  if (el) el.textContent = urls.length ? `✅ 解析到 ${urls.length} 条链接（已去重）` : '⚠️ 未解析到链接';
+}
+
+async function doBatchTrack() {
+  const urls = _parseBatchTrackUrls();
+  if (!urls.length) { alert('请先粘贴视频链接'); return; }
+  if (!confirm(`批量跟踪 ${urls.length} 个视频的博主？\n（每个视频解析出博主加入「博主监控」，已跟踪的自动跳过）`)) return;
+
+  const logEl = document.getElementById('batchTrackLog');
+  const btn = document.getElementById('batchTrackBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 跟踪中...'; }
+  if (logEl) logEl.textContent = `📌 开始批量跟踪 ${urls.length} 条...\n`;
+
+  let ok = 0, dup = 0, fail = 0;
+  const fails = [];
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
+    if (logEl) logEl.textContent += `[${i + 1}/${urls.length}] ${url.slice(0, 55)}...\n`;
+    try {
+      const r = await fetch('/api/scrape/track-author', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const d = await r.json();
+      if (d.status === 'ok' && d.already) {
+        dup++;
+        if (logEl) logEl.textContent += `   ⏭️ 已存在: ${d.message || ''}\n`;
+      } else if (d.status === 'ok') {
+        ok++;
+        if (logEl) logEl.textContent += `   ✅ 已跟踪: ${d.item?.nickname || d.message || ''}\n`;
+      } else {
+        fail++;
+        fails.push(url + ' → ' + (d.message || '失败'));
+        if (logEl) logEl.textContent += `   ❌ ${d.message || '失败'}\n`;
+      }
+    } catch (e) {
+      fail++;
+      fails.push(url + ' → ' + e.message);
+      if (logEl) logEl.textContent += `   ❌ 网络错误: ${e.message}\n`;
+    }
+  }
+  if (logEl) {
+    logEl.textContent += `\n📊 完成: 新增 ${ok} / 已存在 ${dup} / 失败 ${fail}\n`;
+    if (fails.length) logEl.textContent += `\n失败明细:\n${fails.join('\n')}\n`;
+  }
+  const statusEl = document.getElementById('batchTrackStatus');
+  if (statusEl) statusEl.textContent = `上次: 新增${ok} / 已有${dup} / 失败${fail}`;
+  if (btn) { btn.disabled = false; btn.textContent = '📌 批量跟踪'; }
 }
 
 async function loadSources() {

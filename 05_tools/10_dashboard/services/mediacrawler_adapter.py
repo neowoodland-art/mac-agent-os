@@ -111,6 +111,10 @@ def _extract_aweme_id(url: str):
     m = re.search(r'iesdouyin\.com/share/video/(\d+)', url)
     if m:
         return m.group(1)
+    # 抖音精选页 / 发现页：modal_id 就是视频 aweme_id（jingxuan?modal_id=xxx）
+    m = re.search(r'(?:jingxuan|discover|modal_id)[=?/](\d+)', url)
+    if m:
+        return m.group(1)
     return None
 
 
