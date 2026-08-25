@@ -2206,3 +2206,7 @@ function updateTrackedRow(id, item) {
   const timeEl = div.querySelector('.dt-track-time');
   if (timeEl) timeEl.textContent = (item.collected_at || '').slice(0, 19);
 }
+
+// ── 暴露给内联事件处理器（ES module 环境：顶层函数不在全局作用域） ──
+window.toggleCollectFold = toggleCollectFold;
+window.updateSelButtons = updateSelButtons;
