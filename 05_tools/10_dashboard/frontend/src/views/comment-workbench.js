@@ -259,10 +259,12 @@ window._cwParseUrls = async (uid) => {
     } else {
       // 这一行不是链接 → 可能是标题
       // 如果之前有未配对的标题，合并（换行用空格拼接）
+      // 兼容「标题: xxx」前缀（评论互动复制过来的格式）
+      const cleaned = line.replace(/^(?:标题|title|视频标题)[：:]\s*/i, '').trim() || line;
       if (pendingTitle) {
-        pendingTitle += ' ' + line;
+        pendingTitle += ' ' + cleaned;
       } else {
-        pendingTitle = line;
+        pendingTitle = cleaned;
       }
     }
   }

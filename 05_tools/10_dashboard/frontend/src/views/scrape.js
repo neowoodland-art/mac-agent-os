@@ -49,9 +49,9 @@ function renderLayout() {
     <!-- Tab 栏 -->
     <div style="display:flex;gap:0;margin-bottom:10px;border-bottom:1px solid var(--border)">
       <div class="collect-tab active" data-tab="run" style="padding:6px 14px;cursor:pointer;border-bottom:2px solid #6366f1;font-weight:600;font-size:12px">📡 新建抓取</div>
-      <div class="collect-tab" data-tab="sources" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">📋 抓取源</div>
-      <div class="collect-tab" data-tab="dy-track" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">🎵 抖追踪</div>
-      <div class="collect-tab" data-tab="dy-tracking" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">📡 跟踪中</div>
+      <div class="collect-tab" data-tab="sources" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">🔗 解析链接</div>
+      <div class="collect-tab" data-tab="dy-track" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">🔍 初次抓取</div>
+      <div class="collect-tab" data-tab="dy-tracking" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">📌 跟踪视频链接</div>
       <div class="collect-tab" data-tab="dy-authors" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">👥 博主监控</div>
       <div class="collect-tab" data-tab="history" style="padding:6px 14px;cursor:pointer;color:var(--text2);font-size:12px">📜 历史</div>
       <div style="flex:1"></div>
@@ -115,41 +115,63 @@ function renderLayout() {
       </div>
     </div>
 
-    <!-- Tab: 抓取源 -->
+    <!-- Tab: 解析链接 -->
     <div id="collectTabSources" class="collect-tab-content" style="display:none">
       <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
-        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
-          <input id="csTarget" type="text" placeholder="sec_uid / URL" style="flex:1;min-width:150px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
-          <select id="csPlatform" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:3px;font-size:10px">
-            <option value="douyin">🎵 抖音</option>
-            <option value="xiaohongshu">📕 小红书</option>
-          </select>
-          <select id="csType" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:3px;font-size:10px">
-            <option value="user">用户主页</option>
-            <option value="keyword">关键词</option>
-          </select>
-          <input id="csName" type="text" placeholder="显示名称" style="width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
-          <button id="csAddBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">➕ 添加</button>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px">🔗 解析链接：粘贴任何含抖音链接的内容（纯链接 / 标题+链接 / MD 表格），解析成标准格式后「📥 导入到初次抓取」进行采集。标题/博主缺省会在采集时自动补全。</div>
+        <textarea id="csInput" rows="7" placeholder="支持格式：&#10;1. 纯链接（每行一个）&#10;2. 标题 + 链接对：&#10;   标题: 视频标题&#10;   https://www.douyin.com/video/xxx&#10;3. MD 表格：| 标题 | 链接 | 评论数 |&#10;4. 混合粘贴（自动识别）"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px;font-family:monospace;resize:vertical"></textarea>
+        <div style="display:flex;gap:4px;margin-top:5px;align-items:center;flex-wrap:wrap">
+          <button id="csParseBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:10px">🔍 解析</button>
+          <button id="csImportBtn" style="background:#22c55e;color:#000;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">📥 导入到初次抓取</button>
+          <button id="csClearBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px">🗑 清空</button>
+          <span id="csParseCount" style="font-size:10px;color:var(--text2)"></span>
         </div>
-        <div id="csList" style="font-size:11px"></div>
+        <div id="csParsedList" style="margin-top:6px;font-size:11px"></div>
 
-        <!-- 批量跟踪视频博主（可折叠） -->
+        <!-- 折叠: URL 批量导入（tyhtak 等 API 数据源） -->
         <div style="margin-top:8px;border-top:1px dashed var(--border);padding-top:6px">
-          <div onclick="toggleBatchTrackPanel()" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;user-select:none">
-            <span id="batchTrackArrow">▶</span>
-            <span>📌 批量跟踪视频博主</span>
-            <span id="batchTrackStatus" style="font-size:9px;color:var(--text2)"></span>
+          <div onclick="toggleCollectFold('urlImportFold','urlImportArrow')" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;user-select:none">
+            <span id="urlImportArrow">▶</span><span>📡 URL 批量导入（API 数据源）</span>
           </div>
-          <div id="batchTrackBody" style="display:none;margin-top:4px">
-            <div style="font-size:10px;color:var(--text2);margin-bottom:3px">粘贴视频链接（每行一个，支持「标题: xxx + 链接」格式），解析后批量跟踪博主（重复博主自动跳过）</div>
-            <textarea id="batchTrackInput" rows="6" placeholder="标题: 视频标题&#10;https://www.douyin.com/jingxuan?modal_id=xxx&#10;标题: 另一个&#10;https://www.douyin.com/video/yyy"
-              style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:10px;font-family:monospace;resize:vertical"></textarea>
-            <div style="display:flex;gap:4px;margin-top:4px;align-items:center;flex-wrap:wrap">
-              <button id="batchTrackParseBtn" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px">🔍 解析链接</button>
-              <button id="batchTrackBtn" style="background:#6366f1;color:#fff;border:none;padding:3px 12px;border-radius:4px;cursor:pointer;font-size:10px">📌 批量跟踪</button>
-              <span id="batchTrackCount" style="font-size:10px;color:var(--text2)"></span>
+          <div id="urlImportFold" style="display:none;margin-top:4px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <input id="dtApiUrl" type="text" placeholder="https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1"
+                     style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px"
+                     value="https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1">
+              <button id="dtImportBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📥 导入</button>
+              <select id="dtPageSizeSel" title="每页条数" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 4px;border-radius:4px;font-size:10px">
+                <option value="100">100条/页</option><option value="200">200条/页</option><option value="300">300条/页</option>
+              </select>
+              <button id="dtPrevPageBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">⏮ 上一页</button>
+              <button id="dtNextPageBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📄 下一页</button>
+              <input id="dtPageJump" type="number" min="1" placeholder="页码" style="display:none;width:50px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:4px;font-size:10px">
+              <button id="dtPageGoBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px">跳转</button>
+              <span id="dtPageInfo" style="display:none;font-size:10px;color:var(--text2);font-family:monospace"></span>
+              <span id="dtStatus" style="font-size:10px;color:var(--text2);font-family:monospace"></span>
             </div>
-            <div id="batchTrackLog" style="margin-top:4px;max-height:200px;overflow-y:auto;background:var(--bg3);border-radius:4px;padding:4px;font-family:monospace;font-size:10px;white-space:pre-wrap"></div>
+            <div style="font-size:9px;color:var(--text2);margin-top:3px">导入的链接会合并进「初次抓取」列表，之后到初次抓取统一采集/跟踪</div>
+          </div>
+        </div>
+
+        <!-- 折叠: 源列表管理（新建抓取用） -->
+        <div style="margin-top:8px;border-top:1px dashed var(--border);padding-top:6px">
+          <div onclick="toggleCollectFold('csListFold','csListArrow')" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;user-select:none">
+            <span id="csListArrow">▶</span><span>📚 源列表管理（新建抓取用）</span>
+          </div>
+          <div id="csListFold" style="display:none;margin-top:4px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <input id="csTarget" type="text" placeholder="sec_uid / URL" style="flex:1;min-width:150px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+              <select id="csPlatform" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:3px;font-size:10px">
+                <option value="douyin">🎵 抖音</option><option value="xiaohongshu">📕 小红书</option>
+              </select>
+              <select id="csType" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:3px;font-size:10px">
+                <option value="user">用户主页</option><option value="keyword">关键词</option>
+              </select>
+              <input id="csName" type="text" placeholder="显示名称" style="width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+              <button id="csAddBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">➕ 添加</button>
+            </div>
+            <div id="csList" style="font-size:11px;margin-top:4px"></div>
           </div>
         </div>
       </div>
@@ -183,29 +205,24 @@ function renderLayout() {
       </div>
     </div>
 
-    <!-- Tab: 抖追踪 -->
+    <!-- Tab: 初次抓取 -->
     <div id="collectTabDy-track" class="collect-tab-content" style="display:none">
       <div style="background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)">
-        <!-- 导入区 -->
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px">🔍 初次抓取：对「解析链接」导入的视频进行第一次采集（补全标题/博主/互动数），采集后可选择 <b>📌 跟踪视频链接</b> / <b>👤 跟踪博主</b> / <b>📋 复制给评论互动</b></div>
+        <!-- 导入来源提示 -->
+        <div id="dtImportHint" style="font-size:10px;color:var(--text2);margin-bottom:6px;background:var(--bg3);border-radius:4px;padding:4px 8px">📥 暂无导入链接 — 请先到「🔗 解析链接」粘贴内容 → 解析 → 导入</div>
+
+        <!-- 操作区 -->
         <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
-          <input id="dtApiUrl" type="text" placeholder="https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1" 
-                 style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px"
-                 value="https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1">
-          <button id="dtImportBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📥 导入</button>
-          <select id="dtPageSizeSel" title="每页条数" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 4px;border-radius:4px;font-size:10px">
-            <option value="100">100条/页</option>
-            <option value="200">200条/页</option>
-            <option value="300">300条/页</option>
-          </select>
-          <button id="dtPrevPageBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">⏮ 上一页</button>
-          <button id="dtNextPageBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📄 下一页</button>
-          <input id="dtPageJump" type="number" min="1" placeholder="页码" style="display:none;width:50px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:4px;font-size:10px">
-          <button id="dtPageGoBtn" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px">跳转</button>
           <button id="dtBatchCollectBtn" style="display:none;background:#f97316;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">⚡ 全部采集</button>
           <button id="dtCollectSelectedBtn" style="display:none;background:#22c55e;color:#000;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">✅ 采集选中</button>
-          <button id="dtTrackSelectedBtn" style="display:none;background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📌 跟踪选中</button>
-          <span id="dtPageInfo" style="display:none;font-size:10px;color:var(--text2);font-family:monospace"></span>
-          <span id="dtStatus" style="font-size:10px;color:var(--text2);font-family:monospace"></span>
+          <button id="dtTrackSelectedBtn" style="display:none;background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px" title="把选中的视频加入「跟踪视频链接」池">📌 跟踪视频链接</button>
+          <button id="dtTrackAuthorSelectedBtn" style="display:none;background:#8b5cf6;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px" title="把选中视频的博主加入「博主监控」（需先采集）">👤 跟踪博主</button>
+          <button id="dtCopySelVideos" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制选中</button>
+          <span id="dtFilterCount" style="font-size:10px;color:var(--text2)"></span>
+          <input id="dtFilterInput" type="text" placeholder="🔍 筛选标题/博主" style="width:140px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:10px">
+          <span style="flex:1"></span>
+          <button id="dtTrackAllBtn" style="display:none;background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:9px">📌 全选跟踪</button>
         </div>
         <!-- 结果区：视频卡片列表 -->
         <div id="dtVideoList" style="font-size:11px;"></div>
@@ -251,11 +268,22 @@ function bindEvents(container) {
     addBtn.addEventListener('click', addSource);
   }
 
-  // 批量跟踪视频博主
-  const btParseBtn = document.getElementById('batchTrackParseBtn');
-  if (btParseBtn) btParseBtn.addEventListener('click', doBatchTrackParse);
-  const btBtn = document.getElementById('batchTrackBtn');
-  if (btBtn) btBtn.addEventListener('click', doBatchTrack);
+  // 解析链接：解析 / 导入 / 清空
+  const csParseBtn = document.getElementById('csParseBtn');
+  if (csParseBtn) csParseBtn.addEventListener('click', doParseLinks);
+  const csImportBtn = document.getElementById('csImportBtn');
+  if (csImportBtn) csImportBtn.addEventListener('click', doImportToDyTrack);
+  const csClearBtn = document.getElementById('csClearBtn');
+  if (csClearBtn) csClearBtn.addEventListener('click', () => {
+    document.getElementById('csInput').value = '';
+    document.getElementById('csParsedList').innerHTML = '';
+    document.getElementById('csParseCount').textContent = '';
+    _parsedLinks = [];
+  });
+
+  // 初次抓取：多选跟踪博主
+  const dtTrackAuthorSelBtn = document.getElementById('dtTrackAuthorSelectedBtn');
+  if (dtTrackAuthorSelBtn) dtTrackAuthorSelBtn.addEventListener('click', doTrackAuthorSelected);
 
   // 加载远程机器列表
   loadMachines();
@@ -676,75 +704,126 @@ async function addSource() {
   }
 }
 
-// ── 批量跟踪视频博主（抓取源） ──
+// ── 解析链接（多格式解析 → 导入初次抓取） ──
 
-function toggleBatchTrackPanel() {
-  const body = document.getElementById('batchTrackBody');
-  const arrow = document.getElementById('batchTrackArrow');
+let _parsedLinks = [];  // 会话内解析结果 [{title, url}]
+
+function toggleCollectFold(foldId, arrowId) {
+  const body = document.getElementById(foldId);
+  const arrow = document.getElementById(arrowId);
   if (!body || !arrow) return;
   const isHidden = body.style.display === 'none';
   body.style.display = isHidden ? 'block' : 'none';
   arrow.textContent = isHidden ? '▼' : '▶';
 }
 
-function _parseBatchTrackUrls() {
-  const text = document.getElementById('batchTrackInput')?.value || '';
-  const urls = [...text.matchAll(/https?:\/\/[^\s]+/g)].map(m => m[0].trim()).filter(Boolean);
-  return [...new Set(urls)];  // 去重（同一视频只跟踪一次）
+// 多格式解析器：纯链接 / 标题+链接对 / MD 表格 / 混合 → [{title, url}]（去重）
+function _parseLinksAny(text) {
+  const entries = [];
+  const seen = new Set();
+  const lines = String(text || '').split('\n').map(s => s.trim()).filter(Boolean);
+  let pendingTitle = '';
+  const DOUYIN_RE = /https?:\/\/(?:www\.)?(?:v\.)?douyin\.com\/[^\s|]+/;
+  const MD_RE = /^\|\s*(.*?)\s*\|\s*(https?:\/\/[^\s|]+)\s*\|\s*\d+\s*\|$/;
+  const PREFIX_RE = /^(?:标题|title|视频标题)[：:]\s*(.*)$/i;
+
+  const push = (url, title) => {
+    url = (url || '').trim();
+    if (!url || !DOUYIN_RE.test(url)) return;
+    if (seen.has(url)) return;  // 去重
+    seen.add(url);
+    let t = (title || '').trim();
+    const pm = t.match(PREFIX_RE);
+    if (pm) t = pm[1].trim();  // 剥离「标题: 」前缀
+    entries.push({ url, title: t });
+  };
+
+  for (const line of lines) {
+    // MD 表格行
+    const md = line.match(MD_RE);
+    if (md) { push(md[2], md[1]); continue; }
+    // 纯链接行（可能带前缀文本）
+    const urls = line.match(/https?:\/\/[^\s|]+/g) || [];
+    if (urls.length) {
+      // 标题 + 链接同行：链接前的文本作为标题
+      const pre = line.replace(/https?:\/\/[^\s|]+/g, '').replace(/[|｜\s]+/g, ' ').trim();
+      const t = pre || pendingTitle;
+      urls.forEach(u => push(u, t));
+      pendingTitle = '';
+    } else {
+      // 非链接行 → 标题候选
+      pendingTitle = pendingTitle ? pendingTitle + ' ' + line : line;
+    }
+  }
+  return entries;
 }
 
-function doBatchTrackParse() {
-  const urls = _parseBatchTrackUrls();
-  const el = document.getElementById('batchTrackCount');
-  if (el) el.textContent = urls.length ? `✅ 解析到 ${urls.length} 条链接（已去重）` : '⚠️ 未解析到链接';
+function doParseLinks() {
+  const text = document.getElementById('csInput')?.value || '';
+  if (!text.trim()) { alert('请粘贴包含抖音链接的内容'); return; }
+  _parsedLinks = _parseLinksAny(text);
+  const countEl = document.getElementById('csParseCount');
+  if (countEl) countEl.textContent = _parsedLinks.length ? `✅ 解析到 ${_parsedLinks.length} 条` : '⚠️ 未解析到抖音链接';
+  const listEl = document.getElementById('csParsedList');
+  if (!listEl) return;
+  if (!_parsedLinks.length) { listEl.innerHTML = ''; return; }
+  listEl.innerHTML = '<div style="font-size:9px;color:var(--text2);margin-bottom:3px">解析结果（标题/博主缺省会在采集时补全）：</div>'
+    + _parsedLinks.map((p, i) => `
+      <div style="display:flex;gap:4px;align-items:center;padding:2px 4px;border-bottom:1px solid var(--border);font-size:10px">
+        <span style="color:var(--text2);width:18px;flex-shrink:0">${i + 1}.</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.url}">${p.title || '<span style="color:var(--text2)">待采集补全标题</span>'}</span>
+        <span style="font-size:9px;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.url}</span>
+      </div>`).join('');
 }
 
-async function doBatchTrack() {
-  const urls = _parseBatchTrackUrls();
-  if (!urls.length) { alert('请先粘贴视频链接'); return; }
-  if (!confirm(`批量跟踪 ${urls.length} 个视频的博主？\n（每个视频解析出博主加入「博主监控」，已跟踪的自动跳过）`)) return;
+function doImportToDyTrack() {
+  const list = _parsedLinks.length ? _parsedLinks : _parseLinksAny(document.getElementById('csInput')?.value || '');
+  if (!list.length) { alert('请先粘贴内容并解析'); return; }
+  // 合并进初次抓取列表（去重）
+  let added = 0;
+  const exist = new Set(_dyVideos.map(v => v.url));
+  for (const p of list) {
+    if (exist.has(p.url)) continue;
+    _dyVideos.push({ id: 'imp_' + p.url, url: p.url, title: p.title || '', author: '' });
+    exist.add(p.url);
+    added++;
+  }
+  if (!added && !list.length) { alert('没有新的链接可导入'); return; }
+  _parsedLinks = [];
+  document.getElementById('csInput').value = '';
+  document.getElementById('csParsedList').innerHTML = '';
+  document.getElementById('csParseCount').textContent = '';
+  // 切到初次抓取并渲染
+  switchTab('dy-track');
+  loadDyTrack();
+  dtLog(`📥 已导入 ${added} 条到初次抓取（共 ${_dyVideos.length} 条）`);
+}
 
-  const logEl = document.getElementById('batchTrackLog');
-  const btn = document.getElementById('batchTrackBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 跟踪中...'; }
-  if (logEl) logEl.textContent = `📌 开始批量跟踪 ${urls.length} 条...\n`;
-
+// 初次抓取：多选跟踪博主（需已采集）
+async function doTrackAuthorSelected() {
+  const indices = getSelectedIndices();
+  if (!indices.length) { alert('请先勾选视频'); return; }
+  if (!confirm(`跟踪 ${indices.length} 个选中视频的博主？\n（每个视频解析出博主加入「博主监控」，已跟踪的自动跳过；需已采集）`)) return;
   let ok = 0, dup = 0, fail = 0;
-  const fails = [];
-  for (let i = 0; i < urls.length; i++) {
-    const url = urls[i];
-    if (logEl) logEl.textContent += `[${i + 1}/${urls.length}] ${url.slice(0, 55)}...\n`;
+  for (const i of indices) {
+    const v = _dyVideos[i];
+    if (!v) continue;
+    const url = v.url;
     try {
       const r = await fetch('/api/scrape/track-author', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
       const d = await r.json();
-      if (d.status === 'ok' && d.already) {
-        dup++;
-        if (logEl) logEl.textContent += `   ⏭️ 已存在: ${d.message || ''}\n`;
-      } else if (d.status === 'ok') {
-        ok++;
-        if (logEl) logEl.textContent += `   ✅ 已跟踪: ${d.item?.nickname || d.message || ''}\n`;
-      } else {
-        fail++;
-        fails.push(url + ' → ' + (d.message || '失败'));
-        if (logEl) logEl.textContent += `   ❌ ${d.message || '失败'}\n`;
-      }
+      if (d.status === 'ok' && d.already) { dup++; dtLog(`⏭️ 博主已跟踪: ${d.message || ''}`); }
+      else if (d.status === 'ok') { ok++; dtLog(`👤 已跟踪博主: ${d.item?.nickname || d.message || ''}`); }
+      else { fail++; dtLog(`❌ ${url.slice(0, 45)}… ${d.message || '失败'}`); }
     } catch (e) {
       fail++;
-      fails.push(url + ' → ' + e.message);
-      if (logEl) logEl.textContent += `   ❌ 网络错误: ${e.message}\n`;
+      dtLog(`❌ 网络错误: ${e.message}`);
     }
   }
-  if (logEl) {
-    logEl.textContent += `\n📊 完成: 新增 ${ok} / 已存在 ${dup} / 失败 ${fail}\n`;
-    if (fails.length) logEl.textContent += `\n失败明细:\n${fails.join('\n')}\n`;
-  }
-  const statusEl = document.getElementById('batchTrackStatus');
-  if (statusEl) statusEl.textContent = `上次: 新增${ok} / 已有${dup} / 失败${fail}`;
-  if (btn) { btn.disabled = false; btn.textContent = '📌 批量跟踪'; }
+  dtLog(`📊 跟踪博主完成: 新增 ${ok} / 已存在 ${dup} / 失败 ${fail}`);
 }
 
 async function loadSources() {
@@ -835,11 +914,16 @@ async function loadDyTrack() {
   if (!listEl) return;
   const statusEl = document.getElementById('dtStatus');
   if (statusEl) statusEl.textContent = '';
+  // 更新导入来源提示
+  const hintEl = document.getElementById('dtImportHint');
+  if (hintEl) hintEl.textContent = _dyVideos.length
+    ? `📥 已导入 ${_dyVideos.length} 条视频 — 点击 🔍 采集补全信息后，可📌跟踪视频链接 / 👤跟踪博主 / 📋复制给评论互动`
+    : '📥 暂无导入链接 — 请先到「🔗 解析链接」粘贴内容 → 解析 → 导入';
   // 恢复缓存中的视频列表
   if (_dyVideos.length) {
     renderDyVideos(listEl);
   } else {
-    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:12px">⬆️ 在上方输入 API 地址后点击「导入列表」</div>';
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text2);font-size:12px">⬆️ 请先到「🔗 解析链接」粘贴内容（链接/标题+链接/MD表格），解析后导入到这里进行初次抓取</div>';
   }
 }
 
@@ -917,10 +1001,7 @@ function renderDyVideos(container) {
     let html = '<div style="display:flex;align-items:center;gap:4px;padding:2px 8px;margin-bottom:2px;font-size:9px;color:var(--text2)">'
     + '<input type="checkbox" id="dtSelAll" style="flex-shrink:0" onchange="var x=document.querySelectorAll(\'.dt-sel-cb\');for(var j=0;j<x.length;j++){x[j].checked=this.checked}updateSelButtons()">'
     + '<span>全选</span>'
-    + '<button id="dtTrackAllBtn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:1px 5px;border-radius:3px;cursor:pointer;font-size:9px">📌 全选跟踪</button>'
     + '<span style="flex:1"></span>'
-    + '<input id="dtFilterInput" type="text" placeholder="🔍 标题/作者关键字筛选" value="' + (window._dyFilter || '').replace(/"/g,'&quot;') + '" style="width:160px;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:2px 6px;border-radius:4px;font-size:10px" title="输入关键字动态筛选标题/作者">'
-    + '<button id="dtCopySelVideos" style="background:#6366f1;color:#fff;border:none;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:9px">📋 复制选中</button>'
     + '<span id="dtFilterCount">共 ' + _dyVideos.length + ' 条</span>'
     + '</div>';
   html += '<div style="display:flex;flex-direction:column;gap:6px">';
@@ -938,6 +1019,7 @@ function renderDyVideos(container) {
         </label>
         <span style="font-size:10px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.title || ''}">${v.title || '无标题'}</span>
         <span style="font-size:8px;color:var(--text2);flex-shrink:0">${String(v.author || '?')?.slice(0,10) || '?'}</span>
+        <button class="dt-track-author-btn" data-url="${(v.url || '').replace(/"/g,'&quot;')}" title="把该视频的博主加入「博主监控」（需先采集）" style="background:#8b5cf6;color:#fff;border:none;padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px;flex-shrink:0">👤</button>
         <a href="${v.url || '#'}" target="_blank" style="font-size:8px;color:var(--primary);flex-shrink:0">🔗</a>
       </div>
       <!-- 采集结果 -->
@@ -969,6 +1051,29 @@ function renderDyVideos(container) {
       } else {
         _dyTracked.delete(id);
       }
+    });
+  });
+  // 绑定行内跟踪博主按钮（需先采集）
+  container.querySelectorAll('.dt-track-author-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const url = btn.dataset.url;
+      if (!url) return;
+      btn.textContent = '⏳';
+      btn.disabled = true;
+      try {
+        const r = await fetch('/api/scrape/track-author', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const d = await r.json();
+        btn.textContent = d.status === 'ok' ? '✅' : '❌';
+        if (d.status === 'ok') dtLog('👤 已跟踪博主: ' + (d.item?.nickname || d.message || ''));
+        else dtLog('❌ 跟踪博主失败: ' + (d.message || ''));
+      } catch (e) {
+        btn.textContent = '❌';
+        dtLog('❌ 网络错误: ' + e.message);
+      }
+      setTimeout(() => { btn.textContent = '👤'; btn.disabled = false; }, 3000);
     });
   });
   updateBatchBtn();
@@ -1359,9 +1464,11 @@ function updateSelButtons() {
   const hasSel = getSelectedIndices().length > 0;
   const sel1 = document.getElementById('dtCollectSelectedBtn');
   const sel2 = document.getElementById('dtTrackSelectedBtn');
+  const sel3 = document.getElementById('dtTrackAuthorSelectedBtn');
   const copyBtn = document.getElementById('dtCopySelVideos');
   if (sel1) sel1.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
   if (sel2) sel2.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
+  if (sel3) sel3.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
   if (copyBtn) copyBtn.style.display = hasSel && _dyVideos.length > 0 ? 'inline-block' : 'none';
   
   // 全选勾选框同步
