@@ -132,14 +132,17 @@ function renderLayout() {
         <!-- 折叠: URL 批量导入（tyhtak 等 API 数据源） -->
         <div style="margin-top:8px;border-top:1px dashed var(--border);padding-top:6px">
           <div onclick="toggleCollectFold('urlImportFold','urlImportArrow')" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;user-select:none">
-            <span id="urlImportArrow">▶</span><span>📡 URL 批量导入（API 数据源）</span>
+            <span id="urlImportArrow">▶</span><span>📡 添加 API 数据源</span>
           </div>
           <div id="urlImportFold" style="display:none;margin-top:4px">
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-              <input id="dtApiUrl" type="text" placeholder="https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1"
+              <input id="dtApiUrl" type="text" placeholder="API 地址（如 tyhtak 活动接口）"
                      style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px"
                      value="https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1">
-              <button id="dtImportBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📥 导入</button>
+              <input id="csApiName" type="text" placeholder="源名称(如: 肛泰活动)" style="width:100px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+              <input id="csApiCategory" type="text" placeholder="类别(如: 肛肠科)" style="width:90px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+              <button id="dtSaveApiSourceBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">➕ 添加为源</button>
+              <button id="dtImportBtn" style="background:#22c55e;color:#000;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px" title="立即拉取该 API 并导入初次抓取（不存为源）">📥 立即导入</button>
               <select id="dtPageSizeSel" title="每页条数" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 4px;border-radius:4px;font-size:10px">
                 <option value="100">100条/页</option><option value="200">200条/页</option><option value="300">300条/页</option>
               </select>
@@ -150,27 +153,30 @@ function renderLayout() {
               <span id="dtPageInfo" style="display:none;font-size:10px;color:var(--text2);font-family:monospace"></span>
               <span id="dtStatus" style="font-size:10px;color:var(--text2);font-family:monospace"></span>
             </div>
-            <div style="font-size:9px;color:var(--text2);margin-top:3px">导入的链接会合并进「初次抓取」列表，之后到初次抓取统一采集/跟踪</div>
+            <div style="font-size:9px;color:var(--text2);margin-top:3px">「➕ 添加为源」保存到下方源列表，之后在源列表点 📥 导入；「📥 立即导入」直接拉取到初次抓取（不保存）</div>
           </div>
         </div>
 
-        <!-- 折叠: 源列表管理（新建抓取用） -->
+        <!-- 折叠: 源列表管理（所有数据源：API/链接列表/关键词，可导入/编辑/分析） -->
         <div style="margin-top:8px;border-top:1px dashed var(--border);padding-top:6px">
           <div onclick="toggleCollectFold('csListFold','csListArrow')" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;user-select:none">
-            <span id="csListArrow">▶</span><span>📚 源列表管理（新建抓取用）</span>
+            <span id="csListArrow">▶</span><span>📚 源列表（所有数据源，可 📥导入 / ✏️编辑 / 类别分析）</span>
           </div>
           <div id="csListFold" style="display:none;margin-top:4px">
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-              <input id="csTarget" type="text" placeholder="sec_uid / URL" style="flex:1;min-width:150px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
-              <select id="csPlatform" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:3px;font-size:10px">
-                <option value="douyin">🎵 抖音</option><option value="xiaohongshu">📕 小红书</option>
-              </select>
+              <input id="csName" type="text" placeholder="名称(如: 肛泰活动)" style="width:105px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
               <select id="csType" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:3px;font-size:10px">
-                <option value="user">用户主页</option><option value="keyword">关键词</option>
+                <option value="api">📡 API接口</option>
+                <option value="url_list">🔗 链接列表</option>
+                <option value="keyword">🔍 关键词</option>
+                <option value="user">👤 用户主页</option>
               </select>
-              <input id="csName" type="text" placeholder="显示名称" style="width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+              <input id="csTarget" type="text" placeholder="API地址 / 链接文本 / 关键词 / sec_uid" style="flex:1;min-width:140px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
+              <input id="csCategory" type="text" placeholder="类别" style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px" title="自定义分类，如 肛肠科/减重">
+              <input id="csNotes" type="text" placeholder="说明" style="width:100px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px" title="备注这个源是什么情况">
               <button id="csAddBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">➕ 添加</button>
             </div>
+            <div id="csCategoryBar" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;font-size:10px"></div>
             <div id="csList" style="font-size:11px;margin-top:4px"></div>
           </div>
         </div>
@@ -284,6 +290,11 @@ function bindEvents(container) {
   // 初次抓取：多选跟踪博主
   const dtTrackAuthorSelBtn = document.getElementById('dtTrackAuthorSelectedBtn');
   if (dtTrackAuthorSelBtn) dtTrackAuthorSelBtn.addEventListener('click', doTrackAuthorSelected);
+
+  // API 数据源：添加为源
+  const dtSaveApiBtn = document.getElementById('dtSaveApiSourceBtn');
+  if (dtSaveApiBtn) dtSaveApiBtn.addEventListener('click', doSaveApiSource);
+  window.setSourceFilter = setSourceFilter;  // 类别筛选（内联 onclick 用）
 
   // 加载远程机器列表
   loadMachines();
@@ -683,25 +694,138 @@ async function loadMachines() {
 
 async function addSource() {
   const target = document.getElementById('csTarget')?.value.trim();
-  const platform = document.getElementById('csPlatform')?.value;
-  const type = document.getElementById('csType')?.value;
-  const name = document.getElementById('csName')?.value.trim() || target;
-  if (!target) { alert('请填写目标'); return; }
+  const type = document.getElementById('csType')?.value || 'api';
+  const name = document.getElementById('csName')?.value.trim() || target.slice(0, 20);
+  const category = document.getElementById('csCategory')?.value.trim() || '';
+  const notes = document.getElementById('csNotes')?.value.trim() || '';
+  if (!target) { alert('请填写目标（API地址 / 链接文本 / 关键词 / sec_uid）'); return; }
 
   try {
     const r = await fetch('/api/scrape/sources', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform, source_type: type, target, display_name: name }),
+      body: JSON.stringify({ platform: 'douyin', source_type: type, target, display_name: name, category, notes }),
     });
     const d = await r.json();
     if (d.status !== 'ok') { alert('❌ ' + (d.message || '添加失败')); return; }
     document.getElementById('csTarget').value = '';
     document.getElementById('csName').value = '';
+    document.getElementById('csCategory').value = '';
+    document.getElementById('csNotes').value = '';
     loadSources();
   } catch (e) {
     alert('❌ ' + e.message);
   }
+}
+
+// API 数据源：添加为源（tyhtak 折叠区）
+async function doSaveApiSource() {
+  const apiUrl = document.getElementById('dtApiUrl')?.value.trim();
+  const name = document.getElementById('csApiName')?.value.trim() || apiUrl.slice(0, 20);
+  const category = document.getElementById('csApiCategory')?.value.trim() || '';
+  if (!apiUrl) { alert('请填写 API 地址'); return; }
+  try {
+    const r = await fetch('/api/scrape/sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: 'douyin', source_type: 'api', target: apiUrl, display_name: name, category, notes: '' }),
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') { alert('❌ ' + (d.message || '添加失败')); return; }
+    document.getElementById('csApiName').value = '';
+    document.getElementById('csApiCategory').value = '';
+    // 打开源列表并刷新
+    document.getElementById('csListFold').style.display = 'block';
+    document.getElementById('csListArrow').textContent = '▼';
+    loadSources();
+    alert('✅ 已添加为源「' + name + '」，到源列表点 📥 导入');
+  } catch (e) {
+    alert('❌ ' + e.message);
+  }
+}
+
+// 导入源到初次抓取（按类型分发）
+async function doImportSource(sourceId) {
+  let sources = [];
+  try {
+    const r = await fetch('/api/scrape/sources');
+    const d = await r.json();
+    sources = d.data || [];
+  } catch (e) { alert('❌ 获取源列表失败: ' + e.message); return; }
+  const s = sources.find(x => x.id === sourceId);
+  if (!s) { alert('❌ 源不存在'); return; }
+
+  if (s.source_type === 'api') {
+    try {
+      const ir = await fetch('/api/scrape/import-topics', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_url: s.target, page: 1, page_size: 300 }),
+      });
+      const id = await ir.json();
+      if (id.status !== 'ok') { alert('❌ ' + (id.message || '导入失败')); return; }
+      const items = (id.items || []).map(it => ({ id: it.id, url: it.url, title: it.title || '', author: it.author || '' }));
+      mergeIntoDyVideos(items);
+    } catch (e) { alert('❌ 导入失败: ' + e.message); return; }
+  } else if (s.source_type === 'url_list') {
+    const parsed = _parseLinksAny(s.target);
+    const items = parsed.map(p => ({ id: 'imp_' + p.url, url: p.url, title: p.title || '', author: '' }));
+    if (!items.length) { alert('⚠️ 该链接列表未解析到抖音链接'); return; }
+    mergeIntoDyVideos(items);
+  } else {
+    alert('该类型（关键词/用户主页）请用「📡 新建抓取」执行');
+    return;
+  }
+  // 标记已导入（更新 last_collected 由后端下次抓取刷新，这里前端提示即可）
+  switchTab('dy-track');
+  loadDyTrack();
+}
+
+function mergeIntoDyVideos(newItems) {
+  const exist = new Set(_dyVideos.map(v => v.url));
+  let added = 0;
+  for (const it of newItems) {
+    if (!it.url || exist.has(it.url)) continue;
+    _dyVideos.push(it);
+    exist.add(it.url);
+    added++;
+  }
+  dtLog(`📥 源导入完成: 新增 ${added} 条（初次抓取共 ${_dyVideos.length} 条）`);
+}
+
+// 编辑源（名称/类别/说明）
+async function doEditSource(sourceId) {
+  let sources = [];
+  try {
+    const r = await fetch('/api/scrape/sources');
+    const d = await r.json();
+    sources = d.data || [];
+  } catch (e) { alert('❌ ' + e.message); return; }
+  const s = sources.find(x => x.id === sourceId);
+  if (!s) return;
+  const name = prompt('源名称:', s.display_name || '');
+  if (name === null) return;
+  const category = prompt('类别（如 肛肠科/减重，留空=未分类）:', s.category || '') ?? '';
+  const notes = prompt('说明（这个源是什么情况）:', s.notes || '') ?? '';
+  try {
+    const r = await fetch('/api/scrape/sources/' + sourceId, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_name: name, category, notes }),
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') { alert('❌ ' + (d.message || '更新失败')); return; }
+    loadSources();
+  } catch (e) { alert('❌ ' + e.message); }
+}
+
+// 源类型显示名
+function _sourceTypeLabel(t) {
+  return ({ api: 'API接口', url_list: '链接列表', keyword: '关键词', user: '用户主页' })[t] || t;
+}
+
+// 类别筛选
+function setSourceFilter(cat) {
+  window._srcFilter = (window._srcFilter === cat) ? '' : cat;
+  loadSources();
 }
 
 // ── 解析链接（多格式解析 → 导入初次抓取） ──
@@ -834,19 +958,48 @@ async function loadSources() {
     const d = await r.json();
     if (d.status !== 'ok') { el.textContent = '❌ 加载失败'; return; }
     const sources = d.data || [];
-    if (!sources.length) { el.innerHTML = '<div style="color:var(--text2);padding:10px;text-align:center">暂无抓取源</div>'; return; }
+    if (!sources.length) { el.innerHTML = '<div style="color:var(--text2);padding:10px;text-align:center">暂无数据源 — 在上方添加，或到「📡 添加 API 数据源」把 API 存为源</div>'; return; }
 
-    let html = sources.map(s =>
-      `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid var(--border)">
-        <span>${s.display_name || s.target} <span style="color:var(--text2);font-size:9px">(${s.platform}/${s.source_type})</span></span>
-        <span style="font-size:9px;color:var(--text2)">${s.last_collected ? '上次: ' + s.last_collected.slice(0, 10) : '未抓取'} <button class="cs-del-btn" data-id="${s.id}" style="background:var(--bg3);color:var(--red);border:1px solid var(--border);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:9px">🗑</button></span>
+    // 类别统计条（点类别筛选）
+    const catBar = document.getElementById('csCategoryBar');
+    if (catBar) {
+      const cats = {};
+      sources.forEach(s => { const c = s.category || '未分类'; cats[c] = (cats[c] || 0) + 1; });
+      const cur = window._srcFilter || '';
+      catBar.innerHTML = Object.entries(cats).map(([c, n]) =>
+        `<span onclick="window.setSourceFilter('${c.replace(/'/g, "\\'")}')" title="点击筛选/取消"
+           style="cursor:pointer;padding:1px 8px;border-radius:8px;font-size:10px;background:${cur === c ? 'var(--primary)' : 'var(--bg3)'};border:1px solid var(--border);color:${cur === c ? '#fff' : 'var(--text)'}">${c} ${n}</span>`
+      ).join('') + `<span style="font-size:9px;color:var(--text2)">共 ${sources.length} 个源${cur ? '（筛选: ' + cur + '）' : ''}</span>`;
+    }
+
+    // 列表（应用类别筛选）
+    const filter = window._srcFilter || '';
+    const list = filter ? sources.filter(s => (s.category || '未分类') === filter) : sources;
+    let html = list.map(s =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid var(--border);gap:6px">
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.display_name || s.target}
+          <span style="color:var(--text2);font-size:9px">（${_sourceTypeLabel(s.source_type)} / ${s.category || '未分类'}）</span>
+          ${s.notes ? `<span style="color:var(--text2);font-size:8px">— ${s.notes.slice(0, 24)}</span>` : ''}
+        </span>
+        <span style="font-size:9px;color:var(--text2);flex-shrink:0;display:flex;align-items:center;gap:3px">
+          ${s.last_collected ? '上次:' + s.last_collected.slice(0, 10) : '未导入'}
+          <button class="cs-import-btn" data-id="${s.id}" title="导入该源到初次抓取" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:9px">📥</button>
+          <button class="cs-edit-btn" data-id="${s.id}" title="编辑名称/类别/说明" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:9px">✏️</button>
+          <button class="cs-del-btn" data-id="${s.id}" title="删除" style="background:var(--bg3);color:var(--red);border:1px solid var(--border);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:9px">🗑</button>
+        </span>
       </div>`
     ).join('');
     el.innerHTML = html;
 
+    el.querySelectorAll('.cs-import-btn').forEach(btn => {
+      btn.addEventListener('click', () => doImportSource(parseInt(btn.dataset.id)));
+    });
+    el.querySelectorAll('.cs-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => doEditSource(parseInt(btn.dataset.id)));
+    });
     el.querySelectorAll('.cs-del-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('删除此抓取源？')) return;
+        if (!confirm('删除此数据源？')) return;
         try {
           await fetch(`/api/scrape/sources/${btn.dataset.id}`, { method: 'DELETE' });
           loadSources();

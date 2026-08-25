@@ -189,11 +189,23 @@ async def api_scrape_create_source(data: dict = {}):
         source_type=source_type,
         target=target,
         display_name=data.get("display_name", ""),
+        category=data.get("category", ""),
+        notes=data.get("notes", ""),
         schedule=data.get("schedule", ""),
         depth=data.get("depth", "light"),
         tool_level=data.get("tool_level", 2),
     )
     return {"status": "ok", "message": "抓取源已创建"}
+
+
+@router.patch("/sources/{source_id}")
+async def api_scrape_update_source(source_id: int, data: dict = {}):
+    """编辑抓取源（名称/类别/说明/类型/目标/状态等）"""
+    engine = _get_engine()
+    ok = engine.db.update_source(source_id, **data)
+    if not ok:
+        return {"status": "error", "message": "没有可更新的字段或源不存在"}
+    return {"status": "ok", "message": "抓取源已更新"}
 
 
 @router.get("/sources")

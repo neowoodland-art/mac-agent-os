@@ -66,9 +66,11 @@ CREATE TABLE IF NOT EXISTS scrape_comments (
 CREATE TABLE IF NOT EXISTS scrape_sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     platform TEXT NOT NULL,
-    source_type TEXT NOT NULL,                              -- 'user'/'hashtag'/'keyword'/'url_list'
-    target TEXT NOT NULL,                                   -- sec_uid/话题ID/关键词/URL
+    source_type TEXT NOT NULL,                              -- 'user'/'hashtag'/'keyword'/'url_list'/'api'
+    target TEXT NOT NULL,                                   -- sec_uid/话题ID/关键词/URL/API地址
     display_name TEXT,
+    category TEXT DEFAULT '',                               -- 类别（自定义分类标签，如 肛肠科/减重）
+    notes TEXT DEFAULT '',                                  -- 说明（备注这个源是什么情况）
     schedule TEXT,                                          -- CRON 表达式
     depth TEXT DEFAULT 'light',
     tool_level INTEGER DEFAULT 2,
@@ -97,6 +99,11 @@ class ScrapeDB:
         conn = self._get_conn()
         try:
             conn.executescript(SCHEMA_SQL)
+            # 迁移：旧库补 category/notes 列（SQLite ALTER TABLE）
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(scrape_sources)").fetchall()}
+            for col in ("category", "notes"):
+                if col not in cols:
+                    conn.execute(f"ALTER TABLE scrape_sources ADD COLUMN {col} TEXT DEFAULT ''")
             conn.commit()
         finally:
             conn.close()
@@ -276,20 +283,41 @@ class ScrapeDB:
 
     def upsert_source(self, platform: str, source_type: str, target: str,
                       display_name: str = "", schedule: str = "",
-                      depth: str = "light", tool_level: int = 2):
+                      depth: str = "light", tool_level: int = 2,
+                      category: str = "", notes: str = ""):
         conn = self._get_conn()
         try:
             conn.execute(
                 """INSERT INTO scrape_sources
-                   (platform,source_type,target,display_name,schedule,depth,tool_level)
-                   VALUES (?,?,?,?,?,?,?)
+                   (platform,source_type,target,display_name,category,notes,schedule,depth,tool_level)
+                   VALUES (?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(platform,source_type,target) DO UPDATE SET
-                   display_name=excluded.display_name, schedule=excluded.schedule,
+                   display_name=excluded.display_name, category=excluded.category,
+                   notes=excluded.notes, schedule=excluded.schedule,
                    depth=excluded.depth, tool_level=excluded.tool_level,
                    status='active'""",
-                (platform, source_type, target, display_name, schedule, depth, tool_level)
+                (platform, source_type, target, display_name, category, notes, schedule, depth, tool_level)
             )
             conn.commit()
+        finally:
+            conn.close()
+
+    def update_source(self, source_id: int, **fields) -> bool:
+        """编辑抓取源（只更新传入的非空字段）"""
+        allowed = {"display_name", "category", "notes", "source_type", "target", "status", "depth", "tool_level"}
+        sets, vals = [], []
+        for k, v in fields.items():
+            if k in allowed and v is not None:
+                sets.append(f"{k}=?")
+                vals.append(v)
+        if not sets:
+            return False
+        vals.append(source_id)
+        conn = self._get_conn()
+        try:
+            conn.execute(f"UPDATE scrape_sources SET {', '.join(sets)} WHERE id=?", vals)
+            conn.commit()
+            return True
         finally:
             conn.close()
 
