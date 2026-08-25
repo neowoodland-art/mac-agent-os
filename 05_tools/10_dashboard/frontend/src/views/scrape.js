@@ -226,7 +226,13 @@ function renderLayout() {
           <button id="dtTrackAuthorSelectedBtn" style="display:none;background:#8b5cf6;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px" title="把选中视频的博主加入「博主监控」（需先采集）">👤 跟踪博主</button>
           <button id="dtCopySelVideos" style="display:none;background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">📋 复制选中</button>
           <span id="dtFilterCount" style="font-size:10px;color:var(--text2)"></span>
-          <input id="dtFilterInput" type="text" placeholder="🔍 筛选标题/博主" style="width:140px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:10px">
+          <input id="dtFilterInput" type="text" placeholder="🔍 筛选标题/博主" style="width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:10px">
+          <select id="dtFLevel" title="按账号等级筛选" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:4px;font-size:10px">
+            <option value="">等级:全部</option><option value="1">等级1</option><option value="2">等级2</option><option value="3">等级3</option>
+          </select>
+          <input id="dtFTaskId" type="text" placeholder="task_id" style="width:76px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:10px" title="按任务ID筛选（结构化字段）">
+          <input id="dtFLikes" type="number" min="0" placeholder="点赞≥" style="width:56px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:10px" title="按点赞数下限筛选">
+          <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--text2);cursor:pointer" title="只显示有博主名的"><input type="checkbox" id="dtFHasAuthor" style="cursor:pointer"> 有博主</label>
           <span style="flex:1"></span>
           <button id="dtTrackAllBtn" style="display:none;background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:9px">📌 全选跟踪</button>
         </div>
@@ -695,7 +701,7 @@ async function loadMachines() {
 async function addSource() {
   const target = document.getElementById('csTarget')?.value.trim();
   const type = document.getElementById('csType')?.value || 'api';
-  const name = document.getElementById('csName')?.value.trim() || target.slice(0, 20);
+  const name = document.getElementById('csName')?.value.trim() || '';   // 留空则列表显示完整 target
   const category = document.getElementById('csCategory')?.value.trim() || '';
   const notes = document.getElementById('csNotes')?.value.trim() || '';
   if (!target) { alert('请填写目标（API地址 / 链接文本 / 关键词 / sec_uid）'); return; }
@@ -721,7 +727,7 @@ async function addSource() {
 // API 数据源：添加为源（tyhtak 折叠区）
 async function doSaveApiSource() {
   const apiUrl = document.getElementById('dtApiUrl')?.value.trim();
-  const name = document.getElementById('csApiName')?.value.trim() || apiUrl.slice(0, 20);
+  const name = document.getElementById('csApiName')?.value.trim() || '';   // 留空则列表显示完整 API 地址
   const category = document.getElementById('csApiCategory')?.value.trim() || '';
   if (!apiUrl) { alert('请填写 API 地址'); return; }
   try {
@@ -977,7 +983,7 @@ async function loadSources() {
     const list = filter ? sources.filter(s => (s.category || '未分类') === filter) : sources;
     let html = list.map(s =>
       `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid var(--border);gap:6px">
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.display_name || s.target}
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(s.display_name || s.target || '').replace(/"/g, '&quot;')}">${s.display_name || s.target}
           <span style="color:var(--text2);font-size:9px">（${_sourceTypeLabel(s.source_type)} / ${s.category || '未分类'}）</span>
           ${s.notes ? `<span style="color:var(--text2);font-size:8px">— ${s.notes.slice(0, 24)}</span>` : ''}
         </span>
@@ -1161,9 +1167,23 @@ function renderDyVideos(container) {
   _dyVideos.forEach((v, i) => {
     const tracked = _dyTracked.has(v.id);
     const filterData = ((v.title || '') + ' ' + (v.author || '')).toLowerCase();
-    // 初始显示状态按当前关键字
-    const hidden = kw && !filterData.includes(kw);
-    html += `<div class="dt-video-row" data-filter="${filterData.replace(/"/g,'&quot;')}" style="background:var(--bg3);border-radius:6px;padding:6px 8px;border:1px solid var(--border);${hidden ? 'display:none' : ''}">
+    // 结构化筛选属性（API 导入的字段；无则空）
+    const sLevel = String(v.account_level ?? '');
+    const sTaskId = String(v.task_id ?? '');
+    const sLikes = parseInt(v.likes ?? (v.stats?.likes ?? 0), 10) || 0;
+    const sHasAuthor = !!(v.author || v.dyname || v.dyid);
+    // 初始显示状态按当前关键字 + 结构化筛选
+    const hidden = (kw && !filterData.includes(kw));
+    const statRow = (v.likes !== undefined || v.task_id !== undefined || v.account_level !== undefined || v.submit_time)
+      ? `<div style="display:flex;align-items:center;gap:6px;margin-top:3px;font-size:9px;color:var(--text2);flex-wrap:wrap">
+          <span>👍${v.likes ?? '—'} 💬${v.comments ?? '—'} ⭐${v.collects ?? '—'} ▶${v.plays ?? '—'}</span>
+          ${v.account_level !== undefined && v.account_level !== '' ? `<span>等级 ${v.account_level}</span>` : ''}
+          ${v.task_id !== undefined && v.task_id !== '' ? `<span>task ${v.task_id}</span>` : ''}
+          ${v.submit_time ? `<span>提交 ${String(v.submit_time).slice(0, 10)}</span>` : ''}
+          ${v.raw ? `<button class="dt-raw-btn" data-idx="${i}" title="展开查看原始结构化字段" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:0 4px;border-radius:3px;cursor:pointer;font-size:9px">📖 字段</button>` : ''}
+        </div>`
+      : '';
+    html += `<div class="dt-video-row" data-filter="${filterData.replace(/"/g,'&quot;')}" data-level="${sLevel}" data-taskid="${sTaskId}" data-likes="${sLikes}" data-hasauthor="${sHasAuthor ? '1' : '0'}" style="background:var(--bg3);border-radius:6px;padding:6px 8px;border:1px solid var(--border);${hidden ? 'display:none' : ''}">
       <div style="display:flex;align-items:center;gap:3px;flex-wrap:nowrap">
         <input type="checkbox" class="dt-sel-cb" data-idx="${i}" style="flex-shrink:0">
         <button class="dt-collect-btn" data-idx="${i}" style="background:#22c55e;color:#000;border:none;padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px;font-weight:600;flex-shrink:0">🔍</button>
@@ -1175,6 +1195,8 @@ function renderDyVideos(container) {
         <button class="dt-track-author-btn" data-url="${(v.url || '').replace(/"/g,'&quot;')}" title="把该视频的博主加入「博主监控」（需先采集）" style="background:#8b5cf6;color:#fff;border:none;padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px;flex-shrink:0">👤</button>
         <a href="${v.url || '#'}" target="_blank" style="font-size:8px;color:var(--primary);flex-shrink:0">🔗</a>
       </div>
+      ${statRow}
+      <div id="dtRaw_${i}" style="display:none;margin-top:4px;padding:4px;background:var(--bg2);border-radius:4px;font-size:9px;max-height:180px;overflow-y:auto;font-family:monospace;white-space:pre-wrap"></div>
       <!-- 采集结果 -->
       <div id="dtResult_${i}" style="display:none;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">
         <div id="dtStats_${i}" style="font-size:10px;color:var(--text2)">⏳ 采集数据中...</div>
@@ -1232,24 +1254,60 @@ function renderDyVideos(container) {
   updateBatchBtn();
   document.querySelectorAll('.dt-sel-cb').forEach(cb => cb.addEventListener('change', updateSelButtons));
   
-  // 标题关键字筛选（动态过滤当前列表）
+  // 结构化筛选（关键字 + 账号等级 + task_id + 点赞下限 + 有博主）
   // ⚠️ 只切换行的 display，不重建 DOM（保证输入框不失焦，五笔输入不中断）
+  const applyDyFilters = () => {
+    const kw = (document.getElementById('dtFilterInput')?.value || '').trim().toLowerCase();
+    const level = document.getElementById('dtFLevel')?.value || '';
+    const taskId = (document.getElementById('dtFTaskId')?.value || '').trim();
+    const minLikes = parseInt(document.getElementById('dtFLikes')?.value || '0', 10) || 0;
+    const hasAuthor = document.getElementById('dtFHasAuthor')?.checked || false;
+    let visible = 0;
+    container.querySelectorAll('.dt-video-row').forEach(row => {
+      let show = true;
+      const fd = row.dataset.filter || '';
+      if (kw && !fd.includes(kw)) show = false;
+      if (show && level && row.dataset.level !== level) show = false;
+      if (show && taskId && !(row.dataset.taskid || '').includes(taskId)) show = false;
+      if (show && minLikes > 0 && (parseInt(row.dataset.likes || '0', 10) || 0) < minLikes) show = false;
+      if (show && hasAuthor && row.dataset.hasauthor !== '1') show = false;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    const countEl = document.getElementById('dtFilterCount');
+    if (countEl) countEl.textContent = '共 ' + visible + ' / ' + _dyVideos.length + ' 条';
+  };
   const filterInput = document.getElementById('dtFilterInput');
   if (filterInput && !filterInput._bound) {
     filterInput._bound = true;
-    filterInput.addEventListener('input', () => {
-      const kw = filterInput.value.trim().toLowerCase();
-      let visible = 0;
-      container.querySelectorAll('.dt-video-row').forEach(row => {
-        const fd = row.dataset.filter || '';
-        const show = !kw || fd.includes(kw);
-        row.style.display = show ? '' : 'none';
-        if (show) visible++;
-      });
-      const countEl = document.getElementById('dtFilterCount');
-      if (countEl) countEl.textContent = '共 ' + visible + ' / ' + _dyVideos.length + ' 条';
-    });
+    filterInput.addEventListener('input', applyDyFilters);
   }
+  [['dtFLevel', 'change'], ['dtFTaskId', 'input'], ['dtFLikes', 'input'], ['dtFHasAuthor', 'change']].forEach(([id, ev]) => {
+    const el = document.getElementById(id);
+    if (el && !el._bound) {
+      el._bound = true;
+      el.addEventListener(ev, applyDyFilters);
+    }
+  });
+
+  // 展开查看原始结构化字段（raw）
+  container.querySelectorAll('.dt-raw-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const rawEl = document.getElementById('dtRaw_' + idx);
+      const v = _dyVideos[idx];
+      if (!rawEl || !v) return;
+      const isHidden = rawEl.style.display === 'none';
+      rawEl.style.display = isHidden ? 'block' : 'none';
+      if (isHidden) {
+        try {
+          rawEl.textContent = JSON.stringify(v.raw ?? v, null, 2);
+        } catch (e) {
+          rawEl.textContent = '原始数据解析失败';
+        }
+      }
+    });
+  });
 
   // 全选跟踪按钮
   const trackAllBtn = document.getElementById('dtTrackAllBtn');
@@ -1546,24 +1604,60 @@ function updateRenderDyVideos() {
   updateBatchBtn();
   document.querySelectorAll('.dt-sel-cb').forEach(cb => cb.addEventListener('change', updateSelButtons));
   
-  // 标题关键字筛选（动态过滤当前列表）
+  // 结构化筛选（关键字 + 账号等级 + task_id + 点赞下限 + 有博主）
   // ⚠️ 只切换行的 display，不重建 DOM（保证输入框不失焦，五笔输入不中断）
+  const applyDyFilters = () => {
+    const kw = (document.getElementById('dtFilterInput')?.value || '').trim().toLowerCase();
+    const level = document.getElementById('dtFLevel')?.value || '';
+    const taskId = (document.getElementById('dtFTaskId')?.value || '').trim();
+    const minLikes = parseInt(document.getElementById('dtFLikes')?.value || '0', 10) || 0;
+    const hasAuthor = document.getElementById('dtFHasAuthor')?.checked || false;
+    let visible = 0;
+    container.querySelectorAll('.dt-video-row').forEach(row => {
+      let show = true;
+      const fd = row.dataset.filter || '';
+      if (kw && !fd.includes(kw)) show = false;
+      if (show && level && row.dataset.level !== level) show = false;
+      if (show && taskId && !(row.dataset.taskid || '').includes(taskId)) show = false;
+      if (show && minLikes > 0 && (parseInt(row.dataset.likes || '0', 10) || 0) < minLikes) show = false;
+      if (show && hasAuthor && row.dataset.hasauthor !== '1') show = false;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    const countEl = document.getElementById('dtFilterCount');
+    if (countEl) countEl.textContent = '共 ' + visible + ' / ' + _dyVideos.length + ' 条';
+  };
   const filterInput = document.getElementById('dtFilterInput');
   if (filterInput && !filterInput._bound) {
     filterInput._bound = true;
-    filterInput.addEventListener('input', () => {
-      const kw = filterInput.value.trim().toLowerCase();
-      let visible = 0;
-      container.querySelectorAll('.dt-video-row').forEach(row => {
-        const fd = row.dataset.filter || '';
-        const show = !kw || fd.includes(kw);
-        row.style.display = show ? '' : 'none';
-        if (show) visible++;
-      });
-      const countEl = document.getElementById('dtFilterCount');
-      if (countEl) countEl.textContent = '共 ' + visible + ' / ' + _dyVideos.length + ' 条';
-    });
+    filterInput.addEventListener('input', applyDyFilters);
   }
+  [['dtFLevel', 'change'], ['dtFTaskId', 'input'], ['dtFLikes', 'input'], ['dtFHasAuthor', 'change']].forEach(([id, ev]) => {
+    const el = document.getElementById(id);
+    if (el && !el._bound) {
+      el._bound = true;
+      el.addEventListener(ev, applyDyFilters);
+    }
+  });
+
+  // 展开查看原始结构化字段（raw）
+  container.querySelectorAll('.dt-raw-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const rawEl = document.getElementById('dtRaw_' + idx);
+      const v = _dyVideos[idx];
+      if (!rawEl || !v) return;
+      const isHidden = rawEl.style.display === 'none';
+      rawEl.style.display = isHidden ? 'block' : 'none';
+      if (isHidden) {
+        try {
+          rawEl.textContent = JSON.stringify(v.raw ?? v, null, 2);
+        } catch (e) {
+          rawEl.textContent = '原始数据解析失败';
+        }
+      }
+    });
+  });
 
   // 全选跟踪按钮
   const trackAllBtn = document.getElementById('dtTrackAllBtn');

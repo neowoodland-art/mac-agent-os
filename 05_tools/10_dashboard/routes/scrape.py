@@ -289,8 +289,19 @@ async def api_import_topics(data: dict = {}):
             "id": vid,
             "url": url,
             "title": _clean_douyin_title(item.get("share_text", "")),
-            "author": item.get("nickname", "") or item.get("name", ""),
+            "author": item.get("dyname", "") or item.get("nickname", "") or item.get("name", ""),
+            # 结构化字段（归一化，任何 API 按常见键名映射；未采集也能展示/筛选）
+            "dyid": item.get("dyid", ""),
+            "likes": item.get("like_count", 0),
+            "comments": item.get("comment_count", 0),
+            "collects": item.get("favorite_count", 0),
+            "plays": item.get("play_count", 0),
+            "account_level": item.get("account_level", ""),
+            "task_id": item.get("task_id", ""),
+            "share_check_status": item.get("share_check_status", ""),
+            "submit_time": item.get("submit_time", ""),
             "created_at": item.get("created_at", ""),
+            "raw": item,  # 完整原始对象（列表展开查看）
         })
     return {"status": "ok", "items": items, "total": len(items)}
 
