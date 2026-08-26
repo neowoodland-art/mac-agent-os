@@ -1172,6 +1172,10 @@ def _build_interact_plan(machine_groups: dict, params: dict, now_ts: int) -> lis
                     # 完全未设定 → 随机语料兜底
                     _raw = random.choice(_comment_pool)
                     comment_text = _raw.get("text", "") if isinstance(_raw, dict) else str(_raw)
+                    # 双保险：{keyword} 占位符若仍残留（旧缓存/其他路径），用当前视频标题提取关键词替换，兜底「这个」
+                    if comment_text and "{keyword}" in comment_text:
+                        _k = _cm._extract_first_keyword(title) if title else ""
+                        comment_text = comment_text.replace("{keyword}", _k or "这个")
                     if comment_text:
                         comment_used[a["id"]] += 1
                 if not comment_text:

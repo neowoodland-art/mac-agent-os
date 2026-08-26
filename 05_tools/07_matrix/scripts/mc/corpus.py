@@ -544,8 +544,8 @@ class CorpusManager:
                 })
         return result
 
-    def get_comments(self, categories: List[str] = None, platform: str = None, count: int = 20) -> List[str]:
-        """获取评论列表"""
+    def get_comments(self, categories: List[str] = None, platform: str = None, count: int = 20, keyword: str = "") -> List[str]:
+        """获取评论列表（keyword 用于替换 {keyword} 模板占位符；无 keyword 时用「这个」兜底，杜绝裸奔）"""
         results = []
         platforms = [platform] if platform else ["douyin", "xiaohongshu"]
 
@@ -563,10 +563,30 @@ class CorpusManager:
                 templates = info.get("templates", [])
                 combined = comments + templates
                 take = max(1, int(count * info.get("weight", 10) / 100))
-                results.extend(random.sample(combined, min(take, len(combined))))
+                picked = random.sample(combined, min(take, len(combined)))
+                for item in picked:
+                    if isinstance(item, dict):
+                        text = item.get("text", "")
+                        if "{keyword}" in text:
+                            results.append({**item, "text": self._fill_keyword(text, keyword)})
+                        else:
+                            results.append(item)
+                    else:
+                        text = str(item)
+                        results.append(self._fill_keyword(text, keyword) if "{keyword}" in text else text)
 
         random.shuffle(results)
         return results[:count]
+
+    def _fill_keyword(self, text: str, keyword: str = "") -> str:
+        """替换 {keyword} 占位符：优先用传入关键词 → 从标题/长文本提取 → 兜底「这个」"""
+        if "{keyword}" not in text:
+            return text
+        kw = (keyword or "").strip()
+        if not kw:
+            return text.replace("{keyword}", "这个")
+        k = self._extract_first_keyword(kw) or kw[:6]
+        return text.replace("{keyword}", k)
 
     def add_comment(self, category: str, text: str, platform: str = "douyin"):
         """添加一条评论到指定分类（追加模式）"""
