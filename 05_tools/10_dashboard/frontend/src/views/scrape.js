@@ -138,7 +138,7 @@ function renderLayout() {
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
               <input id="dtApiUrl" type="text" placeholder="API 地址（如 tyhtak 活动接口）"
                      style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px"
-                     value="https://wx.tyhtak.com/api/biz/activity/api/v1/activity/recordswx1">
+                     value="https://wx.tyhtak.com/api/biz/activity/recordswx1">
               <input id="csApiName" type="text" placeholder="源名称(如: 肛泰活动)" style="width:100px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
               <input id="csApiCategory" type="text" placeholder="类别(如: 肛肠科)" style="width:90px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px">
               <button id="dtSaveApiSourceBtn" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px">➕ 添加为源</button>

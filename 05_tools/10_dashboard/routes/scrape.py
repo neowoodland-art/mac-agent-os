@@ -248,7 +248,9 @@ def _save_tracker(items: list):
 
 def _clean_douyin_title(raw: str) -> str:
     """清洗抖音标题：去掉『2.07 复制打开抖音，看看【xxx的作品】』前缀"""
-    t = raw.strip()
+    if not raw:
+        return ""
+    t = str(raw).strip()
     # 去掉开头的数字+空格（如 "2.07 "）
     import re as _re
     t = _re.sub(r'^[\d.]+[\s]*', '', t)
@@ -273,7 +275,9 @@ async def api_import_topics(data: dict = {}):
     page = int(data.get("page", 1))
     page_size = int(data.get("page_size", 100))
     try:
-        full_url = f"{api_url}?page={page}&pageSize={page_size}"
+        # api_url 可能已带查询参数（如 ?page=1&pageSize=100）→ 用 & 追加，避免 ?page= 重复
+        sep = "&" if "?" in api_url else "?"
+        full_url = f"{api_url}{sep}page={page}&pageSize={page_size}"
         resp = _urq.urlopen(full_url, timeout=15)
         body = _js.loads(resp.read().decode())
     except Exception as e:
