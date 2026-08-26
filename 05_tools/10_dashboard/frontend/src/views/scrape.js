@@ -769,8 +769,8 @@ async function doImportSource(sourceId) {
       });
       const id = await ir.json();
       if (id.status !== 'ok') { alert('❌ ' + (id.message || '导入失败')); return; }
-      const items = (id.items || []).map(it => ({ id: it.id, url: it.url, title: it.title || '', author: it.author || '' }));
-      mergeIntoDyVideos(items);
+      // 直接透传后端结构化字段（url/title/author/likes/task_id/account_level/raw 等）
+      mergeIntoDyVideos(id.items || []);
     } catch (e) { alert('❌ 导入失败: ' + e.message); return; }
   } else if (s.source_type === 'url_list') {
     const parsed = _parseLinksAny(s.target);
