@@ -189,6 +189,11 @@ async def get_video_data(url: str) -> dict:
             result["error"] = "抖音登录已过期，请重新登录"
             result["login_expired"] = True
             return result
+        if detail.get("filter_detail"):
+            # filter_detail = 视频被平台过滤（已删除/违规/推广限制），详情不可查
+            result["error"] = "⚠️ 视频被平台过滤，无法采集（可能已删除/违规/推广限制）"
+            result["filtered"] = True
+            return result
         result["error"] = f"API 未返回数据: {str(detail)[:200]}"
         return result
 

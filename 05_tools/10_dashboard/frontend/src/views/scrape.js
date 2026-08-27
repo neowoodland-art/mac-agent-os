@@ -1379,6 +1379,9 @@ async function doCollectVideo(idx) {
     const d = await r.json();
     if (d.status !== 'ok') {
       statsEl.textContent = '❌ ' + (d.message || '采集失败');
+      // 失败标记：红色左边框（被平台过滤等），一眼看出哪些采不了
+      const row = statsEl.closest('.dt-video-row');
+      if (row) { row.style.borderLeft = '3px solid #ef4444'; row.dataset.filtered = '1'; }
       return;
     }
     statsEl.textContent = `👍 ${d.likes || '?'} | 💬 ${d.comments || '?'} | ⭐ ${d.collects || '?'} | 更新时间: ${d.collected_at || '?'}`;
@@ -1386,6 +1389,9 @@ async function doCollectVideo(idx) {
     statsEl.dataset.likes = d.likes || 0;
     statsEl.dataset.comments = d.comments || 0;
     statsEl.dataset.collects = d.collects || 0;
+    // 采集成功：清除失败标记
+    const rowOk = statsEl.closest('.dt-video-row');
+    if (rowOk) { rowOk.style.borderLeft = ''; delete rowOk.dataset.filtered; }
     
     // 如果有关联复选框且已勾选，自动跟踪
     const cb = document.querySelector('.dt-track-cb[data-id="' + v.id + '"]');
