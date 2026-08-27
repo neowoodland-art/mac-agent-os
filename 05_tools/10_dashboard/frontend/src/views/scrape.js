@@ -1160,6 +1160,7 @@ function renderDyVideos(container) {
     let html = '<div style="display:flex;align-items:center;gap:4px;padding:2px 8px;margin-bottom:2px;font-size:9px;color:var(--text2)">'
     + '<input type="checkbox" id="dtSelAll" style="flex-shrink:0" onchange="var x=document.querySelectorAll(\'.dt-sel-cb\');for(var j=0;j<x.length;j++){x[j].checked=this.checked}updateSelButtons()">'
     + '<span>全选</span>'
+    + '<button id="dtSelFilteredBtn" title="只勾选当前筛选后可见的链接（隐藏的不选）" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:9px">✅ 选中筛选结果</button>'
     + '<span style="flex:1"></span>'
     + '<span id="dtFilterCount">共 ' + _dyVideos.length + ' 条</span>'
     + '</div>';
@@ -1254,6 +1255,22 @@ function renderDyVideos(container) {
   updateBatchBtn();
   document.querySelectorAll('.dt-sel-cb').forEach(cb => cb.addEventListener('change', updateSelButtons));
   
+  // 选中筛选结果：只勾选当前可见（未被筛选隐藏）的行
+  const selFilteredBtn = document.getElementById('dtSelFilteredBtn');
+  if (selFilteredBtn && !selFilteredBtn._bound) {
+    selFilteredBtn._bound = true;
+    selFilteredBtn.addEventListener('click', () => {
+      let n = 0;
+      container.querySelectorAll('.dt-video-row').forEach(row => {
+        if (row.style.display === 'none') return;  // 被筛选隐藏的不选
+        const cb = row.querySelector('.dt-sel-cb');
+        if (cb) { cb.checked = true; n++; }
+      });
+      updateSelButtons();
+      selFilteredBtn.textContent = `✅ 已选 ${n} 条`;
+      setTimeout(() => selFilteredBtn.textContent = '✅ 选中筛选结果', 1500);
+    });
+  }
   // 结构化筛选（关键字 + 账号等级 + task_id + 点赞下限 + 有博主）
   // ⚠️ 只切换行的 display，不重建 DOM（保证输入框不失焦，五笔输入不中断）
   const applyDyFilters = () => {
@@ -1604,6 +1621,22 @@ function updateRenderDyVideos() {
   updateBatchBtn();
   document.querySelectorAll('.dt-sel-cb').forEach(cb => cb.addEventListener('change', updateSelButtons));
   
+  // 选中筛选结果：只勾选当前可见（未被筛选隐藏）的行
+  const selFilteredBtn = document.getElementById('dtSelFilteredBtn');
+  if (selFilteredBtn && !selFilteredBtn._bound) {
+    selFilteredBtn._bound = true;
+    selFilteredBtn.addEventListener('click', () => {
+      let n = 0;
+      container.querySelectorAll('.dt-video-row').forEach(row => {
+        if (row.style.display === 'none') return;  // 被筛选隐藏的不选
+        const cb = row.querySelector('.dt-sel-cb');
+        if (cb) { cb.checked = true; n++; }
+      });
+      updateSelButtons();
+      selFilteredBtn.textContent = `✅ 已选 ${n} 条`;
+      setTimeout(() => selFilteredBtn.textContent = '✅ 选中筛选结果', 1500);
+    });
+  }
   // 结构化筛选（关键字 + 账号等级 + task_id + 点赞下限 + 有博主）
   // ⚠️ 只切换行的 display，不重建 DOM（保证输入框不失焦，五笔输入不中断）
   const applyDyFilters = () => {
