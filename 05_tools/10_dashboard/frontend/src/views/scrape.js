@@ -1161,6 +1161,7 @@ function renderDyVideos(container) {
     + '<input type="checkbox" id="dtSelAll" style="flex-shrink:0" onchange="var x=document.querySelectorAll(\'.dt-sel-cb\');for(var j=0;j<x.length;j++){x[j].checked=this.checked}updateSelButtons()">'
     + '<span>全选</span>'
     + '<button id="dtSelFilteredBtn" title="只勾选当前筛选后可见的链接（隐藏的不选）" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:9px">✅ 选中筛选结果</button>'
+    + '<button id="dtSelCollectedBtn" title="只勾选已采集成功的链接（有数据的）" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:1px 6px;border-radius:3px;cursor:pointer;font-size:9px">✅ 选中采集成功</button>'
     + '<span style="flex:1"></span>'
     + '<span id="dtFilterCount">共 ' + _dyVideos.length + ' 条</span>'
     + '</div>';
@@ -1269,6 +1270,23 @@ function renderDyVideos(container) {
       updateSelButtons();
       selFilteredBtn.textContent = `✅ 已选 ${n} 条`;
       setTimeout(() => selFilteredBtn.textContent = '✅ 选中筛选结果', 1500);
+    });
+  }
+  // 选中采集成功：只勾选已采集成功（有数据）的行
+  const selCollectedBtn = document.getElementById('dtSelCollectedBtn');
+  if (selCollectedBtn && !selCollectedBtn._bound) {
+    selCollectedBtn._bound = true;
+    selCollectedBtn.addEventListener('click', () => {
+      let n = 0;
+      container.querySelectorAll('.dt-video-row').forEach(row => {
+        const statsEl = row.querySelector('[id^="dtStats_"]');
+        if (!statsEl?.dataset?.collected) return;  // 未采集成功的不选（含失败/未采集）
+        const cb = row.querySelector('.dt-sel-cb');
+        if (cb) { cb.checked = true; n++; }
+      });
+      updateSelButtons();
+      selCollectedBtn.textContent = `✅ 已选 ${n} 条`;
+      setTimeout(() => selCollectedBtn.textContent = '✅ 选中采集成功', 1500);
     });
   }
   // 结构化筛选（关键字 + 账号等级 + task_id + 点赞下限 + 有博主）
@@ -1641,6 +1659,23 @@ function updateRenderDyVideos() {
       updateSelButtons();
       selFilteredBtn.textContent = `✅ 已选 ${n} 条`;
       setTimeout(() => selFilteredBtn.textContent = '✅ 选中筛选结果', 1500);
+    });
+  }
+  // 选中采集成功：只勾选已采集成功（有数据）的行
+  const selCollectedBtn = document.getElementById('dtSelCollectedBtn');
+  if (selCollectedBtn && !selCollectedBtn._bound) {
+    selCollectedBtn._bound = true;
+    selCollectedBtn.addEventListener('click', () => {
+      let n = 0;
+      container.querySelectorAll('.dt-video-row').forEach(row => {
+        const statsEl = row.querySelector('[id^="dtStats_"]');
+        if (!statsEl?.dataset?.collected) return;  // 未采集成功的不选（含失败/未采集）
+        const cb = row.querySelector('.dt-sel-cb');
+        if (cb) { cb.checked = true; n++; }
+      });
+      updateSelButtons();
+      selCollectedBtn.textContent = `✅ 已选 ${n} 条`;
+      setTimeout(() => selCollectedBtn.textContent = '✅ 选中采集成功', 1500);
     });
   }
   // 结构化筛选（关键字 + 账号等级 + task_id + 点赞下限 + 有博主）
