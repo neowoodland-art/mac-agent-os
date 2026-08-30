@@ -7,6 +7,7 @@ mediacrawler_adapter.py — 抖音视频数据采集器 v3
 """
 import asyncio, json, logging, os, re, time, sqlite3, urllib.request, urllib.error
 from pathlib import Path
+from typing import Optional
 
 logger = logging.getLogger("dashboard.mediacrawler_adapter")
 
@@ -190,9 +191,20 @@ async def get_video_data(url: str) -> dict:
             result["login_expired"] = True
             return result
         if detail.get("filter_detail"):
-            # filter_detail = 视频被平台过滤（已删除/违规/推广限制），详情不可查
-            result["error"] = "⚠️ 视频被平台过滤，无法采集（可能已删除/违规/推广限制）"
+            # filter_detail = 视频被平台过滤（已删除/违规/推广限制），接口层详情不可查
             result["filtered"] = True
+            # 兜底策略：接口被过滤，改用页面浏览方式（打开网址读页面标题/meta），补全标题/博主
+            fb = await _page_fallback(url, aweme_id)
+            if fb:
+                result.update({
+                    "title": fb.get("title", ""),
+                    "author": fb.get("author", ""),
+                    "published_at": fb.get("published_at", ""),
+                    "source": "page_fallback",
+                    "api_error": "⚠️ 视频被平台过滤（接口层），已用页面兜底补全标题/博主",
+                })
+                return result
+            result["error"] = "⚠️ 视频被平台过滤，无法采集（可能已删除/违规/推广限制）"
             return result
         result["error"] = f"API 未返回数据: {str(detail)[:200]}"
         return result
@@ -245,6 +257,59 @@ async def get_video_data(url: str) -> dict:
     result["_method"] = "http_api"
     result["_duration"] = round(time.time() - t0, 2)
     return result
+
+
+async def _page_fallback(url: str, aweme_id: str) -> Optional[dict]:
+    """兜底策略：接口被平台过滤(filter_detail)时，用 Chrome 打开页面（网址层面浏览），
+    读页面标题 + meta description 补全标题/博主/发布时间。
+
+    返回 {title, author, published_at, source:'page_fallback'} 或 None（CDP 不可用/超时/解析失败）
+    """
+    try:
+        ctx = await _ensure_cdp()
+        if not ctx or not ctx.pages:
+            return None
+        page = ctx.pages[0]  # 复用现有页面，不新建标签页
+        try:
+            await page.goto(url, timeout=20000, wait_until="domcontentloaded")
+        except Exception:
+            await asyncio.sleep(2)
+        # 轮询等待页面加载出标题/meta（最多 12s，抖音页面加载/重定向较慢）
+        title, desc, author, published = "", "", "", ""
+        for _ in range(12):
+            try:
+                raw = await page.evaluate(
+                    """() => {
+                        const d = { title: document.title || '', desc: '' };
+                        const md = document.querySelector('meta[name="description"]');
+                        if (md) d.desc = md.getAttribute('content') || '';
+                        return JSON.stringify(d);
+                    }"""
+                )
+                data = json.loads(raw)
+                title = (data.get("title") or "").strip()
+                desc = (data.get("desc") or "").strip()
+                if title or desc:
+                    break
+            except Exception:
+                pass
+            await asyncio.sleep(1)
+
+        m = re.search(r"[-—]\s*([^\s于]+)于(\d{8})发布", desc)
+        if m:
+            author, published = m.group(1), m.group(2)
+        # 标题兜底：desc 去掉「- 作者于时间发布」后缀
+        if not title and desc:
+            title = re.sub(r"\s*[-—]\s*[^\s于]+于\d{8}发布.*$", "", desc).strip()
+        return {
+            "title": title,
+            "author": author,
+            "published_at": published,
+            "source": "page_fallback",
+        }
+    except Exception as e:
+        logger.debug(f"页面兜底失败: {e}")
+        return None
 
 
 # ── 博主采集（抖音博主监控） ──

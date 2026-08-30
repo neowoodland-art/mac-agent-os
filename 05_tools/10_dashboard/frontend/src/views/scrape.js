@@ -1402,14 +1402,32 @@ async function doCollectVideo(idx) {
       if (row) { row.style.borderLeft = '3px solid #ef4444'; row.dataset.filtered = '1'; }
       return;
     }
-    statsEl.textContent = `👍 ${d.likes || '?'} | 💬 ${d.comments || '?'} | ⭐ ${d.collects || '?'} | 更新时间: ${d.collected_at || '?'}`;
+    // 更新行内标题/博主（页面兜底补全的）
+    if (d.title && v.title !== d.title) v.title = d.title;
+    if (d.author && v.author !== d.author) v.author = d.author;
+    const rowEl = statsEl.closest('.dt-video-row');
+    if (rowEl) {
+      const titleSpan = rowEl.querySelector('span[style*="font-weight:600"]');
+      if (titleSpan) titleSpan.textContent = v.title || '无标题';
+      const authorSpans = rowEl.querySelectorAll('span[style*="flex-shrink:0"]');
+      if (authorSpans.length >= 1) authorSpans[0].textContent = String(v.author || '?').slice(0, 10) || '?';
+    }
+    // 展示数据 + 来源标记（API 正常 / 页面兜底）
+    let statTxt = `👍 ${d.likes ?? '—'} | 💬 ${d.comments ?? '—'} | ⭐ ${d.collects ?? '—'}`;
+    if (d.source === 'page_fallback') {
+      statTxt += ` | 🖥️ 页面兜底`;
+      if (d.published_at) statTxt += ` | 发布 ${d.published_at}`;
+      if (d.api_error) statTxt += `\n${d.api_error}`;
+    } else {
+      statTxt += ` | 更新时间: ${d.collected_at || '?'}`;
+    }
+    statsEl.textContent = statTxt;
     statsEl.dataset.collected = 'true';
     statsEl.dataset.likes = d.likes || 0;
     statsEl.dataset.comments = d.comments || 0;
     statsEl.dataset.collects = d.collects || 0;
-    // 采集成功：清除失败标记
-    const rowOk = statsEl.closest('.dt-video-row');
-    if (rowOk) { rowOk.style.borderLeft = ''; delete rowOk.dataset.filtered; }
+    // 采集成功（含兜底）：清除失败标记
+    if (rowEl) { rowEl.style.borderLeft = ''; delete rowEl.dataset.filtered; }
     
     // 如果有关联复选框且已勾选，自动跟踪
     const cb = document.querySelector('.dt-track-cb[data-id="' + v.id + '"]');
