@@ -252,6 +252,7 @@ dashboard_navigation:
       - ave-script        # 脚本生成
       - ave-materials     # 素材库
       - ave-templates     # 模板
+      - person-swap       # 🔄 人物置换 (Wan2.2-Animate 独立业务)
   - group: 内容抓取
     views:
       - crawl-tasks       # 🟢 新系统：抓取任务（映射到 scrape 视图）
@@ -375,6 +376,7 @@ reserved_names:
     - costs
     - machines
     - comment-workbench
+    - person-swap         # 人物置换 (Wan2.2-Animate)
     - ops-command
     - ops-recorder
     - workflow

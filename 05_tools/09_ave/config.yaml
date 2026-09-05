@@ -39,3 +39,19 @@ cache:
   enabled: true
   max_size_gb: 10
   ttl_days: 7
+
+# === 人物置换 (person_swap, 阿里云百炼 Wan2.2-Animate) ===
+# 用途: 原视频(人物A动作) + 参考图(人物B形象) → 输出「B 保留 A 动作」的新视频
+# ⚠️ model id 与 input 字段名待账号开通后在百炼模型广场校准
+person_swap:
+  model: "wan2.2-animate-mix-std"   # API 模型 id (std 基础 / pro 增强)
+  size: "1080*1920"                 # 成片分辨率
+  max_duration: 10                  # 单条源视频最长秒数(超长自动截取, 请按模型支持范围调整)
+  orientation: "9:16"               # 竖屏
+  image_max_side: 2048              # 参考图长边上限
+  price_per_sec: 0.0                # 单价 元/秒 (实测一条后填入, 0=暂不估算费用)
+  monthly_budget: 300.0             # 月度费用护栏(元), 超预算拒绝新任务
+  max_retries: 2                    # 生成失败自动重试次数(损耗系数 ~1.4 由预算兜底)
+  timeout_sec: 900                  # 单次生成轮询上限(秒)
+  input_image_field: "image"        # 人物参考图 input 字段名(以官方文档为准)
+  input_video_field: "video"        # 原视频 input 字段名(以官方文档为准)

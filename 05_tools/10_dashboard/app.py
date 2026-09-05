@@ -1064,6 +1064,14 @@ app.include_router(comment_workbench_router)
 from routes.scrape import router as scrape_router
 app.include_router(scrape_router)
 
+# 人物置换(视频工厂·相对独立业务) — 失败不阻断 Dashboard 启动
+try:
+    from routes.person_swap import router as person_swap_router
+    app.include_router(person_swap_router)
+    logger.info("  ✅ person_swap 路由已挂载 (/api/person-swap)")
+except Exception as e:
+    logger.warning(f"  ⚠️ person_swap 路由挂载失败: {e}")
+
 from workflows import WORKFLOW_TEMPLATES, NODE_DEFINITIONS, get_node_categories, get_runner
 
 @app.get("/api/workflow/nodes")

@@ -55,6 +55,9 @@ const MIGRATED_VIEWS = [
   'ave-materials',
   'ave-templates',
 
+  // ── 视频工厂 — 人物置换(独立业务) ──
+  'person-swap',
+
   // ── 服务 ──
   'serve-mcp',
   'serve-dashboard',
