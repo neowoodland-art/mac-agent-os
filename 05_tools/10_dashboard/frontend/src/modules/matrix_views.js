@@ -474,6 +474,7 @@ async function loadPlugins() {
       '视频工厂': { icon: '🎬', items: [
         {view:'workflow',   label:'🔀 工作流'},
         {view:'capabilities',label:'⚡ 能力目录'},
+        {view:'person-swap',label:'🔄 人物置换'},
         {view:'characters', label:'🧑 角色列表'},
         {view:'char-gen',   label:'🎭 角色生成器'},
         {view:'productions',label:'📋 生产记录'},
