@@ -29,8 +29,25 @@ VISION_TIMEOUT = 300  # 秒
 TEXT_TIMEOUT = 30
 
 # DashScope (阿里百炼) 配置
-DASHSCOPE_API_KEY = "sk-7e62716bffe349a59e74e9182cf22c3a"
+# ⚠️ 密钥不硬编码入库 — 统一从 agent-local local.yaml 读取(与 AVE 同一来源),
+#    优先级: 环境变量 DASHSCOPE_API_KEY > agent-local/tools/ave/config/local.yaml → aliyun.api_key
 DASHSCOPE_MODEL = "qwen-vl-plus"  # 性价比高
+
+
+def get_dashscope_key() -> str:
+    """读取百炼 API key: 环境变量优先, 兜底 agent-local local.yaml(不入 git)"""
+    env = os.environ.get("DASHSCOPE_API_KEY", "").strip()
+    if env:
+        return env
+    try:
+        p = Path.home() / "workbuddy-agent-os/agent-local/tools/ave/config/local.yaml"
+        if p.exists():
+            import yaml
+            d = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+            return ((d.get("aliyun", {}) or {}).get("api_key", "") or "").strip()
+    except Exception:
+        pass
+    return ""
 
 # 代理问题：oMLX 不能用代理
 _orig_env = {}
@@ -82,7 +99,10 @@ def _dashscope_request(messages: list, max_tokens: int = 300, timeout: int = Non
     """向 DashScope (阿里百炼) 发送请求（远程）"""
     try:
         import dashscope
-        dashscope.api_key = DASHSCOPE_API_KEY
+        key = get_dashscope_key()
+        if not key or key == "sk-xxx":
+            return {"success": False, "error": "未配置百炼 API Key (local.yaml → aliyun.api_key)", "provider": "dashscope"}
+        dashscope.api_key = key
 
         resp = dashscope.MultiModalConversation.call(
             model=DASHSCOPE_MODEL,
