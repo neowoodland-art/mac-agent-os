@@ -55,3 +55,19 @@ person_swap:
   timeout_sec: 900                  # 单次生成轮询上限(秒)
   input_image_field: "image"        # 人物参考图 input 字段名(以官方文档为准)
   input_video_field: "video"        # 原视频 input 字段名(以官方文档为准)
+
+# ── 可灵 AI（Kling）──
+# 用途: 定妆照/角色图 文生图、图生图（character_sheet.py provider=kling）
+# 鉴权两种方式二选一（api_key 优先）:
+#   api_key  : Bearer 方式（新版/第三方发放 key，格式 api-key-kling-xxx）
+#   access_key + secret_key : 官方 AK/SK（JWT HS256 签名）
+# ⚠️ 真实密钥放 agent-local/tools/ave/config/local.yaml（不同步、不进 git），此处仅占位
+# 接口: POST {base_url}/v1/images/generations（异步任务）→ GET .../{task_id} 查询
+kling:
+  api_key: ""                       # Bearer key（优先）
+  access_key: ""                    # 官方 AK（回退 JWT 方式）
+  secret_key: ""                    # 官方 SK（回退 JWT 方式）
+  base_url: "https://api-beijing.klingai.com"
+  default_model: "kling-v1"         # 文生图模型
+  poll_interval: 5                  # 任务轮询间隔(秒)
+  timeout_sec: 300                  # 单任务轮询上限(秒)

@@ -221,23 +221,30 @@ def _generate_kling(
 
     cfg = load_config()
     kling_cfg = cfg.get("kling", {})
+    api_key = (kling_cfg.get("api_key") or "").strip()
     ak = kling_cfg.get("access_key", "")
     sk = kling_cfg.get("secret_key", "")
+    base_url = (kling_cfg.get("base_url") or KLING_BASE).rstrip("/")
 
-    if not ak or not sk:
-        raise ValueError("缺少 Kling API 配置 (kling.access_key / kling.secret_key)")
+    if not api_key and not (ak and sk):
+        raise ValueError("缺少 Kling API 配置（kling.api_key 或 kling.access_key+secret_key）")
 
     use_ref = bool(ref_image and os.path.exists(ref_image) and mode == "sport")
     prompt = build_grid_prompt(desc, lang, mode=mode, use_ref=use_ref)
     logger.info(f"Kling 生成 [{mode}{'|I2I' if use_ref else '|T2I'}]: {prompt[:80]}...")
 
-    # JWT 认证
-    now = int(time.time())
-    token = jwt.encode(
-        {"iss": ak, "exp": now + 1800, "nbf": now - 5},
-        sk, algorithm="HS256",
-    )
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    # 认证：优先 Bearer api-key（新版/第三方 key），回退官方 AK/SK → JWT
+    if api_key:
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        logger.info("  Kling 鉴权: Bearer api-key")
+    else:
+        now = int(time.time())
+        token = jwt.encode(
+            {"iss": ak, "exp": now + 1800, "nbf": now - 5},
+            sk, algorithm="HS256",
+        )
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        logger.info("  Kling 鉴权: AK/SK JWT")
 
     if use_ref:
         # ── I2I 模式：参考图 + prompt，最大化人脸一致性 ──
@@ -253,7 +260,7 @@ def _generate_kling(
         }
         if seed is not None:
             payload["seed"] = seed
-        endpoint = f"{KLING_BASE}/v1/images/generations"
+        endpoint = f"{base_url}/v1/images/generations"
         logger.info(f"  使用参考图 I2I: {ref_image}")
     else:
         # ── T2I 模式：纯文字生成 ──
@@ -265,7 +272,7 @@ def _generate_kling(
         }
         if seed is not None:
             payload["seed"] = seed
-        endpoint = f"{KLING_BASE}/v1/images/generations"
+        endpoint = f"{base_url}/v1/images/generations"
 
     # 带退避重试的 POST
     for attempt in range(3):
@@ -287,7 +294,7 @@ def _generate_kling(
     # 轮询
     for i in range(40):
         time.sleep(5)
-        q = httpx.get(f"{KLING_BASE}/v1/images/generations/{task_id}", headers=headers, timeout=15)
+        q = httpx.get(f"{base_url}/v1/images/generations/{task_id}", headers=headers, timeout=15)
         q.raise_for_status()
         status_data = q.json().get("data", {})
         task_status = status_data.get("task_status", "")
