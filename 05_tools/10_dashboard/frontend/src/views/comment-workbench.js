@@ -90,6 +90,70 @@ export async function loadView(container) {
         <div id="cwAcctList_${_uid}"><div class="loading">⏳ 加载账号列表...</div></div>
       </div>
 
+      <!-- ═══ 模式切换：定向评论 / 多人讨论 ═══ -->
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button id="cwModeDirected_${_uid}" onclick="window._cwSwitchMode('${_uid}','directed')"
+                style="background:var(--primary);color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">🎯 定向评论</button>
+        <button id="cwModeDiscussion_${_uid}" onclick="window._cwSwitchMode('${_uid}','discussion')"
+                style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px">💬 多人讨论</button>
+        <span id="cwModeHint_${_uid}" style="font-size:10px;color:var(--text2);align-self:center">定向评论：每个账号领一条独立评论</span>
+      </div>
+
+      <!-- ═══ 讨论模式：设置 ═══ -->
+      <div id="cwDiscSection_${_uid}" style="display:none;background:var(--bg2);border-radius:10px;padding:14px;border:1px solid var(--border);margin-bottom:10px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px">💬 多人讨论设置</div>
+        <div style="font-size:10px;color:var(--text2);margin-bottom:8px">AI 一次生成完整讨论剧本（多人接力对话），再按条拆给不同账号分发 —— 像真人在评论区讨论</div>
+        <div style="display:grid;gap:6px">
+          <label style="font-size:11px;display:flex;align-items:center;gap:6px">
+            <span style="width:80px;color:var(--text2)">🎯 讨论主题</span>
+            <input id="cwDiscTopic_${_uid}" type="text" placeholder="如：痔疮微创无痛恢复"
+                   style="flex:1;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px">
+          </label>
+          <label style="font-size:11px;display:flex;gap:6px">
+            <span style="width:80px;color:var(--text2);padding-top:3px">🎯 引导要素</span>
+            <textarea id="cwDiscGuides_${_uid}" rows="3" placeholder="每行一个（支持多个推荐对象，AI 会分给不同人自然带出）&#10;宋佳主任：周五出诊，手法细致&#10;孙刘鑫主任：微创经验丰富&#10;绿色通道：公众号预约不排队"
+                      style="flex:1;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
+          </label>
+          <label style="font-size:11px;display:flex;gap:6px">
+            <span style="width:80px;color:var(--text2);padding-top:3px">📝 讨论走向</span>
+            <textarea id="cwDiscOutline_${_uid}" rows="2" placeholder="可选，自由描述，如：先有人纠结 → 过来人分享 → 追问细节 → 自然带出医生和预约方式"
+                      style="flex:1;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
+          </label>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:11px">
+            <label style="display:flex;align-items:center;gap:4px">💬 总条数
+              <input id="cwDiscTotal_${_uid}" type="number" value="15" min="3" max="40"
+                     style="width:50px;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;text-align:center">
+            </label>
+            <label style="display:flex;align-items:center;gap:4px">📊 每账号
+              <input id="cwDiscMin_${_uid}" type="number" value="1" min="1" max="5"
+                     style="width:38px;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;text-align:center">~
+              <input id="cwDiscMax_${_uid}" type="number" value="2" min="1" max="5"
+                     style="width:38px;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;text-align:center">条
+            </label>
+            <label style="display:flex;align-items:center;gap:4px">👀 路人占比
+              <input id="cwDiscBystander_${_uid}" type="number" value="20" min="0" max="50"
+                     style="width:46px;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;text-align:center">%
+            </label>
+            <button id="cwDiscGenBtn_${_uid}" onclick="window._cwGenDiscussion('${_uid}')"
+                    style="background:var(--primary);color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">🚀 生成讨论剧本</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ 讨论模式：预览（对话流） ═══ -->
+      <div id="cwDiscPreview_${_uid}" style="display:none;background:var(--bg2);border-radius:10px;padding:14px;border:1px solid var(--border);margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:600;font-size:13px">💬 讨论剧本预览（可编辑）</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span id="cwDiscCount_${_uid}" style="font-size:11px;color:var(--text2)"></span>
+            <span id="cwDiscAcctInfo_${_uid}" style="font-size:10px;color:var(--text2)"></span>
+            <button onclick="window._cwDiscDispatch('${_uid}')"
+                    style="background:var(--primary);color:#fff;border:none;padding:3px 12px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">📤 分发讨论</button>
+          </div>
+        </div>
+        <div id="cwDiscList_${_uid}" style="display:grid;gap:4px;max-height:480px;overflow-y:auto"></div>
+      </div>
+
       <!-- ═══ 第三步：角色比例 ═══ -->
       <div id="cwRoleSection_${_uid}" style="display:none;background:var(--bg2);border-radius:10px;padding:14px;border:1px solid var(--border);margin-bottom:10px">
         <div style="font-weight:600;font-size:13px;margin-bottom:8px">🎭 第三步：角色比例（所有视频通用）</div>
@@ -781,6 +845,150 @@ window._cwSaveSelectedComments = async (uid) => {
 window._cwRegenerate = (uid) => {
   _generatedComments = [];
   window._cwGenerate(uid);
+};
+
+// ═══ 多人讨论模式 ═══
+
+let _cwMode = 'directed';
+let _discTurns = [];
+let _cwUid = '';
+
+window._cwSwitchMode = (uid, mode) => {
+  _cwMode = mode;
+  const isDisc = mode === 'discussion';
+  const active = 'padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;background:var(--primary);color:#fff;border:none';
+  const idle = 'padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;background:var(--bg3);color:var(--text);border:1px solid var(--border)';
+  const bd = document.getElementById(`cwModeDirected_${uid}`);
+  const bm = document.getElementById(`cwModeDiscussion_${uid}`);
+  if (bd) bd.style.cssText = isDisc ? idle : active;
+  if (bm) bm.style.cssText = isDisc ? active : idle;
+  const hint = document.getElementById(`cwModeHint_${uid}`);
+  if (hint) hint.textContent = isDisc
+    ? '多人讨论：AI 一次生成接力讨论剧本，按条拆给不同账号（更像真人讨论）'
+    : '定向评论：每个账号领一条独立评论';
+  const discSec = document.getElementById(`cwDiscSection_${uid}`);
+  const discPrev = document.getElementById(`cwDiscPreview_${uid}`);
+  const roleSec = document.getElementById(`cwRoleSection_${uid}`);
+  const prev = document.getElementById(`cwPreview_${uid}`);
+  if (discSec) discSec.style.display = isDisc ? 'block' : 'none';
+  if (discPrev) discPrev.style.display = (isDisc && _discTurns.length) ? 'block' : 'none';
+  if (isDisc) {
+    if (roleSec) roleSec.style.display = 'none';
+    if (prev) prev.style.display = 'none';
+  }
+};
+
+window._cwGenDiscussion = async (uid) => {
+  _cwUid = uid;
+  const topic = document.getElementById(`cwDiscTopic_${uid}`)?.value.trim() || '';
+  const guides = document.getElementById(`cwDiscGuides_${uid}`)?.value.trim() || '';
+  const outline = document.getElementById(`cwDiscOutline_${uid}`)?.value.trim() || '';
+  const total = parseInt(document.getElementById(`cwDiscTotal_${uid}`)?.value || '15');
+  const bystander = (parseInt(document.getElementById(`cwDiscBystander_${uid}`)?.value || '20')) / 100;
+  if (!topic && !guides) { alert('请填写讨论主题或引导要素'); return; }
+  const vids = _videos.filter(v => v.checked);
+  if (!vids.length) { alert('请先在第一步解析并勾选视频'); return; }
+
+  const btn = document.getElementById(`cwDiscGenBtn_${uid}`);
+  const listEl = document.getElementById(`cwDiscList_${uid}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 生成中...'; }
+  if (listEl) listEl.innerHTML = '<div style="color:var(--text2);font-size:11px">⏳ AI 正在生成讨论剧本（约 10~30 秒，一次生成全部）...</div>';
+
+  try {
+    const r = await fetch('/api/comment-workbench/generate-discussion', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        video_title: (vids[0] || {}).title || '',
+        topic, guide_items: guides, outline, total, bystander_ratio: bystander,
+      }),
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') {
+      alert('❌ ' + (d.detail || d.message || '生成失败'));
+      if (listEl) listEl.innerHTML = '';
+      return;
+    }
+    _discTurns = d.turns || [];
+    const prevEl = document.getElementById(`cwDiscPreview_${uid}`);
+    if (prevEl) prevEl.style.display = 'block';
+    _cwRenderDisc(uid);
+    // 账号需求提示
+    const accts = _selector ? _selector.getSelected() : [];
+    const maxPer = parseInt(document.getElementById(`cwDiscMax_${uid}`)?.value || '2');
+    const needMin = Math.ceil(_discTurns.length / Math.max(1, maxPer));
+    const info = document.getElementById(`cwDiscAcctInfo_${uid}`);
+    if (info) info.textContent = accts.length < needMin
+      ? `⚠️ 已选 ${accts.length} 个账号，至少需要 ${needMin} 个发言账号（请补选或减少条数）`
+      : `发言需 ${needMin}~${_discTurns.length} 个账号 / 已选 ${accts.length} 个`;
+  } catch (e) {
+    alert('❌ 网络错误: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🚀 生成讨论剧本'; }
+  }
+};
+
+function _cwRenderDisc(uid) {
+  const el = document.getElementById(`cwDiscList_${uid}`);
+  const cnt = document.getElementById(`cwDiscCount_${uid}`);
+  if (cnt) cnt.textContent = `${_discTurns.length} 条`;
+  if (!el) return;
+  if (!_discTurns.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _discTurns.map((t, i) => `
+    <div style="display:flex;gap:6px;align-items:center;font-size:11px">
+      <span style="color:var(--text2);width:24px;text-align:right;flex-shrink:0">${i + 1}.</span>
+      <span style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:1px 6px;font-size:9px;color:var(--text2);flex-shrink:0">${escapeHtml(t.role || '路人')}</span>
+      <input type="text" value="${escapeHtml(t.text)}" onchange="window._cwEditDisc(${i}, this.value)"
+             style="flex:1;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px">
+      <button onclick="window._cwDelDisc(${i})" title="删除此条" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px">✕</button>
+    </div>`).join('');
+}
+
+window._cwEditDisc = (i, val) => { if (_discTurns[i]) _discTurns[i].text = (val || '').trim(); };
+window._cwDelDisc = (i) => { _discTurns.splice(i, 1); _cwRenderDisc(_cwUid); };
+
+window._cwDiscDispatch = async (uid) => {
+  if (!_discTurns.length) { alert('没有可分发的讨论'); return; }
+  const accts = _selector ? _selector.getSelected() : [];
+  if (!accts.length) { alert('请先选择账号'); return; }
+  const vids = _videos.filter(v => v.checked);
+  if (!vids.length) { alert('请先解析并勾选视频'); return; }
+  const minPer = Math.max(1, parseInt(document.getElementById(`cwDiscMin_${uid}`)?.value || '1'));
+  const maxPer = Math.max(minPer, parseInt(document.getElementById(`cwDiscMax_${uid}`)?.value || '2'));
+  const needMin = Math.ceil(_discTurns.length / maxPer);
+  if (accts.length < needMin) {
+    if (!confirm(`⚠️ 账号不足：${_discTurns.length} 条讨论（每账号上限 ${maxPer}）至少需要 ${needMin} 个发言账号，当前 ${accts.length} 个。\n仍要分发？`)) return;
+  }
+  if (!confirm(`📤 分发讨论\n讨论条数：${_discTurns.length}\n账号池：${accts.length} 个（随机抽发言账号，其余围观不发言）\n每账号：${minPer}~${maxPer} 条\n视频：${vids.length} 条`)) return;
+
+  const resultEl = document.getElementById(`cwResult_${uid}`);
+  const contentEl = document.getElementById(`cwResultContent_${uid}`);
+  if (resultEl) resultEl.style.display = 'block';
+  if (contentEl) contentEl.innerHTML = '⏳ 提交讨论计划...';
+  try {
+    const r = await fetch('/api/ops/run', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'discussion',
+        accounts: accts.map(a => a.id),
+        params: {
+          urls: vids.map(v => ({ title: v.title, url: v.url })),
+          turns: _discTurns,
+          min_per_account: minPer,
+          max_per_account: maxPer,
+        },
+      }),
+    });
+    const d = await r.json();
+    const ok = d.status === 'accepted' || d.status === 'ok';
+    if (contentEl) {
+      contentEl.innerHTML = ok
+        ? `✅ 讨论已分发：${d.total_tasks || (d.tasks || []).length || '?'} 个任务`
+          + ((d.errors || []).length ? `<br>⚠️ ${d.errors.length} 个提示: ${(d.errors[0] || {}).message || ''}` : '')
+        : `❌ 分发失败：${d.message || d.error || ''}<br>${(d.errors || []).map(e => e.message).join('<br>')}`;
+    }
+  } catch (e) {
+    if (contentEl) contentEl.innerHTML = `❌ 网络错误：${e.message}`;
+  }
 };
 
 // ═══ 分发 ═══

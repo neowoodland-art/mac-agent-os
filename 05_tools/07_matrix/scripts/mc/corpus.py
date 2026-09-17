@@ -293,6 +293,72 @@ class AIGenerator:
         text = await self._call_api(prompt)
         return text
 
+    async def generate_discussion_script(
+        self,
+        video_title: str,
+        topic: str = "",
+        guide_items: list = None,
+        outline: str = "",
+        total: int = 15,
+        bystander_ratio: float = 0.2,
+    ) -> list:
+        """一次生成完整多人讨论剧本 → [{"role", "text"}, ...]
+
+        AI 一次演多个角色接力讨论（1 次调用出全部条数），系统按角色标签拆条分配给不同账号。
+        guide_items: 引导要素列表（多个推荐对象，如 ["宋佳主任：周五出诊", "绿色通道：公众号预约"]）
+        """
+        if not self.available:
+            return []
+        guide_items = [g for g in (guide_items or []) if str(g).strip()]
+        total = max(3, min(40, int(total)))
+        bystander_count = max(1, round(total * bystander_ratio)) if bystander_ratio > 0 else 0
+        guide_hint = ""
+        if guide_items:
+            items_text = "\n".join(f"  - {g}" for g in guide_items)
+            guide_limit = max(1, round(total * 0.3))
+            guide_hint = (
+                f"\n引导要素（多人分别自然带出，不要都推荐同一个；最多 {guide_limit} 条带引导，位置随机）：\n"
+                f"{items_text}"
+            )
+        outline_hint = f"\n讨论走向：{outline}" if outline else ""
+
+        prompt = (
+            "你是抖音评论区的内容策划。为一条视频营造「多人真实讨论」的效果。\n\n"
+            f"视频：{video_title or '（未知标题）'}\n"
+            f"讨论主题：{topic or '围绕视频内容'}"
+            f"{guide_hint}{outline_hint}\n\n"
+            "要求：\n"
+            f"1. 生成 {total} 条评论，模拟 {total} 个不同用户在评论区接力讨论\n"
+            "2. 每行格式：[角色] 评论内容（角色如：纠结者/过来人/追问者/赞同者/路人）\n"
+            "3. 每条 10~30 字，口语化，像真人说话\n"
+            "4. 不要用「楼上」「上面说的」这类强顺序词（不同人可能同时发），"
+            "用「我也在纠结这个」「我上周刚去」这类自然表达\n"
+            f"5. 其中约 {bystander_count} 条是路人打酱油评论（与主题弱相关，如路过支持）\n"
+            "6. 不要用 emoji、不要用引号、不要写序号解释\n\n"
+            f"直接输出 {total} 行。"
+        )
+        text = await self._call_api(prompt)
+        return self._parse_discussion(text, total)
+
+    def _parse_discussion(self, text: str, total: int) -> list:
+        """解析 AI 讨论剧本输出 → [{"role", "text"}]（容错：无标签行归为路人）"""
+        import re as _re
+        turns = []
+        for line in (text or "").split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            m = _re.match(r'^[\[【]\s*([^\]】]{1,10})\s*[\]】]\s*(.+)$', line)
+            if m:
+                role, content = m.group(1).strip(), m.group(2).strip()
+            else:
+                content = _re.sub(r'^\d+[.、)）]\s*', '', line).strip()
+                role = "路人"
+            content = content.strip('"\'“”‘’ ')
+            if 2 <= len(content) <= 120:
+                turns.append({"role": role, "text": content})
+        return turns[:total]
+
     # ── 内部方法 ────────────────────────────────────────────
 
     def _build_prompt(self, video_title: str, video_desc: str, direction: str, persona: dict = None) -> str:

@@ -126,6 +126,54 @@ def api_generate_comments(data: dict):
     return {"comments": comments, "total": len(comments)}
 
 
+@router.post("/generate-discussion")
+def api_generate_discussion(data: dict):
+    """多人讨论模式：一次生成完整讨论剧本（单次 AI 调用）→ turns 列表
+
+    Body:
+        video_title: str        — 视频标题
+        topic: str              — 讨论主题（用户主导概念）
+        guide_items: [str]|str  — 引导要素（多个推荐对象，每行一个）
+        outline: str            — 剧本走向（自由文本，如"先质疑→过来人澄清→带出医生"）
+        total: int              — 总条数（3~40，默认 15）
+        bystander_ratio: float  — 路人打酱油占比（0~0.5，默认 0.2）
+    """
+    video_title = (data.get("video_title") or "").strip()
+    topic = (data.get("topic") or "").strip()
+    outline = (data.get("outline") or "").strip()
+    total = max(3, min(40, int(data.get("total", 15))))
+    bystander_ratio = min(max(float(data.get("bystander_ratio", 0.2)), 0.0), 0.5)
+    guide_raw = data.get("guide_items") or []
+    if isinstance(guide_raw, str):
+        guide_items = [l.strip() for l in guide_raw.split("\n") if l.strip()]
+    else:
+        guide_items = [str(g).strip() for g in guide_raw if str(g).strip()]
+
+    if not video_title and not topic:
+        raise HTTPException(400, detail="video_title 或 topic 至少填一个")
+
+    from mc.corpus import AIGenerator
+    ai = AIGenerator()
+    if not ai.available:
+        raise HTTPException(503, detail="AI 不可用（检查 config/ai.yaml 或 agent-local 配置）")
+
+    import asyncio as _asyncio
+    try:
+        loop = _asyncio.get_event_loop()
+    except RuntimeError:
+        loop = _asyncio.new_event_loop()
+    turns = loop.run_until_complete(ai.generate_discussion_script(
+        video_title=video_title,
+        topic=topic,
+        guide_items=guide_items,
+        outline=outline,
+        total=total,
+        bystander_ratio=bystander_ratio,
+    ))
+    logger.info("  💬 讨论剧本生成: %d 条 (主题=%s 要素=%d)", len(turns), topic[:20], len(guide_items))
+    return {"status": "ok", "turns": turns, "total": len(turns), "requested": total}
+
+
 @router.post("/save-comments")
 def api_save_comments(data: dict):
     """将精选评论保存到语料库

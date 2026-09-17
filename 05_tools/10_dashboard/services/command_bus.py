@@ -1204,6 +1204,105 @@ def _build_interact_plan(machine_groups: dict, params: dict, now_ts: int) -> lis
     return tasks
 
 
+def _build_discussion_plan(machine_groups: dict, params: dict, now_ts: int) -> list:
+    """生成多人讨论分发计划（讨论串 turns × 账号精确配对）
+
+    params:
+        urls: [{title, url}]        — 视频（多视频时轮流分配）
+        turns: [{role, text}]       — 已生成的讨论串（AI 一次生成）
+        min_per_account: int        — 每账号发言下限（默认 1，保底参与）
+        max_per_account: int        — 每账号发言上限（默认 2，防封号）
+
+    分配逻辑：随机抽发言账号 → 下限保底 → 剩余条数加权随机（条数少者优先，分布自然）
+              → 账号槽位随机打散 → 每条讨论配一个账号（弱指向，不依赖发布顺序）
+    """
+    import random
+    import collections
+    urls = params.get("urls", [])
+    turns = params.get("turns", [])
+    if not urls or not turns:
+        raise ValueError("discussion 需要 urls 和 turns 参数")
+    min_per = max(1, int(params.get("min_per_account", 1)))
+    max_per = max(min_per, int(params.get("max_per_account", 2)))
+
+    all_accts = []
+    for machine, accts in machine_groups.items():
+        for a in accts:
+            all_accts.append({
+                "id": a["id"], "machine": machine,
+                "is_local": (machine == HOSTNAME),
+                "nickname": a.get("nickname", ""),
+                "platform": a.get("platform", "douyin"),
+            })
+    if not all_accts:
+        raise ValueError("账号池为空")
+
+    total_turns = len(turns)
+    need_min = (total_turns + max_per - 1) // max_per   # 至少需要多少发言账号
+    if len(all_accts) < need_min:
+        raise ValueError(
+            f"账号不足：{total_turns} 条讨论（每账号上限 {max_per}）至少需要 {need_min} 个发言账号，"
+            f"当前仅 {len(all_accts)} 个。请补选账号或减少讨论条数"
+        )
+
+    # 发言账号数：按平均条数估算（下限保底），夹在 need_min ~ min(池, 条数) 之间
+    avg = (min_per + max_per) / 2.0
+    speaker_n = min(len(all_accts), total_turns,
+                    max(need_min, int(round(total_turns / max(avg, 1.0)))))
+    speakers = random.sample(all_accts, speaker_n)
+
+    # 条数分配：下限保底 + 均匀随机加成（出现 1/2/3 条混合的自然分布，不刻意均摊）
+    alloc = {a["id"]: min_per for a in speakers}
+    remain = total_turns - min_per * speaker_n
+    guard = 0
+    while remain > 0 and guard < 100000:
+        guard += 1
+        cands = [a["id"] for a in speakers if alloc[a["id"]] < max_per]
+        if not cands:
+            break
+        aid = random.choice(cands)
+        alloc[aid] += 1
+        remain -= 1
+
+    # 账号槽位（按分配条数展开后随机打散）
+    slots = []
+    for aid, n in alloc.items():
+        slots.extend([aid] * n)
+    random.shuffle(slots)
+
+    aid_map = {a["id"]: a for a in all_accts}
+    tasks = []
+    for i, turn in enumerate(turns):
+        if i >= len(slots):
+            break
+        aid = slots[i]
+        a = aid_map[aid]
+        url = (urls[i % len(urls)] or {}).get("url", "")
+        text = (turn.get("text") or "").strip()
+        if not text or not url:
+            continue
+        tasks.append({
+            "machine": a["machine"], "cmd_type": "comment",
+            "ids_str": aid, "is_local": a["is_local"],
+            "nickname": a["nickname"], "platform": a["platform"],
+            "cmd_line": (
+                f"mc task comment --account={shlex.quote(aid)} "
+                f"--url={shlex.quote(url)} --comment={shlex.quote(text)} -y"
+            ),
+            "run_id": f"discussion_{now_ts}_{a['machine']}_{aid}_{i}",
+            "priority": 0,
+            "params": {"url": url, "comment_text": text,
+                       "role": turn.get("role", ""), "seq": i + 1},
+        })
+
+    dist = collections.Counter(alloc.values())
+    logger.info(
+        f"  💬 讨论计划: {total_turns} 条 × {speaker_n} 个发言账号 "
+        f"(条数分布 {dict(sorted(dist.items()))}) → {len(tasks)} 个任务"
+    )
+    return tasks
+
+
 # ── 命令总线 ────────────────────────────────────────────────
 class CommandBus:
     """全局命令总线 — 所有操作的统一入口"""
@@ -1284,6 +1383,14 @@ class CommandBus:
             except Exception as e:
                 logger.error(f"互动计划生成失败: {e}")
                 errors.append({"account": "all", "message": f"互动计划生成失败: {e}"})
+
+        # ── 多人讨论计划生成器（turns × 账号精确配对）──────────
+        if cmd_type == "discussion":
+            try:
+                _plan_tasks = _build_discussion_plan(machine_groups, params, now_ts)
+            except Exception as e:
+                logger.error(f"讨论计划生成失败: {e}")
+                errors.append({"account": "all", "message": f"讨论计划生成失败: {e}"})
 
         # 第二步：按机器分组构建命令任务
         # 返回 list[dict] = {machine, cmd_type, ids_str, is_local, cmd_line, params, run_id}
