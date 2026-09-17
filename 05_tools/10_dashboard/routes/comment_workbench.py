@@ -174,6 +174,31 @@ def api_generate_discussion(data: dict):
     return {"status": "ok", "turns": turns, "total": len(turns), "requested": total}
 
 
+@router.post("/parse-outline")
+def api_parse_outline(data: dict):
+    """把用户的自然语言想法拆解成结构化「讨论走向」（供讨论模式生成用）
+
+    Body: { raw_idea: str }  — 用户原始描述（可能跳跃/口语）
+    """
+    raw_idea = (data.get("raw_idea") or "").strip()
+    if not raw_idea:
+        raise HTTPException(400, detail="raw_idea 必填")
+
+    from mc.corpus import AIGenerator
+    ai = AIGenerator()
+    if not ai.available:
+        raise HTTPException(503, detail="AI 不可用（检查 config/ai.yaml 或 agent-local 配置）")
+
+    import asyncio as _asyncio
+    try:
+        loop = _asyncio.get_event_loop()
+    except RuntimeError:
+        loop = _asyncio.new_event_loop()
+    outline = loop.run_until_complete(ai.parse_discussion_outline(raw_idea))
+    logger.info("  🧭 走向拆解: %s → %d 字", raw_idea[:24], len(outline or ""))
+    return {"status": "ok", "outline": outline}
+
+
 @router.post("/save-comments")
 def api_save_comments(data: dict):
     """将精选评论保存到语料库

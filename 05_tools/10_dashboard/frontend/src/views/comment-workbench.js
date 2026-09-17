@@ -114,11 +114,34 @@ export async function loadView(container) {
             <textarea id="cwDiscGuides_${_uid}" rows="3" placeholder="每行一个（支持多个推荐对象，AI 会分给不同人自然带出）&#10;宋佳主任：周五出诊，手法细致&#10;孙刘鑫主任：微创经验丰富&#10;绿色通道：公众号预约不排队"
                       style="flex:1;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
           </label>
-          <label style="font-size:11px;display:flex;gap:6px">
+          <div style="font-size:11px;display:flex;gap:6px">
             <span style="width:80px;color:var(--text2);padding-top:3px">📝 讨论走向</span>
-            <textarea id="cwDiscOutline_${_uid}" rows="2" placeholder="可选，自由描述，如：先有人纠结 → 过来人分享 → 追问细节 → 自然带出医生和预约方式"
-                      style="flex:1;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
-          </label>
+            <div style="flex:1;display:grid;gap:4px">
+              <select id="cwDiscOutlinePreset_${_uid}" onchange="window._cwOutlinePresetChange('${_uid}')"
+                      style="padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px">
+                <option value="">（不指定，AI 自由发挥）</option>
+                <option value="qa">疑问解答型：有人提问 → 过来人解答 → 追问细节 → 自然引导</option>
+                <option value="story">亲历分享型：有人纠结 → 过来人分享经历 → 共鸣追问 → 自然推荐</option>
+                <option value="debate">质疑争论型：有人质疑 → 有人用事实证明 → 中立补充 → 引导</option>
+                <option value="compare">对比选择型：问哪家好 → 几人各自经历 → 总结推荐 → 引导</option>
+                <option value="scene">场景切入型：从生活话题聊起 → 自然关联 → 带出医生/机构 → 引导</option>
+                <option value="exclaim">感叹种草型：刷到感慨 → 分享类似经历 → 讨论细节 → 收藏推荐</option>
+                <option value="__custom__">✍️ 自定义（写一段话，AI 帮你拆解成走向）</option>
+              </select>
+              <div id="cwDiscCustomWrap_${_uid}" style="display:none;gap:4px">
+                <textarea id="cwDiscOutlineCustom_${_uid}" rows="3"
+                          placeholder="用自然语言随便写，AI 会帮你拆解，例如：&#10;讨论肥肠引到肛肠医院，肛肠医院对面开肥肠店，医生下来吃。苏州肛泰有名专家可以去看，宋佳（女专家，人挺好），孙刘星（肛肠专业组委，厉害）"
+                          style="width:100%;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <button id="cwParseOutlineBtn_${_uid}" onclick="window._cwParseOutline('${_uid}')"
+                          style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 12px;border-radius:4px;cursor:pointer;font-size:10px">🤖 AI 拆解走向</button>
+                  <span id="cwParseStatus_${_uid}" style="font-size:10px;color:var(--text2)"></span>
+                </div>
+              </div>
+              <textarea id="cwDiscOutline_${_uid}" rows="2" placeholder="走向显示在这里（预设/AI 拆解结果，可手动编辑后使用）"
+                        style="width:100%;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
+            </div>
+          </div>
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:11px">
             <label style="display:flex;align-items:center;gap:4px">💬 总条数
               <input id="cwDiscTotal_${_uid}" type="number" value="15" min="3" max="40"
@@ -875,6 +898,54 @@ window._cwSwitchMode = (uid, mode) => {
   if (isDisc) {
     if (roleSec) roleSec.style.display = 'none';
     if (prev) prev.style.display = 'none';
+  }
+};
+
+// 讨论走向预设模板
+const DISC_OUTLINE_PRESETS = {
+  '': '',
+  qa: '疑问解答型：有人提出疑问 → 过来人用亲身经历解答 → 其他人追问细节 → 自然带出医生和预约方式',
+  story: '亲历分享型：有人纠结犹豫 → 过来人分享完整经历 → 其他人共鸣或追问 → 自然引到推荐',
+  debate: '质疑争论型：有人质疑效果或价格 → 有人用事实和经历反驳 → 中立者补充客观信息 → 自然引导',
+  compare: '对比选择型：有人问哪家好 → 几个人分别说不同经历 → 有人总结推荐 → 引导到目标',
+  scene: '场景切入型：从生活话题聊起（如美食、天气、工作）→ 自然关联到相关经历 → 带出医生或机构 → 引导',
+  exclaim: '感叹种草型：刷到视频感慨 → 分享类似经历 → 讨论细节 → 收藏并推荐给需要的人',
+};
+
+window._cwOutlinePresetChange = (uid) => {
+  const preset = document.getElementById(`cwDiscOutlinePreset_${uid}`)?.value || '';
+  const wrap = document.getElementById(`cwDiscCustomWrap_${uid}`);
+  const outlineEl = document.getElementById(`cwDiscOutline_${uid}`);
+  const statusEl = document.getElementById(`cwParseStatus_${uid}`);
+  if (wrap) wrap.style.display = preset === '__custom__' ? 'grid' : 'none';
+  if (statusEl) statusEl.textContent = '';
+  if (outlineEl && preset !== '__custom__') outlineEl.value = DISC_OUTLINE_PRESETS[preset] || '';
+};
+
+window._cwParseOutline = async (uid) => {
+  const raw = document.getElementById(`cwDiscOutlineCustom_${uid}`)?.value.trim() || '';
+  const statusEl = document.getElementById(`cwParseStatus_${uid}`);
+  if (!raw) { alert('请先写一段自然语言描述（随便写，AI 帮你拆解）'); return; }
+  const btn = document.getElementById(`cwParseOutlineBtn_${uid}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 拆解中...'; }
+  if (statusEl) statusEl.textContent = '⏳ AI 正在理解你的想法...';
+  try {
+    const r = await fetch('/api/comment-workbench/parse-outline', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw_idea: raw }),
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') {
+      if (statusEl) statusEl.textContent = '❌ ' + (d.detail || d.message || '拆解失败');
+      return;
+    }
+    const outlineEl = document.getElementById(`cwDiscOutline_${uid}`);
+    if (outlineEl) outlineEl.value = d.outline || '';
+    if (statusEl) statusEl.textContent = '✅ 已拆解成走向（可在下方框手动修改）';
+  } catch (e) {
+    if (statusEl) statusEl.textContent = '❌ 网络错误: ' + e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 拆解走向'; }
   }
 };
 

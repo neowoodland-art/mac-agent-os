@@ -340,6 +340,29 @@ class AIGenerator:
         text = await self._call_api(prompt)
         return self._parse_discussion(text, total)
 
+    async def parse_discussion_outline(self, raw_idea: str) -> str:
+        """把用户的自然语言想法拆解成结构化「讨论走向」（供生成讨论剧本用）
+
+        用户可能写得跳跃/口语（如"讨论肥肠引到肛肠医院，对面开肥肠店，医生下来吃…"），
+        AI 理解后输出分阶段的清晰走向，保证后续生成讨论剧本时能读懂。
+        """
+        if not self.available or not (raw_idea or "").strip():
+            return ""
+        prompt = (
+            "用户想策划一场抖音评论区讨论，下面是他的原始想法（可能跳跃、口语化）：\n\n"
+            f"{raw_idea.strip()[:800]}\n\n"
+            "请把它拆解成清晰的「讨论走向」，要求：\n"
+            "1. 分 3~6 个阶段，每阶段一句话说明：这一段谁在聊什么、如何自然过渡到下一段\n"
+            "2. 保留用户提到的所有关键信息（人物名、机构名、产品名、地点等），一个都不要遗漏\n"
+            "3. 阶段之间要有自然的过渡理由（如「聊到吃的 → 发现店就在医院对面」这种）\n"
+            "4. 只写走向（阶段描述），不要写具体评论内容\n"
+            "5. 不要用 emoji、不要写额外解释\n\n"
+            "输出格式（每行一个阶段）：\n"
+            "阶段1: ...\n阶段2: ...\n阶段3: ..."
+        )
+        text = await self._call_api(prompt)
+        return (text or "").strip()
+
     def _parse_discussion(self, text: str, total: int) -> list:
         """解析 AI 讨论剧本输出 → [{"role", "text"}]（容错：无标签行归为路人）"""
         import re as _re
