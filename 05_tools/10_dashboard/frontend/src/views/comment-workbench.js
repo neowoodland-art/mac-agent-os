@@ -129,16 +129,28 @@ export async function loadView(container) {
                 <option value="__custom__">✍️ 自定义（写一段话，AI 帮你拆解成走向）</option>
               </select>
               <div id="cwDiscCustomWrap_${_uid}" style="display:none;gap:4px">
+                <div style="font-size:10px;color:var(--text2)">① 写一段话（可跳跃、口语，AI 帮你理解）</div>
                 <textarea id="cwDiscOutlineCustom_${_uid}" rows="3"
-                          placeholder="用自然语言随便写，AI 会帮你拆解，例如：&#10;讨论肥肠引到肛肠医院，肛肠医院对面开肥肠店，医生下来吃。苏州肛泰有名专家可以去看，宋佳（女专家，人挺好），孙刘星（肛肠专业组委，厉害）"
+                          placeholder="例如：&#10;讨论肥肠引到肛肠医院，肛肠医院对面开肥肠店，医生下来吃。苏州肛泰有名专家可以去看，宋佳（女专家，人挺好），孙刘星（肛肠专业组委，厉害）"
                           style="width:100%;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
                 <div style="display:flex;gap:6px;align-items:center">
                   <button id="cwParseOutlineBtn_${_uid}" onclick="window._cwParseOutline('${_uid}')"
-                          style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 12px;border-radius:4px;cursor:pointer;font-size:10px">🤖 AI 拆解走向</button>
+                          style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 12px;border-radius:4px;cursor:pointer;font-size:10px">🤖 AI 生成讨论方向</button>
                   <span id="cwParseStatus_${_uid}" style="font-size:10px;color:var(--text2)"></span>
                 </div>
+                <div id="cwDiscParsedWrap_${_uid}" style="display:none;gap:4px">
+                  <div style="font-size:10px;color:var(--text2)">② AI 生成的方向（可手动修改后采用）</div>
+                  <textarea id="cwDiscOutlineParsed_${_uid}" rows="4"
+                            style="width:100%;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <button id="cwAdoptOutlineBtn_${_uid}" onclick="window._cwAdoptOutline('${_uid}')"
+                            style="background:#22c55e;color:#000;border:none;padding:3px 14px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">✅ 采用此方向</button>
+                    <span id="cwAdoptStatus_${_uid}" style="font-size:10px;color:var(--text2)"></span>
+                  </div>
+                </div>
               </div>
-              <textarea id="cwDiscOutline_${_uid}" rows="2" placeholder="走向显示在这里（预设/AI 拆解结果，可手动编辑后使用）"
+              <div style="font-size:10px;color:var(--text2)">③ 最终走向（选预设自动填 / 采用后填入；生成讨论时使用，可再改）</div>
+              <textarea id="cwDiscOutline_${_uid}" rows="3" placeholder="最终走向（预设自动填，或自定义写想法 → AI 生成 → 采用）"
                         style="width:100%;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
             </div>
           </div>
@@ -919,15 +931,17 @@ window._cwOutlinePresetChange = (uid) => {
   const statusEl = document.getElementById(`cwParseStatus_${uid}`);
   if (wrap) wrap.style.display = preset === '__custom__' ? 'grid' : 'none';
   if (statusEl) statusEl.textContent = '';
+  const parsedWrap = document.getElementById(`cwDiscParsedWrap_${uid}`);
+  if (parsedWrap && preset !== '__custom__') parsedWrap.style.display = 'none';
   if (outlineEl && preset !== '__custom__') outlineEl.value = DISC_OUTLINE_PRESETS[preset] || '';
 };
 
 window._cwParseOutline = async (uid) => {
   const raw = document.getElementById(`cwDiscOutlineCustom_${uid}`)?.value.trim() || '';
   const statusEl = document.getElementById(`cwParseStatus_${uid}`);
-  if (!raw) { alert('请先写一段自然语言描述（随便写，AI 帮你拆解）'); return; }
+  if (!raw) { alert('请先写一段自然语言描述（随便写，AI 帮你理解）'); return; }
   const btn = document.getElementById(`cwParseOutlineBtn_${uid}`);
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 拆解中...'; }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 生成中...'; }
   if (statusEl) statusEl.textContent = '⏳ AI 正在理解你的想法...';
   try {
     const r = await fetch('/api/comment-workbench/parse-outline', {
@@ -936,17 +950,33 @@ window._cwParseOutline = async (uid) => {
     });
     const d = await r.json();
     if (d.status !== 'ok') {
-      if (statusEl) statusEl.textContent = '❌ ' + (d.detail || d.message || '拆解失败');
+      if (statusEl) statusEl.textContent = '❌ ' + (d.detail || d.message || '生成失败');
       return;
     }
-    const outlineEl = document.getElementById(`cwDiscOutline_${uid}`);
-    if (outlineEl) outlineEl.value = d.outline || '';
-    if (statusEl) statusEl.textContent = '✅ 已拆解成走向（可在下方框手动修改）';
+    // ① → ② 结果进「AI 生成的方向」框，等用户修改后采用
+    const wrapEl = document.getElementById(`cwDiscParsedWrap_${uid}`);
+    const parsedEl = document.getElementById(`cwDiscOutlineParsed_${uid}`);
+    if (parsedEl) parsedEl.value = d.outline || '';
+    if (wrapEl) wrapEl.style.display = 'grid';
+    const adoptStatus = document.getElementById(`cwAdoptStatus_${uid}`);
+    if (adoptStatus) adoptStatus.textContent = '';
+    if (statusEl) statusEl.textContent = '✅ 已生成，可修改后点「✅ 采用此方向」';
   } catch (e) {
     if (statusEl) statusEl.textContent = '❌ 网络错误: ' + e.message;
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 拆解走向'; }
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 生成讨论方向'; }
   }
+};
+
+// ② → ③ 采用此方向（写入最终走向，供生成讨论使用）
+window._cwAdoptOutline = (uid) => {
+  const parsedEl = document.getElementById(`cwDiscOutlineParsed_${uid}`);
+  const outlineEl = document.getElementById(`cwDiscOutline_${uid}`);
+  const statusEl = document.getElementById(`cwAdoptStatus_${uid}`);
+  const val = (parsedEl?.value || '').trim();
+  if (!val) { alert('AI 生成的方向为空'); return; }
+  if (outlineEl) outlineEl.value = val;
+  if (statusEl) statusEl.textContent = '✅ 已采用（生成讨论时使用下方最终走向）';
 };
 
 window._cwGenDiscussion = async (uid) => {
