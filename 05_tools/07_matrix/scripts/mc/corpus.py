@@ -304,6 +304,7 @@ class AIGenerator:
         guide_path: str = "",
         role_counts: dict = None,
         long_comment_count: int = 2,
+        guide_count: int = 0,
     ) -> list:
         """一次生成完整多人讨论剧本 → [{"role", "text"}, ...]
 
@@ -351,10 +352,23 @@ class AIGenerator:
         guide_hint = ""
         if guide_items:
             items_text = "\n".join(f"  - {g}" for g in guide_items)
-            guide_limit = max(1, round(total * 0.3))
+            # 引导条数：guide_count>0 用指定值；0 = 自动按 30%（至少 1 条，不超过总数-路人）
+            gc = int(guide_count or 0)
+            guide_n = min(total, gc if gc > 0 else max(1, round(total * 0.3)))
+            if guide_n > total - bystander_count:
+                guide_n = max(1, total - bystander_count)
+            spread = (
+                f"；{len(guide_items)} 个要素都要出现，每个至少 1 次"
+                if guide_n >= len(guide_items)
+                else "；要素轮流出现"
+            )
             guide_hint = (
-                f"\n引导要素（多人分别自然带出，不要都推荐同一个；最多 {guide_limit} 条带引导，位置随机）：\n"
-                f"{items_text}"
+                f"\n【引导要求 · 最重要】{total} 条里必须恰好 {guide_n} 条带出下面的引导要素"
+                f"（一条都不能少），分散在不同角色的评论里，每条用不同角度"
+                f"（如：有人问怎么找、有人分享去过/找过的经历、有人说预约方式、有人夸技术好）{spread}。\n"
+                f"如果引导要素和讨论主题（{topic or '视频内容'}）相差较大，要用自然联想过渡"
+                f"（例：吃辣油腻 → 肠胃遭不住 → 找医生看看 → 怎么挂号），绝不能生硬插入。\n"
+                f"引导要素：\n{items_text}"
             )
         outline_hint = f"\n讨论走向：{outline}" if outline else ""
         path_hint = (

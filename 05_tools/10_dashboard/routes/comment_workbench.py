@@ -148,6 +148,7 @@ def api_generate_discussion(data: dict):
     if not isinstance(role_counts, dict):
         role_counts = {}
     long_comment_count = max(0, min(3, int(data.get("long_comment_count", 2))))
+    guide_count = max(0, int(data.get("guide_count", 0)))  # 0 = 自动按 30%
     guide_raw = data.get("guide_items") or []
     if isinstance(guide_raw, str):
         guide_items = [l.strip() for l in guide_raw.split("\n") if l.strip()]
@@ -177,6 +178,7 @@ def api_generate_discussion(data: dict):
         guide_path=guide_path,
         role_counts=role_counts,
         long_comment_count=long_comment_count,
+        guide_count=guide_count,
     ))
     logger.info("  💬 讨论剧本生成: %d 条 (主题=%s 要素=%d)", len(turns), topic[:20], len(guide_items))
     warning = ""

@@ -187,6 +187,10 @@ export async function loadView(container) {
               <input id="cwDiscLong_${_uid}" type="number" value="2" min="0" max="3" title="60~150 字娓娓道来的故事型评论条数（过来人讲经历）"
                      style="width:38px;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;text-align:center">条
             </label>
+            <label style="display:flex;align-items:center;gap:4px">🎯 引导条数
+              <input id="cwDiscGuideN_${_uid}" type="number" min="0" max="60" placeholder="自动" title="带引导要素的评论条数：留空=自动按 30%；填大些可多生成再挑选；0=不带引导"
+                     style="width:46px;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;text-align:center">条
+            </label>
             <label style="display:flex;align-items:center;gap:4px">⚡ 倍数
               <select id="cwDiscMult_${_uid}" title="多生成便于挑选删除（1x = 按需要的数量生成）"
                       style="padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px">
@@ -1096,6 +1100,7 @@ window._cwGenDiscussion = async (uid) => {
   const total = parseInt(document.getElementById(`cwDiscTotal_${uid}`)?.value || '15');
   const bystander = (parseInt(document.getElementById(`cwDiscBystander_${uid}`)?.value || '20')) / 100;
   const longN = parseInt(document.getElementById(`cwDiscLong_${uid}`)?.value || '2');
+  const guideN = parseInt(document.getElementById(`cwDiscGuideN_${uid}`)?.value || '0') || 0;
   const mult = parseFloat(document.getElementById(`cwDiscMult_${uid}`)?.value || '1');
   // 角色配比（填了则用配比总和作条数；倍数放大配比；留空则 AI 自由发挥）
   const roleCounts = {};
@@ -1130,6 +1135,7 @@ window._cwGenDiscussion = async (uid) => {
         guide_path: guidePath,
         role_counts: sendRoleCounts,
         long_comment_count: longN,
+        guide_count: guideN,
       }),
     });
     const d = await r.json();
