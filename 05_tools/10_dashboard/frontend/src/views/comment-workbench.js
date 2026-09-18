@@ -106,14 +106,28 @@ export async function loadView(container) {
         <div style="display:grid;gap:6px">
           <label style="font-size:11px;display:flex;align-items:center;gap:6px">
             <span style="width:80px;color:var(--text2)">🎯 讨论主题</span>
-            <input id="cwDiscTopic_${_uid}" type="text" placeholder="如：痔疮微创无痛恢复"
+            <input id="cwDiscTopic_${_uid}" type="text" placeholder="自动从视频标题提炼（可改）"
                    style="flex:1;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px">
+            <button id="cwExtractTopicBtn_${_uid}" onclick="window._cwExtractTopic('${_uid}')" title="从已勾选视频的标题提炼核心主题"
+                    style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px;white-space:nowrap">🔄 提取</button>
           </label>
           <label style="font-size:11px;display:flex;gap:6px">
             <span style="width:80px;color:var(--text2);padding-top:3px">🎯 引导要素</span>
             <textarea id="cwDiscGuides_${_uid}" rows="3" placeholder="每行一个（支持多个推荐对象，AI 会分给不同人自然带出）&#10;宋佳主任：周五出诊，手法细致&#10;孙刘鑫主任：微创经验丰富&#10;绿色通道：公众号预约不排队"
                       style="flex:1;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
           </label>
+          <div style="font-size:11px;display:flex;gap:6px">
+            <span style="width:80px;color:var(--text2);padding-top:3px">🧭 引导路径</span>
+            <div style="flex:1;display:grid;gap:4px">
+              <div style="display:flex;gap:6px;align-items:center">
+                <button id="cwGenPathBtn_${_uid}" onclick="window._cwGenPath('${_uid}')"
+                        style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:3px 12px;border-radius:4px;cursor:pointer;font-size:10px">🤖 AI 生成路径</button>
+                <span id="cwPathStatus_${_uid}" style="font-size:10px;color:var(--text2)">按「主题 → 逐个要素 → 收尾行动」推演（3~6 步）</span>
+              </div>
+              <textarea id="cwDiscPath_${_uid}" rows="3" placeholder="点上方按钮用 AI 推演，或自己写（生成讨论时按此路径逐步推进，要素不漏）"
+                        style="width:100%;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical"></textarea>
+            </div>
+          </div>
           <div style="font-size:11px;display:flex;gap:6px">
             <span style="width:80px;color:var(--text2);padding-top:3px">📝 讨论走向</span>
             <div style="flex:1;display:grid;gap:4px">
@@ -413,6 +427,12 @@ window._cwParseUrls = async (uid) => {
     } catch (e) {
       console.warn('标题提取失败:', e);
     }
+  }
+
+  // 自动从视频标题提炼讨论主题（主题框为空时才自动，不覆盖用户已填；失败静默）
+  const topicInput = document.getElementById(`cwDiscTopic_${uid}`);
+  if (topicInput && !topicInput.value.trim()) {
+    window._cwExtractTopic(uid, true);
   }
 };
 
@@ -888,6 +908,62 @@ let _cwMode = 'directed';
 let _discTurns = [];
 let _cwUid = '';
 
+window._cwExtractTopic = async (uid, silent) => {
+  const vids = _videos.filter(v => v.checked);
+  const title = ((vids[0] || {}).title || '').trim();
+  if (!title) {
+    if (!silent) alert('请先在第一步解析并勾选视频（需要视频标题）');
+    return;
+  }
+  const btn = document.getElementById(`cwExtractTopicBtn_${uid}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  try {
+    const r = await fetch('/api/comment-workbench/extract-topic', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ video_title: title }),
+    });
+    const d = await r.json();
+    if (d.status === 'ok' && d.topic) {
+      const inp = document.getElementById(`cwDiscTopic_${uid}`);
+      if (inp) inp.value = d.topic;
+    } else if (!silent) {
+      alert('❌ ' + (d.detail || '主题提炼失败'));
+    }
+  } catch (e) {
+    if (!silent) alert('❌ 网络错误: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 提取'; }
+  }
+};
+
+window._cwGenPath = async (uid) => {
+  const topic = document.getElementById(`cwDiscTopic_${uid}`)?.value.trim() || '';
+  const guides = document.getElementById(`cwDiscGuides_${uid}`)?.value.trim() || '';
+  const outline = document.getElementById(`cwDiscOutline_${uid}`)?.value.trim() || '';
+  if (!topic) { alert('请先填讨论主题（或点 🔄 提取）'); return; }
+  const btn = document.getElementById(`cwGenPathBtn_${uid}`);
+  const status = document.getElementById(`cwPathStatus_${uid}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 推演中...'; }
+  try {
+    const r = await fetch('/api/comment-workbench/generate-path', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, guide_items: guides, outline }),
+    });
+    const d = await r.json();
+    if (d.status === 'ok' && d.path) {
+      const ta = document.getElementById(`cwDiscPath_${uid}`);
+      if (ta) ta.value = d.path;
+      if (status) status.textContent = `✅ 已生成 ${d.steps} 步（可手动修改）`;
+    } else if (status) {
+      status.textContent = '❌ ' + (d.detail || '生成失败');
+    }
+  } catch (e) {
+    if (status) status.textContent = '❌ ' + e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 生成路径'; }
+  }
+};
+
 window._cwSwitchMode = (uid, mode) => {
   _cwMode = mode;
   const isDisc = mode === 'discussion';
@@ -984,6 +1060,7 @@ window._cwGenDiscussion = async (uid) => {
   const topic = document.getElementById(`cwDiscTopic_${uid}`)?.value.trim() || '';
   const guides = document.getElementById(`cwDiscGuides_${uid}`)?.value.trim() || '';
   const outline = document.getElementById(`cwDiscOutline_${uid}`)?.value.trim() || '';
+  const guidePath = document.getElementById(`cwDiscPath_${uid}`)?.value.trim() || '';
   const total = parseInt(document.getElementById(`cwDiscTotal_${uid}`)?.value || '15');
   const bystander = (parseInt(document.getElementById(`cwDiscBystander_${uid}`)?.value || '20')) / 100;
   if (!topic && !guides) { alert('请填写讨论主题或引导要素'); return; }
@@ -1001,6 +1078,7 @@ window._cwGenDiscussion = async (uid) => {
       body: JSON.stringify({
         video_title: (vids[0] || {}).title || '',
         topic, guide_items: guides, outline, total, bystander_ratio: bystander,
+        guide_path: guidePath,
       }),
     });
     const d = await r.json();

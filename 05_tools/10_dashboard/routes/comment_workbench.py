@@ -141,6 +141,7 @@ def api_generate_discussion(data: dict):
     video_title = (data.get("video_title") or "").strip()
     topic = (data.get("topic") or "").strip()
     outline = (data.get("outline") or "").strip()
+    guide_path = (data.get("guide_path") or "").strip()
     total = max(3, min(40, int(data.get("total", 15))))
     bystander_ratio = min(max(float(data.get("bystander_ratio", 0.2)), 0.0), 0.5)
     guide_raw = data.get("guide_items") or []
@@ -169,9 +170,67 @@ def api_generate_discussion(data: dict):
         outline=outline,
         total=total,
         bystander_ratio=bystander_ratio,
+        guide_path=guide_path,
     ))
     logger.info("  💬 讨论剧本生成: %d 条 (主题=%s 要素=%d)", len(turns), topic[:20], len(guide_items))
     return {"status": "ok", "turns": turns, "total": len(turns), "requested": total}
+
+
+@router.post("/extract-topic")
+def api_extract_topic(data: dict):
+    """从视频标题提炼「讨论主题」（简短核心词，供讨论模式作起点）
+
+    Body: { video_title: str }
+    """
+    video_title = (data.get("video_title") or "").strip()
+    if not video_title:
+        raise HTTPException(400, detail="video_title 必填")
+
+    from mc.corpus import AIGenerator
+    ai = AIGenerator()
+    if not ai.available:
+        raise HTTPException(503, detail="AI 不可用（检查 config/ai.yaml 或 agent-local 配置）")
+
+    import asyncio as _asyncio
+    try:
+        loop = _asyncio.get_event_loop()
+    except RuntimeError:
+        loop = _asyncio.new_event_loop()
+    topic = loop.run_until_complete(ai.extract_topic(video_title))
+    logger.info("  🎯 主题提炼: %s → %s", video_title[:24], topic)
+    return {"status": "ok", "topic": topic}
+
+
+@router.post("/generate-path")
+def api_generate_path(data: dict):
+    """生成「引导路径」：起点(主题) → 终点(引导要素)，步数自适应 max(3, 2+要素数) 封顶 6
+
+    Body: { topic: str, guide_items: [str]|str, outline?: str }
+    """
+    topic = (data.get("topic") or "").strip()
+    outline = (data.get("outline") or "").strip()
+    if not topic:
+        raise HTTPException(400, detail="topic 必填")
+    guide_raw = data.get("guide_items") or []
+    if isinstance(guide_raw, str):
+        guide_items = [l.strip() for l in guide_raw.split("\n") if l.strip()]
+    else:
+        guide_items = [str(g).strip() for g in guide_raw if str(g).strip()]
+
+    from mc.corpus import AIGenerator
+    ai = AIGenerator()
+    if not ai.available:
+        raise HTTPException(503, detail="AI 不可用（检查 config/ai.yaml 或 agent-local 配置）")
+
+    import asyncio as _asyncio
+    try:
+        loop = _asyncio.get_event_loop()
+    except RuntimeError:
+        loop = _asyncio.new_event_loop()
+    path = loop.run_until_complete(ai.generate_guide_path(topic, guide_items, outline))
+    steps = len([l for l in (path or "").split("\n") if l.strip()])
+    logger.info("  🧭 引导路径: %s + %d 要素 → %d 步", topic[:16], len(guide_items), steps)
+    return {"status": "ok", "path": path, "steps": steps}
 
 
 @router.post("/parse-outline")

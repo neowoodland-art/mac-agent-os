@@ -301,11 +301,13 @@ class AIGenerator:
         outline: str = "",
         total: int = 15,
         bystander_ratio: float = 0.2,
+        guide_path: str = "",
     ) -> list:
         """一次生成完整多人讨论剧本 → [{"role", "text"}, ...]
 
         AI 一次演多个角色接力讨论（1 次调用出全部条数），系统按角色标签拆条分配给不同账号。
         guide_items: 引导要素列表（多个推荐对象，如 ["宋佳主任：周五出诊", "绿色通道：公众号预约"]）
+        guide_path:  引导路径（起点主题 → 各要素 → 收尾行动，按此顺序自然推进）
         """
         if not self.available:
             return []
@@ -321,12 +323,17 @@ class AIGenerator:
                 f"{items_text}"
             )
         outline_hint = f"\n讨论走向：{outline}" if outline else ""
+        path_hint = (
+            f"\n引导路径（讨论需按此顺序自然推进，逐步代入，不要跳步）：\n{guide_path}"
+            if (guide_path or "").strip()
+            else ""
+        )
 
         prompt = (
             "你是抖音评论区的内容策划。为一条视频营造「多人真实讨论」的效果。\n\n"
             f"视频：{video_title or '（未知标题）'}\n"
             f"讨论主题：{topic or '围绕视频内容'}"
-            f"{guide_hint}{outline_hint}\n\n"
+            f"{guide_hint}{outline_hint}{path_hint}\n\n"
             "要求：\n"
             f"1. 生成 {total} 条评论，模拟 {total} 个不同用户在评论区接力讨论\n"
             "2. 每行格式：[角色] 评论内容（角色如：纠结者/过来人/追问者/赞同者/路人）\n"
@@ -339,6 +346,62 @@ class AIGenerator:
         )
         text = await self._call_api(prompt)
         return self._parse_discussion(text, total)
+
+    async def extract_topic(self, video_title: str) -> str:
+        """从视频标题提炼「讨论主题」（简短核心词，如"肥肠面"）
+
+        标题通常冗长带话题标签，提炼成 4~10 字的讨论核心，供讨论模式作起点。
+        """
+        if not self.available or not (video_title or "").strip():
+            return ""
+        prompt = (
+            "下面是抖音视频的标题（含话题标签、表情符号，可能很长）：\n\n"
+            f"{video_title.strip()[:300]}\n\n"
+            "请提炼出这条视频的「讨论核心主题」，要求：\n"
+            "1. 2~6 个字，只保留最核心的话题词（如「肥肠面」「痔疮」「苏州减重」）\n"
+            "2. 去掉话题标签(#xxx)、表情、地名修饰、无关形容词\n"
+            "3. 只输出主题本身，不要引号、不要解释、不要句号\n"
+        )
+        text = await self._call_api(prompt)
+        t = (text or "").strip().strip('"“”\'。')
+        return t.split("\n")[0][:20] if t else ""
+
+    async def generate_guide_path(
+        self, topic: str, guide_items: list, outline: str = ""
+    ) -> str:
+        """生成「引导路径」：从起点（主题）推导到终点（引导要素），步数自适应
+
+        步数规则: max(3, 2 + 要素数)，封顶 6 步。
+        结构: 开场(主题) → 转折(自然关联) → [逐个要素] → 收尾行动
+        约束: 引导要素一个都不能漏，每个要素至少 1 步承载。
+        """
+        if not self.available or not (topic or "").strip():
+            return ""
+        items = [str(i).strip() for i in (guide_items or []) if str(i).strip()]
+        n = len(items)
+        steps = max(3, 2 + n)
+        if steps > 6:
+            steps = 6
+        items_block = "\n".join(f"  要素{i+1}: {it}" for i, it in enumerate(items)) if items else "  （未指定，自然落到推荐/引导即可）"
+        outline_block = f"\n讨论走向参考: {outline.strip()[:200]}" if (outline or "").strip() else ""
+        prompt = (
+            "你要为抖音评论区设计一条「引导路径」：从讨论主题自然过渡到引导目标。\n\n"
+            f"起点（讨论主题）: {topic.strip()[:50]}\n"
+            f"终点（引导要素，必须全部覆盖，一个都不能漏）:\n{items_block}"
+            f"{outline_block}\n\n"
+            f"要求：\n"
+            f"1. 严格输出 {steps} 步（因为要素有 {n} 个，按「开场+转折+每个要素至少一步」的结构）\n"
+            f"2. 第 1 步从主题自然开场（轻松、接地气，像真人闲聊）\n"
+            f"3. 第 2 步自然转折：把话题引到要素相关的问题/需求上，过渡要有理由、不生硬\n"
+            f"4. 中间步逐个承载引导要素（用户会以提问/分享/追问的方式自然带出）\n"
+            f"5. 最后一步收尾：带出行动指引（怎么约/去哪找/找谁）\n"
+            f"6. 每步一句话（15~30 字），说清这一步大家在聊什么\n"
+            f"7. 不要用 emoji、不要写具体评论文案、不要解释\n\n"
+            f"输出格式（每行一步，必须以 阶段N: 开头，共 {steps} 行）：\n"
+            + "\n".join(f"阶段{i+1}: ..." for i in range(steps))
+        )
+        text = await self._call_api(prompt)
+        return (text or "").strip()
 
     async def parse_discussion_outline(self, raw_idea: str) -> str:
         """把用户的自然语言想法拆解成结构化「讨论走向」（供生成讨论剧本用）
