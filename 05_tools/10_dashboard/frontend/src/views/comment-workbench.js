@@ -183,9 +183,26 @@ export async function loadView(container) {
               <input id="cwDiscBystander_${_uid}" type="number" value="20" min="0" max="50"
                      style="width:46px;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;text-align:center">%
             </label>
+            <label style="display:flex;align-items:center;gap:4px">📖 长评论
+              <input id="cwDiscLong_${_uid}" type="number" value="2" min="0" max="3" title="60~150 字娓娓道来的故事型评论条数（过来人讲经历）"
+                     style="width:38px;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;text-align:center">条
+            </label>
+            <label style="display:flex;align-items:center;gap:4px">⚡ 倍数
+              <select id="cwDiscMult_${_uid}" title="多生成便于挑选删除（1x = 按需要的数量生成）"
+                      style="padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px">
+                <option value="1">1x</option>
+                <option value="1.5" selected>1.5x</option>
+                <option value="2">2x</option>
+              </select>
+            </label>
             <button id="cwDiscGenBtn_${_uid}" onclick="window._cwGenDiscussion('${_uid}')"
                     style="background:var(--primary);color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">🚀 生成讨论剧本</button>
           </div>
+          <details style="font-size:11px">
+            <summary style="cursor:pointer;color:var(--text2)">👥 角色配置（留空 = AI 自由发挥；填数字则严格按配比生成）</summary>
+            <div id="cwDiscRoles_${_uid}" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px 8px;margin-top:6px"></div>
+            <div style="font-size:10px;color:var(--text2);margin-top:4px" id="cwDiscRolesHint_${_uid}">填了数字后，「总条数」自动按配比总和计算</div>
+          </details>
         </div>
       </div>
 
@@ -258,6 +275,7 @@ export async function loadView(container) {
   _rolePcts = {};
   ROLES_CONFIG.forEach(r => { _rolePcts[r.id] = r.pct; });
   renderRoleSliders();
+  _cwRenderDiscRoles(_uid);
 
   // 加载账号
   try {
@@ -904,6 +922,20 @@ window._cwRegenerate = (uid) => {
 
 // ═══ 多人讨论模式 ═══
 
+// 讨论角色池（可填配比；留空 = AI 自由发挥）
+const DISC_ROLES = ['过来人', '追问者', '赞同者', '纠结者', '质疑者', '分享者', '路人', '好奇者'];
+
+function _cwRenderDiscRoles(uid) {
+  const el = document.getElementById(`cwDiscRoles_${uid}`);
+  if (!el) return;
+  el.innerHTML = DISC_ROLES.map(r => `
+    <label style="display:flex;align-items:center;gap:4px">
+      <span style="color:var(--text2);width:44px;font-size:10px">${r}</span>
+      <input id="cwRole_${r}_${uid}" type="number" min="0" max="20" placeholder="0"
+             style="width:44px;padding:2px 4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;text-align:center">
+    </label>`).join('');
+}
+
 let _cwMode = 'directed';
 let _discTurns = [];
 let _cwUid = '';
@@ -1063,6 +1095,23 @@ window._cwGenDiscussion = async (uid) => {
   const guidePath = document.getElementById(`cwDiscPath_${uid}`)?.value.trim() || '';
   const total = parseInt(document.getElementById(`cwDiscTotal_${uid}`)?.value || '15');
   const bystander = (parseInt(document.getElementById(`cwDiscBystander_${uid}`)?.value || '20')) / 100;
+  const longN = parseInt(document.getElementById(`cwDiscLong_${uid}`)?.value || '2');
+  const mult = parseFloat(document.getElementById(`cwDiscMult_${uid}`)?.value || '1');
+  // 角色配比（填了则用配比总和作条数；倍数放大配比；留空则 AI 自由发挥）
+  const roleCounts = {};
+  DISC_ROLES.forEach(r => {
+    const v = parseInt(document.getElementById(`cwRole_${r}_${uid}`)?.value || '0');
+    if (v > 0) roleCounts[r] = v;
+  });
+  const hasRoles = Object.keys(roleCounts).length > 0;
+  let sendRoleCounts = null;
+  let sendTotal = total;
+  if (hasRoles) {
+    sendRoleCounts = {};
+    Object.entries(roleCounts).forEach(([k, v]) => { sendRoleCounts[k] = Math.max(1, Math.round(v * mult)); });
+  } else {
+    sendTotal = Math.max(3, Math.round(total * mult));
+  }
   if (!topic && !guides) { alert('请填写讨论主题或引导要素'); return; }
   const vids = _videos.filter(v => v.checked);
   if (!vids.length) { alert('请先在第一步解析并勾选视频'); return; }
@@ -1077,8 +1126,10 @@ window._cwGenDiscussion = async (uid) => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         video_title: (vids[0] || {}).title || '',
-        topic, guide_items: guides, outline, total, bystander_ratio: bystander,
+        topic, guide_items: guides, outline, total: sendTotal, bystander_ratio: bystander,
         guide_path: guidePath,
+        role_counts: sendRoleCounts,
+        long_comment_count: longN,
       }),
     });
     const d = await r.json();
@@ -1096,9 +1147,12 @@ window._cwGenDiscussion = async (uid) => {
     const maxPer = parseInt(document.getElementById(`cwDiscMax_${uid}`)?.value || '2');
     const needMin = Math.ceil(_discTurns.length / Math.max(1, maxPer));
     const info = document.getElementById(`cwDiscAcctInfo_${uid}`);
-    if (info) info.textContent = accts.length < needMin
-      ? `⚠️ 已选 ${accts.length} 个账号，至少需要 ${needMin} 个发言账号（请补选或减少条数）`
-      : `发言需 ${needMin}~${_discTurns.length} 个账号 / 已选 ${accts.length} 个`;
+    if (info) {
+      const warn = d.warning ? `⚠️ ${d.warning}　` : '';
+      info.textContent = warn + (accts.length < needMin
+        ? `已选 ${accts.length} 个账号，至少需要 ${needMin} 个发言账号（请补选或减少条数）`
+        : `发言需 ${needMin}~${_discTurns.length} 个账号 / 已选 ${accts.length} 个`);
+    }
   } catch (e) {
     alert('❌ 网络错误: ' + e.message);
   } finally {

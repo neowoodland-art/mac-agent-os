@@ -302,17 +302,51 @@ class AIGenerator:
         total: int = 15,
         bystander_ratio: float = 0.2,
         guide_path: str = "",
+        role_counts: dict = None,
+        long_comment_count: int = 2,
     ) -> list:
         """一次生成完整多人讨论剧本 → [{"role", "text"}, ...]
 
         AI 一次演多个角色接力讨论（1 次调用出全部条数），系统按角色标签拆条分配给不同账号。
         guide_items: 引导要素列表（多个推荐对象，如 ["宋佳主任：周五出诊", "绿色通道：公众号预约"]）
         guide_path:  引导路径（起点主题 → 各要素 → 收尾行动，按此顺序自然推进）
+        role_counts: 角色配比 {角色名: 条数}，指定则严格遵守；留空 = AI 自由发挥
+        long_comment_count: 长评论条数（60~150 字娓娓道来讲经历），0 = 全短句
         """
         if not self.available:
             return []
         guide_items = [g for g in (guide_items or []) if str(g).strip()]
-        total = max(3, min(40, int(total)))
+
+        # 角色配比：指定则 total = 配比总和；留空则用 total 自由发挥
+        role_counts = {
+            str(k).strip(): int(v)
+            for k, v in (role_counts or {}).items()
+            if str(k).strip() and str(v).strip().lstrip("-").isdigit() and int(v) > 0
+        }
+        if role_counts:
+            total = max(3, min(60, sum(role_counts.values())))
+            role_hint = (
+                "\n角色配比（必须严格遵守，每个角色的条数不能多也不能少）：\n"
+                + "\n".join(f"  - {r}：{n} 条" for r, n in role_counts.items())
+            )
+        else:
+            total = max(3, min(60, int(total)))
+            role_hint = (
+                "\n角色（自由发挥，但要多样：过来人/纠结者/追问者/赞同者/质疑者/分享者/路人/好奇者；"
+                "按内容需要自然分配，不要机械轮换、不要固定顺序）"
+            )
+
+        # 长度分层：长评论（讲故事）+ 短句
+        long_n = max(0, min(3, int(long_comment_count or 0)))
+        length_hint = (
+            f"\n长度分层（重要）：\n"
+            f"  - 其中 {long_n} 条是「长评论」（60~150 字）：由过来人娓娓道来讲一段亲身经历，"
+            f"有前因后果、有细节、像讲故事，不要流水账、不要分点\n"
+            f"  - 其余评论 10~30 字短句，口语化\n"
+            if long_n > 0
+            else "\n每条 10~30 字短句，口语化，像真人说话\n"
+        )
+
         bystander_count = max(1, round(total * bystander_ratio)) if bystander_ratio > 0 else 0
         guide_hint = ""
         if guide_items:
@@ -333,18 +367,21 @@ class AIGenerator:
             "你是抖音评论区的内容策划。为一条视频营造「多人真实讨论」的效果。\n\n"
             f"视频：{video_title or '（未知标题）'}\n"
             f"讨论主题：{topic or '围绕视频内容'}"
-            f"{guide_hint}{outline_hint}{path_hint}\n\n"
+            f"{role_hint}{length_hint}{guide_hint}{outline_hint}{path_hint}\n\n"
             "要求：\n"
             f"1. 生成 {total} 条评论，模拟 {total} 个不同用户在评论区接力讨论\n"
-            "2. 每行格式：[角色] 评论内容（角色如：纠结者/过来人/追问者/赞同者/路人）\n"
-            "3. 每条 10~30 字，口语化，像真人说话\n"
+            "2. 每行格式：[角色] 评论内容（角色名用上面指定的，不要自创）\n"
+            "3. 铺垫要克制（硬要求）：开场闲聊 + 转折过渡合计不超过总数的 25%"
+            "（如 10 条最多 2~3 条），尽快进入实质讨论\n"
             "4. 不要用「楼上」「上面说的」这类强顺序词（不同人可能同时发），"
             "用「我也在纠结这个」「我上周刚去」这类自然表达\n"
             f"5. 其中约 {bystander_count} 条是路人打酱油评论（与主题弱相关，如路过支持）\n"
             "6. 不要用 emoji、不要用引号、不要写序号解释\n\n"
-            f"直接输出 {total} 行。"
+            f"直接输出 {total} 行 —— 必须正好 {total} 行，一行都不能少，严格按上面的角色配比分配。"
         )
-        text = await self._call_api(prompt)
+        # 动态 max_tokens：短评论约 40 token/条，长评论（150 字）约 300 token/条
+        est = int(total * 60 + long_n * 250 + 300)
+        text = await self._call_api(prompt, max_tokens=min(4000, max(600, est)))
         return self._parse_discussion(text, total)
 
     async def extract_topic(self, video_title: str) -> str:
@@ -479,14 +516,17 @@ class AIGenerator:
             "\n- 直接输出评论内容，不要加引号或前缀"
         )
 
-    async def _call_api(self, prompt: str) -> Optional[str]:
-        """调用 OpenAI 兼容 API 生成文本（带熔断防护 + 消耗日志）"""
+    async def _call_api(self, prompt: str, max_tokens: int = 800) -> Optional[str]:
+        """调用 OpenAI 兼容 API 生成文本（带熔断防护 + 消耗日志）
+
+        max_tokens 按任务动态设置：单条评论 ~150；讨论剧本按条数与长评论量放大。
+        """
         if self._fused:
             return None  # 已熔断：直接跳过，不再发请求
         import httpx
 
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
                     f"{self.base_url}/chat/completions",
                     headers={"Authorization": f"Bearer {self.api_key}"},
@@ -494,7 +534,7 @@ class AIGenerator:
                         "model": self.model,
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": self.temperature,
-                        "max_tokens": 300,
+                        "max_tokens": max(100, int(max_tokens)),
                         "thinking": {"type": "disabled"},  # 非思考模式（评论生成无需推理，省 token/成本）
                     },
                 )

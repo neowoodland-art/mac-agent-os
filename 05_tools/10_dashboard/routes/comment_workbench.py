@@ -142,8 +142,12 @@ def api_generate_discussion(data: dict):
     topic = (data.get("topic") or "").strip()
     outline = (data.get("outline") or "").strip()
     guide_path = (data.get("guide_path") or "").strip()
-    total = max(3, min(40, int(data.get("total", 15))))
+    total = max(3, min(60, int(data.get("total", 15))))
     bystander_ratio = min(max(float(data.get("bystander_ratio", 0.2)), 0.0), 0.5)
+    role_counts = data.get("role_counts") or {}
+    if not isinstance(role_counts, dict):
+        role_counts = {}
+    long_comment_count = max(0, min(3, int(data.get("long_comment_count", 2))))
     guide_raw = data.get("guide_items") or []
     if isinstance(guide_raw, str):
         guide_items = [l.strip() for l in guide_raw.split("\n") if l.strip()]
@@ -171,9 +175,21 @@ def api_generate_discussion(data: dict):
         total=total,
         bystander_ratio=bystander_ratio,
         guide_path=guide_path,
+        role_counts=role_counts,
+        long_comment_count=long_comment_count,
     ))
     logger.info("  💬 讨论剧本生成: %d 条 (主题=%s 要素=%d)", len(turns), topic[:20], len(guide_items))
-    return {"status": "ok", "turns": turns, "total": len(turns), "requested": total}
+    warning = ""
+    # 期望条数：配比模式 = 配比总和；自由模式 = total
+    expected = total
+    if role_counts:
+        try:
+            expected = sum(int(v) for v in role_counts.values() if str(v).strip().isdigit())
+        except Exception:
+            expected = total
+    if expected and len(turns) < expected:
+        warning = f"AI 少输出 {expected - len(turns)} 条（要求 {expected}，实际 {len(turns)}），可重新生成或手动补"
+    return {"status": "ok", "turns": turns, "total": len(turns), "requested": expected, "warning": warning}
 
 
 @router.post("/extract-topic")
