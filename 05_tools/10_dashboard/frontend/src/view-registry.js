@@ -32,6 +32,9 @@ const MIGRATED_VIEWS = [
   'matrix-commands',
   'ops-command',
 
+  // ── 系统配置 ──
+  'api-config',
+
   // ── 录制标注 ──
   'ops-recorder',
 

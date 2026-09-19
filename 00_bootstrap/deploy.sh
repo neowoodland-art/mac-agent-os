@@ -194,6 +194,19 @@ else
     warn "ORACLE.yaml 不存在（可能尚未创建）"
 fi
 
+# ── 安装防泄露 pre-commit hook ──
+echo ""
+info "安装防泄露 hook..."
+
+HOOK_SRC="$AGENT_SYNC/00_bootstrap/hooks/pre-commit"
+HOOK_DST="$AGENT_SYNC/.git/hooks/pre-commit"
+if [ -f "$HOOK_SRC" ]; then
+    cp "$HOOK_SRC" "$HOOK_DST" && chmod +x "$HOOK_DST"
+    ok "pre-commit hook 已安装（提交前自动拦截 API Key）"
+else
+    warn "未找到 pre-commit hook 源文件，跳过"
+fi
+
 # 提醒用户
 echo ""
 echo "============================================"
@@ -203,12 +216,17 @@ echo "  ✅ 环境变量: AGENT_SYNC/AGENT_LOCAL 已写入 shell 配置文件"
 echo "  ✅ 目录结构: $AGENT_LOCAL 已创建"
 echo "  ✅ 本地配置: $AGENT_LOCAL/config.yaml"
 echo "  ✅ ORACLE 宪法: $AGENT_SYNC/ORACLE.yaml"
+echo "  ✅ 防泄露 hook: 已安装（API Key 提交将被拦截）"
 echo ""
 echo "  后续手动步骤:"
 echo "  1. 使环境变量生效: source ~/.zshrc"
-echo "  2. （如未安装 Tailscale）安装并登录:"
+echo "  2. 配置你自己的 API 密钥（重要！）:"
+echo "       打开 Dashboard → 服务 → 🔑 API 配置"
+echo "       或用环境变量: export DEEPSEEK_API_KEY=sk-xxx / DASHSCOPE_API_KEY=sk-xxx"
+echo "       （密钥只存本机 agent-local，不会提交到仓库）"
+echo "  3. （如未安装 Tailscale）安装并登录:"
 echo "       brew install --cask tailscale"
 echo "       或从 https://tailscale.com/download 下载"
-echo "  3. 开启远程登录（每台机器一次）:"
+echo "  4. 开启远程登录（每台机器一次）:"
 echo "       sudo systemsetup -setremotelogin on"
 echo "============================================"

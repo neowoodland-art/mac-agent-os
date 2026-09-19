@@ -1,0 +1,33 @@
+#!/bin/bash
+# AgentOS pre-commit 防泄露钩子
+#
+# 作用：提交前扫描暂存区内容，命中疑似 API Key 模式则阻止提交。
+# 安装：随机组部署自动安装（见 00_bootstrap/deploy.sh），或手动：
+#   cp 00_bootstrap/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+#
+# 背景：公开仓库一旦提交密钥即永久泄露（git 历史无法简单抹除），
+#      故用钩子在任何提交前拦截。密钥应放 agent-local/（不被 git 跟踪）或环境变量。
+
+PATTERNS="sk-[A-Za-z0-9]{20,}|api-key-kling-[A-Za-z0-9_-]{10,}|AKLT[A-Za-z0-9]{12,}|LTAI[A-Za-z0-9]{12,}|sk-ant-[A-Za-z0-9_-]{20,}|ark-[a-f0-9]{8}-[a-f0-9-]{20,}"
+
+hits=""
+for f in $(git diff --cached --name-only --diff-filter=ACM); do
+  case "$f" in
+    *.png|*.jpg|*.jpeg|*.gif|*.webp|*.db|*.sqlite|*.sqlite3|*.zip|*.gz|*.mp4|*.mov|*.woff*|*.ttf) continue ;;
+  esac
+  m=$(git show ":$f" 2>/dev/null | grep -E -o "$PATTERNS" | sort -u | head -3)
+  if [ -n "$m" ]; then
+    hits="${hits}\n  ${f}:\n$(echo "$m" | sed -E 's/([A-Za-z0-9_-]{6})[A-Za-z0-9_-]{8,}/\1…（已脱敏）/g' | sed 's/^/    /')"
+  fi
+done
+
+if [ -n "$hits" ]; then
+  echo "❌ 检测到疑似 API Key，提交已阻止："
+  echo -e "$hits"
+  echo ""
+  echo "👉 密钥请放 agent-local/（不被 git 跟踪）或使用环境变量；"
+  echo "   配置界面：Dashboard → 服务 → 🔑 API 配置"
+  echo "   如确认是误报（示例/占位文本），可用：git commit --no-verify"
+  exit 1
+fi
+exit 0

@@ -46,6 +46,7 @@ const groups = {
     {view:'matrix-commands', label:'🎯 命令与任务'},
   ]},
   '服务': { icon: '⚙️', items: [
+    {view:'api-config', label:'🔑 API 配置'},
     {view:'serve-mcp', label:'MCP状态'},
     {view:'serve-dashboard', label:'Dashboard日志'},
     {view:'serve-schedule', label:'全局定时任务'},

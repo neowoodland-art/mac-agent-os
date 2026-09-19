@@ -1072,6 +1072,14 @@ try:
 except Exception as e:
     logger.warning(f"  ⚠️ person_swap 路由挂载失败: {e}")
 
+# API Key 配置(各使用者自行配置密钥) — 失败不阻断 Dashboard 启动
+try:
+    from routes.api_config import router as api_config_router
+    app.include_router(api_config_router)
+    logger.info("  ✅ api_config 路由已挂载 (/api/config/api-keys)")
+except Exception as e:
+    logger.warning(f"  ⚠️ api_config 路由挂载失败: {e}")
+
 from workflows import WORKFLOW_TEMPLATES, NODE_DEFINITIONS, get_node_categories, get_runner
 
 @app.get("/api/workflow/nodes")
