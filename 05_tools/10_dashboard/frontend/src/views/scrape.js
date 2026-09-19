@@ -231,7 +231,18 @@ function renderLayout() {
             <option value="">等级:全部</option><option value="1">等级1</option><option value="2">等级2</option><option value="3">等级3</option>
           </select>
           <input id="dtFTaskId" type="text" placeholder="task_id" style="width:76px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:10px" title="按任务ID筛选（结构化字段）">
-          <input id="dtFLikes" type="number" min="0" placeholder="点赞≥" style="width:56px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:10px" title="按点赞数下限筛选">
+          <span style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--text2)" title="点赞数区间（留空=不限）">👍
+            <input id="dtFLikesMin" type="number" min="0" placeholder="0" style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:4px;font-size:10px">~
+            <input id="dtFLikesMax" type="number" min="0" placeholder="∞" style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:4px;font-size:10px">
+          </span>
+          <span style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--text2)" title="评论数区间（留空=不限）">💬
+            <input id="dtFCommentsMin" type="number" min="0" placeholder="0" style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:4px;font-size:10px">~
+            <input id="dtFCommentsMax" type="number" min="0" placeholder="∞" style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 4px;border-radius:4px;font-size:10px">
+          </span>
+          <span style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--text2)" title="发布时间区间（留空=不限）">📅
+            <input id="dtFPubFrom" type="date" style="width:118px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:4px;font-size:10px">~
+            <input id="dtFPubTo" type="date" style="width:118px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:4px;font-size:10px">
+          </span>
           <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--text2);cursor:pointer" title="只显示有博主名的"><input type="checkbox" id="dtFHasAuthor" style="cursor:pointer"> 有博主</label>
           <span style="flex:1"></span>
           <button id="dtTrackAllBtn" style="display:none;background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:2px 8px;border-radius:3px;cursor:pointer;font-size:9px">📌 全选跟踪</button>
@@ -1173,6 +1184,12 @@ function renderDyVideos(container) {
     const sLevel = String(v.account_level ?? '');
     const sTaskId = String(v.task_id ?? '');
     const sLikes = parseInt(v.likes ?? (v.stats?.likes ?? 0), 10) || 0;
+    const sComments = parseInt(v.comments ?? (v.stats?.comments ?? 0), 10) || 0;
+    // 发布时间归一化为 YYYY-MM-DD（兼容 API 的 "2026-08-24 21:15:29" 与页面兜底的 "20260814"）
+    const pubRaw = String(v.submit_time || v.published_at || '').trim();
+    const sPub = /^\d{8}$/.test(pubRaw)
+      ? `${pubRaw.slice(0, 4)}-${pubRaw.slice(4, 6)}-${pubRaw.slice(6, 8)}`
+      : (pubRaw ? pubRaw.slice(0, 10) : '');
     const sHasAuthor = !!(v.author || v.dyname || v.dyid);
     // 初始显示状态按当前关键字 + 结构化筛选
     const hidden = (kw && !filterData.includes(kw));
@@ -1185,7 +1202,7 @@ function renderDyVideos(container) {
           ${v.raw ? `<button class="dt-raw-btn" data-idx="${i}" title="展开查看原始结构化字段" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:0 4px;border-radius:3px;cursor:pointer;font-size:9px">📖 字段</button>` : ''}
         </div>`
       : '';
-    html += `<div class="dt-video-row" data-filter="${filterData.replace(/"/g,'&quot;')}" data-level="${sLevel}" data-taskid="${sTaskId}" data-likes="${sLikes}" data-hasauthor="${sHasAuthor ? '1' : '0'}" style="background:var(--bg3);border-radius:6px;padding:6px 8px;border:1px solid var(--border);${hidden ? 'display:none' : ''}">
+    html += `<div class="dt-video-row" data-filter="${filterData.replace(/"/g,'&quot;')}" data-level="${sLevel}" data-taskid="${sTaskId}" data-likes="${sLikes}" data-comments="${sComments}" data-pub="${sPub}" data-hasauthor="${sHasAuthor ? '1' : '0'}" style="background:var(--bg3);border-radius:6px;padding:6px 8px;border:1px solid var(--border);${hidden ? 'display:none' : ''}">
       <div style="display:flex;align-items:center;gap:3px;flex-wrap:nowrap">
         <input type="checkbox" class="dt-sel-cb" data-idx="${i}" style="flex-shrink:0">
         <button class="dt-collect-btn" data-idx="${i}" style="background:#22c55e;color:#000;border:none;padding:0 5px;border-radius:3px;cursor:pointer;font-size:9px;font-weight:600;flex-shrink:0">🔍</button>
@@ -1295,16 +1312,33 @@ function renderDyVideos(container) {
     const kw = (document.getElementById('dtFilterInput')?.value || '').trim().toLowerCase();
     const level = document.getElementById('dtFLevel')?.value || '';
     const taskId = (document.getElementById('dtFTaskId')?.value || '').trim();
-    const minLikes = parseInt(document.getElementById('dtFLikes')?.value || '0', 10) || 0;
+    const num = (id) => {
+      const raw = document.getElementById(id)?.value;
+      if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+      const n = parseInt(raw, 10);
+      return Number.isFinite(n) ? n : null;
+    };
+    const likesMin = num('dtFLikesMin'), likesMax = num('dtFLikesMax');
+    const cmtMin = num('dtFCommentsMin'), cmtMax = num('dtFCommentsMax');
+    const pubFrom = document.getElementById('dtFPubFrom')?.value || '';
+    const pubTo = document.getElementById('dtFPubTo')?.value || '';
     const hasAuthor = document.getElementById('dtFHasAuthor')?.checked || false;
     let visible = 0;
     container.querySelectorAll('.dt-video-row').forEach(row => {
       let show = true;
       const fd = row.dataset.filter || '';
+      const likes = parseInt(row.dataset.likes || '0', 10) || 0;
+      const cmts = parseInt(row.dataset.comments || '0', 10) || 0;
+      const pub = row.dataset.pub || '';
       if (kw && !fd.includes(kw)) show = false;
       if (show && level && row.dataset.level !== level) show = false;
       if (show && taskId && !(row.dataset.taskid || '').includes(taskId)) show = false;
-      if (show && minLikes > 0 && (parseInt(row.dataset.likes || '0', 10) || 0) < minLikes) show = false;
+      if (show && likesMin !== null && likes < likesMin) show = false;
+      if (show && likesMax !== null && likes > likesMax) show = false;
+      if (show && cmtMin !== null && cmts < cmtMin) show = false;
+      if (show && cmtMax !== null && cmts > cmtMax) show = false;
+      if (show && pubFrom && (!pub || pub < pubFrom)) show = false;
+      if (show && pubTo && (!pub || pub > pubTo)) show = false;
       if (show && hasAuthor && row.dataset.hasauthor !== '1') show = false;
       row.style.display = show ? '' : 'none';
       if (show) visible++;
@@ -1317,7 +1351,7 @@ function renderDyVideos(container) {
     filterInput._bound = true;
     filterInput.addEventListener('input', applyDyFilters);
   }
-  [['dtFLevel', 'change'], ['dtFTaskId', 'input'], ['dtFLikes', 'input'], ['dtFHasAuthor', 'change']].forEach(([id, ev]) => {
+  [['dtFLevel', 'change'], ['dtFTaskId', 'input'], ['dtFLikesMin', 'input'], ['dtFLikesMax', 'input'], ['dtFCommentsMin', 'input'], ['dtFCommentsMax', 'input'], ['dtFPubFrom', 'change'], ['dtFPubTo', 'change'], ['dtFHasAuthor', 'change']].forEach(([id, ev]) => {
     const el = document.getElementById(id);
     if (el && !el._bound) {
       el._bound = true;
@@ -1702,16 +1736,33 @@ function updateRenderDyVideos() {
     const kw = (document.getElementById('dtFilterInput')?.value || '').trim().toLowerCase();
     const level = document.getElementById('dtFLevel')?.value || '';
     const taskId = (document.getElementById('dtFTaskId')?.value || '').trim();
-    const minLikes = parseInt(document.getElementById('dtFLikes')?.value || '0', 10) || 0;
+    const num = (id) => {
+      const raw = document.getElementById(id)?.value;
+      if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+      const n = parseInt(raw, 10);
+      return Number.isFinite(n) ? n : null;
+    };
+    const likesMin = num('dtFLikesMin'), likesMax = num('dtFLikesMax');
+    const cmtMin = num('dtFCommentsMin'), cmtMax = num('dtFCommentsMax');
+    const pubFrom = document.getElementById('dtFPubFrom')?.value || '';
+    const pubTo = document.getElementById('dtFPubTo')?.value || '';
     const hasAuthor = document.getElementById('dtFHasAuthor')?.checked || false;
     let visible = 0;
     container.querySelectorAll('.dt-video-row').forEach(row => {
       let show = true;
       const fd = row.dataset.filter || '';
+      const likes = parseInt(row.dataset.likes || '0', 10) || 0;
+      const cmts = parseInt(row.dataset.comments || '0', 10) || 0;
+      const pub = row.dataset.pub || '';
       if (kw && !fd.includes(kw)) show = false;
       if (show && level && row.dataset.level !== level) show = false;
       if (show && taskId && !(row.dataset.taskid || '').includes(taskId)) show = false;
-      if (show && minLikes > 0 && (parseInt(row.dataset.likes || '0', 10) || 0) < minLikes) show = false;
+      if (show && likesMin !== null && likes < likesMin) show = false;
+      if (show && likesMax !== null && likes > likesMax) show = false;
+      if (show && cmtMin !== null && cmts < cmtMin) show = false;
+      if (show && cmtMax !== null && cmts > cmtMax) show = false;
+      if (show && pubFrom && (!pub || pub < pubFrom)) show = false;
+      if (show && pubTo && (!pub || pub > pubTo)) show = false;
       if (show && hasAuthor && row.dataset.hasauthor !== '1') show = false;
       row.style.display = show ? '' : 'none';
       if (show) visible++;
@@ -1724,7 +1775,7 @@ function updateRenderDyVideos() {
     filterInput._bound = true;
     filterInput.addEventListener('input', applyDyFilters);
   }
-  [['dtFLevel', 'change'], ['dtFTaskId', 'input'], ['dtFLikes', 'input'], ['dtFHasAuthor', 'change']].forEach(([id, ev]) => {
+  [['dtFLevel', 'change'], ['dtFTaskId', 'input'], ['dtFLikesMin', 'input'], ['dtFLikesMax', 'input'], ['dtFCommentsMin', 'input'], ['dtFCommentsMax', 'input'], ['dtFPubFrom', 'change'], ['dtFPubTo', 'change'], ['dtFHasAuthor', 'change']].forEach(([id, ev]) => {
     const el = document.getElementById(id);
     if (el && !el._bound) {
       el._bound = true;
