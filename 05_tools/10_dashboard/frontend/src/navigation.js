@@ -138,8 +138,12 @@ window.toggleGroup = toggleGroup;
 window.collapseAllGroups = collapseAllGroups;
 window.renderNav = renderNav;
 
-// 自动渲染（所有模块加载完成后）
-_renderNav();
+// 自动渲染（模块加载时 DOM 可能尚未就绪 → 就绪后再渲染一次）
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _renderNav);
+} else {
+  _renderNav();
+}
 
 // 内部函数也 export 以便测试
 export { toggleSidebar, toggleGroup, collapseAllGroups, _renderNav, groups };

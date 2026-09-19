@@ -333,6 +333,7 @@ async function loadPlugins() {
         {view:'matrix-commands', label:'🎯 命令与任务'},
       ]},
       '服务': { icon: '⚙️', items: [
+        {view:'api-config', label:'🔑 API 配置'},
         {view:'serve-mcp', label:'MCP状态'},
         {view:'serve-dashboard', label:'Dashboard日志'},
         {view:'serve-schedule', label:'全局定时任务'},
@@ -349,6 +350,11 @@ async function loadPlugins() {
     }
     
     function _renderNav() {
+      // 优先委托给 navigation.js 的统一菜单（单点维护，避免两份菜单不一致导致新项丢失）
+      if (window.renderNav && window.renderNav !== _renderNav) {
+        window.renderNav();
+        return;
+      }
       let html = '';
       for (const [gname, g] of Object.entries(groups)) {
         html += `<div class="nav-group-header" onclick="toggleGroup(this)" data-collapsed="true">${g.icon} ${gname} <span style="float:right;font-size:10px;opacity:.5">▶</span></div>`;

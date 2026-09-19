@@ -1,5 +1,17 @@
 # AgentOS 项目变更日志
 
+## [4.6.2] - 2026-09-19
+
+### 修复：🔑 API 配置菜单项看不到（菜单存在两份硬编码，只改了一处）
+
+- **根因**：侧边栏菜单有**两处硬编码定义** —— `navigation.js` 的 `groups` 与 `inline.js` 的 `groups`
+  - `navigation.js` 的 `_renderNav()` 在模块加载时立即执行，此时 DOM 未就绪 → 渲染静默失败
+  - 实际生效的是 `inline.js` 的旧菜单（新加的 api-config 只加在 navigation.js → 看不到）
+- **修复 1**：`inline.js` 的 `_renderNav()` 改为**优先委托** `window.renderNav()`（navigation.js 统一菜单），仅在不可用时才用自身旧逻辑兜底 → 菜单单点维护，杜绝此类不一致
+- **修复 2**：`navigation.js` 的自动渲染加 `DOMContentLoaded` 保护（`document.readyState === 'loading'` 时等就绪）
+- **修复 3**：`inline.js` 的「服务」分组同步补上 `api-config` 项（双保险）
+- 构建验证：产物含「API 配置」2 处（两份菜单均已包含）
+
 ## [4.6.1] - 2026-09-19
 
 ### 优化：AI 配置单点化（key 全项目只在配置中心一处）
