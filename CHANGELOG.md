@@ -1,5 +1,19 @@
 # AgentOS 项目变更日志
 
+## [4.6.1] - 2026-09-19
+
+### 优化：AI 配置单点化（key 全项目只在配置中心一处）
+
+- **`AIGenerator._load_config()` 三级优先级**：
+  1. 环境变量 `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL`（最高，容器/CI 友好）
+  2. **配置中心** `agent-local/tools/ave/config/local.yaml → llm.*`（推荐，全项目唯一配置点）
+  3. 兼容旧配置 `05_tools/07_matrix/config/ai.yaml → ai.*`（兜底）
+- **`ai.yaml` 的 key 清空**（本机文件）：改 key 只需在 Dashboard → 🔑 API 配置 一处操作，彻底避免两处不一致
+- **配置页新增 2 项**：`模型名`（如 deepseek-v4-flash）/ `API 地址`，与密钥区分处理
+  - 接口新增 `secret` 标记：密钥类脱敏显示（前 5 + 后 4）+ 输入框 password；普通配置（模型名/地址）明文显示 + 输入框 text
+- ⚠️ **修正一处副作用**：`local.yaml → llm.model` 原为 `deepseek-chat`，会覆盖 ai.yaml 的 `deepseek-v4-flash`（导致改用计费更高的模型）→ 已修正为 `deepseek-v4-flash`，并写入 ai_usage 日志验证
+- 实测：环境变量覆盖 ✅ / 配置中心覆盖 ai.yaml ✅（临时目录精确验证）/ 缺配置中心时回退 ✅ / 端到端生成 ✅（日志记录 model=deepseek-v4-flash）
+
 ## [4.6.0] - 2026-09-19
 
 ### 新增：🔑 API 配置页面 + pre-commit 防泄露钩子（公开仓库密钥安全方案）

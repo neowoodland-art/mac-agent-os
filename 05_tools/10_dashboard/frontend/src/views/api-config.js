@@ -68,8 +68,10 @@ function _acRender(d) {
           </div>
           <div style="font-size:10px;color:var(--text2);margin:3px 0 5px">${_esc(it.hint || '')}</div>
           <div style="display:flex;gap:6px;align-items:center">
-            <input id="acInput_${_esc(it.path)}" type="password" autocomplete="off"
-                   placeholder="输入新的 key${it.configured ? '（留空保存=清除）' : ''}"
+            <input id="acInput_${_esc(it.path)}" type="${it.secret === false ? 'text' : 'password'}" autocomplete="off"
+                   placeholder="${it.secret === false
+                     ? (it.masked ? '当前: ' + it.masked : '输入新值（如 deepseek-v4-flash）')
+                     : '输入新的 key' + (it.configured ? '（留空保存=清除）' : '')}"
                    style="flex:1;padding:4px 8px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px">
             <button onclick="window._acSave('${_esc(it.path)}')" style="background:var(--primary);color:#fff;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">💾 保存</button>
             <span id="acMsg_${_esc(it.path)}" style="font-size:10px;color:var(--text2);min-width:60px"></span>
@@ -86,10 +88,21 @@ function _msg(path, text, color) {
   }
 }
 
+function _isSecret(path) {
+  if (_acData) {
+    for (const g of (_acData.groups || [])) {
+      for (const it of (g.items || [])) {
+        if (it.path === path) return it.secret !== false;
+      }
+    }
+  }
+  return true;
+}
+
 window._acSave = async (path) => {
   const input = document.getElementById(`acInput_${path}`);
   const val = (input?.value || '').trim();
-  if (val && !confirm(`确认保存该 key？\n（只写入本机 agent-local，不会进 git）\n\n${val.slice(0, 6)}…${val.slice(-4)}`)) return;
+  if (val && _isSecret(path) && !confirm(`确认保存该 key？\n（只写入本机 agent-local，不会进 git）\n\n${val.slice(0, 6)}…${val.slice(-4)}`)) return;
   _msg(path, '⏳ 保存中…');
   try {
     const r = await fetch('/api/config/api-keys', {

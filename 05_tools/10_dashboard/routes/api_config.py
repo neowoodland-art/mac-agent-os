@@ -33,6 +33,18 @@ FIELDS = [
         "test": "deepseek", "required": True,
     },
     {
+        "path": "llm.model", "group": "🤖 AI 文本生成",
+        "label": "模型名",
+        "hint": "deepseek-v4-flash（推荐·最划算）/ deepseek-chat · 留空则用 ai.yaml 默认",
+        "test": "", "required": False, "secret": False,
+    },
+    {
+        "path": "llm.base_url", "group": "🤖 AI 文本生成",
+        "label": "API 地址",
+        "hint": "默认 https://api.deepseek.com/v1",
+        "test": "", "required": False, "secret": False,
+    },
+    {
         "path": "aliyun.api_key", "group": "👁️ 视觉分析 / 🔄 人物置换",
         "label": "阿里百炼 API Key",
         "hint": "图像理解(vision) + 视频换人(wan2.2-animate) · 申请: bailian.console.aliyun.com",
@@ -149,6 +161,7 @@ def api_get_api_keys():
     out = []
     for f in FIELDS:
         val = str(_get_path(cfg, f["path"]) or "")
+        is_secret = f.get("secret", True)  # 密钥类默认脱敏；模型名/地址等普通配置明文
         out.append({
             "path": f["path"],
             "group": f["group"],
@@ -156,8 +169,9 @@ def api_get_api_keys():
             "hint": f["hint"],
             "required": f.get("required", False),
             "testable": bool(f.get("test")),
+            "secret": is_secret,
             "configured": bool(val.strip()),
-            "masked": _mask(val),
+            "masked": _mask(val) if is_secret else val,
         })
     groups = []
     for item in out:

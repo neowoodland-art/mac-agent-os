@@ -168,15 +168,51 @@ class AIGenerator:
 
     @staticmethod
     def _load_config() -> dict:
-        """从 config/ai.yaml 加载配置"""
+        """加载 AI 配置
+
+        优先级（高 → 低）:
+          1. 环境变量 DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL / DEEPSEEK_MODEL
+          2. 配置中心 agent-local/tools/ave/config/local.yaml → llm 节（推荐：全项目唯一配置点）
+          3. 兼容旧配置 05_tools/07_matrix/config/ai.yaml → ai 节
+
+        说明：把 key 统一放在配置中心（Dashboard → 🔑 API 配置）即可，
+              ai.yaml 无需再填 key，避免两处不一致。
+        """
+        cfg: dict = {}
+
+        # 3) 旧配置打底
         path = CONFIG_DIR / "ai.yaml"
         if path.exists():
             try:
                 raw = yaml.safe_load(path.read_text())
-                return (raw or {}).get("ai", {})
+                cfg.update((raw or {}).get("ai", {}) or {})
             except Exception as exc:
                 log.warning("  ⚠️  ai.yaml 解析失败: %s", exc)
-        return {}
+
+        # 2) 配置中心覆盖（local.yaml → llm 节）
+        try:
+            local_root = Path(os.environ.get("AGENT_LOCAL") or (PROJECT_ROOT / "agent-local"))
+            lp = local_root / "tools" / "ave" / "config" / "local.yaml"
+            if lp.exists():
+                llm = (yaml.safe_load(lp.read_text()) or {}).get("llm") or {}
+                for k in ("api_key", "base_url", "model"):
+                    if str(llm.get(k) or "").strip():
+                        cfg[k] = llm[k]
+        except Exception as exc:
+            log.warning("  ⚠️  local.yaml(llm) 解析失败: %s", exc)
+
+        # 1) 环境变量最高优先级（DEEPSEEK_* 覆盖 OPENAI_API_KEY）
+        for env_k, cfg_k in (
+            ("OPENAI_API_KEY", "api_key"),
+            ("DEEPSEEK_API_KEY", "api_key"),
+            ("DEEPSEEK_BASE_URL", "base_url"),
+            ("DEEPSEEK_MODEL", "model"),
+        ):
+            v = (os.environ.get(env_k) or "").strip()
+            if v:
+                cfg[cfg_k] = v
+
+        return cfg
 
     # ── 公共 API ────────────────────────────────────────────
 
