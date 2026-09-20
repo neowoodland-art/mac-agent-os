@@ -8,6 +8,7 @@
 """
 import logging
 import os
+import time
 from pathlib import Path
 
 import httpx
@@ -153,15 +154,83 @@ def _mask(v: str) -> str:
     return v[:5] + "…" + v[-4:]
 
 
+# ── Key 历史版本（轮换 / 回滚用）──────────────────────────────────
+HISTORY_PATH = AGENT_LOCAL / "tools" / "ave" / "config" / "key_history.yaml"
+
+
+def _read_history() -> dict:
+    """{字段路径: [{"value","label","added_at","active"}]}"""
+    if not HISTORY_PATH.exists():
+        return {}
+    try:
+        return yaml.safe_load(HISTORY_PATH.read_text()) or {}
+    except Exception as e:
+        logger.warning("读取 key_history.yaml 失败: %s", e)
+        return {}
+
+
+def _write_history(hist: dict) -> None:
+    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    HISTORY_PATH.write_text(
+        yaml.safe_dump(hist, allow_unicode=True, sort_keys=False, default_flow_style=False)
+    )
+    try:
+        os.chmod(HISTORY_PATH, 0o600)
+    except Exception:
+        pass
+
+
+def _archive(path: str, value: str, label: str = "", active: bool = False) -> None:
+    """把 key 值记入历史（同值则更新备注/状态）"""
+    value = str(value or "").strip()
+    if not value:
+        return
+    hist = _read_history()
+    items = hist.setdefault(path, [])
+    for it in items:
+        if it.get("value") == value:
+            it["active"] = active
+            if label:
+                it["label"] = label
+            _write_history(hist)
+            return
+    items.append({
+        "value": value,
+        "label": label or "（无备注）",
+        "added_at": time.strftime("%Y-%m-%d %H:%M"),
+        "active": active,
+    })
+    _write_history(hist)
+
+
+def _mark_active(path: str, value: str) -> None:
+    """把历史中该值标为使用中，其余取消"""
+    hist = _read_history()
+    for it in hist.get(path, []):
+        it["active"] = (it.get("value") == value)
+    _write_history(hist)
+
+
 # ── 接口 1：查询状态（脱敏）─────────────────────────────────────────
 @router.get("/config/api-keys")
 def api_get_api_keys():
     """返回各平台 key 配置状态（脱敏，不回显完整值）"""
     cfg = _read_local()
+    hist_all = _read_history()
     out = []
     for f in FIELDS:
         val = str(_get_path(cfg, f["path"]) or "")
         is_secret = f.get("secret", True)  # 密钥类默认脱敏；模型名/地址等普通配置明文
+        history = []
+        for i, it in enumerate(hist_all.get(f["path"]) or []):
+            hv = str(it.get("value") or "")
+            history.append({
+                "idx": i,
+                "masked": _mask(hv) if is_secret else hv,
+                "label": it.get("label") or "",
+                "added_at": it.get("added_at") or "",
+                "active": bool(it.get("active")),
+            })
         out.append({
             "path": f["path"],
             "group": f["group"],
@@ -172,6 +241,7 @@ def api_get_api_keys():
             "secret": is_secret,
             "configured": bool(val.strip()),
             "masked": _mask(val) if is_secret else val,
+            "history": history,
         })
     groups = []
     for item in out:
@@ -203,15 +273,23 @@ def api_save_api_keys(data: dict):
     invalid = [p for p in updates if p not in FIELD_MAP]
     if invalid:
         raise HTTPException(400, detail=f"不支持的配置项: {invalid}")
+    labels = data.get("labels") or {}
 
     cfg = _read_local()
     saved, cleared = [], []
     for path, value in updates.items():
         v = str(value or "").strip()
+        old = str(_get_path(cfg, path) or "").strip()
         _set_path(cfg, path, v)
         if v:
+            # 旧值归档到历史（轮换场景：保留可回滚）
+            if old and old != v:
+                _archive(path, old, label="（被替换）", active=False)
+            _mark_active(path, v)
             saved.append(f"{path}(***{v[-4:]})")
         else:
+            if old:
+                _archive(path, old, label="（已清除）", active=False)
             cleared.append(path)
     _write_local(cfg)
     logger.info("  🔑 API 配置更新: 保存 %s | 清空 %s", saved or "无", cleared or "无")
@@ -221,6 +299,67 @@ def api_save_api_keys(data: dict):
         "cleared": len(cleared),
         "config_path": str(LOCAL_YAML),
     }
+
+
+# ── 接口 4：切换生效版本（从历史里选择用哪个）──────────────────────
+@router.post("/config/api-keys/activate")
+def api_activate_api_key(data: dict):
+    """切换生效版本: body {path, idx}
+
+    把历史里第 idx 个版本设为当前生效（写入 local.yaml）；
+    切换前的当前值自动归档，可随时再切回。
+    """
+    path = (data.get("path") or "").strip()
+    if path not in FIELD_MAP:
+        raise HTTPException(400, detail=f"不支持的配置项: {path}")
+    try:
+        idx = int(data.get("idx"))
+    except Exception:
+        raise HTTPException(400, detail="idx 必须是数字")
+
+    hist = _read_history()
+    items = hist.get(path) or []
+    if idx < 0 or idx >= len(items):
+        raise HTTPException(404, detail="历史版本不存在")
+    target = str(items[idx].get("value") or "").strip()
+    if not target:
+        raise HTTPException(400, detail="该版本为空，无法启用")
+
+    cfg = _read_local()
+    old = str(_get_path(cfg, path) or "").strip()
+    if old and old != target:
+        _archive(path, old, label="（切换前）", active=False)
+    _set_path(cfg, path, target)
+    _write_local(cfg)
+    _mark_active(path, target)
+    logger.info("  🔄 API 版本切换: %s → ***%s", path, target[-4:])
+    return {"status": "ok", "activated": _mask(target)}
+
+
+# ── 接口 5：删除历史版本 ────────────────────────────────────────────
+@router.post("/config/api-keys/delete")
+def api_delete_api_key(data: dict):
+    """删除历史版本: body {path, idx}（使用中的版本不允许删）"""
+    path = (data.get("path") or "").strip()
+    if path not in FIELD_MAP:
+        raise HTTPException(400, detail=f"不支持的配置项: {path}")
+    try:
+        idx = int(data.get("idx"))
+    except Exception:
+        raise HTTPException(400, detail="idx 必须是数字")
+
+    hist = _read_history()
+    items = hist.get(path) or []
+    if idx < 0 or idx >= len(items):
+        raise HTTPException(404, detail="历史版本不存在")
+    if items[idx].get("active"):
+        raise HTTPException(400, detail="使用中的版本不能删除，请先切换到其他版本")
+    removed = items.pop(idx)
+    if not items:
+        hist.pop(path, None)
+    _write_history(hist)
+    logger.info("  🗑 删除 API 历史版本: %s ***%s", path, str(removed.get("value") or "")[-4:])
+    return {"status": "ok", "removed": _mask(str(removed.get("value") or ""))}
 
 
 # ── 接口 3：测试连通性 ──────────────────────────────────────────────

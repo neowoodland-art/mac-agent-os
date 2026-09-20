@@ -76,6 +76,26 @@ function _acRender(d) {
             <button onclick="window._acSave('${_esc(it.path)}')" style="background:var(--primary);color:#fff;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">💾 保存</button>
             <span id="acMsg_${_esc(it.path)}" style="font-size:10px;color:var(--text2);min-width:60px"></span>
           </div>
+          ${(it.history && it.history.length) ? `
+          <details style="margin-top:5px">
+            <summary style="cursor:pointer;font-size:10px;color:var(--text2)">📚 历史版本 (${it.history.length}) — 可切换 / 删除</summary>
+            <div style="margin-top:5px;display:grid;gap:4px">
+              ${it.history.map(h => `
+                <div style="display:flex;align-items:center;gap:6px;font-size:10px;flex-wrap:wrap;
+                            background:var(--bg2);padding:3px 6px;border-radius:4px;${h.active ? 'border:1px solid rgba(34,197,94,.4)' : ''}">
+                  <span>${h.active ? '🟢' : '⚪'}</span>
+                  <code style="color:var(--text2);background:var(--bg3);padding:1px 5px;border-radius:3px">${_esc(h.masked)}</code>
+                  <span style="color:var(--text2)">${_esc(h.label || '')}</span>
+                  <span style="color:var(--text2);opacity:.65">${_esc(h.added_at || '')}</span>
+                  ${h.active
+                    ? '<span style="color:#22c55e;font-weight:600">使用中</span>'
+                    : `<button onclick="window._acActivate('${_esc(it.path)}', ${h.idx})" title="切换为该版本（当前版本会保留在历史，可回退）"
+                              style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:1px 8px;border-radius:3px;cursor:pointer;font-size:9px">🔄 启用</button>
+                       <button onclick="window._acDelete('${_esc(it.path)}', ${h.idx})" title="从历史中删除该版本"
+                              style="background:var(--bg3);color:var(--red);border:1px solid var(--border);padding:1px 7px;border-radius:3px;cursor:pointer;font-size:9px">🗑</button>`}
+                </div>`).join('')}
+            </div>
+          </details>` : ''}
         </div>`).join('')}
     </div>`).join('');
 }
@@ -131,6 +151,40 @@ window._acTest = async (path) => {
     const d = await r.json();
     const color = d.ok === true ? '#22c55e' : (d.ok === false ? '#f59e0b' : 'var(--text2)');
     _msg(path, d.detail || '(无返回)', color);
+  } catch (e) {
+    _msg(path, '❌ ' + e.message, '#ef4444');
+  }
+};
+
+window._acActivate = async (path, idx) => {
+  if (!confirm('切换到该版本？\n\n当前版本会自动保留在历史里，可随时切回。')) return;
+  _msg(path, '⏳ 切换中…');
+  try {
+    const r = await fetch('/api/config/api-keys/activate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, idx }),
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.detail || '切换失败');
+    _msg(path, `🔄 已切换为 ${d.activated}`, '#22c55e');
+    await _acLoad();
+  } catch (e) {
+    _msg(path, '❌ ' + e.message, '#ef4444');
+  }
+};
+
+window._acDelete = async (path, idx) => {
+  if (!confirm('删除该历史版本？\n\n此操作不可撤销（不影响当前使用中的版本）。')) return;
+  _msg(path, '⏳ 删除中…');
+  try {
+    const r = await fetch('/api/config/api-keys/delete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, idx }),
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.detail || '删除失败');
+    _msg(path, `🗑 已删除 ${d.removed}`, '#22c55e');
+    await _acLoad();
   } catch (e) {
     _msg(path, '❌ ' + e.message, '#ef4444');
   }
