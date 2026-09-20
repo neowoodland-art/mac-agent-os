@@ -74,7 +74,31 @@ agent-local/
 
 ### 3.1 Dashboard — 系统监控面板
 
-**URL**: `http://localhost:9988/`
+> **⚠️ 部署原则：只有 master（chengzigedeAir）运行 Dashboard**
+>
+> Dashboard 是联邦的**统一控制平面**（聚合三台机器的账号/任务/状态数据）。worker 机器**只运行 guardd**（:9090 节点代理），**不运行 Dashboard**。
+>
+> **为什么必须这样**（2026-09-20 踩坑记录）：worker 各自跑 Dashboard 会造成"数据视图分裂" ——
+> 账号标签/备注等数据存在各机器本地（不跨机同步），同一账号在不同看板会显示不同值，
+> 导致"在本机改了标签，去那台机器看却没变"的困惑。
+>
+> **正确访问方式**（所有机器统一访问 master）：
+> ```bash
+> http://100.111.43.6:9988        # Tailscale IP（推荐，跨网可用）
+> http://192.168.31.225:9988      # 局域网 IP（同网段）
+> ```
+>
+> **发现 worker 误装了 Dashboard 时，这样停用**（在 worker 上执行）：
+> ```bash
+> launchctl bootout gui/$(id -u)/com.agentos.dashboard
+> mv ~/Library/LaunchAgents/com.agentos.dashboard.plist{,.disabled}   # 禁用（不删除）
+> # 验证：Dashboard 进程应为 0，guardd 应仍在运行
+> ps aux | grep "uvicorn app:app" | grep -v grep
+> ps aux | grep -c "[g]uardd"
+> ```
+> 也可直接用仓库脚本：`bash 00_bootstrap/disable_worker_dashboard.sh`
+
+**URL**（master 上）: `http://localhost:9988/`
 
 **启动方式**（launchd 管理，开机自启）：
 ```bash

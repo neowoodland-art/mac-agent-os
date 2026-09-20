@@ -1,5 +1,22 @@
 # AgentOS 项目变更日志
 
+## [4.6.5] - 2026-09-20
+
+### 修复：worker 机器误跑 Dashboard 导致「数据视图分裂」（标签改了看不到）
+
+**根因**：三台机器都装了 Dashboard 并 launchd 自启（5kecheng 从 8/21 起持续运行）。
+Dashboard 是联邦统一控制平面（只有 master 应运行），worker 各自跑导致账号标签/备注等
+本机数据在不同看板显示不同值 → 用户在本机改标签、去那台机器看却没变。
+
+- **停用 worker Dashboard**：5kechengdeAir 已停用（launchctl bootout + plist 改名 .disabled，保留 guardd）；
+  7kecheng 机器离线，待上线后执行脚本
+- **新增一键脚本** `00_bootstrap/disable_worker_dashboard.sh`：
+  - 多来源身份识别（hostname / ComputerName / LocalHostName / HOST_ID.md）→ master 上执行会**自动中止**（需 --force 才继续）
+  - 停用后验证 Dashboard 进程=0 / guardd 进程>0 / 9988 端口释放
+- **文档**：FEDERATION_GUIDE §3.1 增加「部署原则：只有 master 运行 Dashboard」+ 正确访问方式（统一访问 http://100.111.43.6:9988）
+- 验证：5kecheng 停用后中心看板仍正常聚合三台账号（21+20+15=56）；guardd 心跳正常
+
+
 ## [4.6.4] - 2026-09-20
 
 ### 重构：侧边栏菜单单点化（消除三份硬编码菜单的技术债）
