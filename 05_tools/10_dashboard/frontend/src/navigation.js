@@ -6,53 +6,9 @@
  */
 
 // ── 导航分组定义 ──
-const groups = {
-  '矩阵': { icon: '📱', items: [
-    {view:'accounts-center', label:'👤 账号中心'},
-    {view:'matrix-sms-proxy', label:'🪪 短信与代理'},
-    {view:'matrix-nurture', label:'🏃 养号执行'},
-    {view:'matrix-collect', label:'📡 信息采集'},
-    {view:'matrix-publish', label:'📤 内容发布'},
-    {view:'matrix-interact', label:'💬 评论互动'},
-    {view:'ops-command', label:'🚀 联邦指挥台'},
-    {view:'matrix-dm', label:'💬 私信沟通'},
-    {view:'matrix-live', label:'🔴 直播互动'},
-    {view:'comment-workbench', label:'🎭 评论工作台'},
-    {view:'matrix-blueprints', label:'📋 蓝图管理'},
-    {view:'matrix-login', label:'🔑 登录管理'},
-    {view:'matrix-schedule', label:'⏱ 定时任务'},
-    {view:'matrix-corpus', label:'📚 语料库'},
-    {view:'ops-command', label:'🖥️ 联邦指挥台'},
-  ]},
-  '视频工厂': { icon: '🎬', items: [
-    {view:'workflow',   label:'🔀 工作流'},
-    {view:'capabilities',label:'⚡ 能力目录'},
-    {view:'person-swap',label:'🔄 人物置换'},
-    {view:'characters', label:'🧑 角色列表'},
-    {view:'char-gen',   label:'🎭 角色生成器'},
-    {view:'productions',label:'📋 生产记录'},
-    {view:'assets',     label:'📦 素材库'},
-    {view:'costs',      label:'💰 费用分析'},
-  ]},
-  '内容抓取': { icon: '📡', items: [
-    {view:'crawl-tasks', label:'📥 抓取任务'},
-    {view:'crawl-sources', label:'📋 源管理'},
-    {view:'crawl-history', label:'📜 抓取历史'},
-  ]},
-  '联邦': { icon: '🖥️', items: [
-    {view:'fleet-sync', label:'一键同步'},
-    {view:'fleet-reconcile', label:'对账检查'},
-    {view:'fleet-exec', label:'远程Shell'},
-    {view:'matrix-commands', label:'🎯 命令与任务'},
-  ]},
-  '服务': { icon: '⚙️', items: [
-    {view:'api-config', label:'🔑 API 配置'},
-    {view:'serve-mcp', label:'MCP状态'},
-    {view:'serve-dashboard', label:'Dashboard日志'},
-    {view:'serve-schedule', label:'全局定时任务'},
-    {view:'timeline',   label:'📈 时间线'},
-  ]},
-};
+// ✅ 菜单定义已单点化 → 见 src/nav-menu.js（新增/删除菜单只改那里）
+import { NAV_GROUPS } from './nav-menu.js';
+const groups = NAV_GROUPS;
 
 // ── Sidebar toggle ──
 function toggleSidebar() {

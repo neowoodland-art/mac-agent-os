@@ -2,6 +2,7 @@
 
 // ── router 导入（用于已迁移视图的动态加载）──
 import { tryLoadView } from './router.js';
+import { NAV_GROUPS } from './nav-menu.js';
 // 暴露到 window + module 级引用，防止 Vite tree-shake
 window._routerTryLoad = tryLoadView;
 window.tryLoadView = tryLoadView;
@@ -296,49 +297,8 @@ async function loadPlugins() {
     // 构建分组侧边栏 (可折叠) — 按 COMMAND-CENTER-PLAN 排列
     let html = '';
     const S = (label, status) => `<span style="font-size:9px;margin-left:4px;padding:1px 5px;border-radius:3px;background:rgba(217,119,6,.12);color:#d97706;font-weight:500">${status}</span>`;
-    const groups = {
-      '矩阵': { icon: '📱', items: [
-        {view:'matrix-accounts', label:'👤 账号管理'},
-        {view:'matrix-sms-proxy', label:'🪪 短信与代理'},
-        {view:'matrix-nurture', label:'🏃 养号执行'},
-        {view:'matrix-collect', label:'📡 信息采集'},
-        {view:'matrix-publish', label:'📤 内容发布'},
-        {view:'matrix-interact', label:'💬 评论互动'},
-        {view:'ops-command', label:'🚀 联邦指挥台'},
-        {view:'matrix-dm', label:'💬 私信沟通'},
-        {view:'matrix-live', label:'🔴 直播互动'},
-        {view:'comment-workbench', label:'🎭 评论工作台'},
-        {view:'matrix-blueprints', label:'📋 蓝图管理'},
-        {view:'matrix-login', label:'🔑 登录管理'},
-        {view:'matrix-schedule', label:'⏱ 定时任务'},
-        {view:'matrix-corpus', label:'📚 语料库'},
-        {view:'ops-command', label:'🖥️ 联邦指挥台'},
-      ]},
-      '视频工厂': { icon: '🎬', items: [
-        {view:'ave-render', label:'渲染任务'},
-        {view:'ave-script', label:'脚本生成'},
-        {view:'ave-materials', label:'素材库'},
-        {view:'ave-templates', label:'模板'},
-      ]},
-      '内容抓取': { icon: '📡', items: [
-        {view:'crawl-tasks', label:'📥 抓取任务'},
-        {view:'crawl-sources', label:'📋 源管理'},
-        {view:'crawl-history', label:'📜 抓取历史'},
-      ]},
-      '联邦': { icon: '🖥️', items: [
-        {view:'machines', label:'机器状态'},
-        {view:'fleet-sync', label:'一键同步'},
-        {view:'fleet-reconcile', label:'对账检查'},
-        {view:'fleet-exec', label:'远程Shell'},
-        {view:'matrix-commands', label:'🎯 命令与任务'},
-      ]},
-      '服务': { icon: '⚙️', items: [
-        {view:'api-config', label:'🔑 API 配置'},
-        {view:'serve-mcp', label:'MCP状态'},
-        {view:'serve-dashboard', label:'Dashboard日志'},
-        {view:'serve-schedule', label:'全局定时任务'},
-      ]},
-    };
+    // ✅ 菜单定义已单点化 → 见 src/nav-menu.js（新增/删除菜单只改那里）
+const groups = NAV_GROUPS;
 
     // ── 从 API 加载 agentos 插件注册的导航 ──
     // 已停用：插件导航与硬编码导航重叠（联邦管理/社交矩阵/系统设置），

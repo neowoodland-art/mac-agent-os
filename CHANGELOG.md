@@ -1,5 +1,16 @@
 # AgentOS 项目变更日志
 
+## [4.6.4] - 2026-09-20
+
+### 重构：侧边栏菜单单点化（消除三份硬编码菜单的技术债）
+
+- **新增** `frontend/src/nav-menu.js`：全项目菜单的**唯一**定义处（5 分组 30 项）
+- **三处统一引用**：`inline.js` / `navigation.js` / `modules/matrix_views.js` 均改为 `import { NAV_GROUPS }` + `const groups = NAV_GROUPS`（其他代码零改动）
+- **零行为变化**：以重构前**实际生效**的菜单（matrix_views.js 的启用项）为基准；旧菜单里未上线的项（matrix-corpus / matrix-commands 等）以注释形式保留在 nav-menu.js，需要时取消注释即可
+- 验证：构建产物「API 配置」出现次数 **3 → 1**（确认单点）；三处无残留旧菜单定义；菜单规模 5 组 30 项
+- 收益：**以后新增/删除菜单只改 nav-menu.js 一处**，不会再出现改了菜单看不到（4.6.2 踩过的坑）
+
+
 ## [4.6.3] - 2026-09-20
 
 ### 新增：API Key 版本管理（替换 / 回滚 / 删除 —— 支持轮换已泄露的 key）
