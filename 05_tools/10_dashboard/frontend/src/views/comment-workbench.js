@@ -90,12 +90,14 @@ export async function loadView(container) {
         <div id="cwAcctList_${_uid}"><div class="loading">⏳ 加载账号列表...</div></div>
       </div>
 
-      <!-- ═══ 模式切换：定向评论 / 多人讨论 ═══ -->
-      <div style="display:flex;gap:6px;margin-bottom:10px">
+      <!-- ═══ 模式切换：定向评论 / 多人讨论 / 指定评论 ═══ -->
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
         <button id="cwModeDirected_${_uid}" onclick="window._cwSwitchMode('${_uid}','directed')"
                 style="background:var(--primary);color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">🎯 定向评论</button>
         <button id="cwModeDiscussion_${_uid}" onclick="window._cwSwitchMode('${_uid}','discussion')"
                 style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px">💬 多人讨论</button>
+        <button id="cwModeAssigned_${_uid}" onclick="window._cwSwitchMode('${_uid}','assigned')"
+                style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px">📌 指定评论</button>
         <span id="cwModeHint_${_uid}" style="font-size:10px;color:var(--text2);align-self:center">定向评论：每个账号领一条独立评论</span>
       </div>
 
@@ -224,7 +226,48 @@ export async function loadView(container) {
         <div id="cwDiscList_${_uid}" style="display:grid;gap:4px;max-height:480px;overflow-y:auto"></div>
       </div>
 
-      <!-- ═══ 第三步：角色比例 ═══ -->
+      <!-- ═══ 指定评论模式：设置 ═══ -->
+      <div id="cwAssignSection_${_uid}" style="display:none;background:var(--bg2);border-radius:10px;padding:14px;border:1px solid var(--border);margin-bottom:10px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px">📌 指定评论设置</div>
+        <div style="font-size:10px;color:var(--text2);margin-bottom:8px">你提供评论内容 → 解析成一条一条 → 选中的账号各领一条（1 账号 1 条，随机配对）</div>
+
+        <div style="font-size:10px;color:var(--text2)">① 粘贴评论内容（一行一条；自动去掉序号/引号/重复项）</div>
+        <textarea id="cwAssignRaw_${_uid}" rows="5"
+                  placeholder="例如：&#10;1. 这个主任确实不错&#10;2. 我上周刚去过，恢复挺快&#10;3. 请问怎么预约挂号"
+                  style="width:100%;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px;resize:vertical;margin-top:3px"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:5px;flex-wrap:wrap">
+          <button onclick="window._cwAssignParse('${_uid}')"
+                  style="background:var(--primary);color:#fff;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600">🔍 解析整理</button>
+          <label style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text2);cursor:pointer" title="整段粘贴时，按句号/感叹号/问号拆分">
+            <input type="checkbox" id="cwAssignSplitSent_${_uid}"> 整段按句号拆分
+          </label>
+          <span id="cwAssignParseStatus_${_uid}" style="font-size:10px;color:var(--text2)"></span>
+        </div>
+
+        <div id="cwAssignListWrap_${_uid}" style="display:none;margin-top:8px">
+          <div style="font-size:10px;color:var(--text2)">② 解析结果（可编辑 / 删除）<span id="cwAssignCount_${_uid}" style="margin-left:6px;font-weight:600"></span></div>
+          <div id="cwAssignList_${_uid}" style="display:grid;gap:4px;margin-top:4px;max-height:220px;overflow-y:auto"></div>
+        </div>
+
+        <div id="cwAssignCheck_${_uid}" style="display:none;font-size:11px;margin-top:8px;padding:7px 9px;border-radius:6px;background:var(--bg3);border:1px solid var(--border)"></div>
+
+        <div style="font-size:11px;display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <span style="color:var(--text2)">👥 多余账号：</span>
+          <select id="cwAssignSpare_${_uid}" onchange="window._cwAssignCheck('${_uid}')"
+                  style="padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px">
+            <option value="none">不参与</option>
+            <option value="browse">只浏览（暂未实现，等同不参与）</option>
+            <option value="like">去点赞</option>
+          </select>
+        </div>
+
+        <div style="margin-top:10px">
+          <button onclick="window._cwAssignDispatch('${_uid}')"
+                  style="background:var(--primary);color:#fff;border:none;padding:6px 18px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">📤 分发指定评论</button>
+        </div>
+      </div>
+
+      <!-- ═══ 第三步：角色比例（定向评论模式）═══ -->
       <div id="cwRoleSection_${_uid}" style="display:none;background:var(--bg2);border-radius:10px;padding:14px;border:1px solid var(--border);margin-bottom:10px">
         <div style="font-weight:600;font-size:13px;margin-bottom:8px">🎭 第三步：角色比例（所有视频通用）</div>
         <div id="cwRoleSliders_${_uid}" style="display:grid;gap:6px"></div>
@@ -1002,26 +1045,183 @@ window._cwGenPath = async (uid) => {
 
 window._cwSwitchMode = (uid, mode) => {
   _cwMode = mode;
+  const isDirected = mode === 'directed';
   const isDisc = mode === 'discussion';
+  const isAssign = mode === 'assigned';
   const active = 'padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;background:var(--primary);color:#fff;border:none';
   const idle = 'padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;background:var(--bg3);color:var(--text);border:1px solid var(--border)';
   const bd = document.getElementById(`cwModeDirected_${uid}`);
   const bm = document.getElementById(`cwModeDiscussion_${uid}`);
-  if (bd) bd.style.cssText = isDisc ? idle : active;
+  const ba = document.getElementById(`cwModeAssigned_${uid}`);
+  if (bd) bd.style.cssText = isDirected ? active : idle;
   if (bm) bm.style.cssText = isDisc ? active : idle;
+  if (ba) ba.style.cssText = isAssign ? active : idle;
+
   const hint = document.getElementById(`cwModeHint_${uid}`);
-  if (hint) hint.textContent = isDisc
-    ? '多人讨论：AI 一次生成接力讨论剧本，按条拆给不同账号（更像真人讨论）'
-    : '定向评论：每个账号领一条独立评论';
+  if (hint) hint.textContent = isAssign
+    ? '指定评论：你提供评论内容 → 解析成条 → 选中账号各领一条'
+    : (isDisc
+      ? '多人讨论：AI 一次生成接力讨论剧本，按条拆给不同账号（更像真人讨论）'
+      : '定向评论：每个账号领一条独立评论');
+
+  const assignSec = document.getElementById(`cwAssignSection_${uid}`);
   const discSec = document.getElementById(`cwDiscSection_${uid}`);
   const discPrev = document.getElementById(`cwDiscPreview_${uid}`);
   const roleSec = document.getElementById(`cwRoleSection_${uid}`);
   const prev = document.getElementById(`cwPreview_${uid}`);
+  if (assignSec) assignSec.style.display = isAssign ? 'block' : 'none';
   if (discSec) discSec.style.display = isDisc ? 'block' : 'none';
   if (discPrev) discPrev.style.display = (isDisc && _discTurns.length) ? 'block' : 'none';
-  if (isDisc) {
+  if (isDisc || isAssign) {
     if (roleSec) roleSec.style.display = 'none';
     if (prev) prev.style.display = 'none';
+  }
+  if (isAssign && typeof window._cwAssignCheck === 'function') window._cwAssignCheck(uid);
+};
+
+// ═══ 指定评论模式 ═══
+let _assignComments = [];
+
+/** 解析粘贴文本 → 去序号/引号/重复/空行（支持整段按句拆分） */
+function _cwAssignParseText(raw, splitSentence) {
+  let parts = String(raw || '').split('\n');
+  if (splitSentence) {
+    const out = [];
+    for (const line of parts) {
+      const s = line.trim();
+      if (!s) continue;
+      const sentences = s.split(/(?<=[。！？!?])\s*/).map(x => x.trim()).filter(Boolean);
+      out.push(...(sentences.length ? sentences : [s]));
+    }
+    parts = out;
+  }
+  const seen = new Set();
+  const result = [];
+  for (let line of parts) {
+    let s = String(line).trim();
+    if (!s) continue;
+    // 去序号/项目符号前缀：1. 1、 1) [1] - • * ①…
+    s = s.replace(/^\s*(?:\[\d+\]|\d+\s*[.、)）]|[-•*·]|[①②③④⑤⑥⑦⑧⑨⑩])\s*/, '').trim();
+    // 去首尾引号（中英文）
+    s = s.replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '').trim();
+    if (!s || s.length < 2 || seen.has(s)) continue;
+    seen.add(s);
+    result.push(s);
+  }
+  return result;
+}
+
+window._cwAssignParse = (uid) => {
+  _cwUid = uid;
+  const raw = document.getElementById(`cwAssignRaw_${uid}`)?.value || '';
+  const splitSent = !!document.getElementById(`cwAssignSplitSent_${uid}`)?.checked;
+  const beforeLines = raw.split('\n').filter(l => l.trim()).length;
+  _assignComments = _cwAssignParseText(raw, splitSent);
+  const status = document.getElementById(`cwAssignParseStatus_${uid}`);
+  const removed = Math.max(0, beforeLines - _assignComments.length);
+  if (status) {
+    status.textContent = _assignComments.length
+      ? `✅ 解析出 ${_assignComments.length} 条${removed > 0 ? `（清理/去重 ${removed} 行）` : ''}`
+      : '⚠️ 未解析出有效评论（检查是否为空）';
+    status.style.color = _assignComments.length ? '#22c55e' : '#f59e0b';
+  }
+  const wrap = document.getElementById(`cwAssignListWrap_${uid}`);
+  if (wrap) wrap.style.display = _assignComments.length ? 'block' : 'none';
+  _cwAssignRender(uid);
+  window._cwAssignCheck(uid);
+};
+
+function _cwAssignRender(uid) {
+  const el = document.getElementById(`cwAssignList_${uid}`);
+  const cnt = document.getElementById(`cwAssignCount_${uid}`);
+  if (cnt) cnt.textContent = `${_assignComments.length} 条`;
+  if (!el) return;
+  if (!_assignComments.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _assignComments.map((t, i) => `
+    <div style="display:flex;gap:6px;align-items:center;font-size:11px">
+      <span style="color:var(--text2);width:24px;text-align:right;flex-shrink:0">${i + 1}.</span>
+      <input type="text" value="${escapeHtml(t)}" onchange="window._cwAssignEdit(${i}, this.value)"
+             style="flex:1;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:11px">
+      <button onclick="window._cwAssignDel(${i})" title="删除此条" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px">✕</button>
+    </div>`).join('');
+}
+
+window._cwAssignEdit = (i, val) => {
+  const v = String(val || '').trim();
+  if (_assignComments[i] !== undefined && v) _assignComments[i] = v;
+};
+window._cwAssignDel = (i) => {
+  _assignComments.splice(i, 1);
+  _cwAssignRender(_cwUid);
+  window._cwAssignCheck(_cwUid);
+};
+
+window._cwAssignCheck = (uid) => {
+  const el = document.getElementById(`cwAssignCheck_${uid}`);
+  if (!el) return;
+  const accts = (_selector ? _selector.getSelected() : []) || [];
+  const c = _assignComments.length;
+  const a = accts.length;
+  if (!c && !a) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const spare = document.getElementById(`cwAssignSpare_${uid}`)?.value || 'none';
+  const spareLabel = { none: '不参与', browse: '只浏览', like: '去点赞' }[spare] || '不参与';
+  if (a < c) {
+    el.innerHTML = `⚠️ <b>账号不足</b>：${c} 条评论需要 ${c} 个账号，当前选了 ${a} 个 —— 请<b>补选 ${c - a} 个账号</b>，或<b>删掉 ${c - a} 条评论</b>`;
+    el.style.borderColor = '#f59e0b';
+    el.style.color = '#f59e0b';
+  } else if (a > c) {
+    el.innerHTML = `ℹ️ 账号多于评论：选了 ${a} 个账号 / ${c} 条评论 → <b>${c} 个账号领评论</b>，剩余 <b>${a - c} 个账号：${spareLabel}</b>`;
+    el.style.borderColor = 'var(--border)';
+    el.style.color = 'var(--text)';
+  } else {
+    el.innerHTML = `✅ 数量匹配：${a} 个账号 → 各领 1 条评论`;
+    el.style.borderColor = 'rgba(34,197,94,.5)';
+    el.style.color = '#22c55e';
+  }
+};
+
+window._cwAssignDispatch = async (uid) => {
+  const accts = (_selector ? _selector.getSelected() : []) || [];
+  const vids = _videos.filter(v => v.checked);
+  if (!accts.length) { alert('请先在上方选择账号'); return; }
+  if (!vids.length) { alert('请先解析并勾选视频'); return; }
+  if (!_assignComments.length) { alert('请先粘贴评论内容并点击「🔍 解析整理」'); return; }
+  if (accts.length < _assignComments.length) {
+    alert(`⚠️ 账号不足：${_assignComments.length} 条评论需要 ${_assignComments.length} 个账号，当前仅 ${accts.length} 个。\n请补选账号，或删掉部分评论。`);
+    return;
+  }
+  const spare = document.getElementById(`cwAssignSpare_${uid}`)?.value || 'none';
+  const spareLabel = { none: '不参与', browse: '只浏览', like: '去点赞' }[spare] || '不参与';
+  if (!confirm(`📤 分发指定评论\n\n评论条数：${_assignComments.length}\n账号池：${accts.length} 个（随机抽 ${_assignComments.length} 个领评论）\n多余 ${accts.length - _assignComments.length} 个账号：${spareLabel}\n视频：${vids.length} 条\n\n确认分发？`)) return;
+
+  const resultEl = document.getElementById(`cwResult_${uid}`);
+  const contentEl = document.getElementById(`cwResultContent_${uid}`);
+  if (resultEl) resultEl.style.display = 'block';
+  if (contentEl) contentEl.innerHTML = '⏳ 提交指定评论计划...';
+  try {
+    const r = await fetch('/api/ops/run', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'assigned_comment',
+        accounts: accts.map(x => x.id),
+        params: {
+          urls: vids.map(v => ({ title: v.title, url: v.url })),
+          comments: _assignComments,
+          spare_action: spare,
+        },
+      }),
+    });
+    const d = await r.json();
+    const ok = d.status === 'accepted' || d.status === 'ok';
+    if (contentEl) {
+      contentEl.innerHTML = ok
+        ? `✅ 指定评论已分发：${d.total_tasks || (d.tasks || []).length || '?'} 个任务`
+          + ((d.errors || []).length ? `<br>⚠️ ${(d.errors[0] || {}).message || ''}` : '')
+        : `❌ 分发失败：${d.message || d.error || ''}<br>${(d.errors || []).map(e => e.message).join('<br>')}`;
+    }
+  } catch (e) {
+    if (contentEl) contentEl.innerHTML = `❌ 网络错误：${e.message}`;
   }
 };
 

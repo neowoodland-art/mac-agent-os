@@ -1303,6 +1303,100 @@ def _build_discussion_plan(machine_groups: dict, params: dict, now_ts: int) -> l
     return tasks
 
 
+def _build_assigned_plan(machine_groups: dict, params: dict, now_ts: int) -> list:
+    """生成「指定评论」分发计划：用户提供的评论 → 每条配一个账号（1 条/账号）
+
+    params:
+        urls: [{title, url}]            — 视频（多视频时轮流分配）
+        comments: [str]                 — 用户提供的评论内容（前端已解析成条、去重去空）
+        spare_action: none|browse|like  — 多余账号动作（账号数 > 评论数时；默认 none 不参与）
+
+    与多人讨论的区别：
+        - 1 条评论恰好配 1 个账号（不存在一个账号领多条）
+        - 账号不足 → 明确报错（提示补账号或减评论）
+        - 账号多余 → 按 spare_action 生成围观（预留）/ 点赞任务
+    """
+    import random
+    urls = params.get("urls", [])
+    comments = [str(c).strip() for c in (params.get("comments") or []) if str(c).strip()]
+    if not urls:
+        raise ValueError("指定评论需要 urls 参数（视频链接）")
+    if not comments:
+        raise ValueError("缺少评论内容（comments 为空）")
+    spare_action = (params.get("spare_action") or "none").strip().lower()
+
+    all_accts = []
+    for machine, accts in machine_groups.items():
+        for a in accts:
+            all_accts.append({
+                "id": a["id"], "machine": machine,
+                "is_local": (machine == HOSTNAME),
+                "nickname": a.get("nickname", ""),
+                "platform": a.get("platform", "douyin"),
+            })
+    if not all_accts:
+        raise ValueError("账号池为空")
+
+    if len(all_accts) < len(comments):
+        short = len(comments) - len(all_accts)
+        raise ValueError(
+            f"账号不足：{len(comments)} 条指定评论需要 {len(comments)} 个账号，"
+            f"当前仅 {len(all_accts)} 个 —— 请补选 {short} 个账号，或减少 {short} 条评论"
+        )
+
+    # 随机抽「评论数」个账号领评论；评论顺序同时打散（不按序对应，避免规律）
+    speakers = random.sample(all_accts, len(comments))
+    shuffled = comments[:]
+    random.shuffle(shuffled)
+
+    tasks = []
+    for i, (a, text) in enumerate(zip(speakers, shuffled)):
+        url = (urls[i % len(urls)] or {}).get("url", "")
+        if not url:
+            continue
+        tasks.append({
+            "machine": a["machine"], "cmd_type": "comment",
+            "ids_str": a["id"], "is_local": a["is_local"],
+            "nickname": a["nickname"], "platform": a["platform"],
+            "cmd_line": (
+                f"mc task comment --account={shlex.quote(a['id'])} "
+                f"--url={shlex.quote(url)} --comment={shlex.quote(text)} -y"
+            ),
+            "run_id": f"assigned_{now_ts}_{a['machine']}_{a['id']}_{i}",
+            "priority": 0,
+            "params": {"url": url, "comment_text": text, "seq": i + 1},
+        })
+
+    # 多余账号：按 spare_action 处理（like 生成点赞任务；browse 蓝图未实现，暂不生成）
+    speaker_ids = {a["id"] for a in speakers}
+    spare = [a for a in all_accts if a["id"] not in speaker_ids]
+    spare_done = 0
+    if spare and spare_action == "like":
+        for j, a in enumerate(spare):
+            url = (urls[j % len(urls)] or {}).get("url", "")
+            if not url:
+                continue
+            tasks.append({
+                "machine": a["machine"], "cmd_type": "interact",
+                "ids_str": a["id"], "is_local": a["is_local"],
+                "nickname": a["nickname"], "platform": a["platform"],
+                "cmd_line": (
+                    f"mc run --accounts={shlex.quote(a['id'])} "
+                    f"--blueprints=interact_like --rounds=1 --url={shlex.quote(url)}"
+                ),
+                "run_id": f"assigned_spare_like_{now_ts}_{a['machine']}_{a['id']}_{j}",
+                "priority": 1,  # 点赞优先级低于评论
+                "params": {"url": url, "blueprint": "interact_like", "action": "like"},
+            })
+            spare_done += 1
+
+    logger.info(
+        f"  📌 指定评论计划: {len(comments)} 条 × {len(speakers)} 个领评账号 | "
+        f"多余 {len(spare)} 个({spare_action}→{spare_done} 任务) → 共 {len(tasks)} 个任务"
+    )
+    return tasks
+
+
 # ── 命令总线 ────────────────────────────────────────────────
 class CommandBus:
     """全局命令总线 — 所有操作的统一入口"""
@@ -1391,6 +1485,14 @@ class CommandBus:
             except Exception as e:
                 logger.error(f"讨论计划生成失败: {e}")
                 errors.append({"account": "all", "message": f"讨论计划生成失败: {e}"})
+
+        # ── 指定评论计划生成器（用户提供的评论 × 账号 1:1 配对）──
+        if cmd_type == "assigned_comment":
+            try:
+                _plan_tasks = _build_assigned_plan(machine_groups, params, now_ts)
+            except Exception as e:
+                logger.error(f"指定评论计划生成失败: {e}")
+                errors.append({"account": "all", "message": f"指定评论计划生成失败: {e}"})
 
         # 第二步：按机器分组构建命令任务
         # 返回 list[dict] = {machine, cmd_type, ids_str, is_local, cmd_line, params, run_id}
