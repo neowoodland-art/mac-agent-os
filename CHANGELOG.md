@@ -1,5 +1,24 @@
 # AgentOS 项目变更日志
 
+## [4.7.1] - 2026-09-25
+
+### 修复：账号中心远程账号昵称/粉丝"消失"（guardd profiles 查询超时被静默吞掉）
+
+- **现象**：账号中心里 5kecheng / 7kecheng 的账号（41 个）昵称、粉丝全部为空，只有本机 15 个正常
+- **根因**（`dashboard.err` 实证）：
+  ```
+  guardd_api GET http://100.72.182.121:9090/accounts/profiles -> timeout
+  guardd_api GET http://100.65.35.28:9090/accounts/profiles -> timeout
+  ```
+  `_guardd_api` 走 raw socket + **默认 timeout=5s**，而 profiles 响应体约 **12.5KB**（需多次 recv），
+  Tailscale 网络抖动时超时 → 异常被 `except: pass` 静默吞掉 → 返回空 → 昵称/粉丝全丢；
+  更糟的是**空结果被写入 5 分钟缓存**，导致失败后持续空
+- **修复**（`services/account_service.py`）：
+  1. profiles 查询：timeout 5s → **15s** + **重试 1 次**
+  2. status 查询：同样 timeout 15s + 重试
+  3. **失败不再污染缓存**：有旧缓存则沿用（并记 warning），无缓存则不写（留待下次重试）
+- 实测：5kecheng **0/21 → 20/21** 有昵称、7kecheng 20/20、本机 15/15，连续 3 次请求稳定
+
 ## [4.7.0] - 2026-09-25
 
 ### 新增：评论工作台第三种模式「📌 指定评论」（我提供内容，账号领单条）

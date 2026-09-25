@@ -397,7 +397,15 @@ class AccountService:
             return ({}, {})
 
         from services.command_bus import _guardd_api
-        data = _guardd_api("GET", "/accounts/status", machine=machine)
+        # Tailscale 网络抖动容错：加大 timeout + 重试一次（默认 5s 对跨机大响应不够）
+        data = {}
+        for _ in range(2):
+            try:
+                data = _guardd_api("GET", "/accounts/status", machine=machine, timeout=15)
+                if isinstance(data, dict) and data.get("accounts"):
+                    break
+            except Exception:
+                pass
         if isinstance(data, dict):
             return (data.get("accounts", {}), data.get("details", {}))
         return ({}, {})
@@ -409,9 +417,26 @@ class AccountService:
             now = time.time()
             cached = self._profile_cache.get(machine)
             if not cached or now - cached.get("cached_at", 0) >= self._cache_ttl:
-                data = _guardd_api("GET", "/accounts/profiles", machine=machine)
+                # Tailscale 网络抖动容错：profiles 响应较大（~12KB，多次 recv），
+                # 默认 5s timeout 易超时 → 加大到 15s + 重试一次
+                data = {}
+                for _ in range(2):
+                    try:
+                        data = _guardd_api("GET", "/accounts/profiles", machine=machine, timeout=15)
+                        if isinstance(data, dict) and data.get("profiles"):
+                            break
+                    except Exception:
+                        pass
                 profiles = data.get("profiles", {}) if isinstance(data, dict) else {}
-                self._profile_cache[machine] = {"profiles": profiles, "cached_at": now}
+                if profiles:
+                    self._profile_cache[machine] = {"profiles": profiles, "cached_at": now}
+                elif machine in self._profile_cache:
+                    # 查询失败：沿用上次成功的缓存（不覆盖为空，避免整片昵称消失）
+                    profiles = self._profile_cache[machine].get("profiles", {})
+                    logger.warning("  ⚠️ %s profiles 查询失败，沿用缓存（%d 项）", machine, len(profiles))
+                else:
+                    # 首次即失败：不写缓存（留待下次请求重试），本次返回空
+                    logger.warning("  ⚠️ %s profiles 查询失败（无缓存可沿用）", machine)
             else:
                 profiles = cached.get("profiles", {})
             p = profiles.get(account_id, {})
